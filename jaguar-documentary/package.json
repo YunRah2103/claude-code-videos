@@ -1,0 +1,1 @@
+{"name":"jaguar-documentary","private":true,"version":"1.0.0","dependencies":{"@fontsource/cormorant-garamond":"^5.3.0","@fontsource/inter":"^5.3.0","@remotion/cli":"4.0.533","react":"19.1.1","react-dom":"19.1.1","remotion":"4.0.533"},"devDependencies":{"@types/react":"19.1.13","typescript":"5.9.3"}}
