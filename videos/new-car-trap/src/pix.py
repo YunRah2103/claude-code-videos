@@ -1,6 +1,5 @@
 """Pixel-art asset builders for the car explainer video."""
 from functools import lru_cache
-from pathlib import Path
 from PIL import Image
 
 OUT = (26, 26, 46, 255)
@@ -110,9 +109,123 @@ def up(img, s):
 
 # ---------------------------------------------------------------- character
 
-GUY = Image.open(Path(__file__).resolve().parents[3] / 'characters/main-guy/main-guy_1x.png').convert('RGBA')
 SKIN, SKINSH, MOUTH, EYE, WHITE = hexc('#c08862'), hexc('#a06b4b'), hexc('#6e2f33'), hexc('#12121c'), hexc('#ffffff')
 INNER = hexc('#3a1418')
+GP = {
+ 'hair': '#231a1c', 'hairhi': '#4f3d42', 'skin': '#c08862', 'skinsh': '#a06b4b', 'blush': '#d4917a',
+ 'mouth': '#6e2f33', 'eye': '#12121c', 'white': '#ffffff', 'frame': '#a9b0bb', 'framehi': '#d3d8e0',
+ 'framesh': '#7b8491', 'tee': '#f7f7fa', 'teesh': '#d6d9e2', 'jeans': '#2b2d33', 'jeansh': '#1f2025',
+ 'jeanhi': '#454852', 'waist': '#16171b', 'shoe': '#f4f4f6', 'shoesh': '#cfd2da', 'sole': '#b9bcc6',
+}
+OX = 6   # side padding so arms can reach outward; sprite is 48x60
+
+# arm poses: (left, right), each ((elbow dx, dy), (hand dx, dy)) from the shoulder, dx positive = outward
+_D = ((0, 6), (0, 11))
+POSES = {
+ 'down': (_D, _D),
+ 'down2': (((1, 6), (1, 11)), ((1, 6), (1, 11))),
+ 'talkR': (_D, ((2, 6), (6, 2))),
+ 'talkL': (((2, 6), (6, 2)), _D),
+ 'talkB': (((2, 6), (5, 3)), ((2, 6), (5, 3))),
+ 'point': (_D, ((5, -1), (11, -2))),
+ 'pointup': (_D, ((5, -3), (9, -8))),
+ 'up1': (((3, -5), (5, -12)), ((3, -5), (5, -12))),
+ 'up2': (((4, -5), (7, -11)), ((4, -5), (7, -11))),
+ 'shrug': (((4, 4), (7, -1)), ((4, 4), (7, -1))),
+ 'wave1': (_D, ((4, -3), (5, -10))),
+ 'wave2': (_D, ((4, -3), (8, -9))),
+ 'shock': (((4, -1), (5, -7)), ((4, -1), (5, -7))),
+ 'sad': (((-1, 6), (-1, 11)), ((-1, 6), (-1, 11))),
+ 'hips': (((4, 4), (1, 8)), ((4, 4), (1, 8))),
+ 'flail1': (((4, -3), (8, -6)), ((4, 2), (8, 5))),
+ 'flail2': (((4, 2), (8, 5)), ((4, -3), (8, -6))),
+}
+
+def _line(a, b):
+    (x0, y0), (x1, y1) = a, b
+    pts = []
+    dx, dy = abs(x1 - x0), -abs(y1 - y0)
+    sx, sy = (1 if x0 < x1 else -1), (1 if y0 < y1 else -1)
+    err = dx + dy
+    while True:
+        pts.append((x0, y0))
+        if (x0, y0) == (x1, y1): break
+        e2 = 2 * err
+        if e2 >= dy: err += dy; x0 += sx
+        if e2 <= dx: err += dx; y0 += sy
+    return pts
+
+def _arm(g, sh, pose, side):
+    (ex, ey), (hx, hy) = pose
+    sgn = -1 if side == 'L' else 1
+    s = sh
+    e = (sh[0] + sgn * ex, sh[1] + ey)
+    h = (sh[0] + sgn * hx, sh[1] + hy)
+    pts = _line(s, e) + _line(e, h)[1:]
+    for i, (x, y) in enumerate(pts):
+        c = 'tee' if i < 3 else 'skin'
+        g.rect(x - 1, y - 1, x + 1, y + 1, GP[c])
+    if len(pts) > 3:
+        x, y = pts[3]; g.rect(x - 1, y - 1, x + 1, y + 1, GP['teesh'])
+        for x, y in pts[4:]:
+            g.rect(x - 1, y - 1, x + 1, y + 1, GP['skin'])
+    x, y = h
+    if side == 'L': g.rect(x - 2, y - 1, x + 1, y + 2, GP['skin'])
+    else: g.rect(x - 1, y - 1, x + 2, y + 2, GP['skin'])
+
+@lru_cache(None)
+def body(pose='down'):
+    g = Grid(36 + 2 * OX, 60)
+    def r(x0, y0, x1, y1, c): g.rect(x0 + OX, y0, x1 + OX, y1, GP[c] if c else None)
+    def p(x, y, c): g.px(x + OX, y, GP[c] if c else None)
+    r(14, 0, 14, 1, 'hair'); r(18, 0, 18, 1, 'hair')
+    r(8, 2, 27, 12, 'hair')
+    r(12, 3, 17, 4, 'hairhi'); r(20, 3, 24, 3, 'hairhi')
+    r(9, 13, 9, 14, 'hair'); r(26, 13, 26, 14, 'hair')
+    r(9, 9, 26, 25, 'skin')
+    r(9, 9, 26, 10, 'hair'); r(13, 9, 18, 11, 'skin')
+    r(10, 11, 12, 11, 'hair'); r(20, 10, 25, 11, 'hair')
+    r(9, 11, 9, 12, 'hair'); r(26, 11, 26, 12, 'hair')
+    r(8, 13, 8, 14, 'hair'); r(27, 13, 27, 14, 'hair')
+    p(9, 25, None); p(26, 25, None); p(9, 24, 'skin'); p(26, 24, 'skin')
+    r(7, 14, 8, 19, 'skin'); r(27, 14, 28, 19, 'skin')
+    r(9, 14, 9, 20, 'skinsh'); r(26, 14, 26, 20, 'skinsh')
+    r(11, 12, 15, 12, 'hair'); r(20, 12, 24, 12, 'hair')
+    for (x0, x1) in ((10, 16), (19, 25)):
+        r(x0, 13, x1, 19, 'frame'); r(x0 + 1, 14, x1 - 1, 18, 'skin')
+        r(x0, 13, x1, 13, 'framehi'); r(x0, 19, x1, 19, 'framesh')
+    r(17, 14, 18, 14, 'frame'); r(9, 14, 9, 15, 'frame'); r(26, 14, 26, 15, 'frame')
+    for ex in (12, 21):
+        r(ex + 1, 15, ex + 2, 16, 'eye'); p(ex, 15, 'white'); p(ex, 16, 'skin'); p(ex + 1, 15, 'white')
+    r(17, 20, 18, 21, 'skinsh')
+    r(11, 21, 12, 21, 'blush'); r(23, 21, 24, 21, 'blush')
+    p(14, 22, 'mouth'); p(21, 22, 'mouth'); r(15, 23, 20, 23, 'mouth')
+    # torso (arms are separate limbs)
+    r(15, 26, 20, 29, 'skinsh')
+    r(9, 28, 26, 31, 'tee')
+    r(11, 28, 24, 43, 'tee')
+    r(15, 28, 20, 29, 'skinsh'); r(16, 30, 19, 30, 'skinsh')
+    r(14, 28, 14, 29, 'teesh'); r(21, 28, 21, 29, 'teesh'); p(15, 30, 'teesh'); p(20, 30, 'teesh')
+    r(14, 31, 21, 31, 'teesh')
+    r(11, 40, 14, 40, 'teesh'); r(22, 38, 24, 38, 'teesh')
+    r(11, 34, 11, 43, 'teesh'); r(24, 34, 24, 43, 'teesh')
+    # baggy black jeans
+    r(10, 44, 25, 47, 'jeans'); r(10, 44, 25, 44, 'waist')
+    r(9, 48, 26, 53, 'jeans'); r(8, 54, 27, 54, 'jeans')
+    p(17, 48, None); r(17, 49, 18, 54, None); p(18, 48, None)
+    r(10, 45, 10, 53, 'jeansh'); r(25, 45, 25, 53, 'jeansh')
+    r(16, 45, 16, 53, 'jeansh'); r(19, 45, 19, 53, 'jeansh')
+    r(12, 46, 13, 46, 'jeanhi'); r(22, 46, 23, 46, 'jeanhi')
+    r(13, 49, 13, 52, 'jeanhi'); r(22, 49, 22, 52, 'jeanhi')
+    r(9, 53, 15, 53, 'jeansh'); r(20, 53, 26, 53, 'jeansh')
+    r(11, 50, 12, 50, 'jeansh'); r(23, 50, 24, 50, 'jeansh')
+    p(11, 45, 'waist'); p(24, 45, 'waist')
+    for (x0, x1) in ((8, 16), (19, 27)):
+        r(x0, 55, x1, 57, 'shoe'); r(x0, 57, x1, 57, 'shoesh'); r(x0, 58, x1, 58, 'sole'); r(x0 + 1, 55, x0 + 3, 55, 'shoesh')
+    L, R = POSES[pose]
+    _arm(g, (9 + OX, 31), L, 'L')
+    _arm(g, (26 + OX, 31), R, 'R')
+    return g.image()
 
 def _recolor(img, mapping):
     m = {hexc(a): hexc(b) for a, b in mapping.items()}
@@ -126,12 +239,10 @@ NPC_MAP = {'#f7f7fa': '#ff8a3d', '#d6d9e2': '#d9662a', '#c08862': '#f1c7a0', '#a
            '#16171b': '#2f4c78'}
 
 @lru_cache(None)
-def guy(expr='smile', npc=False):
-    img = GUY.copy()
-    skin = SKIN
+def guy(expr='smile', npc=False, pose='down'):
+    img = body(pose).copy()
     p = img.load()
-    def put(x, y, c): p[x, y] = c
-    # clear mouth area
+    def put(x, y, c): p[x + OX, y] = c
     for y in range(22, 25):
         for x in range(14, 22):
             put(x, y, SKIN)
@@ -155,13 +266,12 @@ def guy(expr='smile', npc=False):
         for x in range(16, 20): put(x, 23, INNER)
     if expr == 'blink':
         for ex in (12, 21):
-            for x in range(ex, ex+3):
+            for x in range(ex, ex + 3):
                 put(x, 15, SKIN); put(x, 16, EYE)
-    if expr == 'sad' or expr == 'sadtalk':
-        # worried brows
+    if expr in ('sad', 'sadtalk'):
         put(11, 12, SKIN); put(15, 11, hexc('#231a1c')); put(24, 12, SKIN); put(20, 11, hexc('#231a1c'))
     if expr == 'shock':
-        for ex in (12, 21):  # wide eyes: white ring
+        for ex in (12, 21):
             put(ex, 16, WHITE)
     if npc:
         img = _recolor(img, NPC_MAP)

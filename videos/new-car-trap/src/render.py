@@ -31,8 +31,8 @@ def big(name, *args, s=S):
     return pix.up(getattr(pix, name)(*args), s)
 
 @lru_cache(None)
-def big_guy(expr, npc):
-    return pix.up(pix.guy(expr, npc), S)
+def big_guy(expr, npc, pose):
+    return pix.up(pix.guy(expr, npc, pose), S)
 
 def blit(cv, img, cx, y, sx=1.0, sy=1.0, rot=0.0, anchor='bottom'):
     if sx <= 0.01 or sy <= 0.01:
@@ -144,12 +144,34 @@ def face(t, base):
         return 'blink'
     return base
 
+TALK_CYCLE = ['talkR', 'down', 'talkL', 'talkB', 'down2', 'talkR', 'shrug', 'talkL']
+
+def auto_pose(t, expr):
+    if expr == 'shock': return 'shock'
+    if expr == 'sad': return 'sad'
+    if speaking(t):
+        i = np.searchsorted(WSTART, t, side='right') - 1
+        return TALK_CYCLE[(i // 2) % len(TALK_CYCLE)]
+    return 'down' if (t * 0.8) % 1 < 0.5 else 'down2'
+
+def anim_pose(p, t):
+    if p == 'wave': return 'wave1' if int(t * 6) % 2 else 'wave2'
+    if p == 'up': return 'up1' if int(t * 7) % 2 else 'up2'
+    if p == 'flail': return 'flail1' if int(t * 10) % 2 else 'flail2'
+    return p
+
+def pick_pose(t, expr, sched):
+    for a, b, p in sched or ():
+        if a <= t < b: return anim_pose(p, t)
+    return auto_pose(t, expr)
+
 def idle_bob(t): return -S if (t * 1.1) % 1 < 0.5 else 0
 
-def guy(cv, t, cx, expr='smile', sx=1.0, sy=1.0, lift=0.0, npc=False, scale=1.0, bob=True):
+def guy(cv, t, cx, expr='smile', sx=1.0, sy=1.0, lift=0.0, npc=False, scale=1.0, bob=True, poses=None):
     shadow(cv, cx, 260 * sx * scale, 1 - min(1, abs(lift) / 400))
     b = idle_bob(t) if bob and sy == 1 else 0
-    blit(cv, big_guy(face(t, expr), npc), cx, GROUND + lift + b, sx * scale, sy * scale)
+    pose = pick_pose(t, expr, poses) if sy > 0.9 else 'down'
+    blit(cv, big_guy(face(t, expr), npc, pose), cx, GROUND + lift + b, sx * scale, sy * scale)
 
 def car(cv, t, cx, color, moving=False, bounce=0.0, sx=1.0):
     phase = int(t * 24) % 2 if moving else 0
@@ -196,7 +218,7 @@ def scene_lot(cv, t):
     elif t >= 10.43: expr = 'sad'
     lift = -150 * math.sin(math.pi * prog(t, 2.2, 0.45)) if 2.2 <= t < 2.65 else 0
     k = 0.4 + 0.6 * popin(t, -0.2, 0.32)
-    guy(cv, t, 265, expr, lift=lift, scale=k)
+    guy(cv, t, 265, expr, lift=lift, scale=k, poses=[(0.85, 1.9, 'point'), (2.2, 3.0, 'up'), (3.35, 4.9, 'point'), (6.67, 7.7, 'wave')])
     confetti(cv, t, 2.2, 250, 700, n=46, seed=4)
     confetti(cv, t, 2.25, 800, 760, n=30, seed=8, spread=0.8)
 
@@ -247,7 +269,7 @@ def scene_chart(cv, t):
     if 13.05 <= t < 14.3: expr = 'shock'
     elif 15.77 <= t < 17.44: expr = 'shock'
     elif t >= 17.44: expr = 'sad'
-    guy(cv, t, 255, expr)
+    guy(cv, t, 255, expr, poses=[(11.9, 12.7, 'point'), (15.77, 17.44, 'flail')])
 
 def scene_smell(cv, t):
     yoff = 900 * ic(prog(t, 20.46, 0.35))
@@ -274,7 +296,7 @@ def scene_smell(cv, t):
     expr = 'smile'
     if 19.59 <= t < 20.4: expr = 'shock'
     if 21.0 <= t < 22.4: expr = 'blink'
-    guy(cv, t, 255, expr)
+    guy(cv, t, 255, expr, poses=[(18.59, 19.55, 'shrug'), (20.9, 21.5, 'point'), (21.5, 22.4, 'hips'), (23.12, 23.95, 'up')])
 
 def falling_block(cv, t, t0, t1, cx, land_y):
     """Weight drops from above, landing at land_y (bottom) at time t1."""
@@ -312,7 +334,7 @@ def scene_dodge(cv, t):
     if t >= 25.48:
         p = prog(t, 25.48, 0.4); x = 860 - 605 * io(p); lift = -90 * abs(math.sin(math.pi * 2 * p))
     expr = 'shock' if 24.4 <= t < 25.3 else 'smile'
-    guy(cv, t, x, expr, lift=lift)
+    guy(cv, t, x, expr, lift=lift, poses=[(24.62, 24.95, 'flail'), (25.48, 25.9, 'flail'), (26.37, 26.9, 'point'), (26.91, 27.6, 'up')])
 
 def scene_npc(cv, t):
     car(cv, t, 760, 'red')
@@ -323,7 +345,7 @@ def scene_npc(cv, t):
         p = prog(t, 28.42, 0.08); sy = 1 - 0.65 * oc(p)
         sy += 0.06 * math.sin((t - 28.5) * 30) * math.exp(-(t - 28.5) * 6) if t > 28.5 else 0
     expr = 'shock' if t >= 28.15 else 'smile'
-    guy(cv, t, 250, expr, sx=1 + (1 - sy) * 0.45, sy=sy, npc=True)
+    guy(cv, t, 250, expr, sx=1 + (1 - sy) * 0.45, sy=sy, npc=True, poses=[(27.64, 28.1, 'hips')])
     if t < 28.42: falling_block(cv, t, 28.1, 28.42, 250, GROUND - 540)
     else: blit(cv, big('weight'), 250, GROUND - 540 * sy + 10)
     dust(cv, t, 28.45, 250, GROUND - 20, n=16, seed=17)
@@ -341,7 +363,7 @@ def scene_win(cv, t):
             blit(cv, big('coin', s=8), 760 + vx * dt, GROUND - 260 + vy * dt + 0.5 * 2600 * dt * dt, anchor='center')
         k = popin(t, 29.62)
         blit(cv, big('label', '+$9,000', '#3cc85a', s=10), 760, GROUND - 640 - 100 * oc(prog(t, 29.62, 0.8)), k, k, anchor='center')
-    guy(cv, t, 255, 'smile', lift=lift)
+    guy(cv, t, 255, 'smile', lift=lift, poses=[(29.18, 29.55, 'point'), (29.59, 30.3, 'up')])
 
 def scene_worth(cv, t):
     car(cv, t, 760, 'red')
@@ -366,7 +388,7 @@ def scene_worth(cv, t):
         p = prog(t, 34.38, 0.08); sy = 1 - 0.65 * oc(p)
         sy += 0.06 * math.sin((t - 34.46) * 30) * math.exp(-(t - 34.46) * 6) if t > 34.46 else 0
     expr = 'shock' if t >= 33.9 else 'smile'
-    guy(cv, t, 255, expr, sx=1 + (1 - sy) * 0.45, sy=sy)
+    guy(cv, t, 255, expr, sx=1 + (1 - sy) * 0.45, sy=sy, poses=[(30.69, 31.9, 'shrug'), (32.78, 33.7, 'point')])
     if t < 34.38: falling_block(cv, t, 34.05, 34.38, 255, GROUND - 540)
     else: blit(cv, big('weight'), 255, GROUND - 540 * sy + 10)
     dust(cv, t, 34.4, 255, GROUND - 20, n=16, seed=23)
@@ -384,7 +406,7 @@ def scene_cta(cv, t):
         ka = popin(t, 36.12)
         blit(cv, big('arrow', s=10), bx, 1010 + 22 * abs(math.sin(t * 6)), ka, ka, anchor='center')
     lift = -110 * math.sin(math.pi * prog(t, 35.25, 0.4)) if 35.25 <= t < 35.65 else 0
-    guy(cv, t, 270, 'smile', lift=lift)
+    guy(cv, t, 270, 'smile', lift=lift, poses=[(35.25, 35.95, 'wave'), (36.12, 37.9, 'pointup')])
 
 SCENES = [(0.0, scene_lot), (11.62, scene_chart), (18.48, scene_smell), (24.02, scene_dodge),
           (27.58, scene_npc), (29.12, scene_win), (30.45, scene_worth), (35.22, scene_cta)]
