@@ -160,7 +160,7 @@ const DType: React.FC = () => {
         <Kicker size={18}>Aerodynamics</Kicker>
         <Serif size={44} italic style={{marginTop: 8}}>Shaped by the wind, tail fin and all</Serif>
       </div>
-      <div style={{position: 'absolute', left: 1260, top: 930, width: 560, opacity: brake}}>
+      <div style={{position: 'absolute', left: 880, top: 800, width: 420, opacity: brake}}>
         <Kicker size={18}>Disc brakes</Kicker>
         <Serif size={44} italic style={{marginTop: 8}}>Proven under brutal racing conditions</Serif>
       </div>

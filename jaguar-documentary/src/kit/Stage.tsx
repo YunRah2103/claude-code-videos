@@ -74,16 +74,16 @@ export const Rule: React.FC<{t: number; at: number; dur?: number; w: number; col
 );
 
 /** Chapter title card, bottom-left, shown for ~3s. */
-export const ChapterCard: React.FC<{n: string; title: string; sub?: string; len?: number}> = ({n, title, sub, len = 3.2}) => {
+export const ChapterCard: React.FC<{n: string; title: string; sub?: string; len?: number; right?: boolean}> = ({n, title, sub, len = 3.2, right}) => {
   const t = useSec();
   const out = clamp((len - t) / 0.5);
   return (
     <AbsoluteFill style={{opacity: out}}>
-      <div style={{position: 'absolute', left: 130, bottom: 150}}>
+      <div style={right ? {position: 'absolute', right: 130, top: 120, textAlign: 'right'} : {position: 'absolute', left: 130, bottom: 150}}>
         <Fadein t={t} at={0.1}>
           <Kicker>{`Chapter ${n}`}</Kicker>
         </Fadein>
-        <Rule t={t} at={0.25} w={150} style={{margin: '16px 0 18px'}} />
+        <Rule t={t} at={0.25} w={150} style={{margin: right ? '16px 0 18px auto' : '16px 0 18px'}} />
         <Rise t={t} at={0.35} dur={0.9}>
           <Serif size={84}>{title}</Serif>
         </Rise>

@@ -121,7 +121,7 @@ const Germans: React.FC = () => {
     {n: 'Mercedes-Benz', at: 3.5},
     {n: 'Audi', at: 4.7},
   ];
-  const types = ['saloon', 'ftype', 'suv', 'ipace', 'saloon', 'suv'];
+  const types = ['saloon', 'ftype', 'suv', 'ipace', 'saloon', 'suv', 'ftype', 'saloon', 'ipace', 'suv', 'saloon', 'ftype'];
   const rows = ['Technology', 'Quality', 'Model range'];
   return (
     <AbsoluteFill>
@@ -147,11 +147,11 @@ const Germans: React.FC = () => {
                   </div>
                 );
               })}
-              <svg width={520} height={260} viewBox="0 0 1500 400" style={{position: 'absolute', left: 20, bottom: 20}}>
+              <svg width={490} height={330} viewBox="0 0 1500 1010" style={{position: 'absolute', left: 22, bottom: 14}}>
                 {types.map((tp, i) => {
-                  const cp = eo3(prog(t, 8.0 + i * 0.35 + ri * 0.1, 8.6 + i * 0.35 + ri * 0.1));
+                  const cp = eo3(prog(t, 7.0 + i * 0.22 + ri * 0.08, 7.5 + i * 0.22 + ri * 0.08));
                   return (
-                    <g key={i} transform={`translate(${(i % 3) * 500} ${Math.floor(i / 3) * 200}) scale(0.5)`} opacity={cp}>
+                    <g key={i} transform={`translate(${(i % 3) * 500} ${Math.floor(i / 3) * 250}) scale(0.5)`} opacity={cp}>
                       <Car id={tp} uid={`gm${ri}${i}`} tint="#2a3a42" rim={C.silver} ground={false} />
                     </g>
                   );
@@ -185,29 +185,29 @@ const Owners: React.FC = () => {
       <Svg>
         {/* S-Type and X-Type */}
         <g opacity={eo3(prog(t, 4.2, 5.0)) * (1 - ident * 0.6)}>
-          <g transform="translate(100 450) scale(0.9)"><Car id="saloon" uid="st" tint="#2a4a5a" rim={C.silverLite} /></g>
-          <g transform="translate(1000 450) scale(0.9)" opacity={eo3(prog(t, 5.2, 6.0))}><Car id="saloon" uid="xt" tint="#5a2a2c" rim={C.silverLite} /></g>
+          <g transform="translate(100 400) scale(0.85)"><Car id="saloon" uid="st" tint="#2a4a5a" rim={C.silverLite} /></g>
+          <g transform="translate(1000 400) scale(0.85)" opacity={eo3(prog(t, 5.2, 6.0))}><Car id="saloon" uid="xt" tint="#5a2a2c" rim={C.silverLite} /></g>
         </g>
         {ident > 0 && (
-          <g opacity={ident}>
+          <g opacity={ident * (1 - prog(t, 10.2, 10.8))}>
             {[0, 1, 2, 3].map((i) => (
-              <g key={i} transform={`translate(${460 + i * 9} ${450 + i * 5}) scale(0.9)`} opacity={0.25}>
+              <g key={i} transform={`translate(${460 + i * 9} ${400 + i * 5}) scale(0.85)`} opacity={0.25}>
                 <Car id={['saloon', 'saloon', 'ftype', 'saloon'][i]} uid={'id' + i} tint="#222" rim={C.silver} ground={false} />
               </g>
             ))}
           </g>
         )}
       </Svg>
-      <div style={{position: 'absolute', left: 180, top: 820, opacity: eo3(prog(t, 4.4, 5.0)) * (1 - ident)}}>
+      <div style={{position: 'absolute', left: 180, top: 665, opacity: eo3(prog(t, 4.4, 5.0)) * (1 - ident)}}>
         <Kicker size={18}>S-Type · 1999</Kicker>
       </div>
-      <div style={{position: 'absolute', left: 1080, top: 820, opacity: eo3(prog(t, 5.4, 6.0)) * (1 - ident)}}>
+      <div style={{position: 'absolute', left: 1080, top: 665, opacity: eo3(prog(t, 5.4, 6.0)) * (1 - ident)}}>
         <Kicker size={18}>X-Type · 2001</Kicker>
       </div>
-      <div style={{position: 'absolute', left: 180, top: 640, opacity: eo3(prog(t, 2.2, 3.0)) * (1 - ident), width: 900}}>
+      <div style={{position: 'absolute', left: 180, top: 780, opacity: eo3(prog(t, 2.2, 3.0)) * (1 - ident), width: 1200}}>
         <Serif size={60} italic>Ford pushed for growth — new buyers, new models</Serif>
       </div>
-      <div style={{position: 'absolute', left: 0, right: 0, top: 640, textAlign: 'center', opacity: ident * (1 - prog(t, 10.2, 10.8))}}>
+      <div style={{position: 'absolute', left: 0, right: 0, top: 760, textAlign: 'center', opacity: ident * (1 - prog(t, 10.2, 10.8))}}>
         <Serif size={86}>What, exactly, is a Jaguar?</Serif>
         <Kicker size={18} color={C.ivoryDim} style={{marginTop: 20}}>Chasing volume made the identity harder to define</Kicker>
       </div>

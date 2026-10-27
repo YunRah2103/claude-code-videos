@@ -159,7 +159,7 @@ const StartAgain: React.FC = () => {
           </div>
         );
       })}
-      <Fadein t={t} at={6.2} dur={0.7} style={{position: 'absolute', right: 130, top: 232}}>
+      <Fadein t={t} at={6.2} dur={0.7} style={{position: 'absolute', left: 0, right: 0, top: 300, textAlign: 'center'}}>
         <Kicker color={C.ivoryDim}>2024 · familiar models discontinued</Kicker>
       </Fadein>
       <IllusTag />

@@ -35,9 +35,9 @@ const Rebrand: React.FC = () => {
       <div style={{position: 'absolute', left: 130, top: 620, display: 'flex', gap: 0}}>
         {sw.map((c, i) => {
           const p = eo3(prog(t, 3.6 + i * 0.18, 4.4 + i * 0.18));
-          return <div key={c} style={{width: 170 * p, height: 150, background: c}} />;
+          return <div key={c} style={{width: 140 * p, height: 150, background: c}} />;
         })}
-        <Kicker size={15} color={C.ivoryDim} style={{marginLeft: 30, alignSelf: 'flex-end', opacity: eo3(prog(t, 4.2, 4.8))}}>Bright colours</Kicker>
+        <Kicker size={15} color={C.ivoryDim} style={{position: 'absolute', left: 0, top: 170, opacity: eo3(prog(t, 4.2, 4.8))}}>Bright colours</Kicker>
       </div>
       {/* ad without a car */}
       <div style={{position: 'absolute', left: 1000, top: 590, width: 790, height: 330, border: `1.5px solid ${C.silverLite}`, background: 'rgba(0,0,0,0.55)', opacity: eo3(prog(t, 5.0, 5.8)), display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column'}}>
@@ -98,10 +98,10 @@ const Type00: React.FC = () => {
       </div>
       <Svg>
         <line x1={60} x2={1860} y1={862} y2={862} stroke={C.silver} strokeOpacity={0.3} />
-        <g transform="translate(470 420) scale(1.0)" opacity={1 - wipe * 0.8}>
+        <g transform="translate(300 330) scale(1.3)" opacity={1 - wipe * 0.8}>
           <Car id="etype" uid="t0a" tint="#2c5a47" rim={C.ivory} ground={false} />
         </g>
-        <g transform="translate(470 420) scale(1.0)" opacity={wipe}>
+        <g transform="translate(300 330) scale(1.3)" opacity={wipe}>
           <Car id="gt" uid="t0b" tint="#2a2f30" rim={C.goldLite} ground={false} lamp={wipe} />
         </g>
       </Svg>
@@ -129,7 +129,7 @@ const Reveal: React.FC = () => {
       <Bg tone="black" glow={0.5} gx={55} gy={55} />
       <AbsoluteFill style={{background: `radial-gradient(40% 25% at 50% 80%, rgba(195,161,90,${0.22 * eo3(prog(t, 0.4, 2))}), rgba(0,0,0,0))`}} />
       <Svg>
-        <g transform={`translate(${960 - 500 * s * 1.5} ${760 - 262 * s * 1.5}) scale(${s * 1.5})`} opacity={eo3(prog(t, 0.3, 1.6))}>
+        <g transform={`translate(${960 - 500 * s * 1.4} ${720 - 262 * s * 1.4}) scale(${s * 1.4})`} opacity={eo3(prog(t, 0.3, 1.6))}>
           <Car id="gt" uid="rv" tint="#2a2f30" rim={C.goldLite} lamp={eo3(prog(t, 1.2, 2.2))} spin={t * 500} />
         </g>
       </Svg>
@@ -240,7 +240,7 @@ const Fork: React.FC = () => {
     <AbsoluteFill>
       <Bg tone="warm" glow={0.45} gx={40} />
       <Svg>
-        <path d="M 200 540 L 780 540" stroke={C.ivory} strokeWidth={3} fill="none" opacity={0.8} />
+        <path d="M 330 540 L 780 540" stroke={C.ivory} strokeWidth={3} fill="none" opacity={0.8} />
         <circle cx={780} cy={540} r={10} fill={C.goldLite} />
         <path d="M 780 540 C 1000 540 1100 300 1420 300" stroke={C.goldLite} strokeWidth={3} fill="none" pathLength={1} strokeDasharray={1} strokeDashoffset={1 - up} />
         <path d="M 780 540 C 1000 540 1100 780 1420 780" stroke={C.silver} strokeOpacity={0.8} strokeWidth={3} fill="none" pathLength={1} strokeDasharray={1} strokeDashoffset={1 - down} />
@@ -249,10 +249,10 @@ const Fork: React.FC = () => {
         <Kicker color={C.ivoryDim}>Today</Kicker>
         <Serif size={66} style={{marginTop: 6}}>Jaguar</Serif>
       </div>
-      <div style={{position: 'absolute', left: 1450, top: 210, width: 420, opacity: eo3(prog(t, 2.4, 3.2))}}>
+      <div style={{position: 'absolute', left: 1440, top: 190, width: 450, opacity: eo3(prog(t, 2.4, 3.2))}}>
         <Serif size={66}>The greatest comeback in British motoring?</Serif>
       </div>
-      <div style={{position: 'absolute', left: 1450, top: 690, width: 420, opacity: eo3(prog(t, 5.2, 6.0))}}>
+      <div style={{position: 'absolute', left: 1440, top: 680, width: 450, opacity: eo3(prog(t, 5.2, 6.0))}}>
         <Serif size={66} italic color={C.ivoryDim}>Or a golden age that remains in the past?</Serif>
       </div>
     </AbsoluteFill>

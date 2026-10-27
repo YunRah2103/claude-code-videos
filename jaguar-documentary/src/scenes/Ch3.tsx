@@ -15,9 +15,9 @@ const Sweep: React.FC<{p: number}> = ({p}) => (
 /* 91.6-98.4 E-Type hero with annotations */
 const Hero: React.FC = () => {
   const t = useSec(); // 0 at 91.6
-  const s = kf(t, [[0, 1.55], [6.8, 1.72]]);
+  const s = kf(t, [[0, 1.35], [6.8, 1.5]]);
   const fx = kf(t, [[0, 820], [3.2, 640], [6.8, 420]], eio3);
-  const cam = `translate(${960 - fx * s} ${560 - 150 * s}) scale(${s})`;
+  const cam = `translate(${960 - fx * s} ${660 - 150 * s}) scale(${s})`;
   const ann = (at: number, x1: number, x2: number, y: number, label: string, up = true) => {
     const p = eo3(prog(t, at, at + 0.8));
     return (
@@ -53,7 +53,7 @@ const Hero: React.FC = () => {
           <Kicker size={16} color={C.ivoryDim} track={0.3}>Geneva Motor Show · March 1961</Kicker>
         </Fadein>
       </div>
-      <ChapterCard n="Three" title="The Golden Age" len={3.4} />
+      <ChapterCard n="Three" title="The Golden Age" len={3.4} right />
       <IllusTag />
       <Flash t={t} at={0.1} dur={0.5} peak={0.4} color="#ffe9b8" />
     </AbsoluteFill>
@@ -68,7 +68,7 @@ const Perf: React.FC = () => {
     <AbsoluteFill>
       <Bg tone="warm" glow={0.45} gx={25} />
       <Svg>
-        <g transform="translate(-30 150) scale(1.15)" opacity={0.9}>
+        <g transform="translate(-30 360) scale(1.15)" opacity={0.9}>
           <Car id="etype" uid="ep" tint="#2c5a47" rim={C.ivory} spin={t * 1500} />
         </g>
         <Gauge cx={1560} cy={330} r={190} value={mph} max={160} major={20} label="MPH" readout={`${Math.round(mph)}`} unit="E-TYPE · CLAIMED" red={150} />
@@ -112,12 +112,12 @@ const Phenom: React.FC = () => {
           {tints.map((tn, i) => {
             const p = eo3(prog(t, 0.1 + i * 0.28, 0.9 + i * 0.28));
             return (
-              <g key={i} transform={`translate(${60 + (i % 2) * 520 + (i === 4 ? 260 : 0)} ${130 + Math.floor(i / 2) * 270 + (i === 4 ? 0 : 0)}) scale(0.5)`} opacity={p}>
+              <g key={i} transform={`translate(${50 + (i % 3) * 620} ${110 + Math.floor(i / 3) * 290}) scale(0.58)`} opacity={p}>
                 <Car id="etype" uid={'ph' + i} tint={tn} rim={C.ivory} spin={0} />
               </g>
             );
           })}
-          <g transform="translate(1200 150) scale(0.5)" opacity={eo3(prog(t, 1.4, 2.2))}>
+          <g transform="translate(1290 400) scale(0.58)" opacity={eo3(prog(t, 1.4, 2.2))}>
             <Car id="etype" uid="ph9" tint="#1a1a1a" rim={C.ivory} />
           </g>
         </g>
@@ -189,7 +189,7 @@ const XJ: React.FC = () => {
       <Svg>
         <path d="M 1180,0 L 1130,210 L 1210,330 L 1100,520 L 1170,640 L 1060,860 L 1110,1080" fill="none" stroke={C.red} strokeWidth={3} pathLength={1} strokeDasharray={1} strokeDashoffset={1 - crack} opacity={0.85} />
       </Svg>
-      <div style={{position: 'absolute', left: 0, right: 0, top: 480, textAlign: 'center', opacity: eo3(prog(t, 7.6, 8.4))}}>
+      <div style={{position: 'absolute', left: 0, right: 0, top: 250, textAlign: 'center', opacity: eo3(prog(t, 7.6, 8.4))}}>
         <Serif size={66} italic color={C.ivory} style={{textShadow: '0 4px 30px #000'}}>Success didn't guarantee stability</Serif>
       </div>
       <IllusTag />

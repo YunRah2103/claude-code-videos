@@ -67,11 +67,11 @@ const MapScene: React.FC = () => {
         {pin(bp[0], bp[1], eo3(prog(t, 1.4, 2.0)), 'Blackpool', '1922')}
         {pin(cv[0], cv[1], eo3(prog(t, 4.4, 5.0)), 'Coventry', '1928', true)}
       </Svg>
-      <div style={{position: 'absolute', left: bp[0] + 100, top: bp[1] - 100, opacity: eo3(prog(t, 1.7, 2.3))}}>
+      <div style={{position: 'absolute', left: bp[0] - 420, top: bp[1] - 40, textAlign: 'right', width: 380, opacity: eo3(prog(t, 1.7, 2.3))}}>
         <Serif size={44}>Blackpool</Serif>
         <Kicker size={15} color={C.ivoryDim} track={0.3}>1922 · swallow sidecars</Kicker>
       </div>
-      <div style={{position: 'absolute', left: cv[0] + 100, top: cv[1] - 70, opacity: eo3(prog(t, 4.6, 5.2))}}>
+      <div style={{position: 'absolute', left: cv[0] - 470, top: cv[1] - 30, textAlign: 'right', width: 420, opacity: eo3(prog(t, 4.6, 5.2))}}>
         <Serif size={44}>Coventry</Serif>
         <Kicker size={15} color={C.ivoryDim} track={0.3}>1928 · the company moves</Kicker>
       </div>
@@ -168,13 +168,13 @@ const XK: React.FC = () => {
     <AbsoluteFill>
       <Bg tone="char" glow={0.35} gx={40} gy={55} />
       <Svg>
-        <g transform={`translate(${960 - 960 * s + 20} ${540 - 540 * s}) scale(${s})`}>
-          <g transform="translate(-110 340) scale(1.0)">
+        <g transform={`translate(${960 - 960 * s} ${540 - 540 * s}) scale(${s})`}>
+          <g transform="translate(30 400) scale(1.4)">
             <Car id="xk120" uid="xk" draw={draw} fill={fill} tint="#2a4a5a" spin={t * 200} rim={C.silverLite} />
           </g>
         </g>
         <g opacity={eo3(prog(t, 3.0, 3.8))}>
-          <Gauge cx={1500} cy={330} r={170} value={speed} max={140} major={20} label="MPH" readout={String(Math.round(speed))} unit="XK120 · 1948" red={120} />
+          <Gauge cx={1560} cy={300} r={150} value={speed} max={140} major={20} label="MPH" readout={String(Math.round(speed))} unit="XK120 · 1948" red={120} />
         </g>
       </Svg>
       <div style={{position: 'absolute', left: 130, top: 140}}>
