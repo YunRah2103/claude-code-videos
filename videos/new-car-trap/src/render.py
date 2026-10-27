@@ -1,5 +1,5 @@
 """Renders the 'new car depreciation' TikTok explainer, synced to the voiceover."""
-import json, math, sys, subprocess
+import json, math, os, sys, subprocess
 from functools import lru_cache
 from multiprocessing import Pool
 import numpy as np
@@ -458,7 +458,17 @@ def apply_cam(cv, z, ax, ay, sx, sy):
     return cv.transform((W, H), Image.AFFINE, (1 / z, 0, x0, 0, 1 / z, y0), resample=Image.NEAREST, fillcolor=BG)
 
 # ------------------------------------------------------------------ captions
-FONT = ImageFont.truetype('/usr/share/fonts/opentype/inter/Inter-Black.otf', 104)
+FONT_PATH = os.environ.get('PIXEL_FONT', '/usr/share/fonts/opentype/inter/Inter-Black.otf')
+
+def font(size):
+    if os.path.isfile(FONT_PATH):
+        return ImageFont.truetype(FONT_PATH, size)
+    try:
+        return ImageFont.truetype('DejaVuSans-Bold.ttf', size)
+    except OSError:
+        return ImageFont.load_default(size=size)
+
+FONT = font(104)
 EMPH = {'new', 'used', 'less', 'twenty', 'percent', 'thousands', 'gone', 'smell', 'free', 'dodge', 'old', 'hit', 'extra', 'worth', 'comments', 'congrats'}
 
 def make_chunks():
@@ -513,7 +523,7 @@ def caption_img(ci, active):
         img = img.resize((1000, int(img.height * k)), Image.LANCZOS)
     return img
 
-TFONT = ImageFont.truetype('/usr/share/fonts/opentype/inter/Inter-Black.otf', 92)
+TFONT = font(92)
 
 @lru_cache(None)
 def title_img():
@@ -521,7 +531,7 @@ def title_img():
     img = Image.new('RGBA', (1000, 260), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     for i, (txt, col) in enumerate(lines):
-        f = TFONT if i == 0 else ImageFont.truetype('/usr/share/fonts/opentype/inter/Inter-Black.otf', 130)
+        f = TFONT if i == 0 else font(130)
         w = d.textlength(txt, font=f)
         y = 0 if i == 0 else 100
         d.text((500 - w / 2 + 6, y + 8), txt, font=f, fill=NAVY, stroke_width=14, stroke_fill=NAVY)
@@ -611,3 +621,4 @@ if __name__ == '__main__':
                 if i % 300 == 0: print(f'{i}/{N}', flush=True)
         ff.stdin.close(); ff.wait()
         print('done', ff.returncode)
+        raise SystemExit(ff.returncode)

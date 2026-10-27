@@ -1,0 +1,19 @@
+{
+  "model": "sonnet",
+  "effortLevel": "low",
+  "env": {
+    "PONYTAIL_DEFAULT_MODE": "lite",
+    "PONYTAIL_MAP": "0"
+  },
+  "extraKnownMarketplaces": {
+    "ponytail": {
+      "source": {
+        "source": "github",
+        "repo": "DietrichGebert/ponytail"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "ponytail@ponytail": true
+  }
+}

@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+out/
+.claude/settings.local.json
+.superpowers/
+# Keep source assets; do not commit new renders, raw audio or generated frames.
+*.mp4
+*.wav
+*.raw
+**/stills/
+**/mix.*
