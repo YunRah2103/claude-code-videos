@@ -68,6 +68,17 @@ class VideoToolsTest(unittest.TestCase):
                     self.assertIn("render.py must declare a positive numeric DUR constant", result.stderr)
                     self.assertFalse((out / "sheet.jpg").exists())
 
+    def test_infinite_dur_fails_validation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "src"
+            source.mkdir(parents=True)
+            (source / "render.py").write_text("DUR = 1e309\n")
+            out = Path(tmp) / "out"
+            result = self.cli("preview", "--src", source, "--out", out)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("render.py must declare a positive numeric DUR constant", result.stderr)
+            self.assertFalse((out / "sheet.jpg").exists())
+
     def test_another_episode_uses_its_own_duration(self):
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp) / "another-episode/src"
