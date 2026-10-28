@@ -406,14 +406,17 @@ def shot_xtype(t):
         if t0 <= t < 18.2:
             kq = popin(t, t0, 0.25)
             blit(fg, fx.big('glyph', '?', '#e0303a', s=12), qx, qy + 12 * math.sin(t * 7 + t0 * 9), kq, kq, 10 * math.sin(t * 5 + t0), anchor='center')
-    if t >= 17.38:
-        kx = popin(t, 17.38)
-        blit(fg, fx.big('xmark', s=12), 540, 440, kx, kx, anchor='center')
-    fx.ring(fg, t, 17.38, 540, 440, (224, 48, 58), life=0.35, r1=220)
     P5.draw(fg, t)
     GAR.reflect(img, fg)
     photo(fg, t, 13.97, 15.3, 'xtype_x400_2006', 420, 600, 560, 320, -4, 'JAGUAR X-TYPE, 2006', focus=(0.5, 0.6))
     photo(fg, t, 15.37, 16.25, 'xtype_sw', 700, 560, 460, 290, 5, 'X-TYPE ESTATE', focus=(0.5, 0.6))
+    # the new electric concept people hated: the X stamps onto it on 'identity'
+    photo(fg, t, 16.9, 18.3, 'type00_2024', 540, 560, 640, 470, -3, 'NEW ELECTRIC JAGUAR, 2024', focus=(0.5, 0.55))
+    if 17.38 <= t < 18.5:
+        kx = popin(t, 17.38) * popout(t, 18.3)
+        blit(fg, fx.big('xmark', s=14), 540, 520, kx, kx, anchor='center')
+    fx.ring(fg, t, 17.38, 540, 520, (224, 48, 58), life=0.35, r1=260)
+    fx.burst(fg, t, 17.38, 540, 520, (224, 48, 58), n=14, seed=82)
     return finish(img, fg, CAM5, t)
 
 
@@ -675,7 +678,7 @@ CUES = [
     (12.81, 'boom', 0.45), (12.83, 'cha_ching', 0.8),
     (13.97, 'pop', 0.7), (14.15, 'thump', 0.5), (14.35, 'creak', 0.4), (15.37, 'pop', 0.7), (15.4, 'click', 0.5),
     (16.29, 'vroom', 0.6), (16.54, 'crash', 1.0), (16.54, 'boom', 0.45), (16.83, 'pop', 0.6), (16.95, 'pop', 0.6), (17.07, 'pop', 0.6),
-    (17.38, 'buzzer', 0.5),
+    (16.9, 'pop', 0.7), (17.38, 'buzzer', 0.5), (17.38, 'stamp', 0.8),
     (19.34, 'pop', 0.8), (19.92, 'pop', 0.8), (20.12, 'pop', 0.7), (20.3, 'pop', 0.7), (20.47, 'pop', 0.7), (20.81, 'poof', 0.6),
     (20.83, 'buzzer', 0.4),
     (22.1, 'thump', 0.5), (21.95, 'pop', 0.7), (21.97, 'sparkle', 0.6), (22.38, 'creak', 0.6), (22.4, 'boom', 0.35), (22.42, 'sparkle', 0.8),

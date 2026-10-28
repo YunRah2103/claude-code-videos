@@ -8,3 +8,4 @@ Downloaded at 1280 px wide. Check each licence before publishing.
 - `xj6_x300_1996.jpg`: 1996_Jaguar_XJ6_3.2_Front.jpg (1280x528). Licence: CC BY-SA 4.0. Author: Vauxford. Source: https://commons.wikimedia.org/wiki/File:1996_Jaguar_XJ6_3.2_Front.jpg
 - `xtype_x400_2006.jpg`: 2006-2007 Jaguar X-Type (X400) LE sedan 02.jpg (1280x570). Licence: Public domain. Author: OSX. Source: https://commons.wikimedia.org/wiki/File:2006-2007_Jaguar_X-Type_(X400)_LE_sedan_02.jpg
 - `xtype_sw.jpg`: Jaguar X-Type 3.0 AWD SW.jpg (1280x639). Licence: CC BY-SA 3.0. Author: Mr.choppers. Source: https://commons.wikimedia.org/wiki/File:Jaguar_X-Type_3.0_AWD_SW.jpg
+- `type00_2024.jpg`: electric concept car (2024), supplied by the channel owner. Licence and source unknown: confirm rights before publishing.
