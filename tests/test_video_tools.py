@@ -73,6 +73,17 @@ class VideoToolsTest(unittest.TestCase):
         result = self.cli("probe", "does-not-exist.mp4")
         self.assertNotEqual(result.returncode, 0)
 
+    def test_preview_rejects_dur_true(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "bad/src"
+            shutil.copytree(ROOT / "videos/new-car-trap/src", source,
+                            ignore=shutil.ignore_patterns("__pycache__"))
+            render = source / "render.py"
+            render.write_text(render.read_text().replace("DUR = 37.9", "DUR = True"))
+            result = self.cli("preview", "--src", source, "--out", Path(tmp) / "frames")
+            self.assertNotEqual(result.returncode, 0)
+            self.assertFalse((Path(tmp) / "frames/sheet.jpg").exists())
+
 
 if __name__ == "__main__":
     unittest.main()
