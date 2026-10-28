@@ -77,6 +77,54 @@ def rpm_deg(t):   # needle angle on the corner gauge: 225 is zero, lower is more
                             (12.8, 140, 14, 6), (18.1, 120, 16, 5), (21.6, 95, 16, 5), (24.0, 225, 10, 5)])
 
 
+# ------------------------------------------------------------------ real photos (see photos/CREDITS.txt)
+PHOTO_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'photos')
+
+
+@lru_cache(None)
+def _src(name): return Image.open(os.path.join(PHOTO_DIR, name + '.jpg')).convert('RGB')
+
+
+@lru_cache(None)
+def _frame(w, h, label):
+    img = Image.new('RGBA', (w, h), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
+    d.rounded_rectangle((0, 0, w - 1, h - 1), 12, fill=(248, 246, 238, 255), outline=NAVY + (255,), width=6)
+    if label:
+        f = font(34); tw = d.textlength(label, font=f)
+        d.text((w / 2 - tw / 2, h - 54), label, font=f, fill=NAVY + (255,))
+    return img
+
+
+@lru_cache(None)
+def _shadow(w, h):
+    sh = Image.new('RGBA', (w, h), (0, 0, 0, 255))
+    sh.putalpha(_frame(w, h, '').getchannel('A').point(lambda a: a * 120 // 255))
+    return sh
+
+
+def photo_card(name, w, h, label='', k=0.0, focus=(0.5, 0.5)):
+    """Real photo in a framed card: cover-cropped around `focus`, slow push-in as k goes 0 -> 1."""
+    b = 16; iw, ih = w - 2 * b, h - b - 64
+    src = _src(name); sw, sh = src.size
+    sc = max(iw / sw, ih / sh) * (1 + 0.12 * k)
+    cw, ch = iw / sc, ih / sc
+    cx = min(max(focus[0] * sw, cw / 2), sw - cw / 2); cy = min(max(focus[1] * sh, ch / 2), sh - ch / 2)
+    crop = src.crop((int(cx - cw / 2), int(cy - ch / 2), int(cx + cw / 2), int(cy + ch / 2))).resize((iw, ih), Image.BILINEAR)
+    img = _frame(w, h, label).copy(); img.paste(crop, (b, b))
+    return img
+
+
+def photo(fg, t, t0, t1, name, x, y, w, h, rot=0.0, label='', focus=(0.5, 0.5)):
+    """Pop a real photo card in at t0, sway and push in slowly, pop it out at t1."""
+    if not (t0 <= t < t1 + 0.25): return
+    k = popin(t, t0, 0.3) * popout(t, t1, 0.2)
+    if k <= 0.01: return
+    r = rot + 2.5 * math.sin(t * 2.2 + x)
+    blit(fg, _shadow(w, h), x + 14, y + 18, k, k, r, anchor='center')
+    blit(fg, photo_card(name, w, h, label, clamp((t - t0) / 3), focus), x, y, k, k, r, anchor='center')
+    fx.burst(fg, t, t0, x, y, GLOW, n=8, r0=90, r1=260, seed=int(x) % 90)
+
+
 # ================================================================== shot 1: hook, two cars face off
 H_RED, H_SIL = 170, 930
 P1 = Presenter([
