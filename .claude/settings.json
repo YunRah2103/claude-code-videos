@@ -2,7 +2,7 @@
   "model": "sonnet",
   "effortLevel": "low",
   "env": {
-    "PONYTAIL_DEFAULT_MODE": "lite",
+    "PONYTAIL_DEFAULT_MODE": "full",
     "PONYTAIL_MAP": "0"
   },
   "extraKnownMarketplaces": {

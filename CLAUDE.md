@@ -4,15 +4,17 @@ Default: Sonnet, low effort. Minimise tokens while completing the requested vide
 Use one agent. No automatic teams, extra MCP servers, long plans or repeated audits.
 Reply briefly; do not print source, base64, word timings or full logs into chat.
 
-Reuse first: `characters/main-guy/`, `styles/explainer-style.md`, and
-`videos/new-car-trap/src/{render,pix,sfx,align}.py`. Read only files needed for the
+Reuse first: `shared/` (backdrops, pixanim, audio), `videos/ac-idle/src/render.py` as the
+template, `characters/main-guy/` and `styles/explainer-style.md`. Start with `shared/README.md`. Read only files needed for the
 change. Use `rg -n` and small line ranges; skip generated files and dependencies.
 Read `docs/PIXEL_WORKFLOW.md` only when producing or changing a video.
 
-Ponytail lite is enabled locally. Hosted cloud does not load plugins, so use these
-fallback rules: inspect affected callers, reuse existing code or stdlib, make the
-smallest complete change, avoid speculative features and new dependencies. Keep
-validation and visual quality. Test changed nontrivial logic; report real limits.
+Ponytail full is the default. Local sessions load the official plugin. Hosted cloud
+does not load plugins, so the repo skill `.claude/skills/ponytail/SKILL.md` carries the
+same rules. Say "use ponytail" in any fresh chat to activate it. Short fallback rules:
+inspect affected callers, reuse existing code or stdlib, make the smallest complete
+change, avoid speculative features and new dependencies. Keep validation and visual
+quality. Test changed nontrivial logic; report real limits.
 
 Run `python tools/video.py doctor` once. If dependencies are missing, run
 `bash tools/setup.sh`. Use `python tools/video.py run --log out/logs/task.log --
