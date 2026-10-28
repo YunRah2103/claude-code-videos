@@ -26,6 +26,15 @@ Before changing topics, save a short `out/HANDOFF.md`: goal, changed files, comm
 verified results, next step. Use `/clear` between unrelated tasks, `/usage` to inspect
 usage. Only raise effort for a concrete unresolved problem, then return to low.
 
+## OpenCode
+When asked to "use opencode", delegate the work to OpenCode with a free model only.
+Install if missing: `npm install -g opencode-ai@1.19.5` (OpenCode 2 is not released).
+Use free models only (`opencode models`, ids ending in `-free` or `opencode/big-pickle`).
+Run: `opencode run -m opencode/<free-model> "<task>"`, and cap runs with `timeout 240`.
+Before real work, test with a hello prompt. If it reports "Free usage limit reached",
+stop, report it, and do not subscribe, buy credits or switch to a paid model.
+Never change project files or settings unless the user asked for that change.
+
 ## Compact instructions
 Keep the brief, source paths, timing decisions, verification results and next step.
 Drop logs, repeated plans and narration already stored in files.
