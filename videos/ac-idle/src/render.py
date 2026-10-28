@@ -3,7 +3,7 @@ import json, math, os, sys, subprocess
 from functools import lru_cache
 from multiprocessing import Pool
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFont
 import pix, sfx
 
 W, H, FPS, S = 1080, 1920, 60, 9
@@ -146,10 +146,27 @@ def pick_pose(t, expr, sched):
 
 def idle_bob(t): return -S if (t * 1.1) % 1 < 0.5 else 0
 
+HOPS = [1.88, 4.25, 9.4, 11.3]
+
+def hop(t):
+    # (lift, sx, sy): crouch, jump, squash on landing
+    for t0 in HOPS:
+        dt = t - t0
+        if 0 <= dt < 0.08:
+            k = 0.07 * dt / 0.08; return 0.0, 1 + k, 1 - k
+        if 0.08 <= dt < 0.4:
+            u = (dt - 0.08) / 0.32; return -120 * math.sin(math.pi * u), 0.95, 1.06
+        if 0.4 <= dt < 0.54:
+            k = 0.08 * math.sin(math.pi * (dt - 0.4) / 0.14); return 0.0, 1 + k, 1 - k
+    return 0.0, 1.0, 1.0
+
 def guy(cv, t, cx, expr='smile', sx=1.0, sy=1.0, lift=0.0, npc=False, scale=1.0, bob=True, poses=None):
+    hl, hx, hy = hop(t)
+    squash = (hx, hy) != (1.0, 1.0)
+    lift += hl; sx *= hx; sy *= hy
     shadow(cv, cx, 260 * sx * scale, 1 - min(1, abs(lift) / 400))
     b = idle_bob(t) if bob and sy == 1 else 0
-    pose = pick_pose(t, expr, poses) if sy > 0.9 else 'down'
+    pose = pick_pose(t, expr, poses) if sy > 0.9 or squash else 'down'
     blit(cv, big_guy(face(t, expr), npc, pose), cx, GROUND + lift + b, sx * scale, sy * scale)
 
 # ------------------------------------------------------------------ scenes
@@ -218,12 +235,51 @@ def panel_img():
         d.rectangle((30, y, 100, y + 12), fill=(30, 31, 38)); d.rectangle((350, y, 420, y + 12), fill=(30, 31, 38))
     return img
 
-def dash(cv, t, deg, k=1.0, ac=True):
+def wob(t, t0s, amt=0.1):
+    # squash/stretch pair from a jelly wobble started at each time in t0s
+    j = amt * sum(jelly(t, a) for a in t0s)
+    return 1 + j, 1 - j
+
+def dash(cv, t, deg, k=1.0, ac=True, jel=()):
     if k <= 0.02: return
-    shadow(cv, DX, 470 * k)
-    blit(cv, panel_img(), DX, DY, k, k, anchor='center')
-    blit(cv, big('tacho', int(round(deg)), s=8), DX, DY - 87 * k, k, k, anchor='center')
-    blit(cv, big('acbtn', ac, s=7), DX, DY + 213 * k, k, k, anchor='center')
+    jx, jy = wob(t, jel, 0.06)
+    shadow(cv, DX, 470 * k * jx)
+    blit(cv, panel_img(), DX, GROUND - 12, k * jx, k * jy)
+    ty = GROUND - 12 - (GROUND - 12 - (DY - 87)) * k * jy
+    blit(cv, big('tacho', int(round(deg)), s=8), DX, ty, k * jx, k * jy, anchor='center')
+    by = GROUND - 12 - (GROUND - 12 - (DY + 213)) * k * jy
+    blit(cv, big('acbtn', ac, s=7), DX, by, k * jx, k * jy, anchor='center')
+
+@lru_cache(None)
+def disc_mask(r):
+    m = Image.new('L', (2 * r, 2 * r), 0)
+    ImageDraw.Draw(m).ellipse((0, 0, 2 * r - 1, 2 * r - 1), fill=255)
+    return m
+
+def glint(cv, t, t0, cx=DX, cy=DY - 87, r=172, life=0.45):
+    # diagonal shine sweeping across the dial glass
+    if not (t0 <= t < t0 + life): return
+    u = io((t - t0) / life)
+    band = Image.new('L', (2 * r, 2 * r), 0); d = ImageDraw.Draw(band)
+    x = -1.4 * r + 4 * r * u
+    for off, w, a in ((0, 46, 120), (70, 18, 90)):
+        d.polygon([(x + off, 0), (x + off + w, 0), (x + off + w - 1.2 * r, 2 * r), (x + off - 1.2 * r, 2 * r)], fill=a)
+    band = ImageChops.multiply(band, disc_mask(r))
+    cv.paste(Image.new('RGB', (2 * r, 2 * r), (255, 255, 255)), (int(cx - r), int(cy - r)), band)
+
+def burst(cv, t, t0, x, y, col=(255, 210, 63), n=12, life=0.42, r0=150, r1=430, seed=71):
+    # impact lines flying outward on a key hit
+    dt = t - t0
+    if dt < 0 or dt > life: return
+    p = oc(dt / life); d = ImageDraw.Draw(cv); r = rng_for(seed)
+    for i in range(n):
+        a = i / n * 2 * math.pi + r.uniform(-0.15, 0.15)
+        R = r0 + (r1 - r0) * p * r.uniform(0.8, 1.15); L = 70 * (1 - p) + 12
+        x0, y0 = x + R * math.cos(a), y + R * math.sin(a)
+        x1, y1 = x + (R + L) * math.cos(a), y + (R + L) * math.sin(a)
+        wd = int(2 * S * (1 - p)) + 4
+        d.line((x0, y0, x1, y1), fill=NAVY, width=wd + 6)
+        d.line((x0, y0, x1, y1), fill=col, width=wd)
 
 def spring(t, t0, frm, to, w=17, damp=5):
     # needle snaps to a new angle with a springy overshoot
@@ -274,7 +330,9 @@ def scene_hook(cv, t):
     if t >= 1.05: deg = spring(t, 1.05, IDLE, IDLE + 8, 14, 8) + shiver(t)  # load bogs it a touch...
     if t >= 1.88: deg = spring(t, 1.88, IDLE + 8, 176) + shiver(t)          # ...then idle kicks up
     ring(cv, t, 1.9, DX, DY - 87, (255, 210, 63), life=0.4, r1=300)
-    dash(cv, t, deg, 1.0, t >= 0.57)
+    dash(cv, t, deg, 1.0, t >= 0.57, (1.88, 0.57))
+    glint(cv, t, 0.15); glint(cv, t, 2.05)
+    burst(cv, t, 1.88, DX, DY - 87)
     ring(cv, t, 0.57, DX, DY + 213, (127, 212, 255), life=0.35, r1=200)
     flakes(cv, t, 0.62, DX, DY + 200, seed=61)
     if t >= 0.57:
@@ -297,7 +355,10 @@ def scene_ok(cv, t):
     k = popin(t, 2.62, 0.3)
     jx = 3 * math.sin(t * 60) if t < 3.81 else 0
     shadow(cv, cx, 420 * k)
-    blit(cv, big('car', 'red', 0, s=8), cx + jx, GROUND, k, k)
+    wx, wy = wob(t, (2.86, 3.81))
+    blit(cv, big('car', 'red', 0, s=8), cx + jx, GROUND, k * wx, k * wy)
+    burst(cv, t, 3.81, cx - 10, GROUND - 400, (224, 48, 58), seed=72)
+    burst(cv, t, 4.25, cx + 170, GROUND - 160, (60, 200, 90), n=10, r0=80, r1=260, seed=73)
     for i, (dx, dy, t0) in enumerate(((-150, -330, 2.88), (0, -420, 3.0), (150, -330, 3.12))):
         if t0 <= t < 3.81:
             kq = popin(t, t0, 0.25)
@@ -329,11 +390,14 @@ def scene_comp(cv, t):
     load = t >= 5.65
     jx = 6 * math.sin(t * 55) * math.exp(-(t - 5.65) * 2.5) + (1.5 * math.sin(t * 40) if load else 0) if load else 0
     shadow(cv, EX, 440 * ke)
-    blit(cv, big('engine', s=10), EX + jx, GROUND, ke, ke)
+    wx, wy = wob(t, (4.96, 5.65), 0.08)
+    blit(cv, big('engine', s=10), EX + jx, GROUND, ke * wx, ke * wy)
     kc = popin(t, 4.9, 0.3)
     if kc > 0.98: belt(cv, t, 1)
     ring(cv, t, 4.92, CP[0], CP[1] - 90, (127, 212, 255), life=0.35, r1=260)
-    blit(cv, big('compressor', int(t * 24) % 12 if t >= 4.9 else 0, s=8), CP[0], CP[1] - 92, kc, kc, anchor='center')
+    cx2, cy2 = wob(t, (5.14,), 0.1)
+    blit(cv, big('compressor', int(t * 24) % 12 if t >= 4.9 else 0, s=8), CP[0], CP[1] - 92, kc * cx2, kc * cy2, anchor='center')
+    burst(cv, t, 5.65, 830, 760, (224, 48, 58), n=10, r0=90, r1=300, seed=74)
     flakes(cv, t, 5.0, CP[0], CP[1] - 160, n=7, seed=63, spread=200, rise=300)
     kb = popin(t, 4.95)
     blit(cv, big('badge', 'COMPRESSOR', '#3d7fd6', '#ffffff', '#2b5fa8', s=5), CP[0] - 20, CP[1] - 300, kb, kb, -3 + 2 * math.sin(t * 3), anchor='center')
@@ -357,7 +421,9 @@ def scene_idle(cv, t):
     k = popin(t, 6.38, 0.3)
     deg = spring(t, 6.98, IDLE, 188, 15, 6) + shiver(t)
     glow_arc(cv, t, 7.0, IDLE, 188, k)
-    dash(cv, t, deg, k)
+    dash(cv, t, deg, k, jel=(6.62, 6.98))
+    glint(cv, t, 6.7)
+    burst(cv, t, 7.42, DX, DY - 400, (60, 200, 90), n=10, r0=120, r1=330, seed=75)
     ring(cv, t, 7.0, DX, DY - 87, (60, 200, 90), life=0.4, r1=280)
     flakes(cv, t, 6.4, DX, DY + 200, n=6, seed=64)
     if t >= 7.42:
@@ -377,7 +443,9 @@ def scene_stall(cv, t):
     rot = 7 * math.sin((t - 9.0) * 22) * math.exp(-(t - 9.0) * 4) if t >= 9.0 else 0
     jy = -S * (int(t * 18) % 2) if cough else 0
     shadow(cv, x, 330)
-    blit(cv, big('car', 'red', int(t * 12) % 2 if p < 1 else 0, s=6), x, GROUND + jy, 1, 1, rot)
+    wx, wy = wob(t, (8.6, 9.4), 0.1)
+    blit(cv, big('car', 'red', int(t * 12) % 2 if p < 1 else 0, s=6), x, GROUND + jy, wx, wy, rot)
+    burst(cv, t, 9.4, 850, 1010, (60, 200, 90), n=10, r0=70, r1=250, seed=76)
     dust(cv, t, 8.72, x - 170, GROUND - 50, n=14, seed=21, dirx=-420)  # engine coughs
     dust(cv, t, 8.9, x - 170, GROUND - 60, n=10, seed=22, dirx=-380)
     # inset: the raised idle needle keeps it running
@@ -416,7 +484,9 @@ def scene_auto(cv, t):
             kt = popin(t, 11.65 + i * 0.15)
             blit(cv, big('check', s=6), x, GROUND - 160, kt, kt, anchor='center')
     kr = popin(t, 11.3, 0.3)
-    blit(cv, big('robot', (t % 1.7) < 0.12, s=10), RB[0], RB[1] + 12 * math.sin(t * 3), kr, kr, 3 * math.sin(t * 2), anchor='center')
+    rx, ry = wob(t, (11.55,), 0.1)
+    blit(cv, big('robot', (t % 1.7) < 0.12, s=10), RB[0], RB[1] + 12 * math.sin(t * 3), kr * rx, kr * ry, 3 * math.sin(t * 2), anchor='center')
+    burst(cv, t, 11.3, *RB, seed=77)
     ring(cv, t, 11.32, *RB, (255, 210, 63), life=0.4, r1=300)
     if t >= 11.3: sparkles(cv, t * 1.5, *RB, 520, 420, n=12, seed=52)
     ka = popin(t, 11.55)
@@ -429,7 +499,10 @@ def scene_end(cv, t):
     rays(cv, t, 15.03, DX, DY - 87, PALE_G, hold=True, r=640)
     k = popin(t, 12.52, 0.3)
     deg = spring(t, 13.98, IDLE, 176) + shiver(t)
-    dash(cv, t, deg, k)
+    dash(cv, t, deg, k, jel=(12.76, 13.98, 15.03))
+    glint(cv, t, 12.85); glint(cv, t, 14.15)
+    burst(cv, t, 13.98, DX, DY - 87, seed=78)
+    burst(cv, t, 15.03, DX, DY - 100, (60, 200, 90), n=14, seed=79)
     ring(cv, t, 14.0, DX, DY - 87, (255, 210, 63), life=0.4, r1=300)
     flakes(cv, t, 12.6, DX, DY + 200, n=7, seed=65)
     rev_marks(cv, t, 13.98, DX, DY - 87)
@@ -460,6 +533,14 @@ def draw_scene(i, t):
     SCENES[i][1](cv, t)
     return cv
 
+def speed_lines(cv, e, seed):
+    k = math.sin(math.pi * e)
+    if k < 0.1: return
+    r = rng_for(100 + seed); d = ImageDraw.Draw(cv)
+    for i in range(16):
+        y = snap(r.uniform(260, 1700)); L = r.uniform(220, 640) * k; x = r.uniform(-200, W)
+        d.rectangle((x, y, x + L, y + S * (1 + i % 2)), fill=(205, 210, 222))
+
 def world(t):
     idx = max(i for i, (s, _) in enumerate(SCENES) if t >= s - TR_PRE)
     b = SCENES[idx][0]
@@ -470,6 +551,7 @@ def world(t):
         cv = Image.new('RGB', (W, H), BG)
         cv.paste(a, (int(-dirn * W * e), 0))
         cv.paste(n, (int(dirn * W * (1 - e)), 0))
+        speed_lines(cv, e, idx)
         return cv, idx
     return draw_scene(idx, t), idx
 
@@ -601,7 +683,7 @@ def title(cv, t):
     img = title_img()
     rot = 3 * math.sin(t * 4)
     img = img.resize((int(img.width * k), int(img.height * k)), Image.BILINEAR).rotate(rot, resample=Image.BICUBIC, expand=True)
-    cv.paste(img, (int(W / 2 - img.width / 2), int(420 - img.height / 2)), img)
+    cv.paste(img, (int(W / 2 - img.width / 2), int(370 - img.height / 2)), img)
 
 @lru_cache(None)
 def end_img():
@@ -635,9 +717,11 @@ def captions(cv, t):
             k = 0.72 + 0.28 * ob(prog(t, st, 0.16))
             if active is not None and active != idxs[0]:  # beat pop on each new word
                 k *= 1 + 0.07 * math.exp(-(t - WORDS[active]['s'] + 0.04) * 14)
+            dy = 18 * (1 - ob(prog(t, st, 0.2)))
+            if active is not None: dy -= 12 * math.exp(-(t - WORDS[active]['s'] + 0.04) * 16)
             if k != 1:
                 img = img.resize((int(img.width * k), int(img.height * k)), Image.BILINEAR)
-            cv.paste(img, (int(W / 2 - img.width / 2), int(1390 - img.height / 2)), img)
+            cv.paste(img, (int(W / 2 - img.width / 2), int(1390 + dy - img.height / 2)), img)
             return
 # ------------------------------------------------------------------ frame + audio
 LOOP = 0.3  # final slide back into the opening frame so the clip loops seamlessly
@@ -646,12 +730,20 @@ AUTH_END = DUR + LEAD
 def progress(cv, t):
     p = clamp(t / DUR)
     d = ImageDraw.Draw(cv)
-    x0, x1, y = 110, W - 110, 236  # below the top 12%: clear of TikTok's tabs
-    d.rectangle((x0 - 6, y - 6, x1 + 6, y + 3 * S + 6), fill=NAVY)
-    d.rectangle((x0, y, x1, y + 3 * S), fill=(236, 236, 242))
+    x0, x1, y, h = 100, W - 100, 120, 4 * S
+    d.rounded_rectangle((x0 - 7, y - 7, x1 + 7, y + h + 7), 22, fill=NAVY)
+    d.rounded_rectangle((x0, y, x1, y + h), 16, fill=(236, 236, 242))
     xp = x0 + (x1 - x0) * p
-    d.rectangle((x0, y, xp, y + 3 * S), fill=(255, 210, 63))
-    blit(cv, big('car', 'red', int(t * 12) % 2, s=3), xp, y + 4)
+    if xp > x0 + 32:
+        d.rounded_rectangle((x0, y, xp, y + h), 16, fill=(255, 210, 63))
+        d.rectangle((x0 + 16, y + 7, xp - 16, y + 13), fill=(255, 238, 160))
+    for tc, _ in SCENES[1:]:
+        xc = x0 + (x1 - x0) * tc / DUR; yc = y + h / 2
+        on = t >= tc
+        r = 12 * (1 + 0.6 * math.exp(-(t - tc) * 10) if on else 1)
+        d.ellipse((xc - r - 6, yc - r - 6, xc + r + 6, yc + r + 6), fill=NAVY)
+        d.ellipse((xc - r, yc - r, xc + r, yc + r), fill=(60, 200, 90) if on else (200, 204, 212))
+    blit(cv, big('car', 'red', int(t * 12) % 2, s=3), xp, y + 8 - S * (int(t * 8) % 2))
 
 def frame(n):
     t = n / FPS + LEAD
