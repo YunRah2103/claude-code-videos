@@ -14,7 +14,7 @@ import json, math, os, sys, subprocess, wave
 from functools import lru_cache
 from multiprocessing import Pool
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', 'shared'))
 from backdrops.garage import Garage
 from audio import sfx
@@ -90,7 +90,9 @@ def _frame(w, h, label):
     img = Image.new('RGBA', (w, h), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
     d.rounded_rectangle((0, 0, w - 1, h - 1), 12, fill=(248, 246, 238, 255), outline=NAVY + (255,), width=6)
     if label:
-        f = font(34); tw = d.textlength(label, font=f)
+        f = font(34)
+        while d.textlength(label, font=f) > w - 30 and f.size > 18: f = font(f.size - 2)
+        tw = d.textlength(label, font=f)
         d.text((w / 2 - tw / 2, h - 54), label, font=f, fill=NAVY + (255,))
     return img
 
@@ -102,11 +104,11 @@ def _shadow(w, h):
     return sh
 
 
-def photo_card(name, w, h, label='', k=0.0, focus=(0.5, 0.5)):
+def photo_card(name, w, h, label='', k=0.0, focus=(0.5, 0.5), zoom=0.0):
     """Real photo in a framed card: cover-cropped around `focus`, slow push-in as k goes 0 -> 1."""
     b = 16; iw, ih = w - 2 * b, h - b - 64
     src = _src(name); sw, sh = src.size
-    sc = max(iw / sw, ih / sh) * (1 + 0.12 * k)
+    sc = max(iw / sw, ih / sh) * (1 + zoom + 0.12 * k)
     cw, ch = iw / sc, ih / sc
     cx = min(max(focus[0] * sw, cw / 2), sw - cw / 2); cy = min(max(focus[1] * sh, ch / 2), sh - ch / 2)
     crop = src.crop((int(cx - cw / 2), int(cy - ch / 2), int(cx + cw / 2), int(cy + ch / 2))).resize((iw, ih), Image.BILINEAR)
@@ -114,14 +116,14 @@ def photo_card(name, w, h, label='', k=0.0, focus=(0.5, 0.5)):
     return img
 
 
-def photo(fg, t, t0, t1, name, x, y, w, h, rot=0.0, label='', focus=(0.5, 0.5)):
+def photo(fg, t, t0, t1, name, x, y, w, h, rot=0.0, label='', focus=(0.5, 0.5), zoom=0.0):
     """Pop a real photo card in at t0, sway and push in slowly, pop it out at t1."""
     if not (t0 <= t < t1 + 0.25): return
     k = popin(t, t0, 0.3) * popout(t, t1, 0.2)
     if k <= 0.01: return
     r = rot + 2.5 * math.sin(t * 2.2 + x)
     blit(fg, _shadow(w, h), x + 14, y + 18, k, k, r, anchor='center')
-    blit(fg, photo_card(name, w, h, label, clamp((t - t0) / 3), focus), x, y, k, k, r, anchor='center')
+    blit(fg, photo_card(name, w, h, label, clamp((t - t0) / 3), focus, zoom), x, y, k, k, r, anchor='center')
     fx.burst(fg, t, t0, x, y, GLOW, n=8, r0=90, r1=260, seed=int(x) % 90)
 
 
@@ -233,6 +235,8 @@ def shot_street(t):
     P3.draw(fg, t)
     fx.stamp_at(fg, t, 10.75, 'TAKEOVER', *STAMP3, -8, 7)
     fx.burst(fg, t, 10.75, *STAMP3, (224, 48, 58), seed=74)
+    photo(fg, t, 7.28, 8.5, 'isetta', 510, 801, 340, 255, -5, 'BMW ISETTA, 1955')
+    photo(fg, t, 9.42, 10.2, 'w111', 760, 760, 340, 255, 4, 'MERCEDES-BENZ 220S, 1959', focus=(0.64, 0.6), zoom=1.1)
     return finish(img, fg, CAM3, t)
 
 
@@ -265,6 +269,7 @@ def shot_reveal(t):
     fx.burst(fg, t, 13.75, 540, 470, seed=73)
     P4.draw(fg, t)
     GAR.reflect(img, fg)
+    photo(fg, t, 13.75, 14.85, 'quandt', 850, 720, 280, 380, 5, 'HERBERT QUANDT', focus=(0.5, 0.45))
     return finish(img, fg, CAM4, t)
 
 
@@ -304,6 +309,7 @@ def shot_certs(t):
     fx.stamp_at(fg, t, 18.1, 'STAYED', CAR5, GROUND - 360, -8, 11, '#3cc85a')
     P5.draw(fg, t)
     GAR.reflect(img, fg)
+    photo(fg, t, 17.51, 19.6, 'bmw507', 680, 540, 360, 290, 4, 'BMW 507, 1958')
     return finish(img, fg, CAM5, t)
 
 
@@ -404,7 +410,10 @@ def paper_img():
     d.rectangle((0, 0, 399, 499), fill=(246, 244, 236, 255), outline=(40, 40, 52, 255), width=8)
     d.rectangle((24, 24, 376, 92), fill=(40, 40, 52, 255))                      # masthead
     f = font(54); d.text((200 - d.textlength('1959', font=f) / 2, 26), '1959', font=f, fill=YEL + (255,))
-    for i, y in enumerate(range(130, 470, 36)):                                  # headline and body lines
+    g = ImageOps.autocontrast(ImageOps.fit(_src('bmw507'), (340, 170), Image.LANCZOS).convert('L'), cutoff=2)
+    img.paste(ImageOps.colorize(g, (30, 24, 20), (238, 228, 206)), (30, 108))      # real photo in newsprint tones
+    d.rectangle((30, 108, 369, 277), outline=(40, 40, 52, 255), width=3)
+    for i, y in enumerate(range(300, 470, 34)):                                  # headline and body lines
         d.rectangle((30, y, 370 - 90 * (i % 3 == 2), y + 14), fill=(150, 150, 160, 255))
     return img
 
@@ -597,9 +606,9 @@ CUES = [
     (0.88, 'click', 0.5), (1.97, 'vroom', 0.5), (1.99, 'pop', 0.5),
     (3.1, 'slide_down', 0.6), (3.26, 'ding', 0.7), (3.42, 'thump', 0.6), (5.37, 'crash', 0.7), (5.4, 'boom', 0.35), (5.82, 'stamp', 1.0),
     (7.3, 'poof', 0.5), (7.65, 'buzzer', 0.35), (7.9, 'poof', 0.4), (8.6, 'vroom', 0.5), (9.42, 'vroom', 0.8),
-    (10.3, 'thump', 0.7), (10.55, 'screech', 0.8), (10.75, 'stamp', 1.0), (10.77, 'thump', 0.5),
+    (7.28, 'pop', 0.7), (9.42, 'pop', 0.7), (10.3, 'thump', 0.7), (10.55, 'screech', 0.8), (10.75, 'stamp', 1.0), (10.77, 'thump', 0.5),
     (12.3, 'thump', 0.5), (12.6, 'thump', 0.6), (12.8, 'boom', 0.4), (12.82, 'sparkle', 0.8), (13.75, 'ding', 0.9), (13.78, 'pop', 0.7),
-    (15.25, 'thump', 0.5), (16.3, 'vroom', 0.4), (17.33, 'coin', 0.8), (17.36, 'ding', 0.6),
+    (15.25, 'thump', 0.5), (17.51, 'pop', 0.7), (16.3, 'vroom', 0.4), (17.33, 'coin', 0.8), (17.36, 'ding', 0.6),
     (18.1, 'stamp', 1.0), (18.12, 'cha_ching', 0.8), (18.15, 'sparkle', 0.8),
     (19.79, 'pop', 0.6), (19.95, 'pop', 0.6), (20.1, 'pop', 0.6), (20.7, 'click', 0.5),
     (21.6, 'poof', 0.5), (21.6, 'vroom', 0.9), (21.7, 'buzzer', 0.3), (22.08, 'buzzer', 0.3),
