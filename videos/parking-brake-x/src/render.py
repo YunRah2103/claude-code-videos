@@ -177,10 +177,10 @@ def rays(cv, t, t0, x, y, col, life=0.8, hold=False, r=560):
     if dt < 0 or (not hold and dt > life): return
     k = oc(min(1.0, dt / 0.25)) * (1 if hold else 1 - ic(prog(t, t0 + life - 0.25, 0.25)))
     if k <= 0.02: return
-    d = ImageDraw.Draw(cv); R = r * k; rot = dt * 40
-    for i in range(12):
-        a0 = rot + i * 30
-        d.pieslice((x - R, y - R, x + R, y + R), a0, a0 + 15, fill=col)
+    d = ImageDraw.Draw(cv); R = r * k; rot = dt * 22
+    for i in range(10):
+        a0 = rot + i * 36
+        d.pieslice((x - R, y - R, x + R, y + R), a0, a0 + 14, fill=col)
 
 def ring(cv, t, t0, x, y, col, life=0.35, r1=330):
     dt = t - t0
@@ -192,12 +192,12 @@ def jelly(t, t0):
     dt = t - t0
     return math.exp(-dt * 9) * math.sin(dt * 32) if dt > 0 else 0.0
 
-PALE_Y, PALE_R, PALE_G = (255, 243, 196), (255, 226, 226), (218, 246, 224)
+PALE_Y, PALE_R, PALE_G = (255, 248, 220), (255, 237, 237), (231, 250, 235)
 
 def stamp_at(cv, t, t0, text, x, y, rot=-10, s=12):
     # red stamp with white fill so it reads over props; lands with a jelly wobble and shockwave
     if t < t0: return
-    ks = slam(t, t0, 0.14, 1.8); j = 0.16 * jelly(t, t0 + 0.14)
+    ks = slam(t, t0, 0.14, 1.8); j = 0.09 * jelly(t, t0 + 0.14)
     ring(cv, t, t0 + 0.12, x, y, (255, 210, 63))
     blit(cv, big('stamp', text, '#e0303a', '#ffffff', s=s), x, y, ks * (1 + j), ks * (1 - j), rot, anchor='center')
 
@@ -256,10 +256,10 @@ def scene_hook(cv, t):
     guy(cv, t, gx, expr, lift=lift, bob=False, poses=[(-1, 2.5, 'catch')])
 
 # 2. drum brake seizes
-DRUM_C = (720, GROUND - 300)
+DRUM_C = (690, GROUND - 300)
 DRUM_PTS = disc_pts(11, 18, *DRUM_C, 60, 215)
 def scene_drum(cv, t):
-    rays(cv, t, 2.01, 720, GROUND - 300, PALE_Y, life=0.75)
+    rays(cv, t, 2.01, 690, GROUND - 300, PALE_Y, life=0.75)
     cx, cy = DRUM_C
     k = popin(t, 1.85, 0.3)
     blit(cv, big('drum', s=11), cx, cy, k, k, anchor='center')
@@ -298,7 +298,7 @@ def scene_never(cv, t):
 
 # 4. rust creeps along the cable to the brake
 LV = (420, GROUND - 640)
-DRUM2 = (800, GROUND - 250)
+DRUM2 = (770, GROUND - 250)
 def _cable():
     (x0, y0), (x1, y1) = (LV[0] + 40, LV[1] - 40), (DRUM2[0] - 130, DRUM2[1] - 60)
     return [(snap(x0 + (x1 - x0) * u), snap(y0 + (y1 - y0) * u + 110 * math.sin(math.pi * u)))
@@ -326,10 +326,10 @@ def scene_cable(cv, t):
     guy(cv, t, 200, 'smile', poses=[(4.27, 5.0, 'pointup'), (5.73, 6.4, 'point')])
 
 # 5. eventually it sticks
-WHEEL_RUST = disc_pts(23, 10, 720, GROUND - 253, 30, 110)
+WHEEL_RUST = disc_pts(23, 10, 690, GROUND - 253, 30, 110)
 def scene_wheel(cv, t):
-    rays(cv, t, 7.75, 720, GROUND - 253, PALE_R, life=0.9)
-    cx = 720
+    rays(cv, t, 7.75, 690, GROUND - 253, PALE_R, life=0.9)
+    cx = 690
     k = popin(t, 6.65, 0.3)
     deg = 0 if t < 6.86 else 42 * oc(prog(t, 6.86, 0.85))
     jx = 16 * math.sin(t * 70) * math.exp(-(t - 7.75) * 3) if t >= 7.75 else 0
@@ -356,7 +356,6 @@ def lever_clicks(t, t0):
 
 def scene_flat(cv, t):
     rays(cv, t, 10.93, 740, GROUND - 320, PALE_G, life=0.6)
-    ring(cv, t, 10.95, 940, GROUND - 330, (60, 200, 90))
     cx = 740
     p = prog(t, 8.72, 0.6)
     x = cx + 700 * (1 - oc(p))
@@ -372,7 +371,6 @@ def scene_flat(cv, t):
         d = ImageDraw.Draw(cv)
         for xx in range(470, 1060, 6 * S):
             d.rectangle((xx, GROUND + 2 * S, xx + 3 * S, GROUND + 3 * S), fill=(60, 200, 90))
-        blit(cv, big('badge', 'FLAT', *GREEN, s=8), cx - 370, GROUND - 840, kf, kf, -6 + 3 * math.sin(t * 3), anchor='center')
     if t >= 10.93:
         kc = popin(t, 10.93)
         blit(cv, big('check', s=12), cx + 200, GROUND - 330, kc, kc, anchor='center')
@@ -389,7 +387,7 @@ def tilted_car(deg):
 
 def scene_slope(cv, t):
     rays(cv, t, 12.63, 760, GROUND - 450, PALE_G, life=0.8)
-    ring(cv, t, 12.68, 900, GROUND - 560, (60, 200, 90))
+    ring(cv, t, 12.68, 850, GROUND - 560, (60, 200, 90))
     d = ImageDraw.Draw(cv)
     rise = oc(prog(t, 11.45, 0.35))
     for x in range(SLOPE_X0, W + 300, S):
@@ -408,14 +406,14 @@ def scene_slope(cv, t):
         kb = popin(t, 12.63)
         blit(cv, big('badge', 'HOLDING', *GREEN, s=8), 640, GROUND - 720, kb, kb, 3 * math.sin(t * 3), anchor='center')
         kc = popin(t, 12.66)
-        blit(cv, big('check', s=12), 900, GROUND - 560, kc, kc, anchor='center')
+        blit(cv, big('check', s=12), 850, GROUND - 560, kc, kc, anchor='center')
         gsparkles(cv, t, 780, GROUND - 400, 560, 400, n=12, seed=38)
     guy(cv, t, 230, 'smile', poses=[(11.72, 12.5, 'point'), (12.63, 13.6, 'thumb')])
 
 # 8. easy habit to forget -> finale
 def scene_end(cv, t):
-    rays(cv, t, 15.6, 540, 520, PALE_Y, hold=True, r=820)
-    ring(cv, t, 15.64, 540, 520, (60, 200, 90), life=0.45, r1=520)
+    rays(cv, t, 15.6, 540, 470, PALE_Y, hold=True, r=620)
+    ring(cv, t, 15.64, 540, 470, (60, 200, 90), life=0.45, r1=520)
     bx, by = 640, 700 + 8 * math.sin(t * 3)
     if t < 15.08:
         kb = popin(t, 13.5, 0.3)
@@ -437,8 +435,8 @@ def scene_end(cv, t):
         confetti(cv, t, 16.4, 560, 600, n=40, seed=9, spread=1.1)
         confetti(cv, t, 17.0, 400, 640, n=30, seed=12, spread=1.2)
         ks = slam(t, 15.62, 0.16, 1.5) * (1 + 0.04 * math.sin((t - 15.62) * 7))
-        blit(cv, big('badge', 'PULL IT ONCE', *GREEN, s=8), 540, 520, ks, ks, -6 + 3 * math.sin(t * 2.4), anchor='center')
-        sparkles(cv, t * 1.4, 560, 520, 760, 340, n=14, seed=48)
+        sparkles(cv, t * 1.4, 540, 470, 860, 420, n=14, seed=48)  # behind the badge so its text stays clean
+        blit(cv, big('badge', 'PULL IT ONCE', *GREEN, s=8), 540, 470, ks, ks, -6 + 3 * math.sin(t * 2.4), anchor='center')
         gsparkles(cv, t, 760, 900, 520, 500, n=8, seed=49)
 
 SCENES = [(0.0, scene_hook), (1.85, scene_drum), (2.78, scene_never), (4.12, scene_cable),
@@ -472,7 +470,7 @@ KICKS = [(0.8, 0.28, 520, 950), (0.9, 0.12, 660, 720), (1.51, 0.08, 600, 960), (
          (7.75, 0.1, 720, 800), (9.3, 0.04, 760, 1100), (10.2, 0.06, 760, 620), (10.48, 0.04, 760, 620),
          (10.93, 0.08, 760, 850), (11.72, 0.05, 780, 900), (12.63, 0.09, 780, 700), (14.38, 0.06, 820, 560),
          (15.08, 0.06, 690, 700), (15.6, 0.12, 560, 700)]
-BASE_Z, BASE_A = 1.18, (540, 1000)
+BASE_Z, BASE_A = 1.0, (540, 1000)  # wide shot: room to breathe, props clear of TikTok's right-hand buttons
 
 def camera(t, idx):
     s0 = SCENES[idx][0]
@@ -588,7 +586,7 @@ def title(cv, t):
     img = title_img()
     rot = 3 * math.sin(t * 4)
     img = img.resize((int(img.width * k), int(img.height * k)), Image.BILINEAR).rotate(rot, resample=Image.BICUBIC, expand=True)
-    cv.paste(img, (int(W / 2 - img.width / 2), int(330 - img.height / 2)), img)
+    cv.paste(img, (int(W / 2 - img.width / 2), int(380 - img.height / 2)), img)
 
 @lru_cache(None)
 def end_img():
@@ -628,7 +626,7 @@ AUTH_END = DUR + LEAD
 def progress(cv, t):
     p = clamp(t / DUR)
     d = ImageDraw.Draw(cv)
-    x0, x1, y = 110, W - 110, 64
+    x0, x1, y = 110, W - 110, 150  # below TikTok's top tabs
     d.rectangle((x0 - 6, y - 6, x1 + 6, y + 3 * S + 6), fill=NAVY)
     d.rectangle((x0, y, x1, y + 3 * S), fill=(236, 236, 242))
     xp = x0 + (x1 - x0) * p
