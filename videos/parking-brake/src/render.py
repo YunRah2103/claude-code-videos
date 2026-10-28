@@ -8,10 +8,11 @@ import pix, sfx
 
 W, H, FPS, S = 1080, 1920, 60, 9
 GROUND = 1180
-DUR = 17.2
+DUR = 16.8
 BG = (255, 255, 255)
 NAVY = (26, 26, 46)
-VO_OFF = 0.8  # voice starts after the hook's first beat
+VO_OFF = 0.8  # scenes/cues below are authored on a timeline where the voice starts at 0.8 s
+LEAD = VO_OFF  # output frame time t maps to authored time t + LEAD, so the voice plays from 0 s
 WORDS = [dict(w, s=round(w['s'] + VO_OFF, 2), e=round(w['e'] + VO_OFF, 2)) for w in json.load(open('words.json'))]
 
 # ------------------------------------------------------------------ easing
@@ -206,17 +207,25 @@ def icon_lever(cv, t, t0, cx, cy, deg):
 
 # 1. hook: he yanks a lever that won't budge
 def scene_hook(cv, t):
-    gx = 230 + (4 * math.sin(t * 38) if t > 0.15 else 0)
-    hx, hy = gx + 144, GROUND - 207
-    cx = hx + 32 * S - (54 - 44 * math.cos(math.radians(9))) * S
-    deg = 9 + (1.2 * math.sin(t * 55) if t > 0.15 else 0)
+    # opens mid-yank: lever rattles, one hard jerk on "brake", hand stays on the grip
+    gx = 230 + 5 * math.sin(t * 38)
+    cx = gx + 144 + 32 * S - (54 - 44 * math.cos(math.radians(9))) * S
+    jerk = 8 * math.sin(math.pi * prog(t, 1.51, 0.2)) if 1.51 <= t < 1.71 else 0
+    deg = 9 + 1.8 * math.sin(t * 55) + jerk
+    lift = -44 * S * (math.sin(math.radians(deg)) - math.sin(math.radians(9)))
     lever(cv, cx, deg)
-    sparkles(cv, t, cx + 120, GROUND - 260, 640, 460, n=10, seed=2)
-    if t < 0.9: sparkles(cv, t * 2, cx + 120, GROUND - 300, 700, 520, n=10, seed=21)
-    stamp_at(cv, t, 0.42, 'STUCK?', 660, GROUND - 450, -9, 12)
-    dust(cv, t, 0.44, cx + 160, GROUND - 180, n=12, seed=41)
-    expr = 'shock' if 0.42 <= t < 0.95 else 'smile'
-    guy(cv, t, gx, expr, bob=False, poses=[(-1, 2.5, 'catch')])
+    d = ImageDraw.Draw(cv)
+    if int(t * 20) % 2:
+        for i in range(3):  # strain marks around the grip
+            a = math.radians(-150 + i * 35)
+            x, y = gx + 144 + 120 * math.cos(a), GROUND - 207 + lift + 120 * math.sin(a)
+            d.rectangle((x - S, y - S, x + S, y + S), fill=(255, 210, 63), outline=NAVY, width=3)
+    sparkles(cv, t * 1.6, cx + 120, GROUND - 280, 700, 520, n=14, seed=2)
+    stamp_at(cv, t, 0.9, 'STUCK?', 660, GROUND - 450, -9, 12)
+    dust(cv, t, 0.92, cx + 160, GROUND - 180, n=14, seed=41)
+    dust(cv, t, 1.53, cx + 180, GROUND - 160, n=10, seed=40)
+    expr = 'shock' if t < 1.25 or 1.51 <= t < 1.75 else 'smile'
+    guy(cv, t, gx, expr, lift=lift, bob=False, poses=[(-1, 2.5, 'catch')])
 
 # 2. drum brake seizes
 DRUM_C = (720, GROUND - 300)
@@ -390,6 +399,7 @@ def scene_end(cv, t):
         confetti(cv, t, 15.6, 300, 700, n=50, seed=4)
         confetti(cv, t, 15.65, 800, 640, n=44, seed=8, spread=0.9)
         confetti(cv, t, 16.4, 560, 600, n=40, seed=9, spread=1.1)
+        confetti(cv, t, 17.0, 400, 640, n=30, seed=12, spread=1.2)
         ks = slam(t, 15.62, 0.16, 1.5) * (1 + 0.04 * math.sin((t - 15.62) * 7))
         blit(cv, big('badge', 'PULL IT ONCE', *GREEN, s=8), 540, 520, ks, ks, -6 + 3 * math.sin(t * 2.4), anchor='center')
         sparkles(cv, t * 1.4, 560, 520, 760, 340, n=14, seed=48)
@@ -418,10 +428,10 @@ def world(t):
     return draw_scene(idx, t), idx
 
 # ------------------------------------------------------------------ camera
-SHAKES = [(0.42, 0.3, 22), (2.01, 0.3, 24), (3.04, 0.2, 12), (7.75, 0.4, 30), (9.3, 0.15, 8), (15.6, 0.3, 16)]
-PUNCH = [(15.6, 17.2, 1.06, 540, 760)]
+SHAKES = [(0.8, 1.0, 7), (0.9, 0.3, 26), (1.51, 0.22, 16), (2.01, 0.3, 24), (3.04, 0.2, 12), (7.75, 0.4, 30), (9.3, 0.15, 8), (15.6, 0.3, 16)]
+PUNCH = [(15.6, 17.6, 1.06, 540, 760)]
 # instant zoom kicks that ease back: (time, amount, anchor x, anchor y)
-KICKS = [(0.0, 0.22, 600, 900), (0.42, 0.09, 650, 700), (2.01, 0.12, 720, 820), (3.04, 0.07, 700, 900),
+KICKS = [(0.8, 0.28, 520, 950), (0.9, 0.12, 660, 720), (1.51, 0.08, 600, 960), (2.01, 0.12, 720, 820), (3.04, 0.07, 700, 900),
          (3.45, 0.05, 640, 950), (4.27, 0.08, 620, 600), (5.73, 0.07, 800, 930), (6.86, 0.04, 720, 900),
          (7.75, 0.1, 720, 800), (9.3, 0.04, 760, 1100), (10.2, 0.06, 760, 620), (10.48, 0.04, 760, 620),
          (10.93, 0.08, 760, 850), (11.72, 0.05, 780, 900), (12.63, 0.09, 780, 700), (14.38, 0.06, 820, 560),
@@ -486,7 +496,7 @@ def make_chunks():
     out = []
     for ci, c in enumerate(chunks):
         st = WORDS[c[0]]['s'] - 0.04
-        nxt = WORDS[chunks[ci + 1][0]]['s'] - 0.04 if ci + 1 < len(chunks) else DUR
+        nxt = WORDS[chunks[ci + 1][0]]['s'] - 0.04 if ci + 1 < len(chunks) else DUR + LEAD
         en = min(nxt, WORDS[c[-1]]['e'] + 0.45)
         out.append((st, en, c))
     return out
@@ -537,7 +547,7 @@ def title_img():
 
 def title(cv, t):
     if t >= 2.0: return
-    k = ob(prog(t, -0.2, 0.3)) * (1 - ic(prog(t, 1.7, 0.28)))
+    k = ob(prog(t, LEAD - 0.12, 0.22)) * (1 - ic(prog(t, 1.7, 0.28)))
     if k <= 0.02: return
     img = title_img()
     rot = 3 * math.sin(t * 4)
@@ -575,7 +585,7 @@ def captions(cv, t):
 
 # ------------------------------------------------------------------ frame + audio
 def frame(n):
-    t = n / FPS
+    t = n / FPS + LEAD
     cv, idx = world(t)
     cv = apply_cam(cv, *camera(t, idx))
     title(cv, t)
@@ -584,7 +594,8 @@ def frame(n):
 
 SCENE_WHOOSH = [1.73, 2.66, 4.0, 6.5, 8.6, 11.36, 13.3]
 CUES = [
-    (0.0, 'whoosh', 0.8), (0.05, 'pop', 0.7), (0.12, 'creak', 0.6), (0.2, 'sparkle', 0.8), (0.42, 'stamp', 1.0), (0.44, 'thump', 0.6),
+    (0.8, 'whoosh', 0.9), (0.8, 'creak', 0.7), (0.84, 'sparkle', 0.8), (0.9, 'stamp', 1.0), (0.92, 'thump', 0.7),
+    (1.51, 'thump', 0.8), (1.52, 'creak', 0.6),
     (1.88, 'pop', 0.7), (2.01, 'stamp', 1.0), (2.15, 'pop', 0.5),
     (2.8, 'pop', 0.7), (3.04, 'thump', 0.8), (3.42, 'poof', 0.8),
     (4.15, 'pop', 0.6), (4.27, 'pop', 0.8), (5.73, 'pop', 0.7),
@@ -602,9 +613,8 @@ def build_audio(vo_path, out_wav):
                          capture_output=True, check=True).stdout
     vo = np.frombuffer(raw, np.float32).astype(np.float64)
     n = int(sfx.SR * DUR)
-    o = int(sfx.SR * VO_OFF)
-    mix = np.zeros(n); m = min(n - o, len(vo)); mix[o:o + m] = vo[:m]
-    fx = sfx.render(CUES, DUR)
+    mix = np.zeros(n); m = min(n, len(vo)); mix[:m] = vo[:m]
+    fx = sfx.render([(c - LEAD, nm, v) for c, nm, v in CUES if c >= LEAD], DUR)
     fx *= 0.32 * np.max(np.abs(vo)) / max(1e-9, np.max(np.abs(fx)))
     mix += fx
     mix /= max(1.0, np.max(np.abs(mix)) / 0.97)
