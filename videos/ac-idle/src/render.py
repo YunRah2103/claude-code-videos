@@ -1,18 +1,21 @@
-"""Renders the 'Car stuff, explained' TikTok on why the engine revs up when the air con turns on, synced to the voiceover."""
+"""Renders the garage-set 'Car stuff, explained' TikTok on why the engine revs up when the air con turns on, synced to the voiceover."""
 import json, math, os, sys, subprocess
 from functools import lru_cache
 from multiprocessing import Pool
 import numpy as np
 from PIL import Image, ImageChops, ImageDraw, ImageFont
 import pix, sfx
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', 'shared'))
+from backdrops.garage import Garage
 
 W, H, FPS, S = 1080, 1920, 60, 9
 GROUND = 1180
 DUR = 17.1
-BG = (255, 255, 255)
+BG = (14, 15, 18)  # only seen past the garage edges during camera shake
 NAVY = (26, 26, 46)
 VO_OFF = 0.0  # the voice starts on frame 0 so the hook lands immediately
 LEAD = VO_OFF
+GAR = Garage(W, H, GROUND, S)
 WORDS = [dict(w, s=round(w['s'] + VO_OFF, 2), e=round(w['e'] + VO_OFF, 2)) for w in json.load(open('words.json'))]
 # ------------------------------------------------------------------ easing
 def clamp(x, a=0.0, b=1.0): return max(a, min(b, x))
@@ -51,8 +54,8 @@ def shadow(cv, cx, w, k=1.0):
     d = ImageDraw.Draw(cv)
     w = w * k
     if w <= 2 * S: return  # prop still popping in
-    d.rectangle((cx - w / 2 + S, GROUND - S, cx + w / 2 - S, GROUND + S), fill=(236, 236, 242))
-    d.rectangle((cx - w / 2, GROUND - S // 2, cx + w / 2, GROUND + S // 2), fill=(236, 236, 242))
+    d.rectangle((cx - w / 2 + S, GROUND - S, cx + w / 2 - S, GROUND + S), fill=(0, 0, 0, 120))
+    d.rectangle((cx - w / 2, GROUND - S // 2, cx + w / 2, GROUND + S // 2), fill=(0, 0, 0, 120))
 
 def block(cv, x0, y0, x1, y1, fill, shade, hi):
     if y1 - y0 < 2 * S: return
@@ -209,7 +212,7 @@ def jelly(t, t0):
     dt = t - t0
     return math.exp(-dt * 9) * math.sin(dt * 32) if dt > 0 else 0.0
 
-PALE_Y, PALE_R, PALE_G = (255, 248, 220), (255, 237, 237), (231, 250, 235)
+PALE_Y, PALE_R, PALE_G = (255, 214, 90, 50), (255, 96, 96, 38), (110, 230, 140, 38)
 
 def stamp_at(cv, t, t0, text, x, y, rot=-10, s=12, col='#e0303a'):
     # red stamp with white fill so it reads over props; lands with a jelly wobble and shockwave
@@ -228,7 +231,8 @@ IDLE = 205                 # needle angle at normal idle (225 = zero)
 def panel_img():
     img = Image.new('RGBA', (450, 626), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
     d.rounded_rectangle((0, 0, 449, 625), 44, fill=NAVY)
-    d.rounded_rectangle((9, 9, 440, 616), 36, fill=(58, 59, 68))
+    d.rounded_rectangle((9, 9, 440, 616), 36, fill=(132, 138, 150))
+    d.rounded_rectangle((15, 15, 434, 610), 32, fill=(64, 66, 76))
     d.rectangle((54, 20, 396, 28), fill=(93, 99, 110))
     for i in range(4):
         y = 470 + i * 30
@@ -337,7 +341,7 @@ def scene_hook(cv, t):
     flakes(cv, t, 0.62, DX, DY + 200, seed=61)
     if t >= 0.57:
         kc = popin(t, 0.57, 0.22) * (1 - ic(prog(t, 1.6, 0.2)))
-        blit(cv, big('label', 'CLICK!', '#e0303a', s=8), DX - 160, DY + 90, kc, kc, -10 + 3 * math.sin(t * 6), anchor='center')
+        blit(cv, big('label', 'CLICK!', '#ffffff', s=8), DX - 160, DY + 90, kc, kc, -10 + 3 * math.sin(t * 6), anchor='center')
     sparkles(cv, t * 1.5, DX, DY - 87, 560, 480, n=12, seed=2)
     rev_marks(cv, t, 1.88, DX, DY - 87)
     vroom(cv, t, 1.9, DX - 30, DY - 330)
@@ -529,7 +533,7 @@ SCENES = [(0.0, scene_hook), (2.62, scene_ok), (4.72, scene_comp), (6.38, scene_
 TR_PRE, TR_LEN = 0.1, 0.26
 
 def draw_scene(i, t):
-    cv = Image.new('RGB', (W, H), BG)
+    cv = Image.new('RGBA', (W, H), (0, 0, 0, 0))
     SCENES[i][1](cv, t)
     return cv
 
@@ -539,7 +543,7 @@ def speed_lines(cv, e, seed):
     r = rng_for(100 + seed); d = ImageDraw.Draw(cv)
     for i in range(16):
         y = snap(r.uniform(260, 1700)); L = r.uniform(220, 640) * k; x = r.uniform(-200, W)
-        d.rectangle((x, y, x + L, y + S * (1 + i % 2)), fill=(205, 210, 222))
+        d.rectangle((x, y, x + L, y + S * (1 + i % 2)), fill=(150, 156, 170))
 
 def world(t):
     idx = max(i for i, (s, _) in enumerate(SCENES) if t >= s - TR_PRE)
@@ -548,12 +552,20 @@ def world(t):
         e = io(prog(t, b - TR_PRE, TR_LEN))
         dirn = 1 if idx % 2 else -1
         a, n = draw_scene(idx - 1, t), draw_scene(idx, t)
-        cv = Image.new('RGB', (W, H), BG)
-        cv.paste(a, (int(-dirn * W * e), 0))
-        cv.paste(n, (int(dirn * W * (1 - e)), 0))
+        cv = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+        cv.paste(a, (int(-dirn * W * e), 0), a)
+        cv.paste(n, (int(dirn * W * (1 - e)), 0), n)
         speed_lines(cv, e, idx)
         return cv, idx
     return draw_scene(idx, t), idx
+
+def compose(fg, t):
+    # garage + glossy floor reflection + rim-lit foreground
+    img = GAR.frame(t)
+    GAR.reflect(img, fg)
+    fg = GAR.rim(fg)
+    img.paste(fg, (0, 0), fg)
+    return img
 
 # ------------------------------------------------------------------ camera
 SHAKES = [(-0.02, 0.25, 12), (1.88, 0.4, 26), (3.81, 0.3, 22), (5.65, 0.35, 18), (9.0, 0.3, 16), (11.3, 0.2, 10),
@@ -751,13 +763,14 @@ def frame(n):
         tt = t - AUTH_END + LEAD
         e = io(prog(t, AUTH_END - LOOP, LOOP))
         last = len(SCENES) - 1
-        a = apply_cam(draw_scene(last, t), *camera(t, last)); captions(a, t)
-        b = apply_cam(draw_scene(0, tt), *camera(tt, 0)); title(b, tt); captions(b, tt)
+        a = apply_cam(compose(draw_scene(last, t), t), *camera(t, last)); GAR.vignette(a); captions(a, t)
+        b = apply_cam(compose(draw_scene(0, tt), tt), *camera(tt, 0)); GAR.vignette(b); title(b, tt); captions(b, tt)
         cv = Image.new('RGB', (W, H), BG)
         cv.paste(a, (int(-W * e), 0)); cv.paste(b, (int(W * (1 - e)), 0))
     else:
-        cv, idx = world(t)
-        cv = apply_cam(cv, *camera(t, idx))
+        fg, idx = world(t)
+        cv = apply_cam(compose(fg, t), *camera(t, idx))
+        GAR.vignette(cv)
         title(cv, t)
         captions(cv, t)
     progress(cv, n / FPS)
