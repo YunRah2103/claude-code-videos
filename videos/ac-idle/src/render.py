@@ -1,312 +1,72 @@
-"""Renders the garage-set 'Car stuff, explained' TikTok on why the engine revs up when the air con turns on, synced to the voiceover."""
+"""Renders 'Car stuff, explained': why the engine revs up when the A/C turns on. V2: directed as a miniature film.
+
+Shots (all timed to the aligned voiceover and the unchanged sound cues):
+  1 dash1   0.00  dashboard close-up: he flies in, presses A/C, the rev needle jumps, he recoils toward camera
+  2 garage  2.45  whip-pan follow; he lands on the car roof, calms the worry, stomps the NOT BROKEN stamp, opens the bonnet
+  3 engine  4.60  iris into the bay: animated cutaway, he orbits the compressor, clutch engages, load, he braces the crank
+  4 idle    6.26  he flies into the lens; rev counter close-up: he lifts the needle, IDLE UP
+  5 split   7.96  dive down into a split-screen comparison: no idle boost stalls, idle boost runs (presenter off-stage)
+  6 street  10.26 he pushes the split aside; side-scrolling convoy, the ECU signals every car
+  7 dash2   12.40 zoom through a windscreen; he sits on the cluster, the needle jumps, NORMAL
+  8 teaser  15.38 whip to the garage: confetti, he lifts the sheet on the next episode; loops back to shot 1
+"""
 import json, math, os, sys, subprocess
 from functools import lru_cache
 from multiprocessing import Pool
 import numpy as np
-from PIL import Image, ImageChops, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont
 import pix, sfx
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', 'shared'))
 from backdrops.garage import Garage
+from pixanim.motion import Track, Orbit, Seq, clamp, prog, lerp, ob, oc, ic, io, springs, wob
+from pixanim.camera import Camera
+from pixanim.presenter import Presenter, Fn, reach
+from pixanim import fx, transitions as T, diagram as dg
+from pixanim.fx import blit, popin, popout
+from pixanim.car import car, wheel_deg, ROOF as CAR_ROOF, BAY as CAR_BAY, EXHAUST as CAR_EXH, HEADLIGHT as CAR_HL
+from pixanim.dash import Dashboard, _gauge_face
+from pixanim.engine import Engine, crank_angle
+from pixanim.street import Street
+from pixanim.props import robot, sheet
+from pixanim.grid import up
 
 W, H, FPS, S = 1080, 1920, 60, 9
 GROUND = 1180
 DUR = 17.1
-BG = (14, 15, 18)  # only seen past the garage edges during camera shake
+BG = (14, 15, 18)
 NAVY = (26, 26, 46)
 VO_OFF = 0.0  # the voice starts on frame 0 so the hook lands immediately
 LEAD = VO_OFF
 GAR = Garage(W, H, GROUND, S)
 WORDS = [dict(w, s=round(w['s'] + VO_OFF, 2), e=round(w['e'] + VO_OFF, 2)) for w in json.load(open('words.json'))]
-# ------------------------------------------------------------------ easing
-def clamp(x, a=0.0, b=1.0): return max(a, min(b, x))
-def prog(t, a, d): return clamp((t - a) / d)
-def ob(x):
-    c1 = 1.70158; c3 = c1 + 1
-    return 1 + c3 * (x - 1) ** 3 + c1 * (x - 1) ** 2
-def oc(x): return 1 - (1 - x) ** 3
-def ic(x): return x ** 3
-def io(x): return 4 * x ** 3 if x < .5 else 1 - (-2 * x + 2) ** 3 / 2
-def popin(t, t0, d=0.28): return 0.0 if t < t0 else ob(prog(t, t0, d))
-def slam(t, t0, d=0.14, k=1.6): return 1 + k * (1 - oc(prog(t, t0, d)))
 
-# ------------------------------------------------------------------ drawing
+
 @lru_cache(None)
-def big(name, *args, s=S):
+def big(name, *args, s=S):          # episode sprites (progress-bar car)
     return pix.up(getattr(pix, name)(*args), s)
 
-@lru_cache(None)
-def big_guy(expr, npc, pose):
-    return pix.up(pix.guy(expr, npc, pose), S)
-
-def blit(cv, img, cx, y, sx=1.0, sy=1.0, rot=0.0, anchor='bottom'):
-    if sx <= 0.01 or sy <= 0.01:
-        return
-    if sx != 1 or sy != 1:
-        img = img.resize((max(1, int(img.width * sx)), max(1, int(img.height * sy))), Image.NEAREST)
-    if rot:
-        img = img.rotate(rot, resample=Image.NEAREST, expand=True)
-    x = cx - img.width / 2
-    y = y - img.height if anchor == 'bottom' else y - img.height / 2
-    cv.paste(img, (int(round(x)), int(round(y))), img)
-
-def shadow(cv, cx, w, k=1.0):
-    if k <= 0: return
-    d = ImageDraw.Draw(cv)
-    w = w * k
-    if w <= 2 * S: return  # prop still popping in
-    d.rectangle((cx - w / 2 + S, GROUND - S, cx + w / 2 - S, GROUND + S), fill=(0, 0, 0, 120))
-    d.rectangle((cx - w / 2, GROUND - S // 2, cx + w / 2, GROUND + S // 2), fill=(0, 0, 0, 120))
-
-def block(cv, x0, y0, x1, y1, fill, shade, hi):
-    if y1 - y0 < 2 * S: return
-    d = ImageDraw.Draw(cv)
-    d.rectangle((x0, y0, x1, y1), fill=NAVY)
-    d.rectangle((x0 + S, y0 + S, x1 - S, y1 - S), fill=fill)
-    d.rectangle((x1 - 4 * S, y0 + S, x1 - S, y1 - S), fill=shade)
-    if y1 - y0 > 5 * S:
-        d.rectangle((x0 + 2 * S, y0 + 2 * S, x0 + 3 * S, min(y1 - 2 * S, y0 + 9 * S)), fill=hi)
-
-def rng_for(seed): return np.random.default_rng(seed)
-
-def sparkles(cv, t, cx, cy, w, h, n=6, seed=1):
-    r = rng_for(seed)
-    for i in range(n):
-        x = cx + r.uniform(-w / 2, w / 2); y = cy + r.uniform(-h / 2, h / 2)
-        ph = r.uniform(0, 1); sp = r.uniform(1.2, 2.0)
-        v = math.sin(2 * math.pi * (t * sp + ph))
-        if v > 0.3:
-            blit(cv, big('sparkle', 1 if v > 0.75 else 0, s=7), x, y, anchor='center')
-
-def confetti(cv, t, t0, x, y, n=40, seed=3, spread=1.0):
-    dt = t - t0
-    if dt < 0 or dt > 2.2: return
-    r = rng_for(seed)
-    cols = [(255, 77, 109), (255, 210, 63), (61, 127, 214), (60, 200, 90), (255, 138, 61), (160, 100, 255)]
-    d = ImageDraw.Draw(cv)
-    for i in range(n):
-        vx = r.uniform(-650, 650) * spread; vy = r.uniform(-1700, -900)
-        px = x + vx * dt; py = y + vy * dt + 0.5 * 2600 * dt * dt
-        c = cols[i % len(cols)]
-        sz = S if (int((dt * 8 + i)) % 2) else S * 2
-        d.rectangle((px, py, px + sz, py + S), fill=c)
-
-def dust(cv, t, t0, x, y, n=10, seed=5, life=0.6, dirx=0):
-    dt = t - t0
-    if dt < 0 or dt > life: return
-    r = rng_for(seed); d = ImageDraw.Draw(cv)
-    k = 1 - dt / life
-    for i in range(n):
-        vx = r.uniform(-500, 500) + dirx; vy = r.uniform(-260, -40)
-        px = x + vx * dt; py = y + vy * dt
-        s = S * (1 + int(2 * k * r.uniform(0.5, 1.5)))
-        d.rectangle((px - s, py - s, px + s, py + s), fill=(205, 205, 214), outline=NAVY, width=3)
-
-def poof(cv, t, t0, x, y, seed=9):
-    dt = t - t0
-    if dt < 0 or dt > 0.55: return
-    r = rng_for(seed); d = ImageDraw.Draw(cv)
-    k = dt / 0.55
-    for i in range(7):
-        a = i / 7 * 2 * math.pi + r.uniform(0, 0.5)
-        dist = 40 + 200 * oc(k)
-        rad = (70 + r.uniform(0, 40)) * (1 - k) ** 0.7 * (0.6 + 0.6 * oc(min(1, k * 4)))
-        cx, cy = x + math.cos(a) * dist, y + math.sin(a) * dist * 0.7
-        d.ellipse((cx - rad, cy - rad, cx + rad, cy + rad), fill=(245, 245, 248), outline=NAVY, width=7)
-
-# ------------------------------------------------------------------ character face / talking
-WSTART = np.array([w['s'] for w in WORDS]); WEND = np.array([w['e'] for w in WORDS])
-def speaking(t):
-    i = np.searchsorted(WSTART, t, side='right') - 1
-    return i >= 0 and t < WEND[i] - 0.03
-
-def face(t, base):
-    if base in ('smile', 'sad') and speaking(t) and int(t * 11) % 2 == 0:
-        return 'talk' if base == 'smile' else 'sadtalk'
-    if base == 'smile' and (t % 3.3) < 0.11:
-        return 'blink'
-    return base
-
-TALK_CYCLE = ['talkR', 'down', 'talkL', 'talkB', 'down2', 'talkR', 'shrug', 'talkL']
-
-def auto_pose(t, expr):
-    if expr == 'shock': return 'shock'
-    if expr == 'sad': return 'sad'
-    if speaking(t):
-        i = np.searchsorted(WSTART, t, side='right') - 1
-        return TALK_CYCLE[(i // 2) % len(TALK_CYCLE)]
-    return 'down' if (t * 0.8) % 1 < 0.5 else 'down2'
-
-def anim_pose(p, t):
-    if p == 'wave': return 'wave1' if int(t * 6) % 2 else 'wave2'
-    if p == 'up': return 'up1' if int(t * 7) % 2 else 'up2'
-    if p == 'flail': return 'flail1' if int(t * 10) % 2 else 'flail2'
-    return p
-
-def pick_pose(t, expr, sched):
-    for a, b, p in sched or ():
-        if a <= t < b: return anim_pose(p, t)
-    return auto_pose(t, expr)
-
-def idle_bob(t): return -S if (t * 1.1) % 1 < 0.5 else 0
-
-HOPS = [1.88, 4.25, 9.4, 11.3]
-
-def hop(t):
-    # (lift, sx, sy): crouch, jump, squash on landing
-    for t0 in HOPS:
-        dt = t - t0
-        if 0 <= dt < 0.08:
-            k = 0.07 * dt / 0.08; return 0.0, 1 + k, 1 - k
-        if 0.08 <= dt < 0.4:
-            u = (dt - 0.08) / 0.32; return -120 * math.sin(math.pi * u), 0.95, 1.06
-        if 0.4 <= dt < 0.54:
-            k = 0.08 * math.sin(math.pi * (dt - 0.4) / 0.14); return 0.0, 1 + k, 1 - k
-    return 0.0, 1.0, 1.0
-
-def guy(cv, t, cx, expr='smile', sx=1.0, sy=1.0, lift=0.0, npc=False, scale=1.0, bob=True, poses=None):
-    hl, hx, hy = hop(t)
-    squash = (hx, hy) != (1.0, 1.0)
-    lift += hl; sx *= hx; sy *= hy
-    shadow(cv, cx, 260 * sx * scale, 1 - min(1, abs(lift) / 400))
-    b = idle_bob(t) if bob and sy == 1 else 0
-    pose = pick_pose(t, expr, poses) if sy > 0.9 or squash else 'down'
-    blit(cv, big_guy(face(t, expr), npc, pose), cx, GROUND + lift + b, sx * scale, sy * scale)
-
-# ------------------------------------------------------------------ scenes
-GOLD = ('#ffd23f', '#1a1a2e', '#e8b923')
-GREEN = ('#3cc85a', '#ffffff', '#2a9a45')
-RUSTB = ('#b5562a', '#ffffff', '#8a3f1e')
-RUST = [(181, 86, 42), (138, 63, 30), (217, 120, 58)]
-
-def swing(t, t0, amp=12, f=1.2, damp=0.9):
-    dt = max(0.0, t - t0)
-    return amp * math.sin(2 * math.pi * f * dt) * math.exp(-damp * dt) + 2 * math.sin(t * 2.3)
-
-def gsparkles(cv, t, cx, cy, w, h, n=8, seed=31):
-    r = rng_for(seed)
-    for i in range(n):
-        x = cx + r.uniform(-w / 2, w / 2); y = cy + r.uniform(-h / 2, h / 2)
-        v = math.sin(2 * math.pi * (t * r.uniform(1.4, 2.2) + r.uniform(0, 1)))
-        if v > 0.2:
-            k = 0.6 + 0.6 * v
-            blit(cv, big('star', '#7fe3a0', s=8), x, y, k, k, anchor='center')
-
-def rays(cv, t, t0, x, y, col, life=0.8, hold=False, r=560):
-    # rotating sunburst drawn behind props on key beats
-    dt = t - t0
-    if dt < 0 or (not hold and dt > life): return
-    k = oc(min(1.0, dt / 0.25)) * (1 if hold else 1 - ic(prog(t, t0 + life - 0.25, 0.25)))
-    if k <= 0.02: return
-    d = ImageDraw.Draw(cv); R = r * k; rot = dt * 22
-    for i in range(10):
-        a0 = rot + i * 36
-        d.pieslice((x - R, y - R, x + R, y + R), a0, a0 + 14, fill=col)
-
-def ring(cv, t, t0, x, y, col, life=0.35, r1=330):
-    dt = t - t0
-    if dt < 0 or dt > life: return
-    p = oc(dt / life); R = 40 + r1 * p
-    ImageDraw.Draw(cv).ellipse((x - R, y - R, x + R, y + R), outline=col, width=max(3, int(3 * S * (1 - p))))
-
-def jelly(t, t0):
-    dt = t - t0
-    return math.exp(-dt * 9) * math.sin(dt * 32) if dt > 0 else 0.0
-
-PALE_Y, PALE_R, PALE_G = (255, 214, 90, 50), (255, 96, 96, 38), (110, 230, 140, 38)
-
-def stamp_at(cv, t, t0, text, x, y, rot=-10, s=12, col='#e0303a'):
-    # red stamp with white fill so it reads over props; lands with a jelly wobble and shockwave
-    if t < t0: return
-    ks = slam(t, t0, 0.14, 1.8); j = 0.09 * jelly(t, t0 + 0.14)
-    ring(cv, t, t0 + 0.12, x, y, (255, 210, 63))
-    blit(cv, big('stamp', text, col, '#ffffff', s=s), x, y, ks * (1 + j), ks * (1 - j), rot, anchor='center')
-
-def snap(v): return round(v / S) * S
-
-# ------------------------------------------------------------------ dashboard
-DX, DY = 690, 858          # dash panel centre; rev counter sits 87 px above it, A/C button 213 px below
-IDLE = 205                 # needle angle at normal idle (225 = zero)
 
 @lru_cache(None)
-def panel_img():
-    img = Image.new('RGBA', (450, 626), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
-    d.rounded_rectangle((0, 0, 449, 625), 44, fill=NAVY)
-    d.rounded_rectangle((9, 9, 440, 616), 36, fill=(132, 138, 150))
-    d.rounded_rectangle((15, 15, 434, 610), 32, fill=(64, 66, 76))
-    d.rectangle((54, 20, 396, 28), fill=(93, 99, 110))
-    for i in range(4):
-        y = 470 + i * 30
-        d.rectangle((30, y, 100, y + 12), fill=(30, 31, 38)); d.rectangle((350, y, 420, y + 12), fill=(30, 31, 38))
-    return img
+def world(name):
+    if name == 'dash': return Dashboard(outside=GAR.base())
+    if name == 'engine': return Engine()
+    if name == 'street': return Street()
+    if name == 'road_refl': return Garage(W, H, Street.ROAD_Y, S)
+    raise KeyError(name)
 
-def wob(t, t0s, amt=0.1):
-    # squash/stretch pair from a jelly wobble started at each time in t0s
-    j = amt * sum(jelly(t, a) for a in t0s)
-    return 1 + j, 1 - j
 
-def dash(cv, t, deg, k=1.0, ac=True, jel=()):
-    if k <= 0.02: return
-    jx, jy = wob(t, jel, 0.06)
-    shadow(cv, DX, 470 * k * jx)
-    blit(cv, panel_img(), DX, GROUND - 12, k * jx, k * jy)
-    ty = GROUND - 12 - (GROUND - 12 - (DY - 87)) * k * jy
-    blit(cv, big('tacho', int(round(deg)), s=8), DX, ty, k * jx, k * jy, anchor='center')
-    by = GROUND - 12 - (GROUND - 12 - (DY + 213)) * k * jy
-    blit(cv, big('acbtn', ac, s=7), DX, by, k * jx, k * jy, anchor='center')
+def layer(): return Image.new('RGBA', (W, H), (0, 0, 0, 0))
 
-@lru_cache(None)
-def disc_mask(r):
-    m = Image.new('L', (2 * r, 2 * r), 0)
-    ImageDraw.Draw(m).ellipse((0, 0, 2 * r - 1, 2 * r - 1), fill=255)
-    return m
 
-def glint(cv, t, t0, cx=DX, cy=DY - 87, r=172, life=0.45):
-    # diagonal shine sweeping across the dial glass
-    if not (t0 <= t < t0 + life): return
-    u = io((t - t0) / life)
-    band = Image.new('L', (2 * r, 2 * r), 0); d = ImageDraw.Draw(band)
-    x = -1.4 * r + 4 * r * u
-    for off, w, a in ((0, 46, 120), (70, 18, 90)):
-        d.polygon([(x + off, 0), (x + off + w, 0), (x + off + w - 1.2 * r, 2 * r), (x + off - 1.2 * r, 2 * r)], fill=a)
-    band = ImageChops.multiply(band, disc_mask(r))
-    cv.paste(Image.new('RGB', (2 * r, 2 * r), (255, 255, 255)), (int(cx - r), int(cy - r)), band)
+GLOW_Y, GLOW_G, GLOW_R = (255, 214, 90, 50), (110, 230, 140, 40), (255, 96, 96, 38)
+IDLE = 205
+TACH, BTN = Dashboard.TACHO, Dashboard.AC_BTN
 
-def burst(cv, t, t0, x, y, col=(255, 210, 63), n=12, life=0.42, r0=150, r1=430, seed=71):
-    # impact lines flying outward on a key hit
-    dt = t - t0
-    if dt < 0 or dt > life: return
-    p = oc(dt / life); d = ImageDraw.Draw(cv); r = rng_for(seed)
-    for i in range(n):
-        a = i / n * 2 * math.pi + r.uniform(-0.15, 0.15)
-        R = r0 + (r1 - r0) * p * r.uniform(0.8, 1.15); L = 70 * (1 - p) + 12
-        x0, y0 = x + R * math.cos(a), y + R * math.sin(a)
-        x1, y1 = x + (R + L) * math.cos(a), y + (R + L) * math.sin(a)
-        wd = int(2 * S * (1 - p)) + 4
-        d.line((x0, y0, x1, y1), fill=NAVY, width=wd + 6)
-        d.line((x0, y0, x1, y1), fill=col, width=wd)
-
-def spring(t, t0, frm, to, w=17, damp=5):
-    # needle snaps to a new angle with a springy overshoot
-    if t < t0: return frm
-    dt = t - t0
-    return to + (frm - to) * math.exp(-dt * damp) * math.cos(dt * w)
 
 def shiver(t): return 1.3 * math.sin(t * 31) + 0.6 * math.sin(t * 53)
 
-def flakes(cv, t, t0, x, y, n=9, seed=61, spread=300, life=1.5, rise=420):
-    if t < t0: return
-    r = rng_for(seed)
-    for i in range(n):
-        ph = r.uniform(0, 1); vx = r.uniform(-1, 1) * spread
-        dt = t - t0 - ph * 0.5
-        if dt < 0: continue
-        u = (dt % life) / life
-        px = x + vx * u + 22 * math.sin(dt * 5 + i); py = y - rise * u
-        k = math.sin(math.pi * u) * (0.8 + 0.4 * (i % 2))
-        blit(cv, big('snowflake', s=5), px, py, k, k, anchor='center')
 
 def rev_marks(cv, t, t0, x, y, r=250, life=0.7):
-    # yellow motion squares flicking off the dial when it revs
     if not (t0 <= t < t0 + life) or int(t * 20) % 2 == 0: return
     d = ImageDraw.Draw(cv)
     for a in (-160, -125, -90, -55, -20):
@@ -314,298 +74,508 @@ def rev_marks(cv, t, t0, x, y, r=250, life=0.7):
         x0, y0 = x + rr * math.cos(math.radians(a)), y + rr * math.sin(math.radians(a))
         d.rectangle((x0 - S, y0 - S, x0 + S, y0 + S), fill=(255, 210, 63), outline=NAVY, width=3)
 
-def glow_arc(cv, t, t0, a0, a1, k=1.0):
-    # green band on the bezel showing how far the idle rose
-    if t < t0: return
-    p = oc(prog(t, t0, 0.35)) * k
-    d = ImageDraw.Draw(cv); R = 212; cx, cy = DX, DY - 87
-    d.arc((cx - R, cy - R, cx + R, cy + R), 360 - a0, 360 - a0 + (a0 - a1) * p, fill=NAVY, width=30)
-    d.arc((cx - R + 6, cy - R + 6, cx + R - 6, cy + R - 6), 360 - a0, 360 - a0 + (a0 - a1) * p, fill=(60, 200, 90), width=18)
 
 def vroom(cv, t, t0, x, y):
     if t < t0 or t > t0 + 1.0: return
     k = popin(t, t0, 0.2) * (1 - ic(prog(t, t0 + 0.8, 0.2)))
-    blit(cv, big('label', 'VROOM', '#ffd23f', s=9), x, y, k, k, swing(t, t0, 10, 2.0), anchor='center')
+    sw = 10 * math.sin(2 * math.pi * 2.0 * (t - t0)) * math.exp(-0.9 * (t - t0))
+    blit(cv, fx.big('label', 'VROOM', '#ffd23f', s=9), x, y, k, k, sw, anchor='center')
 
-# 1. hook: AC clicks on, the needle jumps
-def scene_hook(cv, t):
-    rays(cv, t, 1.88, DX, DY - 87, PALE_Y, life=1.0, r=600)
-    deg = IDLE + shiver(t)
-    if t >= 1.05: deg = spring(t, 1.05, IDLE, IDLE + 8, 14, 8) + shiver(t)  # load bogs it a touch...
-    if t >= 1.88: deg = spring(t, 1.88, IDLE + 8, 176) + shiver(t)          # ...then idle kicks up
-    ring(cv, t, 1.9, DX, DY - 87, (255, 210, 63), life=0.4, r1=300)
-    dash(cv, t, deg, 1.0, t >= 0.57, (1.88, 0.57))
-    glint(cv, t, 0.15); glint(cv, t, 2.05)
-    burst(cv, t, 1.88, DX, DY - 87)
-    ring(cv, t, 0.57, DX, DY + 213, (127, 212, 255), life=0.35, r1=200)
-    flakes(cv, t, 0.62, DX, DY + 200, seed=61)
-    if t >= 0.57:
-        kc = popin(t, 0.57, 0.22) * (1 - ic(prog(t, 1.6, 0.2)))
-        blit(cv, big('label', 'CLICK!', '#ffffff', s=8), DX - 160, DY + 90, kc, kc, -10 + 3 * math.sin(t * 6), anchor='center')
-    sparkles(cv, t * 1.5, DX, DY - 87, 560, 480, n=12, seed=2)
-    rev_marks(cv, t, 1.88, DX, DY - 87)
-    vroom(cv, t, 1.9, DX - 30, DY - 330)
-    if t >= 1.88:
+
+def finish(img, fg, cam, t, rim=True):
+    """Composite a foreground layer (rim-lit) over a world image, then frame it with the shot camera."""
+    if rim: fg = GAR.rim(fg)
+    img = img.copy(); img.alpha_composite(fg)
+    return cam.apply(img.convert('RGB'), t, BG)
+
+
+# ================================================================== shot 1: dashboard hook
+def rpm1(t): return springs(t, IDLE, [(1.05, IDLE + 8, 14, 8), (1.88, 176, 17, 5)]) + shiver(t)
+def tip1(t): return world('dash').needle_tip(rpm1(t))
+
+PRESS = reach((548, 1236), 50, 5, -1).at(0)
+P1 = Presenter([
+    (-1.0, dict(path=Track([(-1.0, (1500, 860)), (0.0, (900, 960)), (0.42, (PRESS[0] + 14, PRESS[1] - 36), 'oc'),
+                            (0.55, (PRESS[0] + 4, PRESS[1] - 14), 'io'), (0.6, PRESS, 'ic'), (0.8, (PRESS[0] + 8, PRESS[1] - 20), 'oc'),
+                            (1.3, (720, 1010), 'io'), (1.86, (700, 998), 'sine'), (2.06, (640, 1160), 'oc'),
+                            (2.3, (620, 1130), 'sine'), (2.62, (-260, 820), 'back')], smooth=True),
+                size=Track([(1.86, 5), (2.06, 7, 'oc'), (2.32, 7), (2.6, 6)]),
+                legs='auto', arms='fly', expr='grin', look=BTN, face=-1, hover=8)),
+    (0.34, dict(arms=('aim', 50))),
+    (0.6, dict(squash=True, expr='smirk')),
+    (0.8, dict(arms='point', point=tip1, look=tip1, face=None, expr='smile')),
+    (1.05, dict(expr='think')),
+    (1.88, dict(arms='shock', expr='shock', squash=True, point=None)),
+    (2.14, dict(arms='point', point=tip1, expr='wow')),
+    (2.36, dict(arms='fly', point=None, look=None, face=-1, expr='grin')),
+], words=WORDS, base_size=5)
+CAM1 = Camera(W, H, [(-1.0, (560, 1060, 1.45)), (0.0, (560, 1060, 1.45)), (0.6, (560, 1110, 1.5), 'io'),
+                     (1.3, (470, 930, 1.36), 'io'), (1.86, (450, 900, 1.33)), (2.3, (430, 880, 1.3), 'io'), (2.68, (360, 900, 1.3))],
+              kicks=[(-0.02, 0.08, 560, 1060), (0.57, 0.06, *BTN), (1.88, 0.2, *TACH), (2.14, 0.05, *TACH)],
+              shakes=[(1.88, 0.4, 24)])
+
+
+def press1(t):
+    if 0.5 <= t < 0.57: return prog(t, 0.5, 0.07)
+    if 0.57 <= t < 0.72: return 1.0
+    if 0.72 <= t < 0.84: return 1 - prog(t, 0.72, 0.12)
+    return 0.0
+
+
+def shot_dash1(t):
+    D = world('dash')
+    img = D.frame(t, rpm_deg=rpm1(t), ac_on=t >= 0.57, press=press1(t))
+    fg = layer()
+    for i, (vx, vy) in enumerate(D.VENTS):
+        fx.flakes(fg, t, 0.62, vx, vy - 20, n=7, seed=61 + i, spread=170, rise=320)
+    fx.ring(fg, t, 0.57, *BTN, (127, 212, 255), life=0.35, r1=200)
+    if 0.57 <= t < 1.4:
+        k = popin(t, 0.6, 0.2) * popout(t, 1.2)
+        blit(fg, fx.big('label', 'CLICK!', '#ffffff', s=7), BTN[0] + 120, BTN[1] - 120, k, k, 10 + 3 * math.sin(t * 6), anchor='center')
+    fx.glint(fg, t, 0.12, *TACH, r=200); fx.glint(fg, t, 2.0, *TACH, r=200)
+    fx.ring(fg, t, 1.9, *TACH, (255, 210, 63), life=0.4, r1=300)
+    fx.burst(fg, t, 1.88, *TACH, r0=230, r1=430)
+    rev_marks(fg, t, 1.88, *TACH, r=240)
+    P1.draw(fg, t)
+    if 1.88 <= t < 2.5:
+        x, y = P1.pos(t); s = P1.size(t)
         kx = popin(t, 1.88, 0.22) * (1 + 0.08 * math.sin(t * 14))
-        blit(cv, big('glyph', '!', '#e0303a', s=12), 210, GROUND - 620, kx, kx, -8, anchor='center')
-    expr = 'shock' if 1.88 <= t < 2.4 else 'smile'
-    guy(cv, t, 230, expr, poses=[(-1, 1.85, 'point'), (1.88, 2.4, 'shock'), (2.4, 3.0, 'hips')])
+        blit(fg, fx.big('glyph', '!', '#e0303a', s=10), x - 10, y - 66 * s, kx, kx, -8, anchor='center')
+    return finish(img, fg, CAM1, t)
 
-# 2. don't worry, it's not broken
-def scene_ok(cv, t):
-    cx = 680
-    rays(cv, t, 3.81, cx, GROUND - 330, PALE_R, life=0.6)
-    rays(cv, t, 4.25, cx, GROUND - 330, PALE_G, life=0.6)
-    k = popin(t, 2.62, 0.3)
-    jx = 3 * math.sin(t * 60) if t < 3.81 else 0
-    shadow(cv, cx, 420 * k)
-    wx, wy = wob(t, (2.86, 3.81))
-    blit(cv, big('car', 'red', 0, s=8), cx + jx, GROUND, k * wx, k * wy)
-    burst(cv, t, 3.81, cx - 10, GROUND - 400, (224, 48, 58), seed=72)
-    burst(cv, t, 4.25, cx + 170, GROUND - 160, (60, 200, 90), n=10, r0=80, r1=260, seed=73)
-    for i, (dx, dy, t0) in enumerate(((-150, -330, 2.88), (0, -420, 3.0), (150, -330, 3.12))):
+
+# ================================================================== shot 2: garage, car, NOT BROKEN
+CAR_X, CS = 520, 8
+def cpx(gx, gy): return (CAR_X - 45 * CS + gx * CS, GROUND - 50 * CS + gy * CS)
+ROOF_Y = cpx(*CAR_ROOF)[1]
+BONNET_Y = 996
+BAY_PX = cpx(*CAR_BAY)
+STAMP_AT = cpx(40, 33)
+QMARKS = [(cpx(24, 4), 2.88), (cpx(48, -2), 3.0), (cpx(70, 6), 3.12)]
+TICK2 = (760, 870)
+
+P2 = Presenter([
+    (2.40, dict(path=Track([(2.40, (1240, 380)), (2.62, (500, ROOF_Y), 'ic'), (3.44, (500, ROOF_Y)), (3.66, (500, ROOF_Y - 170), 'oc'),
+                            (3.81, (500, ROOF_Y), 'ic'), (4.38, (500, ROOF_Y)), (4.48, (690, ROOF_Y - 120), 'oc'), (4.56, (770, BONNET_Y), 'ic'),
+                            (4.9, (790, BONNET_Y))]),
+                size=8, legs='auto', arms='fly', expr='grin', face=-1, ground=None)),
+    (2.61, dict(ground=ROOF_Y, arms='down', expr='smile', face=None, look=lambda t: QMARKS[1][0])),
+    (2.62, dict(squash=True)),
+    (2.88, dict(arms='shrug', look=None, look_camera=True, face=1)),
+    (3.3, dict(arms='talkB')),
+    (3.45, dict(squash=True)),
+    (3.52, dict(arms='cheer1', expr='grin')),
+    (3.81, dict(squash=True, arms='hips', expr='smirk')),
+    (4.25, dict(arms='thumb', expr='grin')),
+    (4.4, dict(ground=None, arms='fly', look=BAY_PX, look_camera=False)),
+    (4.55, dict(ground=BONNET_Y, squash=True, arms='hold', expr='wow')),
+], words=WORDS, base_size=8)
+CAM2 = Camera(W, H, [(2.40, (540, 960, 1.12)), (3.6, (520, 930, 1.1)), (4.3, (560, 950, 1.12)), (4.62, (700, 980, 1.3), 'io'), (4.9, (720, 990, 1.35))],
+              kicks=[(2.62, 0.06, 500, 900), (3.81, 0.12, *STAMP_AT), (4.25, 0.05, *TICK2)], shakes=[(3.81, 0.35, 22)])
+
+
+def shot_garage(t):
+    img = GAR.frame(t).convert('RGBA')
+    fg = layer()
+    lights = 4.25 <= t < 4.33 or 4.41 <= t < 4.49
+    bon = oc(prog(t, 4.56, 0.16))
+    sx, sy = wob(t, (2.62, 3.81, 4.56), 0.04)
+    fx.contact_shadow(fg, CAR_X, GROUND, 700, s=CS, alpha=130)
+    if lights:   # headlight beam across the floor
+        d = ImageDraw.Draw(fg); hx, hy = cpx(*CAR_HL)
+        d.polygon([(hx, hy - 10), (hx + 400, hy - 90), (hx + 400, hy + 160), (hx, hy + 16)], fill=(255, 248, 210, 60))
+    blit(fg, up(car('red', 0, lights, False, round(bon * 20) / 20), CS), CAR_X, GROUND, sx, sy)
+    ex, ey = cpx(*CAR_EXH)
+    for k in range(7):
+        fx.puff(fg, t, 2.4 + k * 0.36, ex - 20, ey, seed=80 + k, life=0.8, size=0.8, drift=(-160, -90))
+    for (qx, qy), t0 in QMARKS:
         if t0 <= t < 3.81:
             kq = popin(t, t0, 0.25)
-            blit(cv, big('glyph', '?', '#e0303a', s=11), cx + dx, GROUND + dy + 10 * math.sin(t * 7 + i), kq, kq, 8 * math.sin(t * 5 + i), anchor='center')
-    stamp_at(cv, t, 3.81, 'NOT BROKEN', cx - 10, GROUND - 400, -8, 8)
-    if t >= 4.25:
-        kc = popin(t, 4.25)
-        blit(cv, big('check', s=12), cx + 170, GROUND - 160, kc, kc, anchor='center')
-        gsparkles(cv, t, cx, GROUND - 300, 560, 420, n=12, seed=37)
-    guy(cv, t, 230, 'smile', poses=[(2.62, 2.88, 'point'), (2.88, 3.8, 'shrug'), (3.81, 4.25, 'hips'), (4.25, 5.0, 'thumb')])
-
-# 3. the compressor adds load
-EX, EP = 720, (570, 1065)     # engine centre x; crank pulley centre
-CP = (570, 808)               # compressor pulley centre
-def belt(cv, t, spin):
-    d = ImageDraw.Draw(cv)
-    for (x0, r0), x1 in (((CP[0] - 56, 0), EP[0] - 50), ((CP[0] + 56, 0), EP[0] + 50)):
-        for w, col in ((2 * S, NAVY), (S, (58, 59, 68))):
-            d.line((x0, CP[1], x1, EP[1]), fill=col, width=w * 2)
-    off = (t * 600 * spin) % 60
-    for side in (-1, 1):
-        for j in range(5):
-            u = ((j * 60 + off * side) % 300) / 300
-            x = CP[0] + side * (56 + (-6) * u); y = CP[1] + (EP[1] - CP[1]) * u
-            d.rectangle((x - 4, y - 4, x + 4, y + 4), fill=(160, 166, 178))
-
-def scene_comp(cv, t):
-    ke = popin(t, 4.72, 0.3)
-    load = t >= 5.65
-    jx = 6 * math.sin(t * 55) * math.exp(-(t - 5.65) * 2.5) + (1.5 * math.sin(t * 40) if load else 0) if load else 0
-    shadow(cv, EX, 440 * ke)
-    wx, wy = wob(t, (4.96, 5.65), 0.08)
-    blit(cv, big('engine', s=10), EX + jx, GROUND, ke * wx, ke * wy)
-    kc = popin(t, 4.9, 0.3)
-    if kc > 0.98: belt(cv, t, 1)
-    ring(cv, t, 4.92, CP[0], CP[1] - 90, (127, 212, 255), life=0.35, r1=260)
-    cx2, cy2 = wob(t, (5.14,), 0.1)
-    blit(cv, big('compressor', int(t * 24) % 12 if t >= 4.9 else 0, s=8), CP[0], CP[1] - 92, kc * cx2, kc * cy2, anchor='center')
-    burst(cv, t, 5.65, 830, 760, (224, 48, 58), n=10, r0=90, r1=300, seed=74)
-    flakes(cv, t, 5.0, CP[0], CP[1] - 160, n=7, seed=63, spread=200, rise=300)
-    kb = popin(t, 4.95)
-    blit(cv, big('badge', 'COMPRESSOR', '#3d7fd6', '#ffffff', '#2b5fa8', s=5), CP[0] - 20, CP[1] - 300, kb, kb, -3 + 2 * math.sin(t * 3), anchor='center')
-    if load:
-        rays(cv, t, 5.65, 820, 760, PALE_R, life=0.6, r=420)
-        ka = slam(t, 5.65, 0.14, 1.6) * (1 + 0.1 * math.sin((t - 5.65) * 12))
-        blit(cv, big('arrow', s=10), 830, 840 + 14 * math.sin((t - 5.65) * 12), ka, ka, anchor='bottom')
-        kl = popin(t, 5.7)
-        blit(cv, big('badge', 'LOAD', '#e0303a', '#ffffff', '#b5222c', s=8), 830, 630, kl, kl, swing(t, 5.7, 8), anchor='center')
-        if int(t * 20) % 2:
-            d = ImageDraw.Draw(cv)
-            for i in range(4):  # strain marks around the engine
-                a = math.radians(-160 + i * 45); x, y = EX + 300 * math.cos(a), GROUND - 150 + 260 * math.sin(a)
-                d.rectangle((x - S, y - S, x + S, y + S), fill=(255, 210, 63), outline=NAVY, width=3)
-        dust(cv, t, 5.67, EX + 120, GROUND - 20, n=12, seed=44)
-    guy(cv, t, 200, 'smile', poses=[(4.72, 5.6, 'pointup'), (5.65, 6.1, 'shock'), (6.1, 6.6, 'point')])
-
-# 4. so the car raises idle speed
-def scene_idle(cv, t):
-    rays(cv, t, 6.98, DX, DY - 87, PALE_G, life=0.8, r=560)
-    k = popin(t, 6.38, 0.3)
-    deg = spring(t, 6.98, IDLE, 188, 15, 6) + shiver(t)
-    glow_arc(cv, t, 7.0, IDLE, 188, k)
-    dash(cv, t, deg, k, jel=(6.62, 6.98))
-    glint(cv, t, 6.7)
-    burst(cv, t, 7.42, DX, DY - 400, (60, 200, 90), n=10, r0=120, r1=330, seed=75)
-    ring(cv, t, 7.0, DX, DY - 87, (60, 200, 90), life=0.4, r1=280)
-    flakes(cv, t, 6.4, DX, DY + 200, n=6, seed=64)
-    if t >= 7.42:
-        kb = slam(t, 7.42, 0.14, 1.5) * (1 + 0.03 * math.sin(t * 5))
-        blit(cv, big('badge', 'IDLE UP', *GREEN, s=8), DX, DY - 400, kb, kb, -4 + 3 * math.sin(t * 3), anchor='center')
-        gsparkles(cv, t, DX, DY - 300, 560, 300, n=10, seed=39)
-    guy(cv, t, 230, 'smile', poses=[(6.4, 7.4, 'point'), (7.42, 8.2, 'pointup')])
-
-# 5. ...to stop the engine stalling
-def scene_stall(cv, t):
-    cx = 700
-    rays(cv, t, 9.4, cx, GROUND - 200, PALE_G, life=0.8)
-    k = popin(t, 8.1, 0.3)
-    p = prog(t, 8.1, 0.5)
-    x = cx + 500 * (1 - oc(p))
-    cough = 8.72 <= t < 9.4
-    rot = 7 * math.sin((t - 9.0) * 22) * math.exp(-(t - 9.0) * 4) if t >= 9.0 else 0
-    jy = -S * (int(t * 18) % 2) if cough else 0
-    shadow(cv, x, 330)
-    wx, wy = wob(t, (8.6, 9.4), 0.1)
-    blit(cv, big('car', 'red', int(t * 12) % 2 if p < 1 else 0, s=6), x, GROUND + jy, wx, wy, rot)
-    burst(cv, t, 9.4, 850, 1010, (60, 200, 90), n=10, r0=70, r1=250, seed=76)
-    dust(cv, t, 8.72, x - 170, GROUND - 50, n=14, seed=21, dirx=-420)  # engine coughs
-    dust(cv, t, 8.9, x - 170, GROUND - 60, n=10, seed=22, dirx=-380)
-    # inset: the raised idle needle keeps it running
-    ki = popin(t, 8.3, 0.3)
-    if ki > 0.02:
-        d = ImageDraw.Draw(cv); r = 150 * ki; ix, iy = 560, 700
-        d.ellipse((ix - r, iy - r, ix + r, iy + r), fill=(242, 244, 248), outline=NAVY, width=8)
-        blit(cv, big('tacho', int(188 + shiver(t)), s=5), ix, iy, ki, ki, anchor='center')
-    if t >= 9.0:
-        ks = popin(t, 9.0, 0.22)
-        blit(cv, big('tag', 'STALL', '#fff6e0', '#d6303a', t >= 9.4, s=8), 740, 880, ks, ks, swing(t, 9.0, 8), anchor='center')
-    if t >= 9.4:
-        kc = popin(t, 9.4)
-        blit(cv, big('check', s=10), 850, 1010, kc, kc, anchor='center')
-        gsparkles(cv, t, cx, GROUND - 260, 600, 400, n=12, seed=38)
-    expr = 'shock' if 9.0 <= t < 9.4 else 'smile'
-    guy(cv, t, 230, expr, poses=[(8.1, 8.9, 'point'), (9.0, 9.4, 'shock'), (9.4, 10.5, 'thumb')])
-
-# 6. most cars do this automatically
-CARS = [(480, 10.49, 'red'), (650, 10.6, 'blue'), (820, 10.71, 'used')]
-RB = (650, 700)
-def scene_auto(cv, t):
-    rays(cv, t, 11.3, *RB, PALE_Y, life=1.2, r=520)
-    d = ImageDraw.Draw(cv)
-    if t >= 11.5:
-        for i, (x, t0, _) in enumerate(CARS):  # signal dots from the ECU to each car
-            for j in range(6):
-                u = (j / 6 + t * 1.6) % 1
-                px, py = RB[0] + (x - RB[0]) * u, RB[1] + 170 + (GROUND - 130 - RB[1] - 170) * u
-                d.rectangle((snap(px) - S, snap(py) - S, snap(px) + S, snap(py) + S), fill=(60, 200, 90), outline=NAVY, width=3)
-    for i, (x, t0, col) in enumerate(CARS):
-        kc = popin(t, t0, 0.28)
-        shadow(cv, x, 200 * kc)
-        blit(cv, big('car', col, int(t * 10) % 2, s=4), x, GROUND - S * (int(t * 6 + i) % 2), kc, kc)
-        if t >= 11.65 + i * 0.15:
-            kt = popin(t, 11.65 + i * 0.15)
-            blit(cv, big('check', s=6), x, GROUND - 160, kt, kt, anchor='center')
-    kr = popin(t, 11.3, 0.3)
-    rx, ry = wob(t, (11.55,), 0.1)
-    blit(cv, big('robot', (t % 1.7) < 0.12, s=10), RB[0], RB[1] + 12 * math.sin(t * 3), kr * rx, kr * ry, 3 * math.sin(t * 2), anchor='center')
-    burst(cv, t, 11.3, *RB, seed=77)
-    ring(cv, t, 11.32, *RB, (255, 210, 63), life=0.4, r1=300)
-    if t >= 11.3: sparkles(cv, t * 1.5, *RB, 520, 420, n=12, seed=52)
-    ka = popin(t, 11.55)
-    blit(cv, big('badge', 'AUTO', *GOLD, s=7), 840, 520, ka, ka, 8 + 3 * math.sin(t * 4), anchor='center')
-    guy(cv, t, 230, 'smile', poses=[(10.4, 11.25, 'point'), (11.3, 12.6, 'pointup')])
-
-# 7. payoff: the rev counter jumps again, that's normal
-def scene_end(cv, t):
-    rays(cv, t, 13.98, DX, DY - 87, PALE_Y, life=0.9, r=600)
-    rays(cv, t, 15.03, DX, DY - 87, PALE_G, hold=True, r=640)
-    k = popin(t, 12.52, 0.3)
-    deg = spring(t, 13.98, IDLE, 176) + shiver(t)
-    dash(cv, t, deg, k, jel=(12.76, 13.98, 15.03))
-    glint(cv, t, 12.85); glint(cv, t, 14.15)
-    burst(cv, t, 13.98, DX, DY - 87, seed=78)
-    burst(cv, t, 15.03, DX, DY - 100, (60, 200, 90), n=14, seed=79)
-    ring(cv, t, 14.0, DX, DY - 87, (255, 210, 63), life=0.4, r1=300)
-    flakes(cv, t, 12.6, DX, DY + 200, n=7, seed=65)
-    rev_marks(cv, t, 13.98, DX, DY - 87)
-    vroom(cv, t, 14.0, DX - 30, DY - 330)
-    if t >= 15.03:
-        gsparkles(cv, t, DX, DY - 100, 640, 600, n=14, seed=49)
-        ring(cv, t, 15.1, DX, DY - 87, (60, 200, 90), life=0.45, r1=420)
-        stamp_at(cv, t, 15.03, 'NORMAL', DX, DY - 100, -8, 11, '#2a9a45')
-    if t >= 15.8:
-        kn = popin(t, 15.8, 0.3)
-        blit(cv, big('badge', 'NEXT EPISODE', *GOLD, s=6), 500, 430, kn, kn, -4 + 3 * math.sin(t * 3), anchor='center')
-        kq = popin(t, 16.0, 0.25) * (1 + 0.1 * math.sin(t * 9))
-        blit(cv, big('glyph', '?', '#e0303a', s=12), 830, 430, kq, kq, 8 * math.sin(t * 6), anchor='center')
-    lift = -150 * math.sin(math.pi * prog(t, 15.35, 0.42)) if 15.35 <= t < 15.77 else 0
-    guy(cv, t, 230, 'smile', lift=lift, poses=[(13.4, 13.98, 'point'), (13.98, 15.0, 'hips'), (15.03, 18.0, 'thumb')])
-    if t >= 15.35:
-        confetti(cv, t, 15.35, 300, 700, n=50, seed=4)
-        confetti(cv, t, 15.4, 800, 640, n=44, seed=8, spread=0.9)
-        confetti(cv, t, 16.1, 560, 600, n=40, seed=9, spread=1.1)
-
-SCENES = [(0.0, scene_hook), (2.62, scene_ok), (4.72, scene_comp), (6.38, scene_idle),
-          (8.08, scene_stall), (10.38, scene_auto), (12.52, scene_end)]
-
-TR_PRE, TR_LEN = 0.1, 0.26
-
-def draw_scene(i, t):
-    cv = Image.new('RGBA', (W, H), (0, 0, 0, 0))
-    SCENES[i][1](cv, t)
-    return cv
-
-def speed_lines(cv, e, seed):
-    k = math.sin(math.pi * e)
-    if k < 0.1: return
-    r = rng_for(100 + seed); d = ImageDraw.Draw(cv)
-    for i in range(16):
-        y = snap(r.uniform(260, 1700)); L = r.uniform(220, 640) * k; x = r.uniform(-200, W)
-        d.rectangle((x, y, x + L, y + S * (1 + i % 2)), fill=(150, 156, 170))
-
-def world(t):
-    idx = max(i for i, (s, _) in enumerate(SCENES) if t >= s - TR_PRE)
-    b = SCENES[idx][0]
-    if idx > 0 and t < b - TR_PRE + TR_LEN:
-        e = io(prog(t, b - TR_PRE, TR_LEN))
-        dirn = 1 if idx % 2 else -1
-        a, n = draw_scene(idx - 1, t), draw_scene(idx, t)
-        cv = Image.new('RGBA', (W, H), (0, 0, 0, 0))
-        cv.paste(a, (int(-dirn * W * e), 0), a)
-        cv.paste(n, (int(dirn * W * (1 - e)), 0), n)
-        speed_lines(cv, e, idx)
-        return cv, idx
-    return draw_scene(idx, t), idx
-
-def compose(fg, t):
-    # garage + glossy floor reflection + rim-lit foreground
-    img = GAR.frame(t)
+            blit(fg, fx.big('glyph', '?', '#e0303a', s=10), qx, qy + 10 * math.sin(t * 7 + t0 * 9), kq, kq, 8 * math.sin(t * 5 + t0), anchor='center')
+        fx.poof(fg, t, 3.81, qx, qy, seed=int(t0 * 10), life=0.4, scale=0.35)
+    fx.dust(fg, t, 3.83, cpx(21, 49)[0], GROUND - 10, n=10, seed=43); fx.dust(fg, t, 3.83, cpx(69, 49)[0], GROUND - 10, n=10, seed=44)
+    P2.draw(fg, t)
+    fx.dust(fg, t, 2.62, 500, ROOF_Y, n=8, seed=41, life=0.4)
+    fx.stamp_at(fg, t, 3.81, 'NOT BROKEN', *STAMP_AT, -8, 8)
+    fx.burst(fg, t, 3.81, *STAMP_AT, (224, 48, 58), seed=72)
+    if 4.25 <= t < 4.5:
+        kc = popin(t, 4.25) * popout(t, 4.42, 0.08)
+        blit(fg, fx.big('check', s=10), *TICK2, kc, kc, anchor='center')
+        fx.gsparkles(fg, t, *TICK2, 300, 240, n=8, seed=37)
+    fx.burst(fg, t, 4.25, *TICK2, (60, 200, 90), n=10, r0=70, r1=240, seed=73)
     GAR.reflect(img, fg)
-    fg = GAR.rim(fg)
-    img.paste(fg, (0, 0), fg)
+    return finish(img, fg, CAM2, t)
+
+
+# ================================================================== shot 3: engine cutaway
+COMP_C = (170, 842)
+CRANK_PX = Engine.CRANK
+ORB = Orbit(4.92, 5.6, (200, 842), 150, 175, 200, 545)
+PUSH_AT = (CRANK_PX[0] - 68 - 100, CRANK_PX[1] + 135)
+PROFILE3 = [(4.4, 1.5), (5.65, 1.5), (5.85, 1.0), (6.6, 1.0)]
+
+P3 = Presenter([
+    (4.6, dict(path=Seq([(4.6, Track([(4.6, (-200, 360)), (4.92, ORB.at(4.92), 'oc')], smooth=True)), (4.92, ORB),
+                         (5.6, Track([(5.6, ORB.at(5.6)), (5.72, (300, 1080), 'oc'), (5.86, PUSH_AT, 'io'), (6.2, PUSH_AT)]))]),
+               size=5, legs='auto', arms='fly', expr='grin', face=1,
+               z=lambda t: 'back' if 4.92 <= t < 5.6 and ORB.depth(t) < 0 else 'front')),
+    (4.92, dict(arms='point', point=COMP_C, look=COMP_C, face=None, expr='smirk')),
+    (5.65, dict(arms='shock', expr='shock', squash=True, point=None, look=CRANK_PX)),
+    (5.86, dict(arms='push', expr='think', face=1, legs='run', ground=PUSH_AT[1])),
+    (6.26, dict(visible=False)),
+], words=WORDS, base_size=5)
+CAM3 = Camera(W, H, [(4.6, (540, 900, 1.0)), (4.95, (330, 860, 1.28), 'io'), (5.6, (330, 880, 1.28)), (5.86, (420, 940, 1.2), 'io'), (6.46, (440, 960, 1.16))],
+              kicks=[(4.72, 0.06, 540, 900), (4.92, 0.05, *COMP_C), (5.65, 0.14, *COMP_C), (5.7, 0.04, *CRANK_PX)], shakes=[(5.65, 0.35, 18)])
+
+
+def drag_arrows(cv, t, t0, c, r=100):
+    """Red arcs turning against the crank: the extra load the compressor puts on it."""
+    if t < t0: return
+    k = oc(prog(t, t0, 0.3)); d = ImageDraw.Draw(cv); rot = -(t - t0) * 120
+    for i in range(2):
+        a0 = rot + i * 180
+        box = (c[0] - r, c[1] - r, c[0] + r, c[1] + r)
+        d.arc(box, a0, a0 + 110 * k, fill=NAVY, width=24); d.arc(box, a0, a0 + 110 * k, fill=(232, 52, 63), width=14)
+        a = math.radians(a0)
+        hx, hy = c[0] + r * math.cos(a), c[1] + r * math.sin(a)
+        tx, ty = -math.sin(a), math.cos(a)
+        d.polygon([(hx - tx * 34, hy - ty * 34), (hx + ty * 26, hy - tx * 26), (hx - ty * 26, hy + tx * 26)], fill=(232, 52, 63), outline=NAVY)
+
+
+def shot_engine(t):
+    E = world('engine')
+    th = crank_angle(t, PROFILE3)
+    judder = (6 * math.sin(t * 60) * math.exp(-(t - 5.65) * 5), 0) if t >= 5.65 else (0, 0)
+    rpm = springs(t, IDLE, [(5.68, 214, 12, 6)]) + shiver(t)
+    img = E.frame(t, theta=th, clutch=t >= 5.65, clutch_t0=5.65, frost=prog(t, 5.8, 1.4), load=oc(prog(t, 5.65, 0.25)),
+                  shake=judder, rpm_deg=rpm)
+    fg = layer()
+    back = layer(); P3.draw(back, t, 'back')
+    if back.getbbox():
+        img.alpha_composite(back); img.paste(E.frame(t, theta=th, clutch=t >= 5.65, clutch_t0=5.65, frost=prog(t, 5.8, 1.4),
+                                                     load=oc(prog(t, 5.65, 0.25)), shake=judder, rpm_deg=rpm), (0, 0), E.comp_mask())
+    fx.ring(fg, t, 4.92, *COMP_C, (127, 212, 255), life=0.35, r1=240)
+    dg.label(fg, t, 4.92, 'AC COMPRESSOR', (190, 760), (330, 560), '#3d7fd6', '#ffffff', '#2b5fa8', s=5)
+    if t >= 5.65:
+        fx.burst(fg, t, 5.65, *COMP_C, (127, 212, 255), n=12, r0=120, r1=330, seed=74)
+        fx.ring(fg, t, 5.66, *COMP_C, (160, 220, 255), life=0.3, r1=200)
+        drag_arrows(fg, t, 5.68, CRANK_PX, r=100)
+        dg.label(fg, t, 5.7, 'LOAD', (CRANK_PX[0] - 60, CRANK_PX[1] + 70), (230, 1190), '#e0303a', '#ffffff', '#b5222c', s=7)
+    P3.draw(fg, t, 'front')
+    return finish(img, fg, CAM3, t)
+
+
+# lens: he launches at the camera, fills the frame, and we come out on the rev counter
+def _lens_start(t=6.26):
+    x, y = CAM3.to_screen(t, *P3.pos(t)); return (x, y)
+PL = Presenter([
+    (6.26, dict(path=Fn(lambda t: lerp(_lens_start(), (540, 2350), ic(prog(t, 6.26, 0.11))) if t < 6.37 else lerp((540, 2350), (700, 3700), prog(t, 6.37, 0.09))),
+                size=Fn(lambda t: 6 + 30 * ic(prog(t, 6.26, 0.11)) + 28 * prog(t, 6.37, 0.09)),
+                legs='tuck', arms='cheer1', expr='grin', face=1, trail=False, hover=0, look_camera=True)),
+], base_size=6)
+
+
+# ================================================================== shot 4: idle up (rev counter close-up)
+def rpm4(t): return springs(t, 211, [(6.98, 188, 15, 6)]) + shiver(t)
+def tip4(t): return world('dash').needle_tip(rpm4(t), frac=0.8)
+LABEL4 = (300, 520)
+GRAB = reach(tip4, 15, 5, 1)
+
+P4 = Presenter([
+    (6.36, dict(path=Seq([(6.36, Track([(6.36, (240, 1600)), (6.86, GRAB.at(6.86), 'oc')], smooth=True)), (6.86, GRAB),
+                          (7.45, Track([(7.45, GRAB.at(7.45)), (7.68, (170, 980), 'oc'), (7.86, (180, 960), 'sine'), (8.14, (320, 2000), 'back')]))]),
+                size=5, legs='auto', arms='fly', expr='grin', face=1)),
+    (6.8, dict(arms=('aim', 15), look=tip4, expr='smirk')),
+    (6.98, dict(expr='grin', squash=True)),
+    (7.45, dict(arms='point', point=LABEL4, look=LABEL4, expr='smile')),
+    (7.72, dict(arms='thumb', point=None, look=None, look_camera=True, expr='grin', face=1)),
+    (7.86, dict(arms='fly', squash=True, expr='wow')),
+], words=WORDS, base_size=5)
+CAM4 = Camera(W, H, [(6.36, (330, 800, 1.75)), (7.3, (340, 780, 1.7)), (7.6, (380, 760, 1.6), 'io'), (8.14, (380, 900, 1.6))],
+              kicks=[(6.4, 0.05, *TACH), (6.98, 0.08, 204, 823), (7.42, 0.06, *LABEL4)])
+
+
+def shot_idle(t):
+    D = world('dash')
+    img = D.frame(t, rpm_deg=rpm4(t), ac_on=True)
+    fg = layer()
+    dg.glow_arc(fg, t, 7.0, *TACH, Dashboard.TACHO_R + 14, 211, 188)
+    fx.ring(fg, t, 7.0, *TACH, (60, 200, 90), life=0.4, r1=280)
+    fx.gsparkles(fg, t, *tip4(t), 160, 160, n=6, seed=39) if t >= 7.0 else None
+    if t >= 7.42:
+        dg.label(fg, t, 7.42, 'IDLE UP', tip4, LABEL4, '#3cc85a', '#ffffff', '#2a9a45', s=7)
+        fx.burst(fg, t, 7.56, *LABEL4, (60, 200, 90), n=10, r0=110, r1=280, seed=75)
+    fx.glint(fg, t, 6.5, *TACH, r=200)
+    P4.draw(fg, t)
+    return finish(img, fg, CAM4, t)
+
+
+# ================================================================== shot 5: split-screen comparison
+PANELS = ((40, 236, 1040, 752), (40, 786, 1040, 1302))
+PROFILE_A = [(7.9, 1.05), (8.6, 1.0), (8.72, 0.5), (8.8, 0.85), (8.9, 0.35), (8.98, 0.55), (9.02, 0.2), (9.16, 0.0), (10.6, 0.0)]
+PROFILE_B = [(7.9, 1.45), (10.6, 1.45)]
+
+
+@lru_cache(None)
+def _dial_face(r):
+    img = Image.new('RGBA', (2 * r + 4, 2 * r + 4), (0, 0, 0, 0))
+    _gauge_face(ImageDraw.Draw(img), r + 2, r + 2, r, red_from=6.5, label='RPM', majors=9)
     return img
 
-# ------------------------------------------------------------------ camera
-SHAKES = [(-0.02, 0.25, 12), (1.88, 0.4, 26), (3.81, 0.3, 22), (5.65, 0.35, 18), (9.0, 0.3, 16), (11.3, 0.2, 10),
-          (13.98, 0.4, 26), (15.03, 0.3, 20)]
-PUNCH = [(15.03, 17.6, 1.05, 690, 800)]  # eases out during the loop slide
-# instant zoom kicks that ease back: (time, amount, anchor x, anchor y)
-KICKS = [(-0.02, 0.14, 690, 800), (0.57, 0.06, 690, 1070), (1.88, 0.16, 690, 770), (2.2, 0.05, 690, 800),
-         (2.88, 0.04, 600, 900), (3.81, 0.12, 670, 820), (4.25, 0.06, 760, 1000), (4.9, 0.08, 560, 700),
-         (5.65, 0.12, 780, 800), (6.98, 0.08, 690, 770), (7.42, 0.06, 690, 560), (8.72, 0.04, 600, 1100),
-         (9.0, 0.1, 760, 900), (9.4, 0.07, 800, 1000), (10.49, 0.04, 480, 1100), (10.71, 0.04, 820, 1100),
-         (11.3, 0.1, 650, 700), (11.65, 0.04, 650, 1000), (13.48, 0.05, 690, 800), (13.98, 0.16, 690, 770),
-         (15.03, 0.14, 690, 770), (15.35, 0.06, 560, 700)]
-BASE_Z, BASE_A = 1.0, (540, 1000)  # wide shot: room to breathe, props clear of TikTok's right-hand buttons
+
+def mini_dial(deg, r=40, s=3):
+    img = _dial_face(r).copy(); d = ImageDraw.Draw(img); c = r + 2
+    a = math.radians(deg)
+    tip = (c + (r - 9) * math.cos(a), c - (r - 9) * math.sin(a))
+    d.line(((c, c), tip), fill=(120, 30, 10), width=4); d.line(((c, c), tip), fill=(255, 96, 40), width=2)
+    d.ellipse((c - 4, c - 4, c + 4, c + 4), fill=(90, 96, 110))
+    return up(img, s)
 
 
-def camera(t, idx):
-    s0 = SCENES[idx][0]
-    z = BASE_Z * (1 + 0.03 * prog(t, s0, 6))
-    ax, ay = BASE_A
-    for a, b, zz, px, py in PUNCH:
-        if a <= t < b + 0.3:
-            k = io(prog(t, a, 0.3)) * (1 - io(prog(t, b, 0.25)))
-            z *= 1 + (zz - 1) * k
-            ax += (px - ax) * k; ay += (py - ay) * k
-    for a, amt, px, py in KICKS:
-        if a <= t < a + 0.6:
-            k = math.exp(-(t - a) * 9)
-            z *= 1 + amt * k
-            ax += (px - ax) * k * 0.5; ay += (py - ay) * k * 0.5
-    sx = sy = 0
-    for a, d, amp in SHAKES:
-        if a <= t < a + d:
-            k = (1 - (t - a) / d) ** 2
-            sx += amp * k * math.sin((t - a) * 90); sy += amp * k * math.cos((t - a) * 77)
-    return z, ax, ay, sx, sy
+def rpmA(t):
+    if t >= 9.0: return springs(t, 212, [(9.0, 225, 10, 6)])
+    return springs(t, 212, [(8.72, 220, 18, 8), (8.84, 212, 18, 8), (8.9, 222, 18, 8)]) + shiver(t)
 
-def apply_cam(cv, z, ax, ay, sx, sy):
-    # zoom about anchor (ax, ay): that world point stays put on screen; then shake
-    x0 = ax * (1 - 1 / z) - sx / z; y0 = ay * (1 - 1 / z) - sy / z
-    return cv.transform((W, H), Image.AFFINE, (1 / z, 0, x0, 0, 1 / z, y0), resample=Image.NEAREST, fillcolor=BG)
+
+def shot_split(t):
+    E = world('engine')
+    img = Image.blend(GAR.frame(t), Image.new('RGB', (W, H), (8, 8, 10)), 0.55).convert('RGBA')
+    fg = layer(); d = ImageDraw.Draw(fg)
+    stalled = t >= 9.05
+    for i, ((x0, y0, x1, y1), prof) in enumerate(zip(PANELS, (PROFILE_A, PROFILE_B))):
+        a = i == 0
+        k = popin(t, 7.98 + 0.06 * i, 0.3)
+        if k <= 0.02: continue
+        shake = (int(10 * math.sin(t * 70)) if a and 8.72 <= t < 9.05 else 0)
+        eng = E.frame(t, theta=crank_angle(t, prof), clutch=True, frost=1.0, load=1.0, firing=not (a and stalled),
+                      stalled=a and stalled, as_grid=True)
+        crop = up(eng.crop((8, 86, 188, 232)).convert('RGBA'), 3)
+        panel = Image.new('RGBA', (x1 - x0, y1 - y0), (18, 19, 23, 255)); pd = ImageDraw.Draw(panel)
+        panel.paste(crop, (10 + shake, 40))
+        dial = mini_dial(rpmA(t) if a else 188 + shiver(t))
+        panel.paste(dial, (x1 - x0 - dial.width - 30, 130), dial)
+        if a and stalled:
+            dark = Image.new('RGBA', panel.size, (0, 0, 0, 0)); ImageDraw.Draw(dark).rectangle((0, 0, *panel.size), fill=(0, 0, 0, int(90 * prog(t, 9.05, 0.3))))
+            panel.alpha_composite(dark)
+        pd.rounded_rectangle((0, 0, panel.width - 1, panel.height - 1), 22, outline=(150, 156, 170), width=6)
+        mask = Image.new('L', panel.size, 0); ImageDraw.Draw(mask).rounded_rectangle((0, 0, panel.width - 1, panel.height - 1), 22, fill=255)
+        if k != 1:
+            panel = panel.resize((int(panel.width * k), int(panel.height * k)), Image.NEAREST); mask = mask.resize(panel.size, Image.NEAREST)
+        fg.paste(panel, (int((x0 + x1) / 2 - panel.width / 2), int((y0 + y1) / 2 - panel.height / 2)), mask)
+    for i, ((x0, y0, x1, y1), txt, cols) in enumerate(zip(PANELS, ('NO IDLE BOOST', 'IDLE BOOST'),
+                                                         (('#e0303a', '#ffffff', '#b5222c'), ('#3cc85a', '#ffffff', '#2a9a45')))):
+        kb = popin(t, 8.3 + 0.04 * i)
+        blit(fg, fx.big('badge', txt, *cols, s=6), x0 + 60 + len(txt) * 15, y0 + 8, kb, kb, -3, anchor='center')
+        ka = popin(t, 8.36 + 0.04 * i)
+        blit(fg, fx.big('badge', 'AC ON', '#7fd4ff', '#1a1a2e', '#4a9ed0', s=5), x1 - 150, y1 - 40, ka, ka, 3, anchor='center')
+    ax, ay = (PANELS[0][0] + 300, PANELS[0][1] + 200)
+    fx.puff(fg, t, 8.72, ax, ay, seed=91, life=0.9, size=1.4, drift=(60, -200), col=(120, 122, 130))
+    fx.puff(fg, t, 8.9, ax + 60, ay, seed=92, life=0.9, size=1.6, drift=(80, -220), col=(110, 112, 120))
+    fx.puff(fg, t, 9.0, ax + 20, ay - 20, seed=93, life=1.2, size=2.0, drift=(40, -260), col=(96, 98, 106))
+    if t >= 9.0:
+        fx.stamp_at(fg, t, 9.0, 'STALL', 560, 520, -8, 11)
+    if t >= 9.4:
+        bx, by = 600, 1060
+        kc = popin(t, 9.4)
+        blit(fg, fx.big('check', s=12), bx, by, kc, kc, anchor='center')
+        fx.burst(fg, t, 9.4, bx, by, (60, 200, 90), n=12, r0=90, r1=300, seed=76)
+        fx.gsparkles(fg, t, bx, by, 520, 300, n=10, seed=38)
+    img.alpha_composite(fg)
+    return img.convert('RGB')
+
+
+# push: he shoves the split screen off to the left, revealing the street
+def _push_e(t): return io(prog(t, 10.26, 0.2))
+PP = Presenter([
+    (10.2, dict(path=Fn(lambda t: (W * (1 - _push_e(t)) + 120, 1080)), size=6, legs='run', arms='push', face=-1, expr='think', trail=False, hover=0)),
+], base_size=6)
+
+
+# ================================================================== shot 6: street convoy, ECU
+CARS = [(280, 10.49, 'red'), (540, 10.6, 'blue'), (800, 10.71, 'silver')]
+CAR3 = 3
+RB = (540, 600)
+WINDSCREEN = (561, 1063)
+def scroll6(t): return 520 * (t - 10.26)
+def car6_x(t, x, t0): return x - 900 * (1 - oc(prog(t, t0 - 0.32, 0.32)))
+
+P6 = Presenter([
+    (10.46, dict(path=Track([(10.46, (120, 1080)), (10.8, (170, 760), 'oc'), (11.2, (190, 740), 'sine'), (11.45, (330, 640), 'io'),
+                             (12.05, (320, 660), 'sine'), (12.42, WINDSCREEN, 'ic')], smooth=True),
+                 size=Track([(10.46, 6), (10.8, 4, 'oc'), (12.1, 4), (12.42, 2, 'ic')]),
+                 legs='auto', arms='present', look=(540, 1050), expr='smile', face=1)),
+    (11.3, dict(arms='point', point=RB, look=RB, expr='wow')),
+    (11.65, dict(arms='cheer', point=None, look=(540, 1050), expr='grin')),
+    (12.05, dict(arms='fly', look=WINDSCREEN, expr='grin')),
+    (12.43, dict(visible=False)),
+], words=WORDS, base_size=4)
+CAM6 = Camera(W, H, [(10.26, (540, 960, 1.0)), (12.62, (540, 960, 1.0))],
+              kicks=[(10.49, 0.03, 280, 1080), (10.71, 0.03, 800, 1080), (11.3, 0.08, *RB), (11.95, 0.04, 800, 1000)], clamp_view=True)
+
+
+def shot_street(t):
+    ST = world('street')
+    sc = scroll6(t)
+    img = ST.frame(t, sc).convert('RGBA')
+    cars = layer()
+    for x, t0, col in CARS:
+        cx = car6_x(t, x, t0)
+        if cx < -300: continue
+        brake = t0 <= t < t0 + 0.25
+        spr = up(car(col, wheel_deg(sc + cx - x, CAR3), True, brake), CAR3)
+        fx.contact_shadow(cars, cx, Street.ROAD_Y, 250, s=CAR3, alpha=140)
+        d = ImageDraw.Draw(cars); hx = cx + 135
+        d.polygon([(hx, Street.ROAD_Y - 66), (hx + 260, Street.ROAD_Y - 110), (hx + 260, Street.ROAD_Y + 10), (hx, Street.ROAD_Y - 52)], fill=(255, 248, 210, 34))
+        blit(cars, spr, cx, Street.ROAD_Y)
+        fx.puff(cars, t, t0 + 0.1, cx - 140, Street.ROAD_Y - 24, seed=int(x), life=0.7, size=0.6, drift=(-120, -70))
+    world('road_refl').reflect(img, cars, depth=160, strength=0.3)
+    img.alpha_composite(cars)
+    fg = layer(); d = ImageDraw.Draw(fg)
+    if t >= 11.3:
+        fx.rays(fg, t, 11.3, *RB, GLOW_Y, life=1.2, r=480)
+        for i in range(3):                       # signal rings spreading from the ECU
+            ph = ((t - 11.4) * 1.3 + i / 3) % 1
+            if t >= 11.4:
+                R = 80 + 420 * ph
+                d.arc((RB[0] - R, RB[1] - R * 0.7, RB[0] + R, RB[1] + R * 0.7), 20, 160, fill=(60, 200, 90, int(200 * (1 - ph))), width=8)
+        if t >= 11.5:
+            for x, _, _ in CARS:
+                for j in range(6):
+                    u = (j / 6 + t * 1.6) % 1
+                    px, py = RB[0] + (x - RB[0]) * u, RB[1] + 130 + (Street.ROAD_Y - 170 - RB[1] - 130) * u
+                    d.rectangle((fx.snap(px, 3) - 6, fx.snap(py, 3) - 6, fx.snap(px, 3) + 6, fx.snap(py, 3) + 6), fill=(60, 200, 90), outline=NAVY, width=3)
+    kr = popin(t, 11.3, 0.3)
+    rx, ry = wob(t, (11.55,), 0.1)
+    blit(fg, up(robot((t % 1.7) < 0.12, 2 if t >= 11.4 else 0), 7), RB[0], RB[1] + 12 * math.sin(t * 3), kr * rx, kr * ry, 3 * math.sin(t * 2), anchor='center')
+    fx.ring(fg, t, 11.32, *RB, (255, 210, 63), life=0.4, r1=300)
+    fx.burst(fg, t, 11.3, *RB, seed=77)
+    if t >= 11.3: fx.sparkles(fg, t * 1.5, *RB, 480, 380, n=10, seed=52)
+    ka = popin(t, 11.55)
+    blit(fg, fx.big('badge', 'AUTO', '#ffd23f', '#d6303a', '#e8b923', s=6), 780, 470, ka, ka, 8 + 3 * math.sin(t * 4), anchor='center')
+    for i, (x, _, _) in enumerate(CARS):
+        t0 = 11.65 + i * 0.15
+        if t >= t0:
+            kt = popin(t, t0)
+            blit(fg, fx.big('check', s=6), x, Street.ROAD_Y - 200, kt, kt, anchor='center')
+            fx.ring(fg, t, t0, x, Street.ROAD_Y - 200, (60, 200, 90), life=0.3, r1=120)
+    P6.draw(fg, t)
+    return finish(img, fg, CAM6, t)
+
+
+# ================================================================== shot 7: back in the car, NORMAL
+def rpm7(t): return springs(t, IDLE, [(13.98, 176, 17, 5)]) + shiver(t)
+def tip7(t): return world('dash').needle_tip(rpm7(t))
+LEDGE = 505
+SIT = (600, LEDGE + 70)
+P7 = Presenter([
+    (12.42, dict(path=Track([(12.42, (560, 2100)), (12.86, SIT, 'oc'), (13.96, SIT), (14.08, (600, SIT[1] - 70), 'oc'), (14.22, SIT, 'ic'),
+                             (14.6, SIT), (14.7, (600, LEDGE), 'io'), (15.24, (600, LEDGE)), (15.62, (1400, 360), 'back')]),
+                 size=Track([(12.42, 16), (12.86, 5, 'oc')]), legs='tuck', arms='fly', expr='grin', face=1, look_camera=True, hover=0)),
+    (12.86, dict(legs='sit', arms='talkR', squash=True)),
+    (13.4, dict(arms='point', point=tip7, look=tip7, face=-1, expr='smirk')),
+    (13.98, dict(arms='cheer', expr='grin', point=None, squash=True, look_camera=True, face=1)),
+    (14.6, dict(legs='stand', arms='talkR', expr='smile', ground=LEDGE)),
+    (15.03, dict(arms='thumb', expr='smirk', squash=True)),
+    (15.24, dict(ground=None, legs='auto', arms='fly', expr='grin')),
+], words=WORDS, base_size=5)
+CAM7 = Camera(W, H, [(12.42, (540, 900, 1.0)), (13.4, (520, 860, 1.05)), (13.9, (430, 790, 1.3), 'io'), (14.6, (470, 800, 1.22)),
+                     (15.1, (470, 800, 1.25)), (15.6, (620, 780, 1.2))],
+              kicks=[(12.6, 0.05, 540, 900), (13.48, 0.05, *TACH), (13.98, 0.18, *TACH), (15.03, 0.14, *TACH)],
+              shakes=[(13.98, 0.4, 24), (15.03, 0.3, 18)])
+
+
+def shot_dash2(t):
+    D = world('dash')
+    img = D.frame(t, rpm_deg=rpm7(t), ac_on=True)
+    fg = layer()
+    for i, (vx, vy) in enumerate(D.VENTS):
+        fx.flakes(fg, t, 12.4, vx, vy - 20, n=5, seed=71 + i, spread=170, rise=300)
+    fx.glint(fg, t, 12.7, *TACH, r=200); fx.glint(fg, t, 14.15, *TACH, r=200)
+    fx.ring(fg, t, 14.0, *TACH, (255, 210, 63), life=0.4, r1=300)
+    fx.burst(fg, t, 13.98, *TACH, r0=230, r1=430, seed=78)
+    rev_marks(fg, t, 13.98, *TACH, r=240)
+    vroom(fg, t, 14.0, TACH[0] + 40, TACH[1] - 300)
+    P7.draw(fg, t)
+    if t >= 15.03:
+        fx.rays(fg, t, 15.03, *TACH, GLOW_G, hold=True, r=520)
+        fx.gsparkles(fg, t, TACH[0], TACH[1] - 20, 600, 520, n=14, seed=49)
+        fx.ring(fg, t, 15.1, *TACH, (60, 200, 90), life=0.45, r1=420)
+        fx.stamp_at(fg, t, 15.03, 'NORMAL', TACH[0], TACH[1] - 10, -8, 10, '#2a9a45')
+        fx.burst(fg, t, 15.03, TACH[0], TACH[1] - 10, (60, 200, 90), n=14, seed=79)
+    return finish(img, fg, CAM7, t)
+
+
+# ================================================================== shot 8: next-episode teaser (garage)
+SHEET_X, BENCH_Y = 620, 828
+SHEET_CORNER = (SHEET_X - 200, BENCH_Y - 30)
+P8 = Presenter([
+    (15.38, dict(path=Track([(15.38, (240, 700)), (15.72, (300, 860), 'oc'), (15.98, reach(SHEET_CORNER, 30, 8, 1).at(0), 'io'),
+                             (16.36, (250, 830), 'oc'), (16.62, (260, 800), 'sine'), (17.15, (1500, 520), 'back')], smooth=True),
+                 size=8, legs='auto', arms='fly', expr='grin', face=1, look=(SHEET_X, 640))),
+    (15.72, dict(arms='point', point=(SHEET_X, 640), expr='smirk')),
+    (15.98, dict(arms=('aim', 30), expr='wow')),
+    (16.36, dict(arms='thumb', look=None, point=None, look_camera=True, expr='grin', squash=True)),
+    (16.66, dict(arms='fly', expr='grin')),
+], words=WORDS, base_size=8)
+CAM8 = Camera(W, H, [(15.38, (600, 760, 1.15)), (16.0, (560, 740, 1.25), 'io'), (16.6, (580, 760, 1.2)), (17.1, (640, 760, 1.2))],
+              kicks=[(15.8, 0.05, 560, 380), (16.0, 0.08, SHEET_X, 640)])
+
+
+def shot_teaser(t):
+    img = GAR.frame(t).convert('RGBA')
+    fg = layer()
+    lift = oc(prog(t, 16.0, 0.35)) * 0.85
+    fx.rays(fg, t, 15.8, SHEET_X, 640, GLOW_Y, hold=True, r=520)
+    spr = up(sheet(round(lift * 20) / 20), 8).transpose(Image.FLIP_LEFT_RIGHT)
+    blit(fg, spr, SHEET_X, BENCH_Y)
+    if lift > 0.3:
+        fx.sparkles(fg, t * 1.6, SHEET_X - 170, BENCH_Y - 60, 120, 80, n=6, seed=58)
+    dg.label(fg, t, 15.8, 'NEXT EPISODE', (SHEET_X, 500), (560, 360), '#ffd23f', '#1a1a2e', '#e8b923', s=7)
+    if t >= 16.0:
+        kq = popin(t, 16.0, 0.25) * (1 + 0.1 * math.sin(t * 9))
+        blit(fg, fx.big('glyph', '?', '#e0303a', s=16), SHEET_X + 40, 650, kq, kq, 8 * math.sin(t * 6), anchor='center')
+        fx.burst(fg, t, 16.0, SHEET_X + 40, 650, seed=81)
+    P8.draw(fg, t)
+    GAR.reflect(img, fg)
+    return finish(img, fg, CAM8, t)
+
+
+# ================================================================== edit: shots + character-driven transitions
+SHOTS = [(-1.0, shot_dash1), (2.45, shot_garage), (4.6, shot_engine), (6.26, shot_idle), (7.96, shot_split),
+         (10.26, shot_street), (12.4, shot_dash2), (15.38, shot_teaser)]
+SCENES = SHOTS            # progress-bar checkpoints at each shot start
+TRANS = {1: (2.45, 2.68, 'whip', dict(dx=-1)), 2: (4.6, 4.86, 'iris', 'bay'), 3: (6.26, 6.46, 'lens', None),
+         4: (7.96, 8.14, 'whip', dict(dx=0, dy=1)), 5: (10.26, 10.46, 'push', None), 6: (12.4, 12.62, 'iris', 'windscreen'),
+         7: (15.38, 15.6, 'whip', dict(dx=1))}
+LOOP = 0.3  # final whip back into the opening frame so the clip loops seamlessly
+AUTH_END = DUR + LEAD
+
+
+def iris_centre(kind):
+    if kind == 'bay': return CAM2.to_screen(4.6, *BAY_PX)
+    return CAM6.to_screen(12.4, *WINDSCREEN)
+
+
+def picture(t):
+    """Screen image (before vignette, captions and progress) for time t."""
+    if t >= AUTH_END - LOOP:
+        e = io(prog(t, AUTH_END - LOOP, LOOP))
+        return T.whip(shot_teaser(t), shot_dash1(t - DUR), e, dx=1)
+    idx = max(i for i, (s, _) in enumerate(SHOTS) if t >= s)
+    if idx in TRANS:
+        t0, t1, kind, opt = TRANS[idx]
+        if t < t1:
+            e = prog(t, t0, t1 - t0)
+            a, b = SHOTS[idx - 1][1](t), SHOTS[idx][1](t)
+            if kind == 'whip': return T.whip(a, b, io(e), **opt)
+            if kind == 'iris':
+                cx, cy = iris_centre(opt); return T.iris(a, b, e, cx, cy)
+            if kind == 'push':
+                out = T.push(a, b, e, dx=-1).convert('RGBA'); PP.draw(out, t, None); return out.convert('RGB')
+            if kind == 'lens':
+                out = T.cut(a, b, e, at=0.5).convert('RGBA'); PL.draw(out, t, None); return out.convert('RGB')
+    return SHOTS[idx][1](t)
+
 
 # ------------------------------------------------------------------ captions
 FONT_PATH = os.environ.get('PIXEL_FONT', '/usr/share/fonts/opentype/inter/Inter-Black.otf')
@@ -676,26 +646,38 @@ def caption_img(ci, active):
 
 TFONT = font(80)
 
-@lru_cache(None)
-def title_img():
-    lines = [('car stuff, explained', (255, 255, 255), 80, 0), ('AC REVS UP?', (255, 90, 90), 124, 96)]
-    img = Image.new('RGBA', (1000, 260), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-    for txt, col, sz, y in lines:
-        f = font(sz)
-        w = d.textlength(txt, font=f)
-        d.text((500 - w / 2 + 6, y + 8), txt, font=f, fill=NAVY, stroke_width=14, stroke_fill=NAVY)
-        d.text((500 - w / 2, y), txt, font=f, fill=col, stroke_width=13, stroke_fill=(10, 10, 16))
+
+def _text_img(txt, col, sz):
+    f = font(sz); d0 = ImageDraw.Draw(Image.new('RGB', (1, 1)))
+    w = int(d0.textlength(txt, font=f)) + 60
+    img = Image.new('RGBA', (w, int(sz * 1.5)), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
+    d.text((30 + 6, 8 + 8), txt, font=f, fill=NAVY, stroke_width=14, stroke_fill=NAVY)
+    d.text((30, 8), txt, font=f, fill=col, stroke_width=13, stroke_fill=(10, 10, 16))
     return img
 
-def title(cv, t):
-    if t >= 2.0: return
-    k = ob(prog(t, -0.22, 0.22)) * (1 - ic(prog(t, 1.6, 0.25)))
-    if k <= 0.02: return
-    img = title_img()
-    rot = 3 * math.sin(t * 4)
-    img = img.resize((int(img.width * k), int(img.height * k)), Image.BILINEAR).rotate(rot, resample=Image.BICUBIC, expand=True)
-    cv.paste(img, (int(W / 2 - img.width / 2), int(370 - img.height / 2)), img)
+
+@lru_cache(None)
+def tag_img(): return _text_img('car stuff, explained', (255, 255, 255), 62)
+
+
+@lru_cache(None)
+def question_img(): return _text_img('AC REVS UP?', (255, 90, 90), 108)
+
+
+def title(cv, t, dx=0):
+    # series tag from frame 0; the mystery question slams in as the needle jumps
+    if t < 2.5:
+        k = 1 - ic(prog(t, 2.2, 0.25))
+        if k > 0.02:
+            img = tag_img(); img = img.resize((int(img.width * k), int(img.height * k)), Image.BILINEAR)
+            cv.paste(img, (int(W / 2 - img.width / 2) + dx, int(300 - img.height / 2)), img)
+    if 1.95 <= t < 2.5:
+        k = fx.slam(t, 1.95, 0.14, 0.9) * (1 - ic(prog(t, 2.3, 0.2)))
+        if k > 0.02:
+            img = question_img()
+            img = img.resize((int(img.width * k), int(img.height * k)), Image.BILINEAR).rotate(-4 + 2 * math.sin(t * 9), resample=Image.BICUBIC, expand=True)
+            cv.paste(img, (int(W / 2 - img.width / 2) + dx, int(430 - img.height / 2)), img)
+
 
 @lru_cache(None)
 def end_img():
@@ -735,10 +717,8 @@ def captions(cv, t):
                 img = img.resize((int(img.width * k), int(img.height * k)), Image.BILINEAR)
             cv.paste(img, (int(W / 2 - img.width / 2), int(1390 + dy - img.height / 2)), img)
             return
-# ------------------------------------------------------------------ frame + audio
-LOOP = 0.3  # final slide back into the opening frame so the clip loops seamlessly
-AUTH_END = DUR + LEAD
 
+# ------------------------------------------------------------------ frame + audio
 def progress(cv, t):
     p = clamp(t / DUR)
     d = ImageDraw.Draw(cv)
@@ -757,22 +737,20 @@ def progress(cv, t):
         d.ellipse((xc - r, yc - r, xc + r, yc + r), fill=(60, 200, 90) if on else (200, 204, 212))
     blit(cv, big('car', 'red', int(t * 12) % 2, s=3), xp, y + 8 - S * (int(t * 8) % 2))
 
+CONFETTI = [(15.35, 300, 700, 50, 4, 1.0), (15.4, 800, 640, 44, 8, 0.9), (16.1, 560, 600, 40, 9, 1.1)]
+
+
 def frame(n):
     t = n / FPS + LEAD
+    cv = picture(t)
+    for t0, x, y, k, seed, sp in CONFETTI:
+        fx.confetti(cv, t, t0, x, y, n=k, seed=seed, spread=sp)
+    GAR.vignette(cv)
     if t >= AUTH_END - LOOP:
-        tt = t - AUTH_END + LEAD
-        e = io(prog(t, AUTH_END - LOOP, LOOP))
-        last = len(SCENES) - 1
-        a = apply_cam(compose(draw_scene(last, t), t), *camera(t, last)); GAR.vignette(a); captions(a, t)
-        b = apply_cam(compose(draw_scene(0, tt), tt), *camera(tt, 0)); GAR.vignette(b); title(b, tt); captions(b, tt)
-        cv = Image.new('RGB', (W, H), BG)
-        cv.paste(a, (int(-W * e), 0)); cv.paste(b, (int(W * (1 - e)), 0))
+        title(cv, t - DUR, dx=int(W * (1 - io(prog(t, AUTH_END - LOOP, LOOP)))))
     else:
-        fg, idx = world(t)
-        cv = apply_cam(compose(fg, t), *camera(t, idx))
-        GAR.vignette(cv)
         title(cv, t)
-        captions(cv, t)
+    captions(cv, t)
     progress(cv, n / FPS)
     return cv.tobytes()
 
