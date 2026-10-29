@@ -26,7 +26,7 @@ class Metrics:
         codes = {'HTTP_FAILURE', 'NETWORK_FAILURE', 'REQUEST_TIMEOUT', 'RESPONSE_DECODING_FAILED',
                  'INVALID_PROVIDER_RESPONSE', 'UNEXPECTED_MODEL', 'INCOMPLETE_GENERATION',
                  'EMPTY_GENERATED_CONTENT', 'PYTHON_SYNTAX_INVALID', 'OUTPUT_STAGING_FAILED',
-                 'INTERNAL_ADAPTER_ERROR', 'UNEXPECTED_COST', 'SAFETY_POLICY_REJECTED',
+                 'INTERNAL_ADAPTER_ERROR', 'UNEXPECTED_COST', 'RESPONSE_TOO_LARGE', 'SAFETY_POLICY_REJECTED',
                  'HELPER_UNAVAILABLE', 'REQUEST_VALIDATION_FAILED', 'QUOTA_OR_DUPLICATE'}
         code = failure.failure_code if failure.failure_code in codes else 'INTERNAL_ADAPTER_ERROR'
         stage = failure.failure_stage if failure.failure_stage in {'preflight', 'transport', 'response', 'syntax', 'staging', 'internal'} else 'internal'
