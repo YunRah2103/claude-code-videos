@@ -1,8 +1,20 @@
 """Conservative, offline-only worker selection and persistent reservations."""
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 import sqlite3
+
+
+@contextmanager
+def transaction(path):
+    """Commit on success, roll back on error, and always close the connection."""
+    db = sqlite3.connect(path, timeout=10)
+    try:
+        with db:
+            yield db
+    finally:
+        db.close()
 
 
 @dataclass(frozen=True)
@@ -28,16 +40,13 @@ class Ledger:
     def __init__(self, path: Path):
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        with self._connect() as db:
+        with transaction(self.path) as db:
             db.executescript('''CREATE TABLE IF NOT EXISTS reservations (
                 task_id TEXT PRIMARY KEY, worker TEXT NOT NULL, created REAL NOT NULL);
                 CREATE TABLE IF NOT EXISTS blocks (worker TEXT PRIMARY KEY, reason TEXT NOT NULL);''')
 
-    def _connect(self):
-        return sqlite3.connect(self.path, timeout=10)
-
     def block(self, worker, reason):
-        with self._connect() as db:
+        with transaction(self.path) as db:
             db.execute('INSERT OR REPLACE INTO blocks VALUES (?, ?)', (worker, reason))
 
     @staticmethod
@@ -57,13 +66,13 @@ class Ledger:
                     or (worker.monthly_limit is not None and count(month_start, True) >= worker.monthly_limit))
 
     def available(self, worker, now):
-        with self._connect() as db:
+        with transaction(self.path) as db:
             return self._has_capacity(db, worker, now)
 
     def reserve(self, worker, task_id, now):
         if not task_id or not (worker.enabled and worker.automatic and worker.free_verified):
             return False
-        with self._connect() as db:
+        with transaction(self.path) as db:
             db.execute('BEGIN IMMEDIATE')
             if not self._has_capacity(db, worker, now):
                 return False
