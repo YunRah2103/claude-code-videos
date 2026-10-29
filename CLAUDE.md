@@ -52,3 +52,17 @@ cannot do.
 ## Compact instructions
 Keep the brief, source paths, timing decisions, verification results and next step.
 Drop logs, repeated plans and narration already stored in files.
+
+## LOCAL QWEN CODING WORKER (ON-DEMAND)
+
+When the user asks to use local Qwen, keep **Claude Sonnet as manager** and
+call the project MCP tool `local-qwen.qwen_status`, then
+`local-qwen.qwen_generate_code` for focused tasks. Do not require any usage
+threshold or replace Claude with Qwen. This is distinct from
+`ollama launch claude`, which switches Claude Code's underlying model.
+The tool returns untrusted code as text; inspect it, propose safe file changes,
+and test only with appropriate permission and a verified safe environment.
+Do not send secrets or entire repositories in the task/context. If using Claude
+Code in a cloud environment where local Ollama is unreachable, clearly say so;
+run this setup on the same Windows PC as Ollama. See
+`docs/LOCAL_QWEN_WORKER.md`.
