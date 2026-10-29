@@ -13,7 +13,7 @@ class DiagnosticsTests(unittest.TestCase):
         self.worker = Worker('openrouter', frozenset({'code'}), True, True, True, 5, 60)
         self.policy = Policy(True, True, ('test:free',), 'test:free', 128)
 
-    def fail(self, helper):
+    def run_failure(self, helper):
         with self.assertRaises(AdapterError) as ctx:
             execute('SECRET_PROMPT', 't1', self.policy, self.worker, self.ledger, now=100, helper=helper)
         return ctx.exception
@@ -21,7 +21,7 @@ class DiagnosticsTests(unittest.TestCase):
     def test_syntax_failure_preserves_safe_usage(self):
         h = FakeHelper({'content':'SECRET_OUTPUT !', 'model':'test:free', 'finish_reason':'stop',
                         'usage':{'prompt_tokens':12,'completion_tokens':4,'total_tokens':16,'cost':0}})
-        e = self.fail(h)
+        e = self.run_failure(h)
         self.assertEqual(e.failure_code, 'PYTHON_SYNTAX_INVALID')
         self.assertTrue(e.response_received)
         self.assertEqual(e.usage['total_tokens'], 16)
@@ -38,7 +38,7 @@ class DiagnosticsTests(unittest.TestCase):
                 self.calls += 1
                 raise TimeoutError('SECRET')
         h = TimeoutHelper()
-        e = self.fail(h)
+        e = self.run_failure(h)
         self.assertEqual(e.failure_code, 'REQUEST_TIMEOUT')
         self.assertIsNone(e.response_received)
         self.assertIsNone(e.usage['cost'])
@@ -93,18 +93,18 @@ class DiagnosticsTests(unittest.TestCase):
             self.assertEqual(caught.exception.failure_code, 'INVALID_PROVIDER_RESPONSE')
             self.assertNotIn('private', str(caught.exception))
 
-    def test_pr8_wrapped_errors_are_classified_without_their_messages(self):
+    def test_legacy_unstructured_errors_fail_closed_without_messages(self):
         class TaskError(Exception): pass
-        cases = [('request timed out; the server may still have processed it, so not retrying', 'REQUEST_TIMEOUT'),
-                 ('HTTP 200 with a non-JSON body', 'RESPONSE_DECODING_FAILED'),
-                 ('authentication or permission failure (HTTP 401); not retrying', 'HTTP_FAILURE'),
-                 ('rate limited (HTTP 429, Retry-After=SECRET); not retrying', 'HTTP_FAILURE')]
-        for i, (message, expected) in enumerate(cases):
+        cases = ['request timed out; the server may still have processed it, so not retrying',
+                 'HTTP 200 with a non-JSON body',
+                 'authentication or permission failure (HTTP 401); not retrying',
+                 'rate limited (HTTP 429, Retry-After=SECRET); not retrying']
+        for i, message in enumerate(cases):
             class Wrapped(FakeHelper):
                 def send(self, payload): raise TaskError(message)
             with self.assertRaises(AdapterError) as caught:
                 execute('x','t',self.policy,self.worker,Ledger(Path(self.tmp.name)/f'wrap{i}'),now=100,helper=Wrapped())
-            self.assertEqual(caught.exception.failure_code, expected)
+            self.assertEqual(caught.exception.failure_code, 'INTERNAL_ADAPTER_ERROR')
             self.assertNotIn('SECRET', str(caught.exception))
 
     def test_pr8_helper_real_response_pipeline_offline(self):
@@ -116,7 +116,7 @@ class DiagnosticsTests(unittest.TestCase):
             status = 200
             def __enter__(self): return self
             def __exit__(self, *args): return False
-            def read(self):
+            def read(self, size=-1):
                 return json.dumps({'model':'test:free', 'choices':[{'finish_reason':'stop',
                     'message':{'content':'SECRET_INVALID !'}}],
                     'usage':{'prompt_tokens':7,'completion_tokens':3,'total_tokens':10}}).encode()
@@ -138,3 +138,56 @@ class DiagnosticsTests(unittest.TestCase):
         self.assertIsNone(caught.exception.usage['cost'])
         self.assertEqual(calls, [1])
         self.assertIsNone(caught.exception.__context__)
+
+    def test_structured_helper_error_does_not_depend_on_message_text(self):
+        try:
+            from tools.openrouter_task import TaskError
+        except ImportError:
+            self.skipTest('hardened PR #8 helper is a separate dependency')
+        class Wrapped(FakeHelper):
+            def send(self, payload):
+                raise TaskError('SECRET arbitrary wording', code='REQUEST_TIMEOUT')
+        e = self.run_failure(Wrapped())
+        self.assertEqual(e.failure_code, 'REQUEST_TIMEOUT')
+        self.assertIsNone(e.response_received)
+        self.assertNotIn('SECRET', str(e))
+
+    def test_real_helper_timeout_produces_structured_diagnostic_offline(self):
+        try:
+            from tools import openrouter_task as pr8
+        except ImportError:
+            self.skipTest('hardened PR #8 helper is a separate dependency')
+        class Helper:
+            build_payload = staticmethod(pr8.build_payload)
+            parse_reply = staticmethod(pr8.parse_reply)
+            extract_code = staticmethod(pr8.extract_code)
+            @staticmethod
+            def send(payload):
+                def timeout(request, timeout):
+                    raise TimeoutError('secret')
+                return pr8.send(payload, opener=timeout)
+        error = self.run_failure(Helper())
+        self.assertEqual(error.failure_code, 'REQUEST_TIMEOUT')
+        self.assertIsNone(error.response_received)
+        self.assertNotIn('secret', str(error))
+
+    def test_real_helper_oversize_response_is_classified_without_content(self):
+        try:
+            from tools import openrouter_task as pr8
+        except ImportError:
+            self.skipTest('hardened PR #8 helper is a separate dependency')
+        class Response:
+            status = 200
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def read(self, size=-1): return b'x' * size
+        class Helper:
+            build_payload = staticmethod(pr8.build_payload)
+            parse_reply = staticmethod(pr8.parse_reply)
+            extract_code = staticmethod(pr8.extract_code)
+            @staticmethod
+            def send(payload): return pr8.send(payload, opener=lambda request, timeout: Response())
+        error = self.run_failure(Helper())
+        self.assertEqual(error.failure_code, 'RESPONSE_TOO_LARGE')
+        self.assertTrue(error.response_received)
+        self.assertIsNone(error.usage['cost'])

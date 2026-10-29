@@ -52,8 +52,7 @@ can make one request only when supplied an enabled policy, a specific allowed
 those inputs default to disabled. A flag is not independent proof of billing
 protection. The adapter has only offline tests in this environment and is not
 wired into the CLI. On uncertain failures it retains the quota reservation and
-blocks the provider. The existing helper has a 400-second timeout and an
-unbounded response read; harden those before unattended use. Kilo preflight
+blocks the provider. The integrated helper uses a 30-second per-socket timeout and a 1 MiB response cap; a socket timeout is not a total wall-clock deadline. Kilo preflight
 reports unavailable here; its primary model being free does not establish that
 background requests are free. Gemini remains disabled.
 
@@ -107,8 +106,7 @@ provider blocked. Never delete a reservation or silently resubmit under a new ID
 Any decision to lift a block requires explicit authorisation and a separate,
 reviewed action; this code has no automatic unblock or retry.
 
-The PR #8 helper converts certain HTTP, timeout and decoding errors to safe
-messages; the adapter recognises its current formats. A future helper change may
-reduce classification to `INTERNAL_ADAPTER_ERROR` and should be tested before
-use. No raw response is retained, so this change cannot identify the cause of the
+The integrated helper supplies fixed transport error codes. Older helpers without
+structured codes fail closed as `INTERNAL_ADAPTER_ERROR`. The standalone helper
+CLI cannot send requests; the rotation CLI's `preflight` is read-only. No raw response is retained, so this change cannot identify the cause of the
 previous live failure retroactively.

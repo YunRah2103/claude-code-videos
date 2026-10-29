@@ -11,7 +11,7 @@ from typing import Any
 FIELDS = ('prompt_tokens', 'completion_tokens', 'total_tokens', 'reasoning_tokens', 'cost')
 FAILURE_CODES = frozenset({'HTTP_FAILURE', 'NETWORK_FAILURE', 'REQUEST_TIMEOUT', 'RESPONSE_DECODING_FAILED',
     'INVALID_PROVIDER_RESPONSE', 'UNEXPECTED_MODEL', 'INCOMPLETE_GENERATION', 'EMPTY_GENERATED_CONTENT',
-    'PYTHON_SYNTAX_INVALID', 'OUTPUT_STAGING_FAILED', 'INTERNAL_ADAPTER_ERROR', 'UNEXPECTED_COST',
+    'PYTHON_SYNTAX_INVALID', 'OUTPUT_STAGING_FAILED', 'INTERNAL_ADAPTER_ERROR', 'UNEXPECTED_COST', 'RESPONSE_TOO_LARGE',
     'SAFETY_POLICY_REJECTED', 'HELPER_UNAVAILABLE', 'REQUEST_VALIDATION_FAILED', 'QUOTA_OR_DUPLICATE'})
 
 
@@ -90,20 +90,22 @@ def _execute(task: str, task_id: str, policy: Policy, worker, ledger, *, now: fl
         status, data = helper.send(payload)
     except Exception as exc:
         ledger.block(worker.name, 'request failed; manual investigation required')
-        # The existing helper wraps HTTP/URL errors as TaskError strings; only
-        # inspect their controlled prefix, never persist their text.
-        name = type(exc).__name__
-        if isinstance(exc, (TimeoutError, socket.timeout)) or (isinstance(exc, urllib.error.URLError) and isinstance(exc.reason, (TimeoutError, socket.timeout))) or (name == 'TaskError' and (str(exc).startswith('request timed out;') or (str(exc).startswith('network error:') and 'timed out' in str(exc).lower()))):
+        # Trust only fixed structured codes, never parse exception messages.
+        structured = getattr(exc, 'code', None)
+        transport_codes = {'REQUEST_TIMEOUT', 'RESPONSE_DECODING_FAILED', 'HTTP_FAILURE', 'NETWORK_FAILURE', 'RESPONSE_TOO_LARGE'}
+        if structured in transport_codes:
+            code = structured
+        elif isinstance(exc, (TimeoutError, socket.timeout)) or (isinstance(exc, urllib.error.URLError) and isinstance(exc.reason, (TimeoutError, socket.timeout))):
             code = 'REQUEST_TIMEOUT'
-        elif isinstance(exc, (json.JSONDecodeError, UnicodeDecodeError)) or (name == 'TaskError' and str(exc).startswith('HTTP ') and str(exc).endswith(' with a non-JSON body')):
+        elif isinstance(exc, (json.JSONDecodeError, UnicodeDecodeError)):
             code = 'RESPONSE_DECODING_FAILED'
-        elif isinstance(exc, urllib.error.HTTPError) or (name == 'TaskError' and (str(exc).startswith('HTTP ') or str(exc).startswith('rate limited (HTTP ') or str(exc).startswith('authentication or permission failure (HTTP '))):
+        elif isinstance(exc, urllib.error.HTTPError):
             code = 'HTTP_FAILURE'
-        elif isinstance(exc, (urllib.error.URLError, ConnectionError, OSError)) or (name == 'TaskError' and str(exc).startswith('network error:')):
+        elif isinstance(exc, (urllib.error.URLError, ConnectionError, OSError)):
             code = 'NETWORK_FAILURE'
         else:
             code = 'INTERNAL_ADAPTER_ERROR'
-        received = True if code in {'HTTP_FAILURE', 'RESPONSE_DECODING_FAILED'} else None
+        received = True if code in {'HTTP_FAILURE', 'RESPONSE_DECODING_FAILED', 'RESPONSE_TOO_LARGE'} else None
         transport_failure = AdapterError(code, stage='transport', request_sent=True if received else None, response_received=received)
     if transport_failure:
         raise transport_failure
