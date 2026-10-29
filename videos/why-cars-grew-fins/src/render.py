@@ -201,7 +201,7 @@ def shot_hook(t):
         fx.sparkles(fg, t, CX1, 700, 500, 220, n=8, seed=11)
     P1.draw(fg, t)
     GAR.reflect(img, fg)
-    photo(fg, t, 2.6, 2.95, 'cadillac_1948', 560, 560, 600, 460, -3, 'THE FIRST TAILFINS, 1948', focus=(0.5, 0.55), zoom=0.1)
+    photo(fg, t, 2.6, 2.95, 'cadillac_1948', 560, 560, 600, 460, -3, 'A 1948 MODEL', focus=(0.5, 0.55), zoom=0.1)
     return finish(img, fg, CAM1, t)
 
 
