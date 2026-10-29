@@ -124,11 +124,21 @@ class TaskCLITests(unittest.TestCase):
             self.assertEqual(create.returncode, 0, create.stderr)
             show = subprocess.run(prefix + ['show', '--id', 'wheel'], capture_output=True, text=True)
             self.assertEqual(show.returncode, 0, show.stderr)
-            self.assertIn('Wheel tests', show.stdout)
+            self.assertNotIn('Wheel tests', create.stdout)
+            self.assertNotIn('Wheel tests', show.stdout)
             self.assertIn('planned', show.stdout)
             duplicate = subprocess.run(prefix + ['create', '--id', 'wheel', '--goal', 'other', '--file', 'x'], capture_output=True, text=True)
             self.assertNotEqual(duplicate.returncode, 0)
             self.assertNotIn('Traceback', duplicate.stderr)
+
+    def test_plan_does_not_print_task_text(self):
+        import subprocess, sys
+        with tempfile.TemporaryDirectory() as tmp:
+            run = subprocess.run([sys.executable, '-m', 'tools.agent_rotation', '--state',
+                                  str(Path(tmp) / 's.db'), 'plan', '--task', 'SECRET_PROMPT_DO_NOT_LOG'],
+                                 capture_output=True, text=True)
+            self.assertEqual(run.returncode, 0, run.stderr)
+            self.assertNotIn('SECRET_PROMPT_DO_NOT_LOG', run.stdout)
 
 class QuotaCalendarTests(unittest.TestCase):
     def test_daily_and_monthly_limits_enforced_across_restart(self):

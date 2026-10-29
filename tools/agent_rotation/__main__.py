@@ -52,7 +52,9 @@ def main():
         try:
             if args.command == 'create':
                 store.create(args.id, args.goal, args.file)
-            print(json.dumps(store.get(args.id), indent=2))
+            details = store.get(args.id)
+            details.pop('goal', None)
+            print(json.dumps(details, indent=2))
         except (ValueError, KeyError) as exc:
             parser.exit(2, f'Error: {exc}\n')
         return
@@ -63,7 +65,6 @@ def main():
             print(f'{worker.name}: {status} (automatic={worker.automatic}, free_verified={worker.free_verified})')
     elif args.command == 'plan':
         worker = registry.select('code', ledger, time.time())
-        print(f'Task: {args.task}')
         print(f'Worker: {worker.name}' if worker else 'Worker: unavailable; no verified free automatic provider')
         print('Planning only; no request was sent.')
 
