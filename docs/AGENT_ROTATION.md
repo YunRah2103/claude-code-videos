@@ -80,3 +80,35 @@ command until these safeguards and a real secure test environment are available.
 remain counted separately. `python -m tools.agent_rotation.benchmark` measures
 local SQLite reservation overhead only, with simulated workers and zero API
 calls. It does not measure coding success, model performance or token savings.
+
+## Failure diagnostics and manual recovery
+
+The adapter reports a fixed failure code and stage plus tri-state request,
+response and model verification flags. A missing value is unknown; it is not
+zero or proof that a request was not sent. Only validated numeric usage and
+provider-reported cost are stored; prompts, generated text, response bodies,
+HTTP messages and exception text are excluded from diagnostics. The failure
+row and metric insert share one SQLite transaction; an existing metric is never
+replaced. If storage itself fails, the task may remain `running` and diagnostics
+may be incomplete: do not infer that no request was sent.
+
+All post-reservation failures leave the task `interrupted`, retain the reservation
+and block the provider. `PYTHON_SYNTAX_INVALID` with a received response is a
+known completed response, whereas `REQUEST_TIMEOUT` leaves delivery unknown.
+Neither is automatically retried. Static syntax checks do not execute code or
+prove correctness. Git worktrees are not security sandboxes.
+
+Before any separately authorised recovery, an operator must inspect task history,
+reservation and diagnostic records, review the existing block and check provider
+request/usage history and the account's zero-spend protection where available.
+Reconcile incomplete or conflicting records manually; a timeout may have been
+processed even if usage is not visible. If the state remains uncertain, keep the
+provider blocked. Never delete a reservation or silently resubmit under a new ID.
+Any decision to lift a block requires explicit authorisation and a separate,
+reviewed action; this code has no automatic unblock or retry.
+
+The PR #8 helper converts certain HTTP, timeout and decoding errors to safe
+messages; the adapter recognises its current formats. A future helper change may
+reduce classification to `INTERNAL_ADAPTER_ERROR` and should be tested before
+use. No raw response is retained, so this change cannot identify the cause of the
+previous live failure retroactively.

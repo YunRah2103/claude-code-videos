@@ -33,3 +33,15 @@ class MetricsTests(unittest.TestCase):
             self.assertEqual(summary['unknown_total_counts'], 1)
             self.assertEqual(summary['known_cost'], 0)
             self.assertEqual(summary['unknown_cost_counts'], 1)
+
+    def test_existing_metric_never_overwritten_by_failure(self):
+        from tools.agent_rotation.openrouter_adapter import AdapterError
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp)/'metrics.db'
+            metrics = Metrics(path)
+            metrics.record('a', 'x', 'response_received', prompt_tokens=5, cost=None)
+            metrics.record_failure('a', 'x', AdapterError('OUTPUT_STAGING_FAILED', stage='staging', usage={'prompt_tokens':99, 'cost':0}))
+            summary = metrics.report()
+            self.assertEqual(summary['requests'], 1)
+            self.assertEqual(summary['known_prompt_tokens'], 5)
+            self.assertEqual(summary['unknown_cost_counts'], 1)
