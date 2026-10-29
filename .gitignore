@@ -13,3 +13,6 @@ out/
 
 # downloaded reference photos (re-fetch with shared/photos.py; credits.json is committed)
 videos/*/assets/*.jpg
+
+# generated sprites and stills (rebuild with each src/make_assets.py)
+videos/*/assets/*.png
