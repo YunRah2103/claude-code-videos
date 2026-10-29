@@ -42,6 +42,41 @@ class LocalQwenTests(unittest.TestCase):
             self.assertFalse(result["isError"])
             self.assertIn("def wheel(): pass", result["content"][0]["text"])
             self.assertEqual(call.call_args.args[0], "/api/generate")
+            payload = call.call_args.args[1]
+            self.assertEqual(payload["options"], {"num_predict": -1})
+            self.assertNotIn("num_ctx", payload["options"])
+            self.assertIs(payload["think"], False)
+            self.assertEqual(call.call_args.kwargs["timeout"], 3600)
+
+    def test_optional_deep_thinking(self):
+        with mock.patch.object(bridge, "ollama_json", return_value={
+            "response": "def wheel(): pass", "eval_count": 1, "eval_duration": 1e9
+        }) as call:
+            result = bridge.execute_tool("qwen_generate_code", {"task": "wheel", "deep_thinking": True})
+            self.assertFalse(result["isError"])
+            self.assertIs(call.call_args.args[1]["think"], True)
+
+    def test_invalid_thinking_flag(self):
+        with mock.patch.object(bridge, "ollama_json") as call:
+            result = bridge.execute_tool("qwen_generate_code", {"task": "wheel", "deep_thinking": "true"})
+            self.assertTrue(result["isError"])
+            call.assert_not_called()
+
+    def test_only_thinking_is_failure(self):
+        with mock.patch.object(bridge, "ollama_json", return_value={
+            "response": "", "thinking": "Planning...", "eval_count": 10
+        }):
+            result = bridge.execute_tool("qwen_generate_code", {"task": "wheel"})
+            self.assertTrue(result["isError"])
+            self.assertIn("only reasoning", result["content"][0]["text"])
+
+    def test_context_length_warning(self):
+        with mock.patch.object(bridge, "ollama_json", return_value={
+            "response": "partial code", "done_reason": "length", "eval_count": 10
+        }):
+            result = bridge.execute_tool("qwen_generate_code", {"task": "wheel"})
+            self.assertTrue(result["isError"])
+            self.assertIn("WARNING", result["content"][0]["text"])
 
     def test_unavailable(self):
         with mock.patch.object(bridge, "ollama_json", side_effect=OSError("offline")):
