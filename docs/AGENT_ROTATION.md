@@ -65,3 +65,18 @@ Python; it does not establish correctness or safety. Its caller must provide an
 owned staging directory and ensure no concurrent filesystem modifications.
 `metrics.py` preserves missing provider values as unknown. Recorded requests are
 not a complete provider usage ledger after crashes or activity in other clients.
+
+The Python `orchestrator.run_python_task` provides a single-attempt guarded path:
+it moves a ready task to running, creates a detached worktree, reserves quota
+through the adapter, records available usage and stages a new Python file for
+review. It never executes or promotes output. The adapter's policy still needs a
+verified zero-spend cap and the separate PR #8 helper; the path has only been
+tested with mocks here. State, quota, metrics and filesystem actions do not share
+one transaction. Interrupted or running tasks must be investigated manually,
+not resubmitted under another ID. This interface is not exposed as a CLI run
+command until these safeguards and a real secure test environment are available.
+
+`python -m tools.agent_rotation report` prints recorded usage; unknown values
+remain counted separately. `python -m tools.agent_rotation.benchmark` measures
+local SQLite reservation overhead only, with simulated workers and zero API
+calls. It does not measure coding success, model performance or token savings.
