@@ -7,10 +7,10 @@ Status labels: VERIFIED AUTOMATIC · VERIFIED SUPERVISED · MANUAL HANDOFF · OF
 | Provider | Status | Evidence | Command |
 |---|---|---|---|
 | OpenRouter `cohere/north-mini-code:free` | VERIFIED SUPERVISED | One live free request returned 200, `finish_reason: stop`, cost 0. Code passed tests. | `python3 tools/openrouter_task.py --task T --output out/openrouter/X.py` |
-| Gemini `gemini-2.5-flash` (direct API) | AUTHENTICATED BUT UNTESTED | Model list 200. One live generation returned 404 (not diagnosed). | `python3 tools/gemini_task.py --task T --output out/gemini/X.py --max-tokens 256` |
+| Gemini `gemini-3.8-flash` (direct API) | AUTHENTICATED BUT UNTESTED, routing disabled | Model list 200. Metadata lists generateContent. Earlier `gemini-2.5-flash` call returned 404, likely because 2.5 is restricted to past users. No live 3.8 generation yet. | `python3 tools/gemini_task.py --task T --output out/gemini/X.py --max-tokens 256` |
 | Gemini CLI 0.66.0 | BLOCKED | Google-account login needs a manual code paste. | none |
 
-Gemini's free tier is stated on Google's pricing page (2026-10-28) for `gemini-2.5-flash`. Free-tier content may be used to improve Google products.
+Gemini's free tier is stated on Google's pricing page (2026-10-28) for `gemini-3.8-flash`. Free-tier content may be used to improve Google products. Google's models page says new projects should use 3.8 Flash or 3.5 Flash-Lite.
 
 ## Other agents
 
@@ -50,6 +50,6 @@ Each provider utility exposes: `--task FILE`, `--output PATH` (under `out/`), `-
 
 ## Remaining blockers
 
-1. Gemini generation returns 404. Diagnosis needs a separate authorised request.
+1. No live generation with `gemini-3.8-flash` yet. It needs separate authorisation, then routing can be enabled.
 2. The OpenRouter utility needs merging from `ccr-82d3dced-0l557o` into a clean branch.
 3. No orchestrator exists yet. Codex should build it on the interface above.

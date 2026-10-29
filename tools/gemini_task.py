@@ -19,7 +19,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = ROOT / "out"
 ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = "gemini-3.8-flash"
+# Unattended routing stays off until one authorised live generation has been verified.
+# Supervised runs of this script are unaffected; an adapter must check this flag first.
+ROUTING_ENABLED = False
 DEFAULT_MAX_TOKENS = 8192
 TIMEOUT_SECONDS = 400
 # Flash and Flash-Lite text models only. Pro, image, audio, TTS and "-latest"

@@ -58,8 +58,15 @@ def http_error(code, headers=None):
 
 
 class ModelSelectionTest(unittest.TestCase):
+    def test_default_is_current_free_flash_model(self):
+        self.assertEqual(task.DEFAULT_MODEL, "gemini-3.8-flash")
+        self.assertTrue(task.is_allowed_model(task.DEFAULT_MODEL))
+
+    def test_unattended_routing_is_disabled(self):
+        self.assertFalse(task.ROUTING_ENABLED)
+
     def test_flash_models_are_allowed(self):
-        for model in ("gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-3-flash-preview", "gemini-3.6-flash"):
+        for model in ("gemini-3.8-flash", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-3-flash-preview", "gemini-3.6-flash"):
             with self.subTest(model=model):
                 self.assertTrue(task.is_allowed_model(model))
 

@@ -8,13 +8,17 @@ code. It is a one-shot helper, not an agent.
 - Authentication: the protected Gemini API-key secret is attached by Claude Cloud's proxy
   to `generativelanguage.googleapis.com`. A model-list request returned HTTP 200 without any
   key sent by the tool.
-- Free-tier eligibility: Google's pricing page (updated 2026-10-28) lists `gemini-2.5-flash`
-  as free of charge for text input and output. Free-tier content may be used to improve
-  Google's products, so do not send private or confidential code.
-- Live generation: **one** request was made with `gemini-2.5-flash` and `--max-tokens 256`.
-  It returned **HTTP 404**. The model metadata GET for the same model returned HTTP 200, so the
-  failure is on the generation path. The cause is not yet diagnosed. Do not retry without
-  separate authorisation.
+- Default model: `gemini-3.8-flash`. Google's pricing page (updated 2026-10-28) lists it as
+  free of charge for text input and output. Its metadata reports `generateContent` support.
+  Free-tier content may be used to improve Google's products, so do not send private code.
+- Why 2.5 failed: one earlier request to `gemini-2.5-flash` returned **HTTP 404**. Google's
+  models page says it is limiting 2.5 models to users who used them in the past, and that new
+  projects should use 3.8 Flash or 3.5 Flash-Lite. This likely explains the 404, though the
+  docs don't confirm it for this project. Do not retry 2.5.
+- Live generation with `gemini-3.8-flash`: **not yet performed**. It requires separate
+  authorisation.
+- Unattended routing: **disabled** (`ROUTING_ENABLED = False`) until one authorised live
+  generation is verified.
 - Status: **AUTHENTICATED BUT UNTESTED** for generation.
 - The Google-account (OAuth) login is not used; it failed and needs a manual code paste.
 
