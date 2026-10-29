@@ -3,22 +3,23 @@
 ```bash
 python -m tools.agent_rotation status
 python -m tools.agent_rotation plan --task 'Implement a wheel helper'
+python -m tools.agent_rotation create --id wheel --goal 'Test wheel motion' --file tests/test_wheel.py
+python -m tools.agent_rotation show --id wheel
 python -m unittest discover -s tests -v
 ```
 
 This is a foundation, not an agent launcher. Every default provider is disabled;
-no model requests are made and plan does not persist tasks. Historical access
+no model requests are made and plan does not persist tasks; create explicitly records a task. Historical access
 and free usage are not proof of current availability or account billing status.
 The CLI does not currently offer enabling a provider.
 
 `core.py` contains a capability registry and SQLite reservation ledger. A
-reservation is atomic across processes, survives restarts, applies a rolling
-request count and prevents repeated task IDs. A block stops selection until a
+reservation is atomic across processes, survives restarts, applies rolling, optional UTC daily and monthly request counts and prevents repeated task IDs. A block stops selection until a
 future explicit recovery mechanism is built. Never remove a reservation merely
 because a request timed out: it may have reached the provider. Selection alone
 is advisory; any future executor must reserve atomically before a request and
 must fail closed. The ledger only records local reservations, not provider-side
-usage, daily/monthly credit limits, or other clients' requests. Keep state under
+usage, financial credit limits, or other clients' requests. Keep state under
 ignored `out/`; do not rely on it as proof of zero cost.
 
 `planner.py` returns ready tasks with no overlapping declared repository paths.
@@ -42,3 +43,25 @@ marking review or failed. This is a state store only, not execution recovery.
 symlinks and traversal. It does not identify secrets or guarantee protection
 against a concurrent filesystem change; inspect selected content before sharing
 it with an external model. No context is sent by this module.
+
+## Provider and validation status
+
+The guarded OpenRouter adapter uses the separate PR #8 helper when present. It
+can make one request only when supplied an enabled policy, a specific allowed
+`:free` model, an enabled worker and an operator-verified zero-spend account;
+those inputs default to disabled. A flag is not independent proof of billing
+protection. The adapter has only offline tests in this environment and is not
+wired into the CLI. On uncertain failures it retains the quota reservation and
+blocks the provider. The existing helper has a 400-second timeout and an
+unbounded response read; harden those before unattended use. Kilo preflight
+reports unavailable here; its primary model being free does not establish that
+background requests are free. Gemini remains disabled.
+
+`isolation.py` creates detached Git worktrees outside the source checkout to
+separate edits. **A Git worktree is not a security sandbox**; never run untrusted
+code or an agent with normal host permissions on that basis. The OS sandbox probe
+failed in this environment. `validation.py` checks syntax and exclusively stages
+Python; it does not establish correctness or safety. Its caller must provide an
+owned staging directory and ensure no concurrent filesystem modifications.
+`metrics.py` preserves missing provider values as unknown. Recorded requests are
+not a complete provider usage ledger after crashes or activity in other clients.

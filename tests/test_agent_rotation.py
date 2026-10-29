@@ -114,3 +114,31 @@ class ContextTests(unittest.TestCase):
             (root / 'link').symlink_to(root / 'binary')
             for name in ('binary', 'link'):
                 with self.assertRaises(ValueError): pack_context(root, [name], 100)
+
+class TaskCLITests(unittest.TestCase):
+    def test_create_and_inspect_task(self):
+        import subprocess, sys
+        with tempfile.TemporaryDirectory() as tmp:
+            prefix = [sys.executable, '-m', 'tools.agent_rotation', '--state', str(Path(tmp) / 'state.db')]
+            create = subprocess.run(prefix + ['create', '--id', 'wheel', '--goal', 'Wheel tests', '--file', 'tests/test_wheel.py'], capture_output=True, text=True)
+            self.assertEqual(create.returncode, 0, create.stderr)
+            show = subprocess.run(prefix + ['show', '--id', 'wheel'], capture_output=True, text=True)
+            self.assertEqual(show.returncode, 0, show.stderr)
+            self.assertIn('Wheel tests', show.stdout)
+            self.assertIn('planned', show.stdout)
+            duplicate = subprocess.run(prefix + ['create', '--id', 'wheel', '--goal', 'other', '--file', 'x'], capture_output=True, text=True)
+            self.assertNotEqual(duplicate.returncode, 0)
+            self.assertNotIn('Traceback', duplicate.stderr)
+
+class QuotaCalendarTests(unittest.TestCase):
+    def test_daily_and_monthly_limits_enforced_across_restart(self):
+        from datetime import datetime, timezone
+        def ts(day): return datetime(2026, 10, day, 12, tzinfo=timezone.utc).timestamp()
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'state.db'
+            ledger = Ledger(path)
+            worker = Worker('free', frozenset({'code'}), True, True, True, 10, 60, daily_limit=1, monthly_limit=2)
+            self.assertTrue(ledger.reserve(worker, 'a', ts(1)))
+            self.assertFalse(ledger.reserve(worker, 'b', ts(1) + 120))
+            self.assertTrue(ledger.reserve(worker, 'b', ts(2)))
+            self.assertFalse(Ledger(path).reserve(worker, 'c', ts(3)))
