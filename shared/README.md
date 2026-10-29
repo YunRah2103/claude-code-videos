@@ -20,6 +20,7 @@ Reusable pieces for the pixel-art explainer episodes. Nothing here depends on on
 
 | `episode.py` | Episode kit lifted from ac-idle/jaguar: captions (one highlighted keyword), hook `title`, framed real `photo` cards, progress bar, NEXT EPISODE `teaser`, photo-credit line, `build_audio` mixer, `still`/`video` CLI. No corner gauge. Example: `videos/tractors-vs-ferraris/src/render.py` | module docstring |
 | `align.py` | `align(script, mp3, out_json, say=, extra=)`: pocketsphinx forced alignment -> `words.json` (numbers spoken as words, extra phones for names) | docstring |
+| `vo.py` | `tighten(src_mp3, words, out_mp3, target=17.2)`: shortens long pauses and applies a gentle atempo for short-form pacing; re-align the result. `episode.setup(..., gauge=True, loud=True)` adds the corner rev counter and -14 LUFS loudness | docstring |
 | `photos.py` | Fetch Wikimedia Commons photos + `credits.json` (file, source, licence, author) into `videos/<ep>/assets/` (jpgs are git-ignored) | docstring |
 
 Older episodes still carry their own copies of the caption/progress/mixer code; new ones use `episode.py`.

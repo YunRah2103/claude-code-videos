@@ -36,9 +36,10 @@ GAR = Garage(W, H, GROUND, S)
 E = {}   # episode state, filled by setup(); forked render workers inherit it
 
 
-def setup(here, words, dur, end_t, shots, trans, cues, keycol, overlay=None, bar_car='red'):
+def setup(here, words, dur, end_t, shots, trans, cues, keycol, overlay=None, bar_car='red', gauge=False, loud=False):
     E.update(here=here, words=words, dur=dur, end_t=end_t, shots=shots, trans=trans, cues=cues, keycol=keycol, overlay=overlay,
-             bar_car=bar_car, photo_dir=os.path.join(here, '..', 'assets'))
+             bar_car=bar_car, gauge=gauge, loud=loud, photo_dir=os.path.join(here, '..', 'assets'))
+    E['gauge_ev'] = sorted([(tc, GAUGE_KICK.get(name, 0.12) * vol) for tc, name, vol in cues] + [(tc, 0.3) for tc, _ in shots[1:]])
     E['chunks'] = make_chunks()
     cr = os.path.join(E['photo_dir'], 'credits.json')
     E['credits'] = json.load(open(cr)) if os.path.isfile(cr) else []
@@ -132,6 +133,7 @@ def teaser(t0, words, sheet_x=660, sign_at=(560, 520)):
 
 # ------------------------------------------------------------------ fonts and text
 FONT_PATH = os.environ.get('PIXEL_FONT', '/usr/share/fonts/opentype/inter/Inter-Black.otf')
+CJK_FONT = '/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc'   # credit lines with CJK author names
 
 
 @lru_cache(None)
@@ -321,12 +323,69 @@ def credit_img():
     by = {}
     for c in E['credits']: by.setdefault(c['licence'], []).append(c['author'][:40])
     lines = ['Photos: Wikimedia Commons'] + [f"{', '.join(a)} ({lic})" for lic, a in by.items()]
-    f = font(22); d0 = ImageDraw.Draw(Image.new('RGB', (1, 1)))
+    d0 = ImageDraw.Draw(Image.new('RGB', (1, 1)))
     img = Image.new('RGBA', (1040, 30 * len(lines) + 10), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
     for i, ln in enumerate(lines):
+        f = font(22) if all(ord(ch) < 0x2E80 for ch in ln) or not os.path.isfile(CJK_FONT) else ImageFont.truetype(CJK_FONT, 22)
         while d0.textlength(ln, font=f) > 1020: ln = ln[:-4] + '...'
         d.text((520 - d0.textlength(ln, font=f) / 2, 4 + 30 * i), ln, font=f, fill=(200, 204, 214, 230))
     return img
+
+
+# ------------------------------------------------------------------ corner rev counter (opt-in: setup(..., gauge=True))
+GAUGE_KICK = {'vroom': 0.8, 'boom': 0.55, 'crash': 0.6, 'stamp': 0.45, 'thump': 0.3, 'whoosh': 0.2, 'ding': 0.35, 'pop': 0.18,
+              'confetti': 0.5, 'cha_ching': 0.4, 'buzzer': 0.35, 'fall': 0.3, 'slide_down': 0.25, 'sparkle': 0.12, 'click': 0.12}
+GAUGE_C, GR = (948, 330), 21                     # screen centre, dial radius in grid px (x4 on screen)
+A0, A1 = 225, -45                                  # needle sweep: 0 rpm lower-left round to redline lower-right
+
+
+def rpm(t):
+    """Needle 0..1: idle with a small shiver; every loud cue and shot change kicks it up fast and lets it fall slowly."""
+    v = 0.14 + 0.012 * math.sin(t * 31) + 0.008 * math.sin(t * 53)
+    for tc, k in E['gauge_ev']:
+        u = t - tc
+        if 0 <= u < 1.6: v += k * (1 - math.exp(-u * 28)) * math.exp(-u * 2.6)
+    return min(1.04, v)
+
+
+@lru_cache(None)
+def _gauge_face():
+    n = 2 * GR + 5; c = n / 2
+    img = Image.new('RGBA', (n, n), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
+    d.ellipse((0, 0, n - 1, n - 1), fill=NAVY)
+    d.ellipse((1, 1, n - 2, n - 2), fill=(150, 156, 170)); d.arc((1, 1, n - 2, n - 2), 200, 320, fill=(232, 236, 244))
+    d.ellipse((4, 4, n - 5, n - 5), fill=(20, 21, 28))
+    for k in range(11):
+        a = math.radians(A0 + (A1 - A0) * k / 10); red = k >= 8
+        r0 = GR - (5 if k % 2 == 0 else 3)
+        d.line([(c + r0 * math.cos(a), c - r0 * math.sin(a)), (c + (GR - 2) * math.cos(a), c - (GR - 2) * math.sin(a))],
+               fill=(255, 80, 80) if red else (226, 230, 238))
+    d.arc((5, 5, n - 6, n - 6), -9, 45, fill=(224, 48, 58))                              # red zone (last 20% of the sweep)
+    for i, ch in enumerate('RPM'):                                                      # 3x5 pixel letters
+        rows = {'R': ('110', '101', '110', '101', '101'), 'P': ('110', '101', '110', '100', '100'), 'M': ('101', '111', '111', '101', '101')}[ch]
+        for y, row in enumerate(rows):
+            for x, b in enumerate(row):
+                if b == '1': d.point((c - 5 + i * 4 + x, c + 7 + y), fill=(150, 156, 170))
+    return img
+
+
+def rev_gauge(cv, t):
+    k = popin(t, 0.18, 0.3)
+    if k <= 0.02: return
+    v = rpm(t); img = _gauge_face().copy(); d = ImageDraw.Draw(img); c = img.width / 2
+    a = math.radians(A0 + (A1 - A0) * v)
+    tip = (c + (GR - 4) * math.cos(a), c - (GR - 4) * math.sin(a)); tail = (c - 4 * math.cos(a), c + 4 * math.sin(a))
+    d.line([tail, tip], fill=(255, 96, 40), width=2); d.point(tip, fill=(255, 220, 160))
+    d.ellipse((c - 2, c - 2, c + 2, c + 2), fill=(176, 182, 192))
+    hot = v > 0.8
+    if hot and int(t * 14) % 2 == 0: d.ellipse((c - 2, 7, c + 2, 11), fill=(255, 60, 60))   # shift light
+    else: d.ellipse((c - 2, 7, c + 2, 11), fill=(70, 30, 34))
+    big_img = up(img, 4)
+    if hot:                                                                             # red glow behind the dial at redline
+        glow = Image.new('RGBA', (big_img.width + 80, big_img.height + 80), (0, 0, 0, 0))
+        ImageDraw.Draw(glow).ellipse((0, 0, glow.width - 1, glow.height - 1), fill=(255, 60, 60, 70))
+        blit(cv, glow, GAUGE_C[0], GAUGE_C[1], k, k, anchor='center')
+    blit(cv, big_img, GAUGE_C[0], GAUGE_C[1] + 3 * math.sin(t * 2.1), k, k, 2 * math.sin(t * 1.3), anchor='center')
 
 
 # ------------------------------------------------------------------ progress bar (pixel car rides along the top)
@@ -368,6 +427,7 @@ def frame(n):
         cv = Image.blend(cv, Image.new('RGB', (W, H), (255, 255, 255)), 0.7 * (1 - t / 0.12))
     if E['overlay']: E['overlay'](cv, t)
     GAR.vignette(cv)
+    if E.get('gauge'): rev_gauge(cv, t)
     series_tag(cv, t)
     captions(cv, t)
     if t >= E['end_t'] - 0.3 and credit_img():
@@ -408,6 +468,7 @@ def main():
         ff = subprocess.Popen(['ffmpeg', '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{W}x{H}', '-r', str(FPS),
                                '-i', '-', '-ss', str(t0), '-t', str(t1 - t0), '-i', mix, '-c:v', 'libx264', '-preset', 'medium', '-crf', '18',
                                '-maxrate', '8M', '-bufsize', '12M', '-pix_fmt', 'yuv420p',
+                               *(['-af', 'loudnorm=I=-14:TP=-1.5:LRA=11', '-ar', '48000'] if E.get('loud') else []),   # short-form loudness
                                '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart', '-shortest', out], stdin=subprocess.PIPE)
         with Pool(os.cpu_count() or 4) as pool:
             for i, b in enumerate(pool.imap(frame, range(F0, N), chunksize=6)):
