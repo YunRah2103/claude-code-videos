@@ -1,17 +1,17 @@
 """Renders 'Why Every Model T Was Black': any colour, as long as it was black (about 1914-1925).
 
 Template: videos/ac-idle -> tractors-vs-ferraris shot structure; kit in shared/episode.py (corner rev counter on).
-Word times come from align.py -> words.json (Gemini TTS read: the supplied cedar file stopped mid-script).
-Speech runs 0-17.5 s; the card holds to 17.8 s. The sales-meeting quote has no confirmed date, so none is shown.
+Word times come from align.py -> words.json (cedar read supplied with the brief).
+Speech runs 0-17.2 s; the card holds to 17.5 s. The sales-meeting quote has no confirmed date, so none is shown.
 The car is a generic pixel 1910s tourer (no badge, no script on the radiator); the framed photo is a 1915 tourer
 with its radiator cropped out (credits.json).
 Shots:
   1 hook     0.00  the tourer flickers through colours, then a spray wipe paints it black; ANY COLOUR YOU WANT...
   2 swatch   2.00  whip; a paint-chip board fills with colours, each is crossed out until black glows: ONLY BLACK
-  3 era      5.85  push; 1914 -> 1925 timeline fills black over an assembly line of black cars; photo; THE BLACK ERA
-  4 why      9.80  iris; CHEAP / TOUGH / MOISTURE pop in; rain beads off the black paint
-  5 myth    12.50  whip; DRIED FASTER? bubble, then a records ledger and a red X on "don't"
-  6 teaser  16.40  shared NEXT EPISODE ending
+  3 era      5.30  push; 1914 -> 1925 timeline fills black over an assembly line of black cars; photo; THE BLACK ERA
+  4 why      9.25  iris; CHEAP / TOUGH / MOISTURE pop in; rain beads off the black paint
+  5 myth    12.00  whip; DRIED FASTER? bubble, then a records ledger and a red X on "don't"
+  6 teaser  16.10  shared NEXT EPISODE ending
 """
 import math, os, sys
 from functools import lru_cache
@@ -28,7 +28,7 @@ from pixanim.fx import blit, popin, popout
 from pixanim.grid import up, outline
 
 WORDS = kit.load_words(HERE)
-DUR, END_T = 17.8, 16.4
+DUR, END_T = 17.5, 16.1
 PAINTS = {'black': ((34, 36, 44), (70, 74, 88), (16, 16, 22)), 'red': ((214, 48, 58), (255, 120, 120), (140, 24, 32)),
           'blue': ((61, 127, 214), (122, 176, 240), (30, 66, 120)), 'green': ((60, 170, 100), (130, 220, 160), (30, 100, 60)),
           'yellow': ((255, 196, 40), (255, 232, 130), (160, 106, 10)), 'grey': ((130, 136, 148), (190, 196, 206), (80, 84, 96))}
@@ -146,17 +146,17 @@ def overlay(cv, t):
 
 # ================================================================== shot 2: the swatch board, crossed out
 BOARD = (540, 700)
-CHIP_T = (2.1, 2.3, 2.5, 2.7, 2.9, 3.36)                                         # chips land up to 'colour'
-CROSS_T = (4.47, 4.62, 4.77, 4.92, 5.07)                                         # crossed out on 'as long as it was'
+CHIP_T = (2.05, 2.25, 2.45, 2.6, 2.75, 2.99)                                         # chips land up to 'colour'
+CROSS_T = (4.08, 4.2, 4.32, 4.44, 4.56)                                         # crossed out on 'as long as it was'
 def chip_xy(i): return BOARD[0] - 300 + (i % 3) * 300, BOARD[1] - 130 + (i // 3) * 260
 P2 = Presenter([
     (2.0, dict(path=Track([(2.0, (-200, 400)), (2.35, (170, GROUND), 'oc')]), size=7, legs='auto', arms='fly', expr='grin', face=1, ground=None)),
     (2.35, dict(ground=GROUND, squash=True, arms='present', look=BOARD, expr='grin', face=None)),
-    (4.47, dict(arms='point', point=lambda t: chip_xy(min(4, int((t - 4.47) / 0.15))), look=BOARD, expr='smirk')),
-    (5.2, dict(arms='cheer', expr='wow', squash=True, point=None, look=None, look_camera=True)),
+    (4.08, dict(arms='point', point=lambda t: chip_xy(min(4, int((t - 4.08) / 0.12))), look=BOARD, expr='smirk')),
+    (4.7, dict(arms='cheer', expr='wow', squash=True, point=None, look=None, look_camera=True)),
 ], words=WORDS, base_size=7)
-CAM2 = Camera(W, H, [(2.0, (540, 860, 1.25)), (2.6, (540, 840, 1.12), 'io'), (5.2, (560, 820, 1.2), 'io'), (5.9, (560, 820, 1.25))],
-              kicks=[(3.36, 0.08, *BOARD), (5.2, 0.16, *chip_xy(5))], shakes=[(5.2, 0.25, 10)])
+CAM2 = Camera(W, H, [(2.0, (540, 860, 1.25)), (2.6, (540, 840, 1.12), 'io'), (4.7, (560, 820, 1.2), 'io'), (5.35, (560, 820, 1.25))],
+              kicks=[(2.99, 0.08, *BOARD), (4.7, 0.16, *chip_xy(5))], shakes=[(4.7, 0.25, 10)])
 
 
 def shot_swatch(t):
@@ -170,7 +170,7 @@ def shot_swatch(t):
         k = popin(t, t0, 0.22)
         if k <= 0.02: continue
         x, y = chip_xy(i); body = PAINTS[name][0]
-        hot = name == 'black' and t >= 5.2
+        hot = name == 'black' and t >= 4.7
         r = 105 * k * (1.12 + 0.05 * math.sin(t * 9) if hot else 1)
         d.rounded_rectangle((x - r, y - r, x + r, y + r), 16, fill=body + (255,), outline=(26, 26, 46), width=8)
         d.rectangle((x - r + 16, y - r + 14, x - r + 50, y - r + 22), fill=PAINTS[name][1] + (255,))
@@ -178,11 +178,11 @@ def shot_swatch(t):
             kx = ob(prog(t, CROSS_T[i], 0.15))
             blit(fg, fx.big('xmark', s=13), x, y, kx, kx, anchor='center')
             fx.burst(fg, t, CROSS_T[i], x, y, RED, n=8, r0=40, r1=160, seed=20 + i)
-    if t >= 5.2:
+    if t >= 4.7:
         x, y = chip_xy(5)
-        fx.rays(fg, t, 5.2, x, y, GLOW, life=1.0, r=380)
+        fx.rays(fg, t, 4.7, x, y, GLOW, life=1.0, r=380)
         blit(fg, fx.big('check', s=10), x + 90, y - 90, 1, 1, anchor='center')
-        ks = ob(prog(t, 5.25, 0.18))
+        ks = ob(prog(t, 4.75, 0.18))
         blit(fg, fx.big('stamp', 'ONLY BLACK', '#e0303a', '#fff6e0', s=9), 540, 330 + 8 * math.sin(t * 5), ks, ks, -6, anchor='center')
     P2.draw(fg, t)
     GAR.reflect(img, fg)
@@ -191,16 +191,16 @@ def shot_swatch(t):
 
 # ================================================================== shot 3: 1914-1925, the black era (assembly line)
 TL = (230, 850, 580)                                                            # timeline x0, x1, y
-def era(t): return oc(prog(t, 6.25, 0.95))                                     # fills from 1914 to 1925 as he says it
+def era(t): return oc(prog(t, 5.71, 0.95))                                     # fills from 1914 to 1925 as he says it
 P3 = Presenter([
-    (5.85, dict(path=Track([(5.85, (1300, 300)), (6.2, (940, GROUND + 40), 'oc')]), size=6, legs='auto', arms='fly', expr='grin', face=-1,
+    (5.3, dict(path=Track([(5.3, (1300, 300)), (5.65, (940, GROUND + 40), 'oc')]), size=6, legs='auto', arms='fly', expr='grin', face=-1,
                 ground=None)),
-    (6.2, dict(ground=GROUND + 40, squash=True, arms='point', point=(TL[0], TL[2]), look=(540, TL[2]), expr='smile', face=None)),
-    (7.14, dict(point=(TL[1], TL[2]), expr='wow')),
-    (8.21, dict(arms='cheer', expr='grin', point=None, look=None, look_camera=True, squash=True)),
+    (5.65, dict(ground=GROUND + 40, squash=True, arms='point', point=(TL[0], TL[2]), look=(540, TL[2]), expr='smile', face=None)),
+    (6.73, dict(point=(TL[1], TL[2]), expr='wow')),
+    (7.87, dict(arms='cheer', expr='grin', point=None, look=None, look_camera=True, squash=True)),
 ], words=WORDS, base_size=6)
-CAM3 = Camera(W, H, [(5.85, (540, 860, 1.2)), (7.14, (540, 820, 1.12), 'io'), (8.21, (540, 880, 1.2), 'io'), (9.85, (540, 880, 1.24))],
-              kicks=[(6.25, 0.08, TL[0], TL[2]), (7.14, 0.1, TL[1], TL[2]), (8.21, 0.14, 540, TL[2]), (8.75, 0.08, 540, 400)])
+CAM3 = Camera(W, H, [(5.3, (540, 860, 1.2)), (6.73, (540, 820, 1.12), 'io'), (7.87, (540, 880, 1.2), 'io'), (9.3, (540, 880, 1.24))],
+              kicks=[(5.71, 0.08, TL[0], TL[2]), (6.73, 0.1, TL[1], TL[2]), (7.87, 0.14, 540, TL[2]), (8.45, 0.08, 540, 400)])
 
 
 def shot_era(t):
@@ -211,49 +211,49 @@ def shot_era(t):
     for k in range(4):
         x = (t * 260 + k * 420) % (4 * 420) - 300
         blit(fg, up(tourer('black', int(-x) % 360), 4), x, belt_y)
-    kl = popin(t, 5.9, 0.3)                                                     # timeline
+    kl = popin(t, 5.35, 0.3)                                                     # timeline
     if kl > 0.02:
         x0, x1, y = TL
         d.rounded_rectangle((x0 - 20, y - 40, x1 + 20, y + 40), 30, fill=(250, 246, 236), outline=(26, 26, 46), width=8)
         xe = x0 + (x1 - x0) * era(t)
         if xe > x0 + 10: d.rounded_rectangle((x0, y - 22, xe, y + 22), 20, fill=(26, 26, 30))
         for i in range(12): d.line([(x0 + (x1 - x0) * i / 11, y + 26), (x0 + (x1 - x0) * i / 11, y + 36)], fill=(26, 26, 46), width=4)
-        for txt, x, t0 in (('1914', x0, 6.25), ('1925', x1, 7.14)):
+        for txt, x, t0 in (('1914', x0, 5.71), ('1925', x1, 6.73)):
             k = popin(t, t0, 0.25)
             blit(fg, fx.big('badge', txt, '#ffd23f', '#1a1a2e', '#e8b923', s=7), x, y - 110, k, k, -4, anchor='center')
-    if t >= 8.21:
-        fx.ring(fg, t, 8.21, 540, TL[2], GRN, life=0.4, r1=500)
-        kb = ob(prog(t, 8.75, 0.2))
+    if t >= 7.87:
+        fx.ring(fg, t, 7.87, 540, TL[2], GRN, life=0.4, r1=500)
+        kb = ob(prog(t, 8.45, 0.2))
         blit(fg, fx.big('badge', 'THE BLACK ERA', '#7fe3a0', '#1a1a2e', '#3cc85a', s=8), 540, 400, kb, kb, -3 + 2 * math.sin(t * 4), anchor='center')
         fx.gsparkles(fg, t, 540, 400, 700, 120, n=8, seed=31)
-    photo(fg, t, 7.4, 9.75, 'model_t_tourer_crop', 330, 790, 360, 340, -4, 'A REAL ONE, 1915', focus=(0.5, 0.5), zoom=0.05)
+    photo(fg, t, 6.9, 9.2, 'model_t_tourer_crop', 330, 790, 360, 340, -4, 'A REAL ONE, 1915', focus=(0.5, 0.5), zoom=0.05)
     P3.draw(fg, t)
     GAR.reflect(img, fg)
     return finish(img, fg, CAM3, t)
 
 
 # ================================================================== shot 4: why black: cheap, tough, moisture
-WHY = ((260, 520, 10.09, 'CHEAP', '$'), (540, 470, 10.57, 'TOUGH', '!'), (820, 520, 11.54, 'MOISTURE', None))
+WHY = ((260, 520, 9.58, 'CHEAP', '$'), (540, 470, 10.08, 'TOUGH', '!'), (820, 520, 11.1, 'MOISTURE', None))
 P4 = Presenter([
-    (9.8, dict(path=Track([(9.8, (-200, 700)), (10.1, (150, GROUND), 'oc')]), size=7, legs='auto', arms='fly', expr='smile', face=1, ground=None)),
-    (10.1, dict(ground=GROUND, squash=True, arms='present', look=(540, 600), expr='smile', face=None)),
-    (11.96, dict(arms='thumb', expr='grin', look=None, look_camera=True)),
+    (9.25, dict(path=Track([(9.25, (-200, 700)), (9.55, (150, GROUND), 'oc')]), size=7, legs='auto', arms='fly', expr='smile', face=1, ground=None)),
+    (9.55, dict(ground=GROUND, squash=True, arms='present', look=(540, 600), expr='smile', face=None)),
+    (11.48, dict(arms='thumb', expr='grin', look=None, look_camera=True)),
 ], words=WORDS, base_size=7)
-CAM4 = Camera(W, H, [(9.8, (540, 860, 1.25)), (10.3, (540, 840, 1.12), 'io'), (12.55, (540, 840, 1.18))],
-              kicks=[(10.09, 0.08, 260, 520), (10.57, 0.08, 540, 470), (11.54, 0.1, 820, 520)])
+CAM4 = Camera(W, H, [(9.25, (540, 860, 1.25)), (9.75, (540, 840, 1.12), 'io'), (12.0, (540, 840, 1.18))],
+              kicks=[(9.58, 0.08, 260, 520), (10.08, 0.08, 540, 470), (11.1, 0.1, 820, 520)])
 
 
 def shot_why(t):
     img = GAR.frame(t).convert('RGBA'); fg = layer()
     fx.contact_shadow(fg, 600, GROUND, 600, s=S, alpha=140)
     blit(fg, up(tourer('black'), 7), 600, GROUND)
-    if t >= 11.3:                                                               # rain beads and bounces off the paint
+    if t >= 10.9:                                                               # rain beads and bounces off the paint
         r = fx.rng(7)
         for k in range(26):
             x = 330 + r.uniform(0, 560); ph = (t * 1.4 + r.uniform(0, 1)) % 1
             y = lerp(200, GROUND - 330, ph) if ph < 0.8 else GROUND - 330 - 60 * math.sin((ph - 0.8) / 0.2 * math.pi)
             blit(fg, up(droplet(), 6), x + (40 * (ph - 0.8) / 0.2 if ph >= 0.8 else 0), y, anchor='center')
-        fx.glint(fg, t, 11.6, 700, GROUND - 300, r=150)
+        fx.glint(fg, t, 11.2, 700, GROUND - 300, r=150)
     for i, (x, y, t0, word, glyph) in enumerate(WHY):
         k = ob(prog(t, t0, 0.22))
         if k <= 0.02: continue
@@ -270,33 +270,36 @@ def shot_why(t):
 # ================================================================== shot 5: the myth, crossed out
 BUB = (620, 560)
 P5 = Presenter([
-    (12.5, dict(path=Track([(12.5, (-200, 500)), (12.85, (230, GROUND), 'oc')]), size=7, legs='auto', arms='fly', expr='think', face=1, ground=None)),
-    (12.85, dict(ground=GROUND, squash=True, arms='think', look=BUB, expr='think', face=None)),
-    (15.05, dict(arms='point', point=(700, 1000), look=(700, 1000), expr='smirk')),
-    (15.43, dict(arms='hips', expr='smirk', point=None, look=None, look_camera=True, squash=True)),
+    (12.0, dict(path=Track([(12.0, (-200, 500)), (12.35, (230, GROUND), 'oc')]), size=7, legs='auto', arms='fly', expr='think', face=1, ground=None)),
+    (12.35, dict(ground=GROUND, squash=True, arms='think', look=BUB, expr='think', face=None)),
+    (14.87, dict(arms='point', point=(700, 1000), look=(700, 1000), expr='smirk')),
+    (15.23, dict(arms='hips', expr='smirk', point=None, look=None, look_camera=True, squash=True)),
 ], words=WORDS, base_size=7)
-CAM5 = Camera(W, H, [(12.5, (560, 860, 1.25)), (13.89, (600, 760, 1.25), 'io'), (15.05, (600, 860, 1.12), 'io'), (16.45, (600, 860, 1.18))],
-              kicks=[(13.89, 0.1, *BUB), (15.05, 0.08, 700, 1000), (15.43, 0.2, *BUB)], shakes=[(15.43, 0.35, 14)])
+CAM5 = Camera(W, H, [(12.0, (560, 860, 1.25)), (13.62, (600, 760, 1.25), 'io'), (14.87, (600, 860, 1.12), 'io'), (16.15, (600, 860, 1.18))],
+              kicks=[(13.62, 0.1, *BUB), (14.87, 0.08, 700, 1000), (15.23, 0.2, *BUB)], shakes=[(15.23, 0.35, 14)])
 
 
 def shot_myth(t):
     img = GAR.frame(t).convert('RGBA'); fg = layer()
-    kb = popin(t, 12.7, 0.3)
+    kb = popin(t, 12.2, 0.3)
     if kb > 0.02:
         blit(fg, fx.big('bubble', 3, s=24), BUB[0], BUB[1], kb, kb, 2 * math.sin(t * 2), anchor='center')
-    if t >= 13.89:
-        kq = ob(prog(t, 13.89, 0.2))
+    if 12.27 <= t < 13.62:                                                      # the story, before its claim
+        ks = popin(t, 12.27, 0.25) * popout(t, 13.45)
+        blit(fg, fx.big('tag', 'A POPULAR STORY', '#fff6e0', '#1a1a2e', s=7), BUB[0], BUB[1] - 20, ks, ks, 3, anchor='center')
+    if t >= 13.62:
+        kq = ob(prog(t, 13.62, 0.2))
         blit(fg, fx.big('tag', 'DRIED FASTER?', '#fff6e0', '#1a1a2e', s=8), BUB[0], BUB[1] - 20, kq, kq, -3, anchor='center')
-    if t >= 15.05:                                                              # the records come up
-        kl = ob(prog(t, 15.05, 0.25))
+    if t >= 14.87:                                                              # the records come up
+        kl = ob(prog(t, 14.87, 0.25))
         blit(fg, up(ledger(), 9), 720, GROUND - 40 + 30 * (1 - kl), kl, kl)
         fx.sparkles(fg, t, 720, GROUND - 180, 400, 200, n=6, seed=51)
-    if t >= 15.43:
-        kx = ob(prog(t, 15.43, 0.16))
+    if t >= 15.23:
+        kx = ob(prog(t, 15.23, 0.16))
         blit(fg, fx.big('xmark', s=26), BUB[0], BUB[1], kx, kx, -4, anchor='center')
-        fx.burst(fg, t, 15.43, *BUB, RED, n=18, seed=52)
-        fx.ring(fg, t, 15.43, *BUB, (224, 48, 58), life=0.35, r1=460)
-        ks = ob(prog(t, 15.6, 0.18))
+        fx.burst(fg, t, 15.23, *BUB, RED, n=18, seed=52)
+        fx.ring(fg, t, 15.23, *BUB, (224, 48, 58), life=0.35, r1=460)
+        ks = ob(prog(t, 15.4, 0.18))
         blit(fg, fx.big('stamp', 'MYTH', '#e0303a', '#fff6e0', s=12), BUB[0] + 120, BUB[1] + 330, ks, ks, -10, anchor='center')
     P5.draw(fg, t)
     GAR.reflect(img, fg)
@@ -306,20 +309,20 @@ def shot_myth(t):
 shot_teaser, TEASE_CUES = kit.teaser(END_T, WORDS)
 
 # ================================================================== shots + transitions
-SHOTS = [(-1.0, shot_hook), (2.0, shot_swatch), (5.85, shot_era), (9.8, shot_why), (12.5, shot_myth), (END_T, shot_teaser)]
-TRANS = {1: (2.0, 2.2, 'whip', dict(dx=-1)), 2: (5.85, 6.05, 'push', None), 3: (9.8, 10.02, 'iris', (540, TL[2])),
-         4: (12.5, 12.7, 'whip', dict(dx=1)), 5: (END_T, END_T + 0.2, 'whip', dict(dx=0, dy=1))}
+SHOTS = [(-1.0, shot_hook), (2.0, shot_swatch), (5.3, shot_era), (9.25, shot_why), (12.0, shot_myth), (END_T, shot_teaser)]
+TRANS = {1: (2.0, 2.2, 'whip', dict(dx=-1)), 2: (5.3, 5.5, 'push', None), 3: (9.25, 9.47, 'iris', (540, TL[2])),
+         4: (12.0, 12.2, 'whip', dict(dx=1)), 5: (END_T, END_T + 0.2, 'whip', dict(dx=0, dy=1))}
 KEYCOL = {'colour': YEL, 'black': RED, '1914': GRN, '1925': GRN, 'cheap': GRN, 'tough': GRN, 'moisture': GRN,
           'faster': YEL, "don't": RED, 'records': RED}
 CUES = [
     (0.0, 'sparkle', 0.8), (0.05, 'stamp', 0.6), (0.3, 'pop', 0.6), (0.5, 'thump', 0.6), (0.95, 'whoosh', 0.9), (1.0, 'poof', 0.6),
     (1.45, 'ding', 0.8), (1.47, 'sparkle', 0.6),
-    (2.1, 'pop', 0.5), (2.3, 'pop', 0.5), (2.5, 'pop', 0.5), (2.7, 'pop', 0.5), (2.9, 'pop', 0.5), (3.36, 'pop', 0.7),
-    (4.47, 'click', 0.7), (4.62, 'click', 0.7), (4.77, 'click', 0.7), (4.92, 'click', 0.7), (5.07, 'click', 0.7), (5.2, 'stamp', 1.0),
-    (5.22, 'boom', 0.4),
-    (6.25, 'pop', 0.6), (6.3, 'slide_down', 0.5), (7.14, 'pop', 0.6), (7.4, 'pop', 0.5), (8.21, 'ding', 0.8), (8.75, 'cha_ching', 0.6),
-    (10.09, 'cha_ching', 0.8), (10.57, 'thump', 0.8), (11.54, 'pop', 0.7), (11.6, 'sparkle', 0.6),
-    (12.7, 'pop', 0.6), (13.89, 'pop', 0.7), (15.05, 'slide_down', 0.5), (15.43, 'buzzer', 0.8), (15.45, 'stamp', 0.9), (15.6, 'stamp', 0.7),
+    (2.05, 'pop', 0.5), (2.25, 'pop', 0.5), (2.45, 'pop', 0.5), (2.6, 'pop', 0.5), (2.75, 'pop', 0.5), (2.99, 'pop', 0.7),
+    (4.08, 'click', 0.7), (4.2, 'click', 0.7), (4.32, 'click', 0.7), (4.44, 'click', 0.7), (4.56, 'click', 0.7), (4.7, 'stamp', 1.0),
+    (4.72, 'boom', 0.4),
+    (5.71, 'pop', 0.6), (5.76, 'slide_down', 0.5), (6.73, 'pop', 0.6), (6.9, 'pop', 0.5), (7.87, 'ding', 0.8), (8.45, 'cha_ching', 0.6),
+    (9.58, 'cha_ching', 0.8), (10.08, 'thump', 0.8), (11.1, 'pop', 0.7), (11.2, 'sparkle', 0.6),
+    (12.2, 'pop', 0.6), (12.27, 'pop', 0.5), (13.62, 'pop', 0.7), (14.87, 'slide_down', 0.5), (15.23, 'buzzer', 0.8), (15.25, 'stamp', 0.9), (15.4, 'stamp', 0.7),
 ] + TEASE_CUES
 
 kit.setup(HERE, WORDS, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='black', gauge=True, loud=True)

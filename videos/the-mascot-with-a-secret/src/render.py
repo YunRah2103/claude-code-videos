@@ -72,7 +72,7 @@ def page(year, tint=1.0):
         for c in range(6): d.rectangle((4 + c * 6, 34 + r * 5, 7 + c * 6, 36 + r * 5), fill=(200, 204, 214))
     img = outline(img)
     big = up(img, 8)
-    txt = kit.text_img(str(year), (26, 26, 46), 120)
+    txt = kit.text_img(str(year), (214, 48, 58), 120)
     txt = txt.resize((int(txt.width * 0.9), int(txt.height * 0.9)), Image.LANCZOS)
     big.alpha_composite(txt, (int(big.width / 2 - txt.width / 2), 92))
     if tint < 1: big = Image.blend(big, ImageEnhance.Color(big).enhance(0.0), 1 - tint)

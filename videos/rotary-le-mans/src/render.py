@@ -336,7 +336,7 @@ def shot_finish(t):
     blit(fg, up(flag(int(t * 14) % 12), 7), FINISH_X - 130, kit.ROAD_Y - 330 - 40 * (t >= 12.16) * math.sin((t - 12.16) * 18))
     if t >= 10.85:
         kd = popin(t, 10.85, 0.25) * popout(t, 12.0)
-        blit(fg, fx.big('tag', 'JUNE 23, 1991', '#fff6e0', '#1a1a2e', s=8), 420, 700, kd, kd, -4 + 3 * math.sin(t * 5), anchor='center')
+        blit(fg, fx.big('tag', 'JUNE 23, 1991', '#fff6e0', '#1a1a2e', s=8), 560, 700, kd, kd, -4 + 3 * math.sin(t * 5), anchor='center')
     fx.burst(fg, t, 12.16, FINISH_X, kit.ROAD_Y - 160, GLOW, n=18, r0=60, r1=420, seed=51)
     fx.ring(fg, t, 12.16, FINISH_X, kit.ROAD_Y - 160, (255, 255, 255), life=0.3, r1=380)
     fx.confetti(fg, t, 12.16, FINISH_X, 520, n=60, seed=52)

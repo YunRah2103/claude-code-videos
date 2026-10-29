@@ -1,4 +1,4 @@
-"""Tighten and align the voiceover (Gemini TTS, voice Charon: the supplied cedar file stopped after 'cheap, tough').
+"""Tighten and align the voiceover (OpenAI.fm 'cedar' TTS supplied with the brief; its missing closing line is the same voice's 'Follow for the next one' from why-the-911).
 
 voiceover_src.mp3 is the supplied read; vo.tighten() shortens its pauses into voiceover.mp3, which is aligned
 again so words.json matches the audio that ships.
