@@ -70,3 +70,47 @@ class ConcurrencyTests(unittest.TestCase):
             with ThreadPoolExecutor(max_workers=8) as pool:
                 results = list(pool.map(lambda n: ledger.reserve(worker, f'task{n}', 100), range(8)))
             self.assertEqual(sum(results), 1)
+
+class TaskStateTests(unittest.TestCase):
+    def test_state_survives_restart_and_duplicate_ids_do_not_overwrite(self):
+        from tools.agent_rotation.tasks import TaskStore
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'tasks.db'
+            store = TaskStore(path)
+            store.create('t1', 'Build wheel helper', ['a.py'])
+            with self.assertRaises(ValueError):
+                store.create('t1', 'Different job', ['b.py'])
+            store.transition('t1', 'ready')
+            loaded = TaskStore(path).get('t1')
+            self.assertEqual(loaded['goal'], 'Build wheel helper')
+            self.assertEqual(loaded['status'], 'ready')
+            self.assertEqual(len(loaded['history']), 2)
+
+    def test_invalid_transition_and_unknown_task_rejected(self):
+        from tools.agent_rotation.tasks import TaskStore
+        with tempfile.TemporaryDirectory() as tmp:
+            store = TaskStore(Path(tmp) / 'tasks.db')
+            store.create('t1', 'Build', ['a.py'])
+            with self.assertRaises(ValueError): store.transition('t1', 'complete')
+            with self.assertRaises(KeyError): store.get('missing')
+
+class ContextTests(unittest.TestCase):
+    def test_only_declared_files_and_limits_are_included(self):
+        from tools.agent_rotation.context import pack_context
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'a.py').write_text('print(1)')
+            (root / 'secret.txt').write_text('private')
+            bundle = pack_context(root, ['a.py'], 20)
+            self.assertEqual(bundle, {'a.py': 'print(1)'})
+            with self.assertRaises(ValueError): pack_context(root, ['a.py'], 2)
+            with self.assertRaises(ValueError): pack_context(root, ['../secret.txt'], 100)
+
+    def test_symlink_and_binary_rejected(self):
+        from tools.agent_rotation.context import pack_context
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'binary').write_bytes(b'\x00\xff')
+            (root / 'link').symlink_to(root / 'binary')
+            for name in ('binary', 'link'):
+                with self.assertRaises(ValueError): pack_context(root, [name], 100)
