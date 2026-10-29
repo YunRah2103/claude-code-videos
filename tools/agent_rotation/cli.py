@@ -228,6 +228,8 @@ def cmd_run(args):
     failed = [f'  - {n}: {d}' for n, ok, d in checks if not ok]
     if failed:
         return _fail(3, 'Refused: safety checks failed; no request was sent.\n' + '\n'.join(failed))
+    if not sys.stdin.isatty():
+        return _fail(3, 'Refused: approval must be typed at an interactive terminal. No request was sent.')
     try:
         online = _online_checks(model)
     except Exception as exc:
@@ -235,6 +237,8 @@ def cmd_run(args):
     if not _all_ok(online):
         failed = [f'  - {n}' for n, ok, _ in online if not ok]
         return _fail(3, 'Refused: fresh account or model check failed; no request was sent.\n' + '\n'.join(failed))
+    if not sys.stdin.isatty():
+        return _fail(3, 'Refused: approval must be typed at an interactive terminal. No request was sent.')
     expected = APPROVAL_PREFIX + args.id
     print(f'Send ONE live request to {model} (max {max_tokens} tokens) for task {args.id}?')
     print(f'Type exactly:  {expected}')
@@ -251,6 +255,7 @@ def cmd_run(args):
             print(f'Failure code: {exc.failure_code} (stage: {exc.failure_stage}). No automatic retry.', file=sys.stderr)
         print('Next: run review --id %s, then history --id %s.' % (args.id, args.id), file=sys.stderr)
         return 1
+    _record_stage(args.state, args.id, output)
     print(f'Staged for review: {output}')
     print('Next: review --id %s' % args.id)
     return 0
@@ -269,6 +274,34 @@ def _static_findings(tree):
         elif isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in RISKY_CALLS:
             findings.add(f'calls {node.func.id}')
     return sorted(findings)
+
+
+def _record_stage(state, task_id, output):
+    """Remember the digest of exactly what was staged, so review can detect later edits."""
+    digest = hashlib.sha256(Path(output).read_bytes()).hexdigest()
+    with transaction(state) as db:
+        db.execute('CREATE TABLE IF NOT EXISTS staged_outputs '
+                   '(task_id TEXT PRIMARY KEY, sha256 TEXT NOT NULL, staged_at REAL NOT NULL)')
+        db.execute('INSERT OR REPLACE INTO staged_outputs VALUES (?,?,?)', (task_id, digest, time.time()))
+
+
+def _approval_problem(state, task_id, path):
+    """Return None when the staged file is present, unchanged and valid; otherwise the reason."""
+    if not path.is_file() or path.is_symlink():
+        return 'staged file is missing'
+    with _ro(state) as db:
+        if not _table_exists(db, 'staged_outputs'):
+            return 'no staging record exists'
+        row = db.execute('SELECT sha256 FROM staged_outputs WHERE task_id=?', (task_id,)).fetchone()
+    if row is None:
+        return 'no staging record exists'
+    if hashlib.sha256(path.read_bytes()).hexdigest() != row[0]:
+        return 'staged file changed after staging'
+    try:
+        ast.parse(path.read_text(encoding='utf-8'))
+    except (SyntaxError, UnicodeDecodeError, ValueError):
+        return 'staged file is not valid Python'
+    return None
 
 
 def cmd_review(args):
@@ -301,6 +334,10 @@ def cmd_review(args):
     if args.approve or args.reject:
         if details['status'] != 'review':
             return _fail(3, 'Refused: only tasks in review can be approved or rejected.')
+        if args.approve:
+            problem = _approval_problem(args.state, args.id, path)
+            if problem:
+                return _fail(3, f'Refused: {problem}. Task stays in review; nothing was approved.')
         target = 'complete' if args.approve else 'failed'
         store.transition(args.id, target)
         print(f'Decision recorded: {target}. Copy the file into the repository manually after your own review.')

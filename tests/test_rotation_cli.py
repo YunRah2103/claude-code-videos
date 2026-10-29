@@ -31,6 +31,16 @@ def reply(content=None, finish='stop', model=MODEL, usage=None):
     return body
 
 
+class _Stdin(io.StringIO):
+    """Stand-in for a terminal: approval is only accepted when tty is True."""
+    def __init__(self, text, tty):
+        super().__init__(text)
+        self._tty = tty
+
+    def isatty(self):
+        return self._tty
+
+
 class CliCase(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
@@ -68,10 +78,10 @@ class CliCase(unittest.TestCase):
             raise outcome
         return 200, outcome
 
-    def run_cli(self, *argv, stdin=''):
+    def run_cli(self, *argv, stdin='', tty=True):
         out, err = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err), \
-                mock.patch.object(sys, 'stdin', io.StringIO(stdin)):
+                mock.patch.object(sys, 'stdin', _Stdin(stdin, tty)):
             code = cli.main(['--state', str(self.state), *argv])
         return code, out.getvalue(), err.getvalue()
 
@@ -264,6 +274,55 @@ class SupervisedRunTests(CliCase):
         self.assertIn('BLOCKED', out)
         code, history, _ = self.run_cli('history', '--id', 'wheel')
         self.assertIn('interrupted', history)
+
+    def test_run_requires_an_interactive_terminal(self):
+        self.create_ready()
+        code, _, err = self.run_cli('run', '--id', 'wheel', stdin=APPROVE + '\n', tty=False)
+        self.assertEqual(code, 3)
+        self.assertEqual(self.sends, [])
+        self.assertIn('interactive terminal', err)
+
+
+class ReviewSafeguardTests(CliCase):
+    def _staged_run(self):
+        self.create_ready()
+        self.assertEqual(self.run_cli('run', '--id', 'wheel', stdin=APPROVE + '\n')[0], 0)
+        return cli.staged_path(self.state, 'wheel', 'wheel.py')
+
+    def test_approve_refuses_missing_staged_file(self):
+        staged = self._staged_run()
+        staged.unlink()
+        code, _, err = self.run_cli('review', '--id', 'wheel', '--approve')
+        self.assertEqual(code, 3)
+        self.assertIn('missing', err)
+        self.assertEqual(self.run_cli('history', '--id', 'wheel')[0], 0)
+        self.assertIn('Status: review', self.run_cli('review', '--id', 'wheel')[1])
+
+    def test_approve_refuses_altered_staged_file(self):
+        staged = self._staged_run()
+        staged.write_text(GOOD_CODE + '\n# edited after staging\n', encoding='utf-8')
+        code, _, err = self.run_cli('review', '--id', 'wheel', '--approve')
+        self.assertEqual(code, 3)
+        self.assertIn('changed after staging', err)
+        self.assertIn('Status: review', self.run_cli('review', '--id', 'wheel')[1])
+
+    def test_approve_refuses_invalid_python_even_with_matching_digest(self):
+        staged = self._staged_run()
+        bad = 'def broken(:\n'
+        staged.write_text(bad, encoding='utf-8')
+        cli._record_stage(self.state, 'wheel', staged)
+        code, _, err = self.run_cli('review', '--id', 'wheel', '--approve')
+        self.assertEqual(code, 3)
+        self.assertIn('not valid Python', err)
+
+    def test_approve_refuses_when_no_staging_record_exists(self):
+        self._staged_run()
+        from tools.agent_rotation.core import transaction
+        with transaction(self.state) as db:
+            db.execute('DELETE FROM staged_outputs')
+        code, _, err = self.run_cli('review', '--id', 'wheel', '--approve')
+        self.assertEqual(code, 3)
+        self.assertIn('no staging record', err)
 
     def test_history_shows_events_and_outcome(self):
         self.create_ready()

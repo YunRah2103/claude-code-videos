@@ -63,17 +63,13 @@ Exit codes: `0` success, `1` a run stopped after a request was attempted, `2` in
 3. The provider is not blocked.
 4. The daily quota (1 request per 24 hours) is free.
 5. `preflight --online` shows the spend cap is zero and the price is zero **at that moment**.
-6. You type `APPROVE ONE LIVE REQUEST <task-id>` when prompted.
+6. You type `APPROVE ONE LIVE REQUEST <task-id>` at an interactive terminal when prompted.
 
 ```bash
 python3 -m tools.agent_rotation run --id wheel-1
 ```
 
-Piped approval, if you prefer a non-interactive shell:
-
-```bash
-echo "APPROVE ONE LIVE REQUEST wheel-1" | python3 -m tools.agent_rotation run --id wheel-1
-```
+Approval must be typed at an interactive terminal. `run` refuses piped or redirected input, and sends nothing in that case.
 
 If a run fails, it is **not retried**. Read `history --id wheel-1` and do not repeat the run without a new decision.
 
@@ -86,7 +82,7 @@ python3 -m tools.agent_rotation review --id wheel-1 --approve
 
 `review` prints the staged file path, a syntax result, static findings (risky imports or calls),
 and the first 200 lines. Execution is disabled. Read the code yourself. Approving only marks the
-task complete. It does not copy the file into the repository. Do that manually after review.
+task complete. Approval is refused if the staged file is missing, changed since staging, or not valid Python. It does not copy the file into the repository. Do that manually after review.
 
 ## Usage and cost
 
