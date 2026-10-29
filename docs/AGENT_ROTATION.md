@@ -32,3 +32,13 @@ controlled subprocess execution, timeouts, validation, isolated output and
 integration; concurrency-safe workspaces; provider and failure classification;
 token metrics, tests, real benchmarks, security review and a reviewable PR.
 Until those exist, do not use this as an autonomous coding system.
+
+`tasks.py` records a small lifecycle and append-only status history. A task in
+`running` after interruption is not automatically restarted: the prior request
+may have been processed. Its `interrupted` status requires manual review before
+marking review or failed. This is a state store only, not execution recovery.
+
+`context.py` can package explicitly named UTF-8 files under a byte cap, rejecting
+symlinks and traversal. It does not identify secrets or guarantee protection
+against a concurrent filesystem change; inspect selected content before sharing
+it with an external model. No context is sent by this module.
