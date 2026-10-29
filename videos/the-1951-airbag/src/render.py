@@ -388,6 +388,7 @@ def shot_tech(t):
         fx.sparkles(fg, t, WX, WY, 700, 500, n=8, seed=52)
     P5.draw(fg, t)
     GAR.reflect(img, fg)
+    photo(fg, t, 13.75, 14.3, 'airbag', 600, 760, 560, 420, 4, 'A DEPLOYED DRIVER AIRBAG', pix=5)
     return finish(img, fg, CAM5, t)
 
 

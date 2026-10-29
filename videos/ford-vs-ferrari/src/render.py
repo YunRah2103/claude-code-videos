@@ -368,6 +368,7 @@ def shot_walk(t):
         fx.ring(fg, t, 10.1, gx, GROUND - 120, (255, 255, 255), life=0.3, r1=420)
         if 9.13 <= t < 9.75:                                                            # welding sparks while it is built
             fx.burst(fg, t, 9.13 + int((t - 9.13) * 10) / 10, 620, 600, GLOW, n=8, r0=40, r1=200, seed=int(t * 10))
+    photo(fg, t, 8.62, 9.12, 'p3', 560, 940, 600, 420, 3, 'THE RIVAL: FERRARI 330 P3', focus=(0.5, 0.55), pix=3)
     dg.label(fg, t, 10.26, 'RACE CAR', (420, GROUND - 160), (460, 640), '#ffffff', '#1a1a2e', '#d6d9e2', s=7, t1=11.0)
     if t >= 11.01:
         k = popin(t, 11.01, 0.25)
@@ -442,7 +443,7 @@ def shot_win(t):
     fx.sparkles(fg, t, 540, 600, 900, 300, n=8, seed=73)
     P5.draw(fg, t)
     GAR.reflect(img, fg)
-    photo(fg, t, 14.0, 14.85, 'gt40', 560, 1000, 600, 430, -4, 'FORD GT40 MK II, 1966', focus=(0.45, 0.85), zoom=0.35, pix=4)
+    photo(fg, t, 14.0, 14.85, 'gt40', 560, 1000, 600, 430, -4, 'A 1966 LE MANS GT40 MK II', focus=(0.27, 0.32), zoom=0.3, pix=6)
     return finish(img, fg, CAM5, t)
 
 

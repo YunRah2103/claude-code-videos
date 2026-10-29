@@ -240,6 +240,7 @@ def shot_launch(t):
         blit(fg, fx.big('badge', 'MASS-PRODUCED HYBRID', '#7fe3a0', '#1a1a2e', '#3cc85a', s=6), 520, 690, k, k, 2, anchor='center')
     fx.confetti(fg, t, 5.87, 540, 600, n=30, seed=24)
     P2.draw(fg, t)
+    photo(fg, t, 3.0, 3.5, 'prius', 560, 980, 620, 440, -3, 'FIRST GENERATION, 1997', focus=(0.5, 0.55), pix=4)
     return finish(img, fg, CAM2, t)
 
 

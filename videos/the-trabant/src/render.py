@@ -341,6 +341,7 @@ def shot_engine(t):
         fx.burst(fg, t, 13.11, 380, 520, (60, 200, 90), n=14, seed=41); fx.sparkles(fg, t, 540, 600, 700, 300, n=6, seed=42)
     P4.draw(fg, t)
     GAR.reflect(img, fg)
+    photo(fg, t, 10.2, 10.95, 'engine', 560, 980, 600, 420, 3, 'A TRABANT TWO-STROKE IN ITS BAY', focus=(0.45, 0.55), pix=4)
     photo(fg, t, 12.4, 13.0, 'trabant', 560, 980, 600, 420, -3, 'A LATER TRABANT 601', focus=(0.6, 0.6), zoom=0.25, pix=4)
     return finish(img, fg, CAM4, t)
 

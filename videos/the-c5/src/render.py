@@ -340,6 +340,7 @@ def shot_timing(t):
         fx.burst(fg, t, 16.82, 830, 400, RED, n=12, seed=40)
     P5.draw(fg, t)
     GAR.reflect(img, fg)
+    photo(fg, t, 14.85, 15.35, 'c5b', 330, 640, 520, 380, 3, 'A SURVIVING C5', focus=(0.5, 0.6), pix=4)
     return finish(img, fg, CAM5, t)
 
 
