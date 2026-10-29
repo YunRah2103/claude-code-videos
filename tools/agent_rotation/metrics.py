@@ -2,13 +2,14 @@
 import math
 from pathlib import Path
 import sqlite3
+from .core import transaction
 
 
 class Metrics:
     def __init__(self, path):
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        with sqlite3.connect(self.path) as db:
+        with transaction(self.path) as db:
             db.execute('''CREATE TABLE IF NOT EXISTS request_metrics
                 (task_id TEXT PRIMARY KEY, provider TEXT NOT NULL, outcome TEXT NOT NULL,
                  prompt_tokens INTEGER, completion_tokens INTEGER, reasoning_tokens INTEGER, cost REAL)''')
@@ -25,7 +26,7 @@ class Metrics:
                 raise ValueError('token counts must be nonnegative integers or unknown')
         if cost is not None and (isinstance(cost, bool) or not isinstance(cost, (int, float)) or not math.isfinite(cost) or cost < 0):
             raise ValueError('cost must be nonnegative and finite or unknown')
-        with sqlite3.connect(self.path) as db:
+        with transaction(self.path) as db:
             try:
                 db.execute('INSERT INTO request_metrics (task_id,provider,outcome,prompt_tokens,completion_tokens,reasoning_tokens,cost,total_tokens) VALUES (?,?,?,?,?,?,?,?)',
                            (task_id, provider, outcome, prompt_tokens, completion_tokens, reasoning_tokens, cost, total_tokens))
@@ -33,7 +34,7 @@ class Metrics:
                 raise ValueError('metrics already recorded for task') from None
 
     def report(self):
-        with sqlite3.connect(self.path) as db:
+        with transaction(self.path) as db:
             rows = db.execute('SELECT prompt_tokens,completion_tokens,reasoning_tokens,total_tokens,cost FROM request_metrics').fetchall()
         result = {'requests': len(rows)}
         for i, label in enumerate(('prompt', 'completion', 'reasoning', 'total', 'cost')):

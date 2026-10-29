@@ -9,6 +9,7 @@ from pathlib import Path, PurePosixPath
 import sqlite3
 import time
 
+from .core import transaction
 from .isolation import create_workspace
 from .openrouter_adapter import execute
 from .validation import stage_python
@@ -19,7 +20,7 @@ class RunError(Exception):
 
 
 def _reservation(ledger, task_id, worker_name):
-    with sqlite3.connect(ledger.path) as db:
+    with transaction(ledger.path) as db:
         row = db.execute('SELECT worker FROM reservations WHERE task_id=?', (task_id,)).fetchone()
     return row is not None and row[0] == worker_name
 
