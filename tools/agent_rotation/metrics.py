@@ -16,6 +16,32 @@ class Metrics:
             columns = {row[1] for row in db.execute('PRAGMA table_info(request_metrics)')}
             if 'total_tokens' not in columns:
                 db.execute('ALTER TABLE request_metrics ADD COLUMN total_tokens INTEGER')
+            db.execute('''CREATE TABLE IF NOT EXISTS failure_diagnostics
+                (task_id TEXT PRIMARY KEY, failure_stage TEXT NOT NULL, failure_code TEXT NOT NULL,
+                 request_sent INTEGER, response_received INTEGER, model_verified INTEGER,
+                 finish_reason_status TEXT NOT NULL, usage_available INTEGER NOT NULL)''')
+
+    def record_failure(self, task_id, provider, failure):
+        # Never persist provider-controlled strings or exception messages.
+        codes = {'HTTP_FAILURE', 'NETWORK_FAILURE', 'REQUEST_TIMEOUT', 'RESPONSE_DECODING_FAILED',
+                 'INVALID_PROVIDER_RESPONSE', 'UNEXPECTED_MODEL', 'INCOMPLETE_GENERATION',
+                 'EMPTY_GENERATED_CONTENT', 'PYTHON_SYNTAX_INVALID', 'OUTPUT_STAGING_FAILED',
+                 'INTERNAL_ADAPTER_ERROR', 'UNEXPECTED_COST', 'RESPONSE_TOO_LARGE', 'SAFETY_POLICY_REJECTED',
+                 'HELPER_UNAVAILABLE', 'REQUEST_VALIDATION_FAILED', 'QUOTA_OR_DUPLICATE'}
+        code = failure.failure_code if failure.failure_code in codes else 'INTERNAL_ADAPTER_ERROR'
+        stage = failure.failure_stage if failure.failure_stage in {'preflight', 'transport', 'response', 'syntax', 'staging', 'internal'} else 'internal'
+        finish = failure.finish_reason_status if failure.finish_reason_status in {'unknown', 'complete', 'incomplete'} else 'unknown'
+        def tri(value):
+            return int(value) if type(value) is bool else None
+        usage = failure.usage
+        with transaction(self.path) as db:
+            db.execute('''INSERT OR IGNORE INTO request_metrics
+                (task_id,provider,outcome,prompt_tokens,completion_tokens,reasoning_tokens,cost,total_tokens)
+                VALUES (?,?,?,?,?,?,?,?)''', (task_id, provider, code, usage['prompt_tokens'],
+                usage['completion_tokens'], usage['reasoning_tokens'], usage['cost'], usage['total_tokens']))
+            db.execute('''INSERT OR IGNORE INTO failure_diagnostics VALUES (?,?,?,?,?,?,?,?)''',
+                (task_id, stage, code, tri(failure.request_sent), tri(failure.response_received),
+                 tri(failure.model_verified), finish, int(failure.usage_available)))
 
     def record(self, task_id, provider, outcome, prompt_tokens=None, completion_tokens=None,
                reasoning_tokens=None, cost=None, total_tokens=None):
@@ -32,6 +58,10 @@ class Metrics:
                            (task_id, provider, outcome, prompt_tokens, completion_tokens, reasoning_tokens, cost, total_tokens))
             except sqlite3.IntegrityError:
                 raise ValueError('metrics already recorded for task') from None
+
+    def has_record(self, task_id):
+        with transaction(self.path) as db:
+            return db.execute('SELECT 1 FROM request_metrics WHERE task_id=?', (task_id,)).fetchone() is not None
 
     def report(self):
         with transaction(self.path) as db:
