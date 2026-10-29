@@ -189,28 +189,36 @@ def _shadow(w, h):
     return sh
 
 
-def cover(name, iw, ih, focus=(0.5, 0.5), zoom=0.0, k=0.0):
+@lru_cache(None)
+def _pixsrc(name, block):
+    """The photo redrawn in the pixel style: 1/block resolution, 24-colour palette (small badges stop being legible)."""
     src = _src(name); sw, sh = src.size
+    small = src.resize((max(1, sw // block), max(1, sh // block)), Image.BOX).quantize(24, Image.Quantize.MEDIANCUT).convert('RGB')
+    return small.resize((small.width * block, small.height * block), Image.NEAREST)
+
+
+def cover(name, iw, ih, focus=(0.5, 0.5), zoom=0.0, k=0.0, pix=0):
+    src = _pixsrc(name, pix) if pix else _src(name); sw, sh = src.size
     sc = max(iw / sw, ih / sh) * (1 + zoom + 0.12 * k)
     cw, ch = iw / sc, ih / sc
     cx = min(max(focus[0] * sw, cw / 2), sw - cw / 2); cy = min(max(focus[1] * sh, ch / 2), sh - ch / 2)
-    return src.crop((int(cx - cw / 2), int(cy - ch / 2), int(cx + cw / 2), int(cy + ch / 2))).resize((iw, ih), Image.BILINEAR)
+    return src.crop((int(cx - cw / 2), int(cy - ch / 2), int(cx + cw / 2), int(cy + ch / 2))).resize((iw, ih), Image.NEAREST if pix else Image.BILINEAR)
 
 
-def photo_card(name, w, h, label='', k=0.0, focus=(0.5, 0.5), zoom=0.0):
+def photo_card(name, w, h, label='', k=0.0, focus=(0.5, 0.5), zoom=0.0, pix=0):
     b = 16; iw, ih = w - 2 * b, h - b - 64
-    img = _frame(w, h, label).copy(); img.paste(cover(name, iw, ih, focus, zoom, round(k * 30) / 30), (b, b))
+    img = _frame(w, h, label).copy(); img.paste(cover(name, iw, ih, focus, zoom, round(k * 30) / 30, pix), (b, b))
     return img
 
 
-def photo(fg, t, t0, t1, name, x, y, w, h, rot=0.0, label='', focus=(0.5, 0.5), zoom=0.0):
-    """Pop a real photo card in at t0, sway and push in slowly, pop it out at t1."""
-    if not (t0 <= t < t1 + 0.25): return
+def photo(fg, t, t0, t1, name, x, y, w, h, rot=0.0, label='', focus=(0.5, 0.5), zoom=0.0, pix=0):
+    """Pop a real photo card in at t0, sway and push in slowly, pop it out at t1. pix=N redraws it in N-px pixels."""
+    if not (t0 <= t < t1 + 0.25) or not os.path.isfile(os.path.join(E['photo_dir'], name + '.jpg')): return   # not fetched: skip
     k = popin(t, t0, 0.3) * popout(t, t1, 0.2)
     if k <= 0.01: return
     r = rot + 2.5 * math.sin(t * 2.2 + x)
     blit(fg, _shadow(w, h), x + 14, y + 18, k, k, r, anchor='center')
-    blit(fg, photo_card(name, w, h, label, clamp((t - t0) / 3), focus, zoom), x, y, k, k, r, anchor='center')
+    blit(fg, photo_card(name, w, h, label, clamp((t - t0) / 3), focus, zoom, pix), x, y, k, k, r, anchor='center')
     fx.burst(fg, t, t0, x, y, GLOW, n=8, r0=90, r1=260, seed=int(x) % 90)
 
 
