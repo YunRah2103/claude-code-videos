@@ -95,11 +95,11 @@ class DiagnosticsTests(unittest.TestCase):
 
     def test_legacy_unstructured_errors_fail_closed_without_messages(self):
         class TaskError(Exception): pass
-        cases = [('request timed out; the server may still have processed it, so not retrying', 'REQUEST_TIMEOUT'),
-                 ('HTTP 200 with a non-JSON body', 'RESPONSE_DECODING_FAILED'),
-                 ('authentication or permission failure (HTTP 401); not retrying', 'HTTP_FAILURE'),
-                 ('rate limited (HTTP 429, Retry-After=SECRET); not retrying', 'HTTP_FAILURE')]
-        for i, (message, expected) in enumerate(cases):
+        cases = ['request timed out; the server may still have processed it, so not retrying',
+                 'HTTP 200 with a non-JSON body',
+                 'authentication or permission failure (HTTP 401); not retrying',
+                 'rate limited (HTTP 429, Retry-After=SECRET); not retrying']
+        for i, message in enumerate(cases):
             class Wrapped(FakeHelper):
                 def send(self, payload): raise TaskError(message)
             with self.assertRaises(AdapterError) as caught:
