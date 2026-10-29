@@ -101,11 +101,34 @@ class RequestTest(unittest.TestCase):
             task.send(task.endpoint_for("gemini-2.5-flash"), task.build_payload("hi"), opener)
         self.assertEqual(len(opener.calls), 1)
 
-    def test_other_http_errors_are_reported(self):
-        opener = FakeOpener(error=http_error(403))
-        with self.assertRaisesRegex(task.TaskError, "HTTP 403"):
+    def test_auth_failures_are_classified_and_not_retried(self):
+        for code in (401, 403):
+            with self.subTest(code=code):
+                opener = FakeOpener(error=http_error(code))
+                with self.assertRaisesRegex(task.TaskError, "authentication or permission"):
+                    task.send(task.endpoint_for("gemini-2.5-flash"), task.build_payload("hi"), opener)
+                self.assertEqual(len(opener.calls), 1)
+
+    def test_not_found_is_classified_and_not_retried(self):
+        opener = FakeOpener(error=http_error(404))
+        with self.assertRaisesRegex(task.TaskError, "not found"):
             task.send(task.endpoint_for("gemini-2.5-flash"), task.build_payload("hi"), opener)
         self.assertEqual(len(opener.calls), 1)
+
+    def test_timeout_is_reported_without_retry(self):
+        opener = FakeOpener(error=TimeoutError())
+        with self.assertRaisesRegex(task.TaskError, "timed out"):
+            task.send(task.endpoint_for("gemini-2.5-flash"), task.build_payload("hi"), opener)
+        self.assertEqual(len(opener.calls), 1)
+
+    def test_non_json_success_body_is_a_task_error(self):
+        class TextResponse(FakeResponse):
+            def read(self):
+                return b"<html>proxy page</html>"
+
+        opener = FakeOpener(TextResponse(200, {}))
+        with self.assertRaisesRegex(task.TaskError, "non-JSON"):
+            task.send(task.endpoint_for("gemini-2.5-flash"), task.build_payload("hi"), opener)
 
 
 class ReplyTest(unittest.TestCase):

@@ -59,14 +59,29 @@ def send(url, payload, opener=urllib.request.urlopen):
     )
     try:
         with opener(request, timeout=TIMEOUT_SECONDS) as response:
-            return response.status, json.loads(response.read())
+            body = response.read()
     except urllib.error.HTTPError as error:
-        if error.code == 429:
-            retry_after = error.headers.get("Retry-After", "unknown")
-            raise TaskError(f"rate limited (HTTP 429, Retry-After={retry_after}); not retrying") from None
-        raise TaskError(f"HTTP {error.code} from Gemini API") from None
+        raise TaskError(describe_http_error(error)) from None
     except urllib.error.URLError as error:
-        raise TaskError(f"network error: {error.reason}") from None
+        raise TaskError(f"network error: {error.reason}; not retrying") from None
+    except TimeoutError:
+        raise TaskError("request timed out; the server may still have processed it, so not retrying") from None
+    try:
+        return response.status, json.loads(body)
+    except ValueError:
+        raise TaskError(f"HTTP {response.status} with a non-JSON body") from None
+
+
+def describe_http_error(error):
+    """Classify an HTTP error by status and Google's status name only; never echo the body."""
+    if error.code == 429:
+        retry_after = error.headers.get("Retry-After", "unknown")
+        return f"rate limited (HTTP 429, Retry-After={retry_after}); not retrying"
+    if error.code in (401, 403):
+        return f"authentication or permission failure (HTTP {error.code}); not retrying"
+    if error.code == 404:
+        return "not found (HTTP 404): model or endpoint unavailable to this project; not retrying"
+    return f"HTTP {error.code} from Gemini API; not retrying"
 
 
 def parse_reply(status, data):

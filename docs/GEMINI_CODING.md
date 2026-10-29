@@ -8,8 +8,14 @@ code. It is a one-shot helper, not an agent.
 - Authentication: the protected Gemini API-key secret is attached by Claude Cloud's proxy
   to `generativelanguage.googleapis.com`. A model-list request returned HTTP 200 without any
   key sent by the tool.
-- Live generation: **not yet verified**. Free-tier eligibility and billing status for the
-  project cannot be confirmed from the API, so no paid-capable request has been made.
+- Free-tier eligibility: Google's pricing page (updated 2026-10-28) lists `gemini-2.5-flash`
+  as free of charge for text input and output. Free-tier content may be used to improve
+  Google's products, so do not send private or confidential code.
+- Live generation: **one** request was made with `gemini-2.5-flash` and `--max-tokens 256`.
+  It returned **HTTP 404**. The model metadata GET for the same model returned HTTP 200, so the
+  failure is on the generation path. The cause is not yet diagnosed. Do not retry without
+  separate authorisation.
+- Status: **AUTHENTICATED BUT UNTESTED** for generation.
 - The Google-account (OAuth) login is not used; it failed and needs a manual code paste.
 
 ## Rules
