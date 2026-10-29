@@ -15,8 +15,9 @@ code. It is a one-shot helper, not an agent.
   models page says it is limiting 2.5 models to users who used them in the past, and that new
   projects should use 3.8 Flash or 3.5 Flash-Lite. This likely explains the 404, though the
   docs don't confirm it for this project. Do not retry 2.5.
-- Live generation with `gemini-3.8-flash`: **not yet performed**. It requires separate
-  authorisation.
+- Live generation with `gemini-3.8-flash`: **one** authorised request, `--max-tokens 256`.
+  It returned **HTTP 502** (upstream or gateway error). Not retried. No code was generated.
+  Any further request needs separate authorisation.
 - Unattended routing: **disabled** (`ROUTING_ENABLED = False`) until one authorised live
   generation is verified.
 - Status: **AUTHENTICATED BUT UNTESTED** for generation.
