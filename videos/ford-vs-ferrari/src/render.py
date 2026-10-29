@@ -405,6 +405,7 @@ def shot_race(t):
     dg.label(fg, t, 12.37, 'TAKES ON FERRARI', (gt4_x(t) + 100, RACE_Y - 200), (620, 760), '#7fe3a0', '#1a1a2e', '#3cc85a', s=7)
     if t >= 12.93: fx.sparkles(fg, t, gt4_x(t), RACE_Y - 160, 600, 200, n=8, seed=60)
     fx.burst(fg, t, 12.93, gt4_x(t) + 200, RACE_Y - 120, GLOW, n=12, seed=61)
+    photo(fg, t, 12.95, 13.55, 'race2', 540, 820, 620, 440, -3, 'LE MANS 1966: THE WINNING CAR', focus=(0.48, 0.62), zoom=1.6, pix=4)
     return finish(img, fg, CAM4, t, rim=False)
 
 
