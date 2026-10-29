@@ -83,6 +83,16 @@ def ledger():
 
 
 @lru_cache(None)
+def memo():
+    """Typed internal memo sheet (34x44), no legible text."""
+    g = Grid(34, 44)
+    g.rect(1, 1, 32, 42, '#f4f1e8'); g.rect(1, 1, 32, 6, '#d8d2c2'); g.text(4, 2, 'MEMO', '#1a1a2e')
+    for i, w in enumerate((26, 22, 27, 18, 25, 20, 24, 14)):
+        g.rect(4, 10 + 4 * i, 4 + w, 11 + 4 * i, '#9a9488')
+    return g.image()
+
+
+@lru_cache(None)
 def gavel():
     img = Image.new('RGBA', (40, 40), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
     d.rectangle((18, 12, 22, 38), fill=(140, 90, 50)); d.line([(19, 12), (19, 38)], fill=(186, 130, 80))
@@ -180,6 +190,59 @@ def shot_tank(t):
     return finish(img, fg, CAM2, t)
 
 
+# ================================================================== shot 2b: the rear crash, out on the street
+PX = 640
+REAR = PX - 46 * 7 + 3 * 7
+TANK_S = (REAR + 60, kit.ROAD_Y - 60)
+def scroll_c(t): return 520 * min(t - 4.55, 0.42) + 520 * 0.6 * (1 - (1 - prog(t, 4.97, 0.6)) ** 2) * (t > 4.97)
+def chaser_x(t): return lerp(-500, REAR - 270, ic(prog(t, 4.55, 0.42))) - 90 * oc(prog(t, 4.97, 0.35))
+P2C = Presenter([
+    (5.5, dict(path=Track([(5.5, (1300, 300)), (5.95, (960, kit.ROAD_Y), 'oc')]), size=5, legs='auto', arms='fly', expr='shock', face=-1, ground=None)),
+    (5.95, dict(ground=kit.ROAD_Y, squash=True, arms='shock', expr='shock', look=TANK_S, face=None)),
+    (6.35, dict(arms='brace', expr='sad')),
+], words=WORDS, base_size=5)
+CAM2C = Camera(W, H, [(4.55, (560, 1000, 1.2)), (4.97, (420, 1040, 1.35), 'io'), (5.6, (520, 1000, 1.18), 'io'), (6.35, (420, 1020, 1.35), 'io'),
+                      (7.75, (440, 1010, 1.45))],
+               kicks=[(4.97, 0.18, *TANK_S), (5.24, 0.08, *TANK_S), (6.35, 0.12, *TANK_S), (7.0, 0.12, *TANK_S)],
+               shakes=[(4.97, 0.5, 30), (7.0, 0.35, 12)])
+
+
+def shot_crash(t):
+    sc = scroll_c(t)
+    img = kit.street(t, sc); cars = layer()
+    jolt = 50 * oc(prog(t, 4.97, 0.18)) * (1 - prog(t, 5.15, 0.5))
+    fx.contact_shadow(cars, PX + jolt, kit.ROAD_Y, 620, s=S, alpha=150)
+    kit.headlights(cars, PX + jolt + 300, kit.ROAD_Y - 80, 380)
+    draw_pinto(cars, PX + jolt, 7, y=kit.ROAD_Y, dist=sc, tank=True, rot=-2 * oc(prog(t, 4.97, 0.15)) * (1 - prog(t, 5.15, 0.3)))
+    hx = chaser_x(t)
+    kit.headlights(cars, hx + 260, kit.ROAD_Y - 70, 200)
+    draw_car(cars, 'silver', hx, 6, y=kit.ROAD_Y, dist=hx + sc, lights=True, brake=t > 4.85)
+    kit.ROAD.reflect(img, cars, depth=160, strength=0.3)
+    img.alpha_composite(cars)
+    fg = layer()
+    if t < 4.97: fx.speed_lines(fg, 0.7, int(t * 10) % 5, col=(200, 204, 214))
+    fx.burst(fg, t, 4.97, REAR, kit.ROAD_Y - 120, (255, 255, 255), n=16, seed=72)
+    fx.ring(fg, t, 4.97, REAR, kit.ROAD_Y - 120, (255, 255, 255), life=0.3, r1=300)
+    fx.dust(fg, t, 4.97, REAR, kit.ROAD_Y - 10, n=18, seed=44)
+    if t >= 5.24:                                                                 # fuel leaks onto the road
+        d = ImageDraw.Draw(fg); pw = 260 * oc(prog(t, 5.24, 1.0))
+        d.ellipse((TANK_S[0] - pw, kit.ROAD_Y - 14, TANK_S[0] + pw * 0.6, kit.ROAD_Y + 18), fill=(255, 190, 60, 110))
+        for k in range(4):
+            dy = ((t - 5.24) * 300 + k * 40) % 90
+            blit(fg, fx.big('star', '#ffd23f', s=3), TANK_S[0] + 16 * k - 24, TANK_S[1] + dy * 0.5, anchor='center')
+    dg.label(fg, t, 5.24, 'RUPTURE', TANK_S, (TANK_S[0] + 80, 760), '#e0303a', '#ffffff', '#a8202a', s=8, t1=6.3)
+    fire(fg, t, 6.35, TANK_S[0], kit.ROAD_Y - 10, s=8, n=3 if t < 7.0 else 5)
+    fire(fg, t, 6.6, TANK_S[0] - 160, kit.ROAD_Y + 6, s=5, n=3)
+    fx.rays(fg, t, 7.0, *TANK_S, (224, 48, 58), life=0.5, r=300, n=8)
+    fx.ring(fg, t, 7.0, *TANK_S, (224, 48, 58), life=0.35, r1=380)
+    for k in range(6):
+        fx.puff(fg, t, 6.5 + k * 0.18, TANK_S[0], kit.ROAD_Y - 260, seed=50 + k, life=1.0, size=1.2, drift=(40, -320), col=(70, 72, 80))
+    if t >= 6.35:                                                                 # red glow pulses over the scene
+        glow = Image.new('RGBA', (W, H), (224, 60, 40, int(40 + 25 * math.sin(t * 18)))); fg.alpha_composite(glow)
+    P2C.draw(fg, t)
+    return finish(img, fg, CAM2C, t, rim=False)
+
+
 # ================================================================== shot 3: campaigners say, the cost ledger
 LED = (540, 640)
 SCALE = (540, 920)
@@ -198,6 +261,14 @@ def tilt(t): return 14 * oc(prog(t, 10.48, 0.5)) * math.cos((t - 10.48) * 5) * m
 
 def shot_ledger(t):
     img = GAR.frame(t).convert('RGBA'); fg = layer()
+    for i, (mx, my, rot) in enumerate(((300, 700, -14), (780, 660, 12), (540, 600, -4))):   # internal documents fly in
+        t0 = 8.93 + 0.12 * i
+        if t >= t0:
+            u = oc(prog(t, t0, 0.35))
+            blit(fg, up(memo(), 6), lerp(540, mx, u), lerp(1500, my, u) + 8 * math.sin(t * 2 + i), u, u, rot * u + 2 * math.sin(t * 1.7 + i), anchor='center')
+    if 8.93 <= t < 9.6:
+        kd = popin(t, 9.0, 0.25) * popout(t, 9.38)
+        blit(fg, fx.big('badge', 'INTERNAL DOCUMENTS', '#ffffff', '#1a1a2e', '#d6d9e2', s=5), 540, 880, kd, kd, -3, anchor='center')
     if t >= 8.05:                                                                 # the claim is theirs: say so on screen
         k = popin(t, 8.05, 0.3)
         blit(fg, fx.big('badge', 'CAMPAIGNERS SAY', '#ffffff', '#1a1a2e', '#d6d9e2', s=8), 540, 380, k, k, -2, anchor='center')
@@ -231,20 +302,23 @@ P4 = Presenter([
     (12.9, dict(ground=GROUND, squash=True, arms='present', look=(CAR4, 1000), expr='smile', face=None)),
     (14.53, dict(arms='shock', expr='wow', squash=True)),
 ], words=WORDS, base_size=6)
-CAM4 = Camera(W, H, [(12.55, (540, 820, 1.2)), (14.2, (540, 940, 1.15), 'io'), (15.75, (540, 960, 1.22))],
+CAM4 = Camera(W, H, [(12.55, (540, 820, 1.2)), (14.2, (540, 960, 1.0), 'io'), (15.75, (540, 960, 1.06))],
               kicks=[(12.95, 0.12, 540, 420), (14.53, 0.16, CAR4, 980)], shakes=[(14.53, 0.3, 18)])
 
 
 def shot_recall(t):
     img = GAR.frame(t).convert('RGBA'); fg = layer()
-    fx.contact_shadow(fg, CAR4, GROUND, 620, s=S, alpha=140)
-    sr, sv = wob(t, (14.53,), 0.08)
-    draw_pinto(fg, CAR4, 7, sx=sr, sy=sv)
+    for i, cx in enumerate((230, 530, 830)):                                     # the line-up, each stamped in turn
+        t0 = 14.53 + 0.15 * i
+        fx.contact_shadow(fg, cx, GROUND, 300, s=S, alpha=140)
+        sr, sv = wob(t, (t0,), 0.08)
+        draw_pinto(fg, cx, 3, sx=sr, sy=sv)
+        if i != 1: fx.stamp_at(fg, t, t0, 'RECALLED', cx, GROUND - 110, rot=-10, s=5)
     if t >= 12.95:
         k = popin(t, 12.95, 0.3) * popout(t, 14.4)
         blit(fg, fx.big('badge', '1978', '#ffd23f', '#1a1a2e', '#e8b923', s=14), 540, 400, k, k, 3 * math.sin(t * 3), anchor='center')
         fx.burst(fg, t, 12.95, 540, 400, GLOW, seed=74)
-    fx.stamp_at(fg, t, 14.53, 'RECALLED', CAR4, GROUND - 200, rot=-10, s=10)
+    fx.stamp_at(fg, t, 14.68, 'RECALLED', 530, GROUND - 110, rot=-10, s=5)
     fx.dust(fg, t, 14.53, CAR4, GROUND - 10, n=16, seed=45)
     P4.draw(fg, t)
     GAR.reflect(img, fg)
@@ -255,11 +329,11 @@ def shot_recall(t):
 # ================================================================== shot 5: 1980 criminal trial
 GAV = (700, 760)
 P5 = Presenter([
-    (15.7, dict(path=Track([(15.7, (-200, 500)), (16.1, (240, GROUND), 'oc')]), size=7, legs='auto', arms='fly', expr='smile', face=1, ground=None)),
+    (15.7, dict(path=Track([(15.7, (1300, 500)), (16.1, (1000, GROUND), 'oc')]), size=6, legs='auto', arms='fly', expr='smile', face=1, ground=None)),
     (16.1, dict(ground=GROUND, squash=True, arms='hips', look=GAV, expr='think', face=None)),
     (18.2, dict(arms='shrug', expr='wow', look=None, look_camera=True, squash=True)),
 ], words=WORDS, base_size=7)
-CAM5 = Camera(W, H, [(15.75, (540, 820, 1.2)), (17.35, (620, 820, 1.3), 'io'), (18.2, (540, 860, 1.16), 'io'), (20.2, (540, 860, 1.22))],
+CAM5 = Camera(W, H, [(15.75, (540, 820, 1.2)), (17.35, (500, 860, 1.12), 'io'), (18.2, (540, 860, 1.16), 'io'), (20.2, (540, 860, 1.22))],
               kicks=[(16.23, 0.12, 540, 400), (17.35, 0.16, *GAV), (18.2, 0.12, 540, 640)], shakes=[(17.6, 0.25, 16)])
 
 
@@ -269,9 +343,18 @@ def gavel_rot(t): return 60 - 105 * ic(prog(t, 17.35, 0.25)) + 15 * oc(prog(t, 1
 def shot_court(t):
     img = GAR.frame(t).convert('RGBA'); fg = layer()
     d = ImageDraw.Draw(fg)                                                        # the bench
-    d.rectangle((420, GROUND - 330, 1000, GROUND), fill=(110, 72, 40), outline=(26, 26, 46), width=8)
-    d.rectangle((420, GROUND - 330, 1000, GROUND - 300), fill=(150, 100, 56))
-    for x in range(470, 1000, 110): d.rectangle((x, GROUND - 270, x + 70, GROUND - 40), outline=(80, 52, 28), width=6)
+    d.rectangle((440, GROUND - 330, 940, GROUND), fill=(110, 72, 40), outline=(26, 26, 46), width=8)
+    d.rectangle((440, GROUND - 330, 940, GROUND - 300), fill=(150, 100, 56))
+    for i in range(6):                                                            # the jury files in on 'jury'
+        t0 = 17.2 + 0.06 * i
+        if t >= t0:
+            k = popin(t, t0, 0.25); hx, hy = 90 + (i % 3) * 110, GROUND - 330 + (i // 3) * 90
+            d.ellipse((hx - 34 * k, hy - 40 * k, hx + 34 * k, hy + 30 * k), fill=(60, 64, 78), outline=(26, 26, 46), width=5)
+            d.rectangle((hx - 50 * k, hy + 26 * k, hx + 50 * k, hy + 80 * k), fill=(60, 64, 78), outline=(26, 26, 46), width=5)
+    d.rectangle((40, GROUND - 200, 400, GROUND), fill=(110, 72, 40), outline=(26, 26, 46), width=8)
+    d.rectangle((40, GROUND - 200, 400, GROUND - 175), fill=(150, 100, 56))
+    if t >= 17.2: blit(fg, fx.big('badge', 'JURY', '#ffffff', '#1a1a2e', '#d6d9e2', s=6), 220, GROUND - 90, popin(t, 17.35), popin(t, 17.35), -3, anchor='center')
+    for x in range(490, 940, 110): d.rectangle((x, GROUND - 270, x + 70, GROUND - 40), outline=(80, 52, 28), width=6)
     d.ellipse((GAV[0] - 70, GROUND - 350, GAV[0] + 130, GROUND - 320), fill=(80, 52, 28))
     if t >= 16.23:
         k = popin(t, 16.23, 0.3) * popout(t, 17.3)
@@ -311,6 +394,10 @@ def shot_lesson(t):
         ke = popin(t, 21.35, 0.3) * (1 + 0.04 * math.sin(t * 8))
         blit(fg, fx.big('badge', 'EXPENSIVE LESSON', '#e0303a', '#ffffff', '#a8202a', s=9), 540, 520, ke, ke, -3, anchor='center')
         fx.burst(fg, t, 21.35, 540, 520, RED, seed=77)
+        for i in range(10):                                                       # money drains away
+            u = (t - 21.35) * 1.2 - i * 0.08
+            if 0 < u < 1:
+                blit(fg, fx.big('glyph', '$', '#ffd23f', s=8), 120 + i * 92, 300 + 1200 * u * u, 1, 1, 30 * math.sin(t * 8 + i), anchor='center')
     P6.draw(fg, t)
     GAR.reflect(img, fg)
     return finish(img, fg, CAM6, t)
@@ -319,21 +406,21 @@ def shot_lesson(t):
 shot_teaser, TEASE_CUES = kit.teaser(END_T, WORDS)
 
 # ================================================================== shots + transitions
-SHOTS = [(-1.0, shot_hook), (2.95, shot_tank), (7.75, shot_ledger), (12.55, shot_recall), (15.75, shot_court), (20.2, shot_lesson),
+SHOTS = [(-1.0, shot_hook), (2.95, shot_tank), (4.55, shot_crash), (7.75, shot_ledger), (12.55, shot_recall), (15.75, shot_court), (20.2, shot_lesson),
          (END_T, shot_teaser)]
-TRANS = {1: (2.95, 3.15, 'whip', dict(dx=-1)), 2: (7.75, 7.97, 'push', None), 3: (12.55, 12.75, 'whip', dict(dx=1)),
-         4: (15.75, 15.97, 'push', None), 5: (20.2, 20.4, 'whip', dict(dx=-1)), 6: (END_T, END_T + 0.2, 'whip', dict(dx=1))}
+TRANS = {1: (2.95, 3.15, 'whip', dict(dx=-1)), 2: (4.55, 4.72, 'whip', dict(dx=1)), 3: (7.75, 7.97, 'push', None), 4: (12.55, 12.75, 'whip', dict(dx=1)),
+         5: (15.75, 15.97, 'push', None), 6: (20.2, 20.4, 'whip', dict(dx=-1)), 7: (END_T, END_T + 0.2, 'whip', dict(dx=1))}
 KEYCOL = {'pinto': YEL, 'cheap': YEL, 'tank': ORANGE, 'rupture': RED, 'crash': RED, 'fire': RED, 'deadly': RED, 'campaigners': YEL,
           'documents': YEL, 'weighed': YEL, 'cost': RED, '1978': YEL, 'recalled': RED, '1980': YEL, 'jury': YEL, 'guilty': kit.GRN,
           'criminal': RED, 'expensive': RED, 'lesson': RED}
 CUES = [
     (0.0, 'vroom', 0.8), (0.05, 'stamp', 0.7), (0.8, 'thump', 0.6), (0.96, 'pop', 0.8), (2.26, 'pop', 0.7), (2.28, 'coin', 0.6),
-    (3.3, 'thump', 0.4), (3.83, 'ding', 0.6), (4.6, 'screech', 0.6), (4.97, 'crash', 1.0), (4.97, 'boom', 0.5), (6.35, 'poof', 0.6),
+    (3.3, 'thump', 0.4), (3.83, 'ding', 0.6), (4.55, 'vroom', 0.6), (4.7, 'screech', 0.8), (5.24, 'pop', 0.5), (5.95, 'thump', 0.4), (4.97, 'crash', 1.0), (4.97, 'boom', 0.5), (6.35, 'poof', 0.6),
     (6.37, 'boom', 0.5), (7.0, 'boom', 0.45),
-    (8.05, 'pop', 0.7), (9.38, 'slide_down', 0.5), (9.4, 'pop', 0.6), (10.48, 'creak', 0.6), (10.88, 'pop', 0.7), (10.9, 'buzzer', 0.3),
-    (12.95, 'pop', 0.8), (13.15, 'pop', 0.6), (14.53, 'stamp', 1.0), (14.55, 'boom', 0.45),
-    (16.23, 'pop', 0.8), (17.6, 'stamp', 0.9), (17.62, 'boom', 0.4), (18.2, 'ding', 0.6), (19.0, 'pop', 0.6),
-    (20.45, 'pop', 0.6), (20.95, 'click', 0.6), (21.35, 'stamp', 0.8),
+    (8.05, 'pop', 0.7), (8.93, 'slide_down', 0.4), (9.05, 'pop', 0.4), (9.17, 'pop', 0.4), (9.38, 'slide_down', 0.5), (9.4, 'pop', 0.6), (10.48, 'creak', 0.6), (10.88, 'pop', 0.7), (10.9, 'buzzer', 0.3),
+    (12.95, 'pop', 0.8), (13.15, 'pop', 0.6), (14.53, 'stamp', 0.8), (14.68, 'stamp', 1.0), (14.83, 'stamp', 0.8), (14.55, 'boom', 0.45),
+    (16.23, 'pop', 0.8), (17.2, 'pop', 0.4), (17.32, 'pop', 0.4), (17.44, 'pop', 0.4), (17.6, 'stamp', 0.9), (17.62, 'boom', 0.4), (18.2, 'ding', 0.6), (19.0, 'pop', 0.6),
+    (20.45, 'pop', 0.6), (20.95, 'click', 0.6), (21.35, 'stamp', 0.8), (21.5, 'coin', 0.6), (21.7, 'coin', 0.6), (21.9, 'coin', 0.5),
 ] + TEASE_CUES
 
 kit.setup(HERE, WORDS, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='silver')

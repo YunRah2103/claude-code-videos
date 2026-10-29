@@ -17,8 +17,9 @@ from PIL import Image, ImageDraw
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, '..', '..', '..', 'shared'))
 import episode as kit
-from episode import W, H, S, GROUND, GAR, GLOW, RED, YEL, layer, finish, draw_car, photo, title
-from pixanim.motion import Track, prog, lerp, oc, ic, io, wob
+from episode import W, H, S, GROUND, GAR, GLOW, RED, YEL, layer, finish, draw_car, photo, title, headlights
+from pixanim.motion import Track, prog, lerp, clamp, oc, ic, io, wob
+from pixanim.car import car
 from pixanim.camera import Camera
 from pixanim.presenter import Presenter
 from pixanim import fx, diagram as dg
@@ -71,6 +72,34 @@ def clutch(tint=0):
     return outline(img)
 
 
+@lru_cache(None)
+def flywheel():
+    """Flywheel face-on (50x50): ring gear teeth, heavy grey disc, bolt circle."""
+    img = Image.new('RGBA', (50, 50), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
+    d.ellipse((1, 1, 48, 48), fill=(110, 114, 124))
+    for k in range(36):
+        a = math.radians(k * 10); d.point((24.5 + 23.5 * math.cos(a), 24.5 + 23.5 * math.sin(a)), fill=(60, 63, 71))
+    d.ellipse((5, 5, 44, 44), fill=(150, 156, 168)); d.arc((5, 5, 44, 44), 200, 320, fill=(200, 206, 216))
+    for k in range(6):
+        a = math.radians(k * 60); d.rectangle((24 + 10 * math.cos(a) - 1, 24 + 10 * math.sin(a) - 1, 24 + 10 * math.cos(a) + 1, 24 + 10 * math.sin(a) + 1), fill=(40, 42, 48))
+    d.ellipse((19, 19, 30, 30), fill=(70, 74, 84))
+    return outline(img)
+
+
+@lru_cache(None)
+def pressure_plate():
+    """Pressure plate face-on (46x46): cover with diaphragm-spring fingers."""
+    img = Image.new('RGBA', (46, 46), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
+    d.ellipse((1, 1, 44, 44), fill=(176, 182, 192)); d.ellipse((6, 6, 39, 39), fill=(130, 136, 148))
+    for k in range(12):
+        a = math.radians(k * 30)
+        d.line([(22.5 + 6 * math.cos(a), 22.5 + 6 * math.sin(a)), (22.5 + 15 * math.cos(a), 22.5 + 15 * math.sin(a))], fill=(214, 220, 228), width=2)
+    d.ellipse((17, 17, 28, 28), fill=(40, 42, 48))
+    for a in (45, 165, 285):
+        r = math.radians(a); d.rectangle((22 + 19 * math.cos(r) - 2, 22 + 19 * math.sin(r) - 2, 22 + 19 * math.cos(r) + 2, 22 + 19 * math.sin(r) + 2), fill=(96, 100, 110))
+    return outline(img)
+
+
 def wrench(n): return fx.big('badge', f'FIX X{n}', '#ffffff', '#e0303a', '#d6d9e2', s=7)
 
 
@@ -112,34 +141,70 @@ def overlay(cv, t):
     if 0.05 <= t < 0.4: fx.ring(cv, t, 0.05, 540, 470, GLOW, life=0.35, r1=520)
 
 
-# ================================================================== shot 2: the sports car keeps breaking
+# ================================================================== shot 2: he buys the sports car (night street)
+def scroll2(t): return 700 * (t - 3.45)
+CAR2S = 520
+P2S = Presenter([
+    (3.45, dict(path=Track([(3.45, (470, 975)), (3.6, (470, 975))]), size=5, legs='sit', arms='cheer1', expr='grin', face=1, ground=None)),
+    (4.36, dict(arms='cheer2', expr='wow', squash=True)),
+], words=WORDS, base_size=5)
+CAM2S = Camera(W, H, [(3.45, (540, 1000, 1.25)), (4.36, (520, 960, 1.35), 'io'), (5.1, (520, 960, 1.4))],
+               kicks=[(4.13, 0.08, 540, 640), (4.36, 0.14, CAR2S, 1050)], shakes=[(3.45, 1.7, 3)])
+
+
+def shot_buy(t):
+    sc = scroll2(t)
+    img = kit.street(t, sc); cars = layer()
+    bounce = 4 * math.sin(t * 22)
+    headlights(cars, CAR2S + 290, kit.ROAD_Y - 90, 420)
+    fx.contact_shadow(cars, CAR2S, kit.ROAD_Y, 600, s=S, alpha=150)
+    draw_car(cars, 'red', CAR2S, 7, y=kit.ROAD_Y + bounce * 0.3, dist=sc, lights=True, sx=1.06, sy=0.86)
+    for k in range(5):
+        fx.puff(cars, t, 3.5 + k * 0.3, CAR2S - 330, kit.ROAD_Y - 30, seed=30 + k, life=0.7, size=0.7, drift=(-260, -60))
+    fx.speed_lines(cars, 0.6, int(t * 10) % 5, col=(200, 204, 214))
+    kit.ROAD.reflect(img, cars, depth=160, strength=0.3)
+    img.alpha_composite(cars)
+    fg = layer()
+    if t >= 4.13:                                                                 # 'bought': SOLD tag and coins
+        k = popin(t, 4.13, 0.25)
+        blit(fg, fx.big('tag', 'SOLD!', '#fff6e0', '#d6303a', s=9), 640, 540, k, k, -8 + 4 * math.sin(t * 6), anchor='center')
+        for i in range(6):
+            u = clamp((t - 4.13 - 0.05 * i) / 0.7)
+            if 0 < u < 1:
+                blit(fg, fx.big('glyph', '$', '#ffd23f', s=9), 640 + (i - 2.5) * 70 * u * 3, 560 - 300 * u + 520 * u * u, 1, 1, 20 * math.sin(t * 9 + i), anchor='center')
+    fx.glint(fg, t, 4.36, CAR2S + 150, kit.ROAD_Y - 230, r=150)
+    fx.burst(fg, t, 4.36, CAR2S, kit.ROAD_Y - 200, RED, n=12, seed=61)
+    if t >= 4.36: fx.sparkles(fg, t * 1.4, CAR2S, kit.ROAD_Y - 200, 600, 260, n=8, seed=62)
+    P2S.draw(fg, t)
+    return finish(img, fg, CAM2S, t, rim=False)
+
+
+# ================================================================== shot 3: it keeps breaking (garage)
 CAR2 = 470
-def car2_x(t): return lerp(-500, CAR2, oc(prog(t, 3.45, 0.7)))
 P2 = Presenter([
-    (3.4, dict(path=Track([(3.4, (1300, 400)), (3.9, (880, GROUND), 'oc')]), size=7, legs='auto', arms='fly', expr='grin', face=-1, ground=None)),
-    (3.9, dict(ground=GROUND, squash=True, arms='cheer1', expr='grin', face=None, look=(CAR2, 1000))),
-    (4.36, dict(arms='present', look=(CAR2, 1000), expr='happy')),
-    (5.64, dict(arms='shock', expr='shock', squash=True)),
+    (5.05, dict(path=Track([(5.05, (1300, 400)), (5.4, (880, GROUND), 'oc')]), size=7, legs='auto', arms='fly', expr='smile', face=-1, ground=None)),
+    (5.4, dict(ground=GROUND, squash=True, arms='point', point=(CAR2 + 200, 950), face=None, look=(CAR2, 1000), expr='think')),
+    (5.64, dict(arms='shock', expr='shock', squash=True, point=None)),
     (6.31, dict(arms='shrug', expr='sad', look=None, look_camera=True)),
 ], words=WORDS, base_size=7)
-CAM2 = Camera(W, H, [(3.45, (520, 1000, 1.2)), (4.4, (560, 960, 1.12), 'io'), (5.6, (500, 930, 1.22), 'io'), (7.1, (520, 900, 1.3))],
-              kicks=[(4.36, 0.1, CAR2, 1000), (5.64, 0.1, CAR2, 900), (6.05, 0.08, CAR2, 900), (6.31, 0.14, CAR2, 820)],
+CAM2 = Camera(W, H, [(5.1, (520, 960, 1.15)), (5.64, (500, 930, 1.22), 'io'), (7.1, (520, 900, 1.3))],
+              kicks=[(5.39, 0.08, CAR2, 900), (5.64, 0.1, CAR2, 900), (6.05, 0.08, CAR2, 900), (6.31, 0.14, CAR2, 820)],
               shakes=[(5.64, 0.3, 12), (6.31, 0.3, 16)])
 
 
 def shot_rival(t):
     img = GAR.frame(t).convert('RGBA'); fg = layer()
-    x = car2_x(t)
-    if t < 4.15: fx.speed_lines(fg, 1 - prog(t, 3.45, 0.7), 4, col=(200, 204, 214))
+    x = CAR2
     fx.contact_shadow(fg, x, GROUND, 640, s=S, alpha=140)
     shake = 5 * math.sin(t * 50) if t >= 5.64 else 0
-    sr, sv = wob(t, (4.15, 5.64), 0.07)
-    draw_car(fg, 'red', x + shake, 7, sx=1.06 * sr, sy=0.86 * sv, dist=x + 500, lights=t < 5.6)
-    fx.glint(fg, t, 4.4, CAR2 + 120, GROUND - 230, r=130)
-    if t < 5.6: fx.sparkles(fg, t, CAR2, GROUND - 240, 560, 220, n=6, seed=33)
-    for k in range(6):                                                            # smoke from the bonnet as it breaks
-        fx.puff(fg, t, 5.64 + k * 0.18, CAR2 + 200, GROUND - 230, seed=40 + k, life=0.9, size=1.0, drift=(60, -300), col=(150, 152, 160))
-    for i, t0 in enumerate((5.3, 5.64, 6.05)):                                    # repair counter: FIX X1, X2, X3
+    sr, sv = wob(t, (5.39, 5.64, 6.05), 0.07)
+    hood = 0.0 if t < 5.39 else min(1.0, (t - 5.39) / 0.25)
+    blit(fg, up(car('red', 0, False, False, hood), 7), x + shake, GROUND, 1.06 * sr, 0.86 * sv)
+    for k in range(8):                                                            # smoke from the open bonnet as it breaks
+        fx.puff(fg, t, 5.45 + k * 0.2, CAR2 + 200, GROUND - 260, seed=40 + k, life=0.9, size=1.0 + 0.1 * k, drift=(60, -300), col=(150, 152, 160))
+    for k in range(3):
+        fx.burst(fg, t, (5.39, 5.64, 6.05)[k], CAR2 + 200, GROUND - 240, (255, 210, 63), n=10, r0=40, r1=200, seed=50 + k)
+    for i, t0 in enumerate((5.39, 5.64, 6.05)):                                   # repair counter: FIX X1, X2, X3
         if t0 <= t < 7.3:
             k = popin(t, t0, 0.22)
             blit(fg, wrench(i + 1), 330 + 210 * i, 640 - 90 * i, k, k, (-6, 4, -3)[i] + 3 * math.sin(t * 7), anchor='center')
@@ -150,47 +215,81 @@ def shot_rival(t):
     return finish(img, fg, CAM2, t)
 
 
-# ================================================================== shot 3: the same clutch
-CL = (540, 760)
-TCL = (760, 760)
+# ================================================================== shot 4: opened up, the clutch (exploded view)
+CL = (540, 780)
+def spread(t): return oc(prog(t, 7.39, 0.6))
+def front(t): return io(prog(t, 8.89, 0.35))          # clutch comes forward, turns face-on
 P3 = Presenter([
-    (7.05, dict(path=Track([(7.05, (-200, 600)), (7.5, (190, GROUND), 'oc')]), size=7, legs='auto', arms='fly', expr='think', face=1, ground=None)),
+    (7.05, dict(path=Track([(7.05, (-200, 600)), (7.5, (170, GROUND), 'oc')]), size=6, legs='auto', arms='fly', expr='think', face=1, ground=None)),
     (7.5, dict(ground=GROUND, squash=True, arms='think', look=CL, expr='think', face=None)),
-    (8.89, dict(arms='point', point=CL, look=CL, expr='wow', squash=True)),
-    (9.96, dict(arms='shock', expr='shock', squash=True, point=None, look=TCL)),
-], words=WORDS, base_size=7)
-CAM3 = Camera(W, H, [(7.1, (540, 820, 1.35)), (8.89, (540, 780, 1.5), 'io'), (9.6, (600, 860, 1.12), 'io'), (11.05, (600, 860, 1.16))],
-              kicks=[(8.28, 0.06, *CL), (8.89, 0.16, *CL), (9.96, 0.14, *TCL), (10.5, 0.08, 640, 520)], shakes=[(9.96, 0.25, 10)])
-
-
-def cl_x(t): return lerp(540, 330, io(prog(t, 9.5, 0.4)))
+    (8.28, dict(arms='point', point=CL, look=CL, expr='wow', squash=True)),
+], words=WORDS, base_size=6)
+CAM3 = Camera(W, H, [(7.1, (540, 820, 1.3)), (8.28, (540, 800, 1.2), 'io'), (8.89, (540, 780, 1.45), 'io'), (9.6, (540, 780, 1.5))],
+              kicks=[(7.39, 0.1, *CL), (8.28, 0.06, *CL), (8.89, 0.16, *CL)])
 
 
 def shot_clutch(t):
     img = GAR.frame(t).convert('RGBA'); fg = layer()
-    spin = t * 160 * (1 - 0.8 * prog(t, 8.89, 0.5))
-    kc = popin(t, 7.35, 0.35)
-    fx.rays(fg, t, 8.89, cl_x(t), CL[1], GLOW, life=1.0, r=520)
-    blit(fg, up(clutch(0), 9), cl_x(t), CL[1], kc, kc, spin, anchor='center')
-    fx.ring(fg, t, 8.89, cl_x(t), CL[1], GLOW, life=0.4, r1=330)
-    dg.label(fg, t, 8.89, 'CLUTCH', (cl_x(t), CL[1] - 150), lambda t: (cl_x(t), 470), '#ffd23f', '#1a1a2e', '#e8b923', s=8, t1=9.5)
-    if t >= 9.75:                                                                 # the tractor clutch slides in beside it
-        tx = lerp(1400, TCL[0], oc(prog(t, 9.75, 0.3)))
-        blit(fg, up(clutch(0), 9), tx, TCL[1], 1, 1, spin + 30 * (1 - prog(t, 9.75, 0.3)), anchor='center')
-        blit(fg, up(tractor(0), 3), tx, TCL[1] + 290, popin(t, 9.96), popin(t, 9.96))
-        if t >= 9.96:
-            ke = popin(t, 9.96, 0.25)
-            blit(fg, kit.text_img('=', YEL, 150), 545, TCL[1], ke, ke, anchor='center')
-            kb = popin(t, 10.3, 0.3) * (1 + 0.05 * math.sin(t * 9))
-            blit(fg, fx.big('badge', 'SAME PART', '#ffd23f', '#d6303a', '#e8b923', s=11), 545, 470, kb, kb, 4 * math.sin(t * 4), anchor='center')
-            fx.burst(fg, t, 10.3, 545, 470, GLOW, seed=90)
-            fx.sparkles(fg, t, 545, TCL[1], 760, 300, n=10, seed=91)
+    sp, fr = spread(t), front(t)
+    fx.rays(fg, t, 8.89, *CL, GLOW, life=1.0, r=520)
+    d = ImageDraw.Draw(fg)                                                        # the shaft they share
+    d.line([(CL[0] - 380 * sp - 40, CL[1] + 100 * sp), (CL[0] + 380 * sp + 40, CL[1] - 100 * sp)], fill=(26, 26, 46), width=26)
+    d.line([(CL[0] - 380 * sp - 40, CL[1] + 100 * sp), (CL[0] + 380 * sp + 40, CL[1] - 100 * sp)], fill=(150, 156, 168), width=12)
+    spin = t * 200 * (1 - 0.8 * prog(t, 8.89, 0.5))
+    parts = [(flywheel(), -1, 1 - fr), (clutch(0), 0, 1.0), (pressure_plate(), 1, 1 - fr)]
+    for img_p, i, a in parts:
+        if a <= 0.02: continue
+        x = CL[0] + i * 230 * sp + (i * 260 * fr)
+        y = CL[1] - i * 70 * sp
+        sx = 0.42 + (0.58 * fr if i == 0 else 0)
+        k = popin(t, 7.2 + 0.08 * (i + 1), 0.3) * a
+        blit(fg, up(img_p, 8), x, y, sx * k * (1 + 0.25 * fr * (i == 0)), k * (1 + 0.25 * fr * (i == 0)), spin if i == 0 and fr > 0.5 else 0,
+             anchor='center')
+    for i, (txt, t0) in enumerate((('FLYWHEEL', 7.6), ('PRESSURE PLATE', 7.8))):
+        if t0 <= t < 8.85:
+            k = popin(t, t0, 0.25) * popout(t, 8.7)
+            blit(fg, fx.big('badge', txt, '#ffffff', '#1a1a2e', '#d6d9e2', s=5), CL[0] + (i * 2 - 1) * 170, CL[1] + (200 if i == 0 else -250), k, k,
+                 anchor='center')
+    fx.ring(fg, t, 8.89, *CL, GLOW, life=0.4, r1=330)
+    dg.label(fg, t, 8.95, 'CLUTCH', (CL[0], CL[1] - 160), (CL[0], 470), '#ffd23f', '#1a1a2e', '#e8b923', s=9)
+    if t >= 8.9: fx.sparkles(fg, t, *CL, 520, 400, n=8, seed=63)
     P3.draw(fg, t)
     GAR.reflect(img, fg)
     return finish(img, fg, CAM3, t)
 
 
-# ================================================================== shot 4: 'stick to tractors'
+# ================================================================== shot 5: split screen, same part in both
+PANELS = ((40, 236, 1040, 752), (40, 786, 1040, 1302))
+
+
+def _pan_car(p, t):
+    blit(p, up(car('red'), 4), 330, 420, 1.06, 0.86)
+    blit(p, up(clutch(0), 6), 780, 260 + 6 * math.sin(t * 3), 1, 1, t * 120, anchor='center')
+
+
+def _pan_tractor(p, t):
+    blit(p, up(tractor(int(t * 200) % 360), 5), 300, 440)
+    blit(p, up(clutch(0), 6), 780, 260 + 6 * math.sin(t * 3 + 1), 1, 1, t * 120, anchor='center')
+
+
+def shot_split(t):
+    img = Image.blend(GAR.frame(t), Image.new('RGB', (W, H), (8, 8, 10)), 0.55).convert('RGBA')
+    fg = layer()
+    kit.split_panel(fg, t, 9.62, PANELS[0], _pan_car, 'SPORTS CAR', ('#e0303a', '#ffffff', '#b5222c'))
+    kit.split_panel(fg, t, 9.96, PANELS[1], _pan_tractor, 'HIS TRACTOR', ('#ff8a3d', '#1a1a2e', '#c8662a'))
+    if t >= 10.3:
+        k = popin(t, 10.3, 0.3) * (1 + 0.05 * math.sin(t * 9))
+        blit(fg, fx.big('badge', 'SAME PART', '#ffd23f', '#d6303a', '#e8b923', s=9), 760, 770, k, k, 4 * math.sin(t * 4), anchor='center')
+        fx.burst(fg, t, 10.3, 760, 770, GLOW, seed=90)
+        for i, y in enumerate((500, 1040)):
+            kc = popin(t, 10.45 + 0.1 * i)
+            blit(fg, fx.big('check', s=8), 940, y, kc, kc, anchor='center')
+            fx.ring(fg, t, 10.45 + 0.1 * i, 940, y, (60, 200, 90), life=0.3, r1=140)
+    img.alpha_composite(fg)
+    return img.convert('RGB')
+
+
+# ================================================================== shot 6: 'stick to tractors'
 CAR4 = 700
 P4 = Presenter([
     (11.0, dict(path=Track([(11.0, (-200, 500)), (11.4, (230, GROUND), 'oc')]), size=7, legs='auto', arms='fly', expr='talk', face=1, ground=None)),
@@ -199,7 +298,8 @@ P4 = Presenter([
     (14.02, dict(arms='shock', expr='shock', squash=True)),
     (14.6, dict(arms='hips', expr='sad', look=None, look_camera=True)),
 ], words=WORDS, base_size=7)
-CAM4 = Camera(W, H, [(11.05, (520, 960, 1.15)), (12.95, (640, 860, 1.22), 'io'), (14.39, (560, 900, 1.12), 'io'), (15.3, (540, 880, 1.16))],
+CAM4 = Camera(W, H, [(11.05, (520, 960, 1.15)), (12.5, (500, 960, 1.18), 'io'), (12.95, (700, 820, 1.6), 'io'), (14.2, (680, 760, 1.5)),
+                     (14.39, (560, 900, 1.12), 'io'), (15.3, (540, 880, 1.16))],
               kicks=[(11.85, 0.08, CAR4, 1000), (13.35, 0.12, 700, 560), (14.02, 0.1, 700, 560), (14.39, 0.14, 540, 520)],
               shakes=[(14.39, 0.3, 14)])
 
@@ -215,8 +315,13 @@ def shot_enzo(t):
         blit(fg, up(clutch(0), 4), 330, 740, kb, kb, t * 90, anchor='center')
     if t >= 13.35:
         ks = popin(t, 13.35, 0.3) * (1 + 0.05 * math.sin(t * 10))
-        blit(fg, fx.big('tag', 'STICK TO TRACTORS!', '#ffffff', '#d6303a', s=7), 560, 560, ks, ks, -4 + 3 * math.sin(t * 6), anchor='center')
+        blit(fg, fx.big('tag', 'STICK TO TRACTORS!', '#ffffff', '#d6303a', s=6), 700, 600, ks, ks, -4 + 3 * math.sin(t * 6), anchor='center')
         fx.burst(fg, t, 13.35, 640, 560, RED, seed=95)
+    for k in range(6):                                                            # it fumes
+        fx.puff(fg, t, 13.0 + k * 0.18, CAR4 - 220, GROUND - 260, seed=80 + k, life=0.8, size=0.9, drift=(-80, -280), col=(220, 224, 232))
+    if 12.95 <= t < 14.3:
+        ka = popin(t, 12.95, 0.2)
+        blit(fg, fx.big('glyph', '!', '#e0303a', s=14), CAR4 + 160, GROUND - 470 + 10 * math.sin(t * 12), ka, ka, 10 * math.sin(t * 9), anchor='center')
     fx.ring(fg, t, 13.35, 640, 560, (224, 48, 58), life=0.35, r1=360)
     if t >= 14.39:                                                                 # a tractor drops in on 'tractors'
         ty = lerp(-200, GROUND - 330, ic(prog(t, 14.39, 0.25)))
@@ -230,7 +335,6 @@ def shot_enzo(t):
 
 # ================================================================== shot 5: he builds his own
 CAR5 = 560
-def car5_x(t): return lerp(1600, CAR5, oc(prog(t, 15.71, 0.6)))
 P5 = Presenter([
     (15.25, dict(path=Track([(15.25, (540, -200)), (15.6, (200, GROUND), 'oc')]), size=7, legs='auto', arms='fly', expr='grin', face=1, ground=None)),
     (15.6, dict(ground=GROUND, squash=True, arms='present', look=(CAR5, 1000), expr='grin', face=None)),
@@ -242,12 +346,18 @@ CAM5 = Camera(W, H, [(15.3, (560, 860, 1.25)), (16.3, (560, 900, 1.12), 'io'), (
 
 def shot_build(t):
     img = GAR.frame(t).convert('RGBA'); fg = layer()
-    x = car5_x(t)
+    x = CAR5
     fx.rays(fg, t, 16.28, CAR5, GROUND - 200, GLOW, life=1.0, r=600)
-    if t < 16.3: fx.speed_lines(fg, 1 - prog(t, 15.71, 0.6), 6, col=(200, 204, 214))
     fx.contact_shadow(fg, x, GROUND, 620, s=S, alpha=140)
-    sr, sv = wob(t, (16.31,), 0.07)
-    draw_car(fg, 'silver', x, 7, flip=True, dist=1600 - x, sx=1.08 * sr, sy=0.84 * sv, lights=True)
+    sr, sv = wob(t, (15.71, 16.31), 0.07)
+    spr = up(car('silver', 0, t >= 16.28), 7)
+    if t < 16.28:                                                                 # bare primer shell while he builds it
+        prim = Image.new('RGBA', spr.size, (96, 100, 110, 255)); prim.putalpha(spr.getchannel('A'))
+        spr = Image.blend(spr, prim, 0.7 * (1 - prog(t, 16.1, 0.18)))
+    blit(fg, spr, x, GROUND - 120 * (1 - oc(prog(t, 15.4, 0.3))), 1.08 * sr, 0.84 * sv, flip=True)
+    for i, (t0, wx) in enumerate(((15.43, -200), (15.58, 120), (15.71, -40), (15.9, 220))):   # welding sparks
+        fx.burst(fg, t, t0, x + wx, GROUND - 160, (255, 230, 120), n=14, r0=20, r1=220, seed=110 + i)
+        fx.ring(fg, t, t0, x + wx, GROUND - 160, (255, 255, 255), life=0.2, r1=90)
     fx.glint(fg, t, 16.4, CAR5 + 100, GROUND - 230, r=140)
     fx.sparkles(fg, t * 1.3, CAR5, GROUND - 240, 620, 260, n=10, seed=52)
     dg.label(fg, t, 16.28, 'HIS OWN', (CAR5, GROUND - 260), (CAR5 + 120, GROUND - 520), '#7fe3a0', '#1a1a2e', '#3cc85a', s=9)
@@ -261,19 +371,22 @@ def shot_build(t):
 shot_teaser, TEASE_CUES = kit.teaser(17.1, WORDS)
 
 # ================================================================== shots + transitions
-SHOTS = [(-1.0, shot_hook), (3.45, shot_rival), (7.1, shot_clutch), (11.05, shot_enzo), (15.3, shot_build), (17.1, shot_teaser)]
-TRANS = {1: (3.45, 3.65, 'whip', dict(dx=-1)), 2: (7.1, 7.34, 'iris', (CAR2 + 150, 900)), 3: (11.05, 11.27, 'push', None),
-         4: (15.3, 15.5, 'whip', dict(dx=0, dy=1)), 5: (17.1, 17.3, 'whip', dict(dx=1))}
+SHOTS = [(-1.0, shot_hook), (3.45, shot_buy), (5.1, shot_rival), (7.1, shot_clutch), (9.6, shot_split), (11.05, shot_enzo), (15.3, shot_build),
+         (17.1, shot_teaser)]
+TRANS = {1: (3.45, 3.65, 'whip', dict(dx=-1)), 2: (5.1, 5.3, 'push', None), 3: (7.1, 7.34, 'iris', (CAR2 + 200, 950)),
+         4: (9.6, 9.8, 'whip', dict(dx=0, dy=1)), 5: (11.05, 11.27, 'push', None), 6: (15.3, 15.5, 'whip', dict(dx=0, dy=1)),
+         7: (17.1, 17.3, 'whip', dict(dx=1))}
 KEYCOL = {'tractors': YEL, 'ferrari': RED, 'breaking': RED, 'part': RED, 'clutch': YEL, 'enzo': RED, 'stick': RED, 'sports': YEL,
           'car': YEL, 'built': kit.GRN, 'own': kit.GRN}
 CUES = [
     (0.0, 'vroom', 0.7), (0.05, 'stamp', 0.8), (0.07, 'sparkle', 0.6), (0.3, 'thump', 0.4), (0.6, 'thump', 0.4), (1.0, 'thump', 0.9),
     (1.0, 'boom', 0.35), (1.81, 'pop', 0.8), (1.83, 'sparkle', 0.5),
-    (3.5, 'vroom', 0.8), (4.15, 'screech', 0.5), (4.36, 'ding', 0.6), (4.4, 'sparkle', 0.5), (5.3, 'click', 0.6), (5.64, 'crash', 0.6),
+    (3.5, 'vroom', 0.8), (4.13, 'cha_ching', 0.7), (4.36, 'ding', 0.6), (4.4, 'sparkle', 0.5), (5.39, 'click', 0.6), (5.41, 'poof', 0.4), (5.64, 'crash', 0.6),
     (5.66, 'buzzer', 0.4), (5.7, 'poof', 0.5), (6.05, 'buzzer', 0.4), (6.31, 'stamp', 1.0), (6.33, 'boom', 0.35),
-    (7.35, 'pop', 0.7), (8.89, 'ding', 0.8), (8.91, 'sparkle', 0.7), (9.75, 'whoosh', 0.6), (9.96, 'thump', 0.7), (10.3, 'cha_ching', 0.8),
-    (11.27, 'pop', 0.6), (13.35, 'buzzer', 0.6), (13.37, 'pop', 0.8), (14.39, 'fall', 0.7), (14.64, 'crash', 0.6), (14.66, 'boom', 0.4),
-    (15.71, 'vroom', 0.9), (16.28, 'confetti', 0.8), (16.3, 'ding', 0.8), (16.32, 'sparkle', 0.7),
+    (7.3, 'pop', 0.5), (7.39, 'slide_down', 0.6), (7.6, 'pop', 0.5), (7.8, 'pop', 0.5), (8.89, 'ding', 0.8), (8.91, 'sparkle', 0.7),
+    (9.62, 'pop', 0.7), (9.96, 'pop', 0.7), (10.3, 'cha_ching', 0.8), (10.45, 'click', 0.5), (10.55, 'click', 0.5),
+    (11.27, 'pop', 0.6), (12.95, 'whoosh', 0.6), (13.0, 'poof', 0.4), (13.35, 'buzzer', 0.6), (13.37, 'pop', 0.8), (14.39, 'fall', 0.7), (14.64, 'crash', 0.6), (14.66, 'boom', 0.4),
+    (15.4, 'thump', 0.6), (15.43, 'click', 0.7), (15.58, 'click', 0.7), (15.71, 'stamp', 0.5), (15.9, 'click', 0.7), (16.28, 'vroom', 0.8), (16.28, 'confetti', 0.8), (16.3, 'ding', 0.8), (16.32, 'sparkle', 0.7),
 ] + TEASE_CUES
 
 kit.setup(HERE, WORDS, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay)

@@ -70,6 +70,15 @@ def bionic(spin=0):
     return outline(img)
 
 
+@lru_cache(None)
+def fish_outline():
+    """Boxfish silhouette stretched to the Bionic's size, as a glowing yellow outline."""
+    a = np.array(boxfish(0).resize((92 * 7, 34 * 7), Image.NEAREST))[..., 3] > 0
+    e = a & ~(np.roll(a, 6, 0) & np.roll(a, -6, 0) & np.roll(a, 6, 1) & np.roll(a, -6, 1))
+    out = np.zeros(a.shape + (4,), np.uint8); out[e] = (255, 217, 59, 230)
+    return Image.fromarray(out, 'RGBA')
+
+
 def streamlines(fg, t, t0, cx, cy, w, h, n=7, col=(220, 236, 255), bulge=1.0):
     """Air/water flow lines that bend smoothly around a shape centred at (cx, cy)."""
     if t < t0: return
@@ -86,6 +95,72 @@ def streamlines(fg, t, t0, cx, cy, w, h, n=7, col=(220, 236, 255), bulge=1.0):
         if len(seg) > 1:
             d.line(pts[:int(40 * k)], fill=col + (70,), width=4)
             d.line(seg, fill=col + (230,), width=8)
+
+
+@lru_cache(None)
+def _ocean_base():
+    """Static part of the reef (360x640 grid, 3 px): depth gradient, sand, rocks and corals."""
+    img = Image.new('RGBA', (360, 640), (0, 0, 0, 255)); d = ImageDraw.Draw(img)
+    for y in range(640):
+        k = y / 640; d.line((0, y, 360, y), fill=(int(30 - 18 * k), int(110 - 60 * k), int(190 - 90 * k)))
+    r = np.random.default_rng(8)
+    d.polygon([(0, 560)] + [(x, 548 + 8 * math.sin(x / 23)) for x in range(0, 361, 12)] + [(360, 640), (0, 640)], fill=(196, 170, 120))
+    for i in range(7):                                                            # rocks
+        x, w = r.uniform(0, 360), r.uniform(26, 60)
+        d.ellipse((x - w, 520 + r.uniform(0, 20), x + w, 590), fill=(70, 74, 92)); d.ellipse((x - w * 0.6, 526, x + w * 0.2, 548), fill=(96, 100, 120))
+    for i, col in enumerate(((255, 110, 140), (255, 160, 70), (180, 120, 255), (255, 110, 140), (120, 220, 200))):   # corals
+        x = 30 + i * 75 + r.uniform(-10, 10)
+        for b in range(5):
+            a = math.radians(-150 + b * 30); L = r.uniform(20, 38)
+            d.line((x, 545, x + L * math.cos(a), 545 + L * math.sin(a)), fill=col, width=4)
+            d.ellipse((x + L * math.cos(a) - 3, 545 + L * math.sin(a) - 3, x + L * math.cos(a) + 3, 545 + L * math.sin(a) + 3), fill=col)
+    return img
+
+
+def ocean(t):
+    """Animated reef world (RGBA 1080x1920): light shafts, swaying kelp, a far fish school, bubbles."""
+    img = _ocean_base().copy(); ov = Image.new('RGBA', img.size, (0, 0, 0, 0)); d = ImageDraw.Draw(ov)
+    for i in range(5):                                                            # light shafts from the surface
+        x = 40 + i * 80 + 20 * math.sin(t * 0.6 + i)
+        d.polygon([(x, 0), (x + 24, 0), (x + 70, 560), (x + 10, 560)], fill=(200, 236, 255, 22 + 8 * int(math.sin(t * 1.3 + i) > 0)))
+    img.alpha_composite(ov); d = ImageDraw.Draw(img)
+    for i in range(9):                                                            # kelp
+        x0 = 12 + i * 42; h = 160 + (i * 37) % 110
+        pts = [(x0 + 10 * math.sin(t * 1.6 + i + j * 0.35) * j / 12, 560 - h * j / 12) for j in range(13)]
+        d.line(pts, fill=(40, 140, 80), width=5); d.line(pts, fill=(80, 190, 110), width=2)
+    for i in range(14):                                                           # a far school of fish drifting by
+        fx_, fy = (i * 37 + t * 40) % 420 - 30, 150 + (i * 23) % 90 + 4 * math.sin(t * 3 + i)
+        d.polygon([(fx_, fy), (fx_ + 7, fy - 3), (fx_ + 7, fy + 3)], fill=(150, 200, 230)); d.polygon([(fx_ + 7, fy), (fx_ + 10, fy - 2), (fx_ + 10, fy + 2)], fill=(120, 170, 210))
+    for i in range(16):                                                           # bubbles
+        bx = (i * 53) % 360 + 4 * math.sin(t * 2 + i); by = 640 - ((t * (30 + i * 3) + i * 97) % 640)
+        d.ellipse((bx - 2, by - 2, bx + 2, by + 2), outline=(210, 240, 255))
+    return up(img, 3)
+
+
+def flood(t, k):
+    """Garage world with the sea rising through it (k 0..1 = water level); above the waterline stays garage."""
+    g = GAR.frame(t).convert('RGBA')
+    if k <= 0: return g
+    o = ocean(t); lvl = int(H - (H + 60) * k)
+    m = Image.new('L', (W, H), 0); md = ImageDraw.Draw(m)
+    pts = [(x, lvl + 18 * math.sin(x / 70 + t * 4)) for x in range(0, W + 30, 30)]
+    md.polygon(pts + [(W, H), (0, H)], fill=255)
+    g.paste(o, (0, 0), m)
+    ImageDraw.Draw(g).line(pts, fill=(200, 236, 255), width=10)
+    return g
+
+
+def tunnel(t):
+    """Wind-tunnel version of the garage: darker, with a turning fan on the left wall."""
+    img = Image.blend(GAR.frame(t), Image.new('RGB', (W, H), (10, 14, 26)), 0.45).convert('RGBA')
+    d = ImageDraw.Draw(img); cx, cy, R = 40, GROUND - 240, 230
+    d.ellipse((cx - R - 14, cy - R - 14, cx + R + 14, cy + R + 14), fill=(60, 64, 78), outline=(26, 26, 46), width=10)
+    d.ellipse((cx - R, cy - R, cx + R, cy + R), fill=(22, 24, 32))
+    for b in range(5):
+        a = t * 14 + b * 2 * math.pi / 5
+        d.pieslice((cx - R + 10, cy - R + 10, cx + R - 10, cy + R - 10), math.degrees(a), math.degrees(a) + 34, fill=(150, 156, 170))
+    d.ellipse((cx - 30, cy - 30, cx + 30, cy + 30), fill=(200, 206, 216), outline=(26, 26, 46), width=6)
+    return img
 
 
 def water(img, t, k):
@@ -105,6 +180,15 @@ def water(img, t, k):
     return img
 
 
+def hearts_fish(fg, t):
+    """Little fish dart past him as the water arrives."""
+    for i in range(6):
+        u = (t - 4.72 - 0.08 * i) * 1.3
+        if 0 < u < 1:
+            y = 500 + 110 * i + 30 * math.sin(u * 9 + i)
+            blit(fg, up(boxfish(int(t * 8) % 2 * 2), 3), lerp(-100, 1180, u) if i % 2 else lerp(1180, -100, u), y, 1, 1, flip=i % 2 == 0, anchor='center')
+
+
 # ================================================================== shot 1: hook, cut through the air
 CAR1 = 560
 def car1_x(t): return lerp(-500, CAR1, oc(prog(t, 0.0, 0.8)))
@@ -120,10 +204,11 @@ CAM1 = Camera(W, H, [(-1.0, (540, 1000, 1.4)), (0.0, (540, 1000, 1.4)), (0.8, (5
 
 
 def shot_hook(t):
-    img = GAR.frame(t).convert('RGBA'); fg = layer()
+    img = tunnel(t); fg = layer()
     x = car1_x(t)
     if t < 0.8: fx.speed_lines(fg, 1 - prog(t, 0.0, 0.8), 3, col=(200, 204, 214))
-    streamlines(fg, t, 1.47, CAR1, GROUND - 200, 1000, 420, n=7, bulge=1.0)
+    streamlines(fg, t, 0.3, CAR1, GROUND - 200, 1000, 420, n=5, col=(150, 170, 200), bulge=0.4)
+    streamlines(fg, t, 1.47, CAR1, GROUND - 200, 1000, 520, n=9, bulge=1.0)
     fx.contact_shadow(fg, x, GROUND, 620, s=S, alpha=140)
     sr, sv = wob(t, (0.8,), 0.06)
     draw_car(fg, 'silver', x, 7, dist=x + 500, lights=True, sx=sr, sy=sv)
@@ -153,20 +238,22 @@ CAM2 = Camera(W, H, [(3.6, (540, 900, 1.15)), (4.72, (540, 960, 1.3), 'io'), (5.
 
 def shot_sea(t):
     img = GAR.frame(t).convert('RGBA'); fg = layer()
+    if t >= 4.72:
+        hearts_fish(fg, t)
     if t >= 4.07:
         k = popin(t, 4.07, 0.3) * popout(t, 4.7)
         blit(fg, fx.big('arrow', s=12).rotate(90, expand=True), 760, 600 + 20 * math.sin(t * 8), k, k, anchor='center')
     P2.draw(fg, t)
     GAR.reflect(img, fg)
-    return finish(water(img, t, oc(prog(t, 4.5, 0.5))), fg, CAM2, t)
+    return finish(flood(t, oc(prog(t, 4.45, 0.55))), fg, CAM2, t)
 
 
 # ================================================================== shot 3: the yellow boxfish
 FISH = (560, 760)
 def fish_x(t): return lerp(-300, FISH[0], oc(prog(t, 5.55, 0.9)))
 P3 = Presenter([
-    (5.5, dict(path=Track([(5.5, (900, GROUND)), (5.6, (900, GROUND))]), size=6, legs='stand', arms='point', point=FISH, look=FISH, expr='wow',
-               ground=GROUND, face=-1)),
+    (5.5, dict(path=Track([(5.5, (1250, 1000)), (6.0, (900, 1060), 'oc'), (9.2, (860, 1000))]), size=6, legs='fly', arms='point', point=FISH,
+               look=FISH, expr='wow', ground=None, face=-1, hover=12)),
     (7.47, dict(arms='present', expr='grin', squash=True)),
 ], words=WORDS, base_size=6)
 CAM3 = Camera(W, H, [(5.55, (540, 900, 1.25)), (6.05, (560, 800, 1.3), 'io'), (7.47, (560, 840, 1.12), 'io'), (9.2, (560, 840, 1.16))],
@@ -174,19 +261,18 @@ CAM3 = Camera(W, H, [(5.55, (540, 900, 1.25)), (6.05, (560, 800, 1.3), 'io'), (7
 
 
 def shot_fish(t):
-    img = GAR.frame(t).convert('RGBA'); fg = layer()
+    img = ocean(t); fg = layer()
     fy = FISH[1] + 20 * math.sin(t * 3)
     streamlines(fg, t, 7.47, FISH[0], fy, 980, 360, n=7, col=(200, 236, 255), bulge=0.8)
     blit(fg, up(boxfish(int(t * 8) % 2 * 2), 10), fish_x(t), fy, 1, 1, 3 * math.sin(t * 4), anchor='center')
     fx.ring(fg, t, 6.05, FISH[0], fy, GLOW, life=0.35, r1=300)
-    dg.label(fg, t, 6.05, 'YELLOW BOXFISH', (FISH[0] + 20, fy + 110), (520, 1040), '#ffd23f', '#1a1a2e', '#e8b923', s=7, t1=7.3)
+    dg.label(fg, t, 6.05, 'YELLOW BOXFISH', (FISH[0] + 20, fy + 110), (520, 1000), '#ffd23f', '#1a1a2e', '#e8b923', s=7, t1=7.3)
     if t >= 7.47:
         k = popin(t, 7.47, 0.3)
-        blit(fg, fx.big('badge', 'SLIPPERY SHAPE', '#7fe3a0', '#1a1a2e', '#3cc85a', s=7), 520, 1060, k, k, 2 * math.sin(t * 3), anchor='center')
+        blit(fg, fx.big('badge', 'SLIPPERY SHAPE', '#7fe3a0', '#1a1a2e', '#3cc85a', s=7), 520, 1010, k, k, 2 * math.sin(t * 3), anchor='center')
     P3.draw(fg, t)
-    GAR.reflect(img, fg)
     photo(fg, t, 6.6, 7.4, 'boxfish', 560, 470, 520, 400, 4, 'YELLOW BOXFISH (OSTRACION CUBICUS)', focus=(0.5, 0.5))
-    return finish(water(img, t, 1.0), fg, CAM3, t)
+    return finish(img, fg, CAM3, t, rim=False)
 
 
 # ================================================================== shot 4: 2005, the Bionic concept car
@@ -224,11 +310,14 @@ def shot_morph(t):
     fx.sparkles(fg, t, MORPH[0], GROUND - 180, 640, 260, n=10, seed=34)
     dg.label(fg, t, 11.49, 'BIONIC CONCEPT', (MORPH[0] + 60, GROUND - 260), (MORPH[0], 640), '#ffffff', '#1a1a2e', '#d6d9e2', s=8, t1=12.25)
     if t >= 13.05:                                                                 # same shape: fish outline over the car
+        ko = clamp((t - 13.05) / 0.3) * (0.75 + 0.25 * math.sin(t * 8))
+        o = fish_outline().copy(); o.putalpha(o.getchannel('A').point(lambda a: int(a * ko)))
+        blit(fg, o, MORPH[0] + 10, GROUND - 30, anchor='bottom')
         k = popin(t, 13.05, 0.3)
-        blit(fg, fx.big('badge', 'SAME SHAPE', '#ffd23f', '#1a1a2e', '#e8b923', s=9), 540, 1100, k, k, -2, anchor='center')
+        blit(fg, fx.big('badge', 'SAME SHAPE', '#ffd23f', '#1a1a2e', '#e8b923', s=7), 560, 620, k, k, -2, anchor='center')
     P4.draw(fg, t)
     GAR.reflect(img, fg)
-    photo(fg, t, 12.25, 14.05, 'bionic', 560, 560, 560, 420, -3, 'MERCEDES-BENZ BIONIC, 2005', focus=(0.5, 0.55), zoom=0.1)
+    photo(fg, t, 11.95, 12.95, 'bionic', 560, 560, 560, 420, -3, 'MERCEDES-BENZ BIONIC, 2005', focus=(0.5, 0.55), zoom=0.1)
     return finish(img, fg, CAM4, t)
 
 

@@ -91,6 +91,13 @@ CAM1 = Camera(W, H, [(-1.0, (540, 800, 1.3)), (0.22, (540, 760, 1.25)), (1.5, (5
 
 def shot_hook(t):
     img = GAR.frame(t).convert('RGBA'); fg = layer()
+    for i, (qx, col) in enumerate(((260, 'blue'), (520, 'silver'))):            # a queue waiting for fuel that is not there
+        fx.contact_shadow(fg, qx, GROUND - 130, 260, s=S, alpha=90)
+        draw_car(fg, col, qx, 3, y=GROUND - 130 + 3 * math.sin(t * 20 + i) * (t > 2.09), lights=True)
+        if t >= 2.09 + 0.15 * i:
+            kq = popin(t, 2.09 + 0.15 * i, 0.2)
+            blit(fg, fx.big('glyph', '!', '#e0303a', s=8), qx, GROUND - 330 + 6 * math.sin(t * 10 + i), kq, kq, anchor='center')
+        fx.puff(fg, t, 1.0 + 0.4 * i, qx - 140, GROUND - 150, seed=90 + i, life=0.8, size=0.5, drift=(-80, -80))
     fx.contact_shadow(fg, PUMP[0], GROUND, 260, s=S, alpha=140)
     sr, sv = wob(t, (2.56,), 0.08)
     blit(fg, up(pump(t >= 2.4), 9), PUMP[0], GROUND, sr, sv)
@@ -109,30 +116,82 @@ def overlay(cv, t):
     fx.ring(cv, t, 0.05, 540, 400, GLOW, life=0.35, r1=520)
 
 
+# ================================================================== shot 2a: the engineer's blueprint
+BP = (60, 300, 1020, 1060)
+@lru_cache(None)
+def mini_lines():
+    """White line drawing of the Mini (its sprite outline) for the blueprint."""
+    src = np.array(mini(0))
+    a = src[..., 3] > 0
+    e = a & ~(np.roll(a, 1, 0) & np.roll(a, -1, 0) & np.roll(a, 1, 1) & np.roll(a, -1, 1))
+    dark = a & (src[..., :3].sum(-1) < 120)                                       # keep the window and wheel lines too
+    out = np.zeros(a.shape + (4,), np.uint8); out[a] = (90, 140, 210, 255); out[e | dark] = (236, 244, 255, 255)
+    return up(Image.fromarray(out, 'RGBA'), 13)
+
+
+def draw_x(t): return io(prog(t, 3.6, 1.7))
+P2B = Presenter([
+    (3.25, dict(path=Track([(3.25, (-200, 500)), (3.65, (170, GROUND), 'oc')]), size=6, legs='auto', arms='fly', expr='smile', face=1, ground=None)),
+    (3.65, dict(ground=GROUND, squash=True, arms='point', point=(540, 700), look=(540, 700), expr='think', face=None)),
+    (5.43, dict(arms='pointup', expr='grin', look=None, look_camera=True, point=None, squash=True)),
+], words=WORDS, base_size=6)
+CAM2B = Camera(W, H, [(3.3, (540, 760, 1.2)), (4.39, (560, 720, 1.28), 'io'), (5.43, (540, 760, 1.12), 'io'), (6.05, (540, 760, 1.16))],
+               kicks=[(3.56, 0.08, 540, 420), (4.39, 0.08, 540, 700), (5.43, 0.12, 540, 520)])
+
+
+def shot_blueprint(t):
+    img = GAR.frame(t).convert('RGBA'); fg = layer(); d = ImageDraw.Draw(fg)
+    x0, y0, x1, y1 = BP
+    kb = popin(t, 3.35, 0.3)
+    if kb > 0.02:
+        bp = Image.new('RGBA', (x1 - x0, y1 - y0), (28, 70, 140, 255)); bd = ImageDraw.Draw(bp)
+        for gx in range(0, bp.width, 40): bd.line((gx, 0, gx, bp.height), fill=(44, 92, 168), width=2)
+        for gy in range(0, bp.height, 40): bd.line((0, gy, bp.width, gy), fill=(44, 92, 168), width=2)
+        ml = mini_lines(); u = draw_x(t)
+        cut = ml.crop((0, 0, max(1, int(ml.width * u)), ml.height))
+        mx, my = (bp.width - ml.width) // 2, bp.height - ml.height - 150
+        bp.alpha_composite(cut, (mx, my))
+        if 0 < u < 1:                                                              # the pen tip races along the drawing
+            px = mx + ml.width * u; bd.ellipse((px - 12, my + 60 - 12, px + 12, my + 60 + 12), fill=(255, 210, 63))
+        if t >= 5.3:                                                               # dimension line: 3.05 m long
+            kd = oc(prog(t, 5.3, 0.4)); ly = my + ml.height + 50
+            bd.line((mx, ly, mx + ml.width * kd, ly), fill=(255, 210, 63), width=6)
+            for xx in (mx, mx + ml.width * kd): bd.line((xx, ly - 20, xx, ly + 20), fill=(255, 210, 63), width=6)
+        bd.rectangle((0, 0, bp.width - 1, bp.height - 1), outline=(236, 244, 255), width=6)
+        bp = bp.resize((int(bp.width * kb), int(bp.height * kb)), Image.NEAREST)
+        fg.alpha_composite(bp, (int((x0 + x1) / 2 - bp.width / 2), int((y0 + y1) / 2 - bp.height / 2)))
+    if t >= 5.5:
+        kl = popin(t, 5.5, 0.25)
+        blit(fg, fx.big('badge', '3.05 M', '#ffd23f', '#1a1a2e', '#e8b923', s=7), 540, 1000, kl, kl, anchor='center')
+    if 3.56 <= t < 6.3:
+        k = popin(t, 3.56, 0.3) * popout(t, 6.0)
+        blit(fg, fx.big('badge', 'ENGINEER', '#ffffff', '#1a1a2e', '#d6d9e2', s=10), 540, 400, k, k, -3 + 2 * math.sin(t * 3), anchor='center')
+        fx.burst(fg, t, 3.56, 540, 400, GLOW, seed=71)
+    if t >= 5.43:
+        k = popin(t, 5.43, 0.25)
+        blit(fg, fx.big('tag', 'ONE JOB', '#fff6e0', '#d6303a', s=9), 720, 540, k, k, 6 + 3 * math.sin(t * 5), anchor='center')
+    if t >= 3.6: fx.sparkles(fg, t, 540, 700, 800, 500, n=8, seed=37)
+    P2B.draw(fg, t)
+    GAR.reflect(img, fg)
+    return finish(img, fg, CAM2B, t)
+
+
 # ================================================================== shot 2: fit a whole car into a tiny space
 BOX = (620, GROUND)
 def squeeze(t): return 1 - 0.6 * io(prog(t, 7.24, 0.8))       # big car -> fits the box on 'tiny space'
 P2 = Presenter([
-    (3.25, dict(path=Track([(3.25, (-200, 500)), (3.65, (160, GROUND), 'oc')]), size=7, legs='auto', arms='fly', expr='smile', face=1, ground=None)),
-    (3.65, dict(ground=GROUND, squash=True, arms='thumb', expr='grin', face=None, look_camera=True)),
-    (5.43, dict(arms='pointup', expr='smile', look=(540, 500), look_camera=False)),
+    (6.0, dict(path=Track([(6.0, (-200, 500)), (6.35, (160, GROUND), 'oc')]), size=7, legs='auto', arms='fly', expr='smile', face=1, ground=None)),
+    (6.35, dict(ground=GROUND, squash=True, arms='thumb', expr='grin', face=None, look_camera=True)),
     (6.66, dict(arms='brace', expr='wow', look=BOX, squash=True)),
     (8.03, dict(arms='cheer1', expr='grin', look=None, look_camera=True, squash=True)),
 ], words=WORDS, base_size=7)
-CAM2 = Camera(W, H, [(3.3, (540, 860, 1.15)), (5.43, (540, 760, 1.2), 'io'), (6.66, (560, 940, 1.05), 'io'), (8.03, (600, 980, 1.2), 'io'),
+CAM2 = Camera(W, H, [(6.05, (560, 900, 1.12)), (6.66, (560, 940, 1.05), 'io'), (8.03, (600, 980, 1.2), 'io'),
                      (8.85, (600, 980, 1.25))],
-              kicks=[(3.56, 0.1, 540, 480), (5.43, 0.1, 540, 480), (6.66, 0.08, 620, 900), (8.03, 0.16, *BOX)], shakes=[(7.3, 0.7, 6)])
+              kicks=[(6.2, 0.08, 620, 1000), (6.66, 0.08, 620, 900), (8.03, 0.16, *BOX)], shakes=[(7.3, 0.7, 6)])
 
 
 def shot_squeeze(t):
     img = GAR.frame(t).convert('RGBA'); fg = layer()
-    if 3.56 <= t < 6.5:
-        k = popin(t, 3.56, 0.3) * popout(t, 6.3)
-        blit(fg, fx.big('badge', 'ENGINEER', '#ffffff', '#1a1a2e', '#d6d9e2', s=11), 540, 470, k, k, -3 + 2 * math.sin(t * 3), anchor='center')
-        fx.burst(fg, t, 3.56, 540, 470, GLOW, seed=71)
-    if 5.43 <= t < 6.5:
-        k = popin(t, 5.43, 0.25) * popout(t, 6.3)
-        blit(fg, fx.big('tag', 'ONE JOB', '#fff6e0', '#d6303a', s=9), 560, 620, k, k, 6, anchor='center')
     if t >= 6.2:                                                                 # the box, then the big car squeezed into it
         kb = popin(t, 6.2, 0.3); d = ImageDraw.Draw(fg)
         bw, bh = 300 * kb, 240 * kb
@@ -145,6 +204,10 @@ def shot_squeeze(t):
         d = ImageDraw.Draw(fg)
         d.rectangle((BOX[0] - bw, BOX[1] - bh * 0.5, BOX[0] + bw, BOX[1]), fill=(150, 112, 66), outline=NAVY, width=8)  # box front
         for x in (-0.6, 0, 0.6): d.line([(BOX[0] + x * bw, BOX[1] - bh * 0.5 + 20), (BOX[0] + x * bw, BOX[1] - 20)], fill=(120, 86, 48), width=6)
+    for sg in (-1, 1):                                                            # squeeze arrows push in from both sides
+        if 7.1 <= t < 8.2:
+            ka = popin(t, 7.1, 0.2) * popout(t, 8.0); ax = BOX[0] + sg * (400 - 120 * io(prog(t, 7.24, 0.8)))
+            blit(fg, fx.big('arrow', s=9).rotate(90 if sg < 0 else -90, expand=True), ax, GROUND - 420, ka, ka, anchor='center')
     dg.label(fg, t, 7.59, 'TINY SPACE', (BOX[0] + 250, GROUND - 120), (BOX[0] + 120, 640), '#ffd23f', '#1a1a2e', '#e8b923', s=9)
     if t >= 8.03: fx.sparkles(fg, t, *BOX, 600, 300, n=8, seed=32)
     fx.burst(fg, t, 8.03, BOX[0], GROUND - 260, GLOW, seed=72)
@@ -227,54 +290,59 @@ def shot_heater(t):
 
 
 # ================================================================== shot 5: one of the most loved cars ever made
-CAR5 = 640
-def car5_x(t): return lerp(1500, CAR5, oc(prog(t, 15.1, 0.6)))
+CAR5 = 520
+def scroll5(t): return 650 * (t - 15.05)
 P5 = Presenter([
-    (15.0, dict(path=Track([(15.0, (540, -200)), (15.4, (220, GROUND), 'oc')]), size=7, legs='auto', arms='fly', expr='grin', face=1, ground=None)),
-    (15.4, dict(ground=GROUND, squash=True, arms='present', look=(CAR5, 1000), expr='grin', face=None)),
+    (15.05, dict(path=Track([(15.05, (470, 300)), (15.4, (470, kit.ROAD_Y - 205), 'oc')]), size=5, legs='auto', arms='fly', expr='grin', face=1, ground=None)),
+    (15.4, dict(legs='sit', arms='cheer1', expr='grin', squash=True)),
     (17.07, dict(arms='cheer2', expr='happy', look=None, look_camera=True, squash=True)),
-], words=WORDS, base_size=7)
-CAM5 = Camera(W, H, [(15.05, (560, 860, 1.25)), (16.0, (560, 820, 1.12), 'io'), (18.55, (560, 840, 1.18))],
-              kicks=[(15.7, 0.1, CAR5, 1000), (17.07, 0.14, 540, 600), (17.42, 0.08, 540, 600)])
+], words=WORDS, base_size=5)
+CAM5 = Camera(W, H, [(15.05, (540, 960, 1.15)), (16.2, (540, 900, 1.08), 'io'), (17.07, (540, 860, 1.18), 'io'), (18.55, (540, 880, 1.22))],
+              kicks=[(15.4, 0.08, CAR5, 1000), (17.07, 0.14, 540, 600), (17.42, 0.08, 540, 600)], shakes=[(15.05, 3.5, 3)])
 
 
 def shot_loved(t):
-    img = GAR.frame(t).convert('RGBA'); fg = layer()
-    x = car5_x(t)
-    if t < 15.7: fx.speed_lines(fg, 1 - prog(t, 15.1, 0.6), 4, col=(200, 204, 214))
-    fx.contact_shadow(fg, x, GROUND, 480, s=S, alpha=140)
-    sr, sv = wob(t, (15.7,), 0.07)
-    blit(fg, up(mini(int((1500 - x) * 0.6) % 360), 9), x, GROUND, sr, sv, flip=True)
+    sc = scroll5(t)
+    img = kit.street(t, sc); cars = layer()
+    kit.headlights(cars, CAR5 + 270, kit.ROAD_Y - 90, 360)
+    fx.contact_shadow(cars, CAR5, kit.ROAD_Y, 480, s=S, alpha=150)
+    blit(cars, up(mini(int(sc * 0.7) % 360), 9), CAR5, kit.ROAD_Y + 3 * math.sin(t * 24))
+    for k in range(6):
+        fx.puff(cars, t, 15.1 + k * 0.5, CAR5 - 300, kit.ROAD_Y - 30, seed=70 + k, life=0.7, size=0.5, drift=(-240, -40))
+    kit.ROAD.reflect(img, cars, depth=160, strength=0.3)
+    img.alpha_composite(cars)
+    fg = layer()
+    fx.speed_lines(fg, 0.5, int(t * 10) % 5, col=(200, 204, 214))
     fx.rays(fg, t, 17.07, 540, 600, (255, 120, 150), life=1.0, r=560)
     if t >= 17.07:
         k = popin(t, 17.07, 0.3) * (1 + 0.05 * math.sin(t * 9))
         blit(fg, fx.big('badge', 'MOST LOVED', '#7fe3a0', '#1a1a2e', '#3cc85a', s=12), 540, 600, k, k, 4 * math.sin(t * 4), anchor='center')
-    hearts(fg, t, 17.07, 560, 900, n=9, seed=4)
-    fx.sparkles(fg, t, CAR5, GROUND - 200, 480, 220, n=6, seed=35)
+    for i, t0 in enumerate((16.21, 16.55, 17.07, 17.42, 17.88)):                  # hearts float up from the street as it passes
+        hearts(fg, t, t0, 200 + 170 * i, 900 - 40 * (i % 2), n=5, seed=4 + i, life=1.1)
+    fx.sparkles(fg, t, CAR5, kit.ROAD_Y - 200, 520, 220, n=6, seed=35)
     P5.draw(fg, t)
-    GAR.reflect(img, fg)
     photo(fg, t, 15.4, 16.95, 'mini_1959', 560, 560, 560, 420, -3, 'MORRIS MINI-MINOR, 1959', focus=(0.5, 0.55), zoom=0.1)
-    return finish(img, fg, CAM5, t)
+    return finish(img, fg, CAM5, t, rim=False)
 
 
 shot_teaser, TEASE_CUES = kit.teaser(TEASE, WORDS)
 
 # ================================================================== shots + transitions
-SHOTS = [(-1.0, shot_hook), (3.3, shot_squeeze), (8.85, shot_engine), (12.65, shot_heater), (15.05, shot_loved), (TEASE, shot_teaser)]
-TRANS = {1: (3.3, 3.5, 'whip', dict(dx=-1)), 2: (8.85, 9.08, 'iris', (BOX[0], GROUND - 200)), 3: (12.65, 12.87, 'push', None),
-         4: (15.05, 15.25, 'whip', dict(dx=0, dy=1)), 5: (TEASE, TEASE + 0.2, 'whip', dict(dx=1))}
+SHOTS = [(-1.0, shot_hook), (3.3, shot_blueprint), (6.05, shot_squeeze), (8.85, shot_engine), (12.65, shot_heater), (15.05, shot_loved), (TEASE, shot_teaser)]
+TRANS = {1: (3.3, 3.5, 'whip', dict(dx=-1)), 2: (6.05, 6.25, 'push', None), 3: (8.85, 9.08, 'iris', (BOX[0], GROUND - 200)), 4: (12.65, 12.87, 'push', None),
+         5: (15.05, 15.25, 'whip', dict(dx=0, dy=1)), 6: (TEASE, TEASE + 0.2, 'whip', dict(dx=1))}
 KEYCOL = {'1959': YEL, 'fuel': RED, 'issigonis': YEL, 'job': YEL, 'whole': YEL, 'tiny': YEL, 'space': YEL, 'engine': YEL,
           'sideways': YEL, 'room': kit.GRN, 'passengers': kit.GRN, 'heating': (127, 212, 255), 'optional': YEL, 'extra': YEL,
           'loved': (255, 120, 150), 'ever': YEL, 'follow': YEL, 'next': YEL}
 CUES = [
     (0.05, 'stamp', 0.8), (0.07, 'sparkle', 0.6), (0.22, 'pop', 0.8), (0.24, 'ding', 0.6), (0.9, 'thump', 0.5), (2.56, 'stamp', 1.0),
     (2.58, 'buzzer', 0.4), (2.6, 'poof', 0.5),
-    (3.56, 'pop', 0.8), (5.43, 'pop', 0.7), (6.2, 'thump', 0.6), (6.66, 'vroom', 0.6), (7.24, 'creak', 0.8), (7.6, 'slide_down', 0.6),
+    (2.09, 'buzzer', 0.3), (2.24, 'buzzer', 0.25), (3.35, 'pop', 0.6), (3.56, 'pop', 0.8), (3.6, 'slide_down', 0.4), (5.3, 'click', 0.5), (5.43, 'pop', 0.7), (7.1, 'whoosh', 0.5), (6.2, 'thump', 0.6), (6.66, 'vroom', 0.6), (7.24, 'creak', 0.8), (7.6, 'slide_down', 0.6),
     (7.59, 'pop', 0.6), (8.03, 'thump', 0.8), (8.05, 'ding', 0.7), (8.07, 'sparkle', 0.6),
     (9.61, 'pop', 0.6), (9.87, 'whoosh', 0.7), (10.1, 'click', 0.8), (10.12, 'boom', 0.35), (11.35, 'pop', 0.6), (11.45, 'pop', 0.6),
     (11.55, 'pop', 0.6), (11.65, 'pop', 0.6), (11.69, 'ding', 0.8), (11.71, 'sparkle', 0.6),
     (12.92, 'sparkle', 0.6), (13.69, 'pop', 0.8), (14.19, 'click', 0.5),
-    (15.1, 'vroom', 0.8), (15.4, 'pop', 0.7), (15.7, 'thump', 0.6), (17.07, 'ding', 0.8), (17.09, 'sparkle', 0.8), (17.1, 'confetti', 0.5),
+    (15.1, 'vroom', 0.8), (15.4, 'pop', 0.7), (15.42, 'thump', 0.5), (16.21, 'sparkle', 0.4), (16.55, 'pop', 0.4), (17.07, 'ding', 0.8), (17.09, 'sparkle', 0.8), (17.1, 'confetti', 0.5),
 ] + TEASE_CUES
 
 kit.setup(HERE, WORDS, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay)

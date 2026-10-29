@@ -12,7 +12,7 @@ from multiprocessing import Pool
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from audio import sfx
-from pixanim.motion import prog, clamp, ob, io
+from pixanim.motion import prog, clamp, ob, io, ic
 from pixanim import fx, transitions as T
 from pixanim.fx import blit, popin, popout
 from pixanim.car import car
@@ -24,6 +24,7 @@ from pixanim.motion import Track, oc
 from pixanim.props import sheet
 from pixanim import diagram as dg
 from backdrops.garage import Garage
+from pixanim.street import Street
 
 W, H, FPS, S = 1080, 1920, 60, 9
 NAVY = (26, 26, 46)
@@ -59,6 +60,40 @@ def finish(img, fg, cam, t, rim=True):
 
 def draw_car(cv, col, x, s, y=GROUND, flip=False, dist=0.0, lights=False, brake=False, sx=1.0, sy=1.0, rot=0.0):
     blit(cv, up(car(col, wheel_deg(dist, s), lights, brake), s), x, y, sx, sy, rot, flip=flip)
+
+
+ST = Street()
+ROAD_Y = Street.ROAD_Y
+ROAD = Garage(W, H, ROAD_Y, S)          # only for its wet-road reflection pass
+
+
+def street(t, scroll):
+    """Night street world (RGBA) scrolled `scroll` px to the right."""
+    return ST.frame(t, scroll).convert('RGBA')
+
+
+def headlights(cv, x, y, length=300, flip=False):
+    """Soft headlight beam from a car front at (x, y) on a street layer."""
+    d = ImageDraw.Draw(cv); sg = -1 if flip else 1
+    d.polygon([(x, y - 14), (x + sg * length, y - 60), (x + sg * length, y + 50), (x, y)], fill=(255, 248, 210, 40))
+
+
+def split_panel(fg, t, t0, box, draw, badge=None, badge_cols=('#ffd23f', '#1a1a2e', '#e8b923')):
+    """Rounded inset panel (as in ac-idle's split screen) that pops in at t0; draw(panel, t) paints its content."""
+    x0, y0, x1, y1 = box
+    k = popin(t, t0, 0.3)
+    if k <= 0.02: return
+    panel = Image.new('RGBA', (x1 - x0, y1 - y0), (18, 19, 23, 255)); pd = ImageDraw.Draw(panel)
+    for y in range(0, panel.height, 24): pd.line((0, y, panel.width, y), fill=(24, 25, 30))
+    draw(panel, t)
+    pd.rounded_rectangle((0, 0, panel.width - 1, panel.height - 1), 22, outline=(150, 156, 170), width=6)
+    mask = Image.new('L', panel.size, 0); ImageDraw.Draw(mask).rounded_rectangle((0, 0, panel.width - 1, panel.height - 1), 22, fill=255)
+    if k != 1:
+        panel = panel.resize((max(1, int(panel.width * k)), max(1, int(panel.height * k))), Image.NEAREST); mask = mask.resize(panel.size, Image.NEAREST)
+    fg.paste(panel, (int((x0 + x1) / 2 - panel.width / 2), int((y0 + y1) / 2 - panel.height / 2)), mask)
+    if badge:
+        kb = popin(t, t0 + 0.25)
+        blit(fg, fx.big('badge', badge, *badge_cols, s=6), x0 + 40 + len(badge) * 15, y1 - 8, kb, kb, -3, anchor='center')
 
 
 def teaser(t0, words, sheet_x=660, sign_at=(560, 520)):
@@ -206,37 +241,77 @@ def clean(w): return w.lower().strip('.,!:?')
 
 
 @lru_cache(None)
-def caption_img(ci):
-    words = [E['words'][i]['w'] for i in E['chunks'][ci][2]]
-    f = font(104); d0 = ImageDraw.Draw(Image.new('RGB', (1, 1)))
-    space = d0.textlength(' ', font=f)
-    widths = [d0.textlength(w, font=f) for w in words]
+def caption_img(ci, active=-1, pop=0):
+    """Caption chunk; the word being spoken (`active`) is drawn bigger and lifted, pop 0..4 = bounce step."""
+    idxs = E['chunks'][ci][2]
+    words = [E['words'][i]['w'] for i in idxs]
+    big = 1 + 0.05 * pop
+    fs = [font(int(104 * (big if i == active else 1))) for i in idxs]
+    d0 = ImageDraw.Draw(Image.new('RGB', (1, 1)))
+    space = d0.textlength(' ', font=fs[0])
+    widths = [d0.textlength(w, font=f) for w, f in zip(words, fs)]
     pad = 40
-    img = Image.new('RGBA', (int(sum(widths) + space * (len(words) - 1) + 2 * pad), 190), (0, 0, 0, 0))
+    img = Image.new('RGBA', (int(sum(widths) + space * (len(words) - 1) + 2 * pad), 210), (0, 0, 0, 0))
     d = ImageDraw.Draw(img); x = pad
-    for w, wd in zip(words, widths):
+    for i, w, wd, f in zip(idxs, words, widths, fs):
         col = E['keycol'].get(clean(w), WHITE)
-        d.text((x + 6, 38), w, font=f, fill=NAVY, stroke_width=14, stroke_fill=NAVY)
-        d.text((x, 30), w, font=f, fill=col, stroke_width=13, stroke_fill=(10, 10, 16))
+        y = 40 - (f.size - 104) * 0.9 - (6 * pop if i == active else 0)
+        d.text((x + 6, y + 8), w, font=f, fill=NAVY, stroke_width=14, stroke_fill=NAVY)
+        d.text((x, y), w, font=f, fill=col, stroke_width=13, stroke_fill=(10, 10, 16))
         x += wd + space
     if img.width > 1000:
         img = img.resize((1000, int(img.height * 1000 / img.width)), Image.LANCZOS)
     return img
 
 
+@lru_cache(None)
+def end_img():
+    """Two-line end card as in ac-idle: series tag over 'follow for the next one'."""
+    img = Image.new('RGBA', (1300, 240), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
+    for txt, col, sz, y in (('car stuff, explained', WHITE, 76, 0), ('follow for the next one', YEL, 96, 88)):
+        f = font(sz); w = d.textlength(txt, font=f)
+        d.text((650 - w / 2 + 6, y + 8), txt, font=f, fill=NAVY, stroke_width=14, stroke_fill=NAVY)
+        d.text((650 - w / 2, y), txt, font=f, fill=col, stroke_width=13, stroke_fill=(10, 10, 16))
+    bb = img.getbbox(); img = img.crop((bb[0] - 10, 0, bb[2] + 10, 240))
+    return img.resize((1000, int(240 * 1000 / img.width)), Image.LANCZOS) if img.width > 1000 else img
+
+
+def series_tag(cv, t):
+    """'car stuff, explained' from frame 0, shrinking away as the hook lands."""
+    k = 1 - ic(prog(t, 1.9, 0.25))
+    if k > 0.02:
+        img = text_img('car stuff, explained', WHITE, 62)
+        img = img.resize((int(img.width * k), int(img.height * k)), Image.BILINEAR)
+        cv.paste(img, (int(W / 2 - img.width / 2), int(230 - img.height / 2)), img)
+
+
 def captions(cv, t):
     if t >= E['end_t']:
-        img = text_img('Follow for the next one', YEL, 92); k = 0.72 + 0.28 * ob(prog(t, E['end_t'], 0.16)) + 0.03 * math.sin(t * 8)
+        img = end_img(); k = 0.72 + 0.28 * ob(prog(t, E['end_t'], 0.16)) + 0.03 * math.sin(t * 8)
         img = img.resize((int(img.width * k), int(img.height * k)), Image.BILINEAR)
-        cv.paste(img, (int(W / 2 - img.width / 2), int(CAP_Y - img.height / 2)), img)
+        cv.paste(img, (int(W / 2 - img.width / 2), int(CAP_Y + 20 - img.height / 2)), img)
         return
-    for ci, (st, en, _) in enumerate(E['chunks']):
+    words = E['words']
+    for ci, (st, en, idxs) in enumerate(E['chunks']):
         if st <= t < en:
-            img = caption_img(ci)
+            act = max([i for i in idxs if words[i]['s'] <= t] or [-1])
+            pop = 0
+            if act >= 0:                                  # bounce the spoken word: up fast, settle slower
+                u = (t - words[act]['s']) / 0.18
+                pop = round(4 * (math.sin(min(u, 1) * math.pi) if u < 1 else 0.5 * math.exp(-(u - 1) * 2)))
+            img = caption_img(ci, act, pop)
             k = 0.72 + 0.28 * ob(prog(t, st, 0.16)); dy = 18 * (1 - ob(prog(t, st, 0.2)))
             if k != 1: img = img.resize((int(img.width * k), int(img.height * k)), Image.BILINEAR)
             cv.paste(img, (int(W / 2 - img.width / 2), int(CAP_Y + dy - img.height / 2)), img)
             return
+
+
+def sway(cv, t):
+    """Handheld drift: a slow 1.5% float so no frame is ever perfectly still."""
+    z = 1.015 + 0.004 * math.sin(t * 0.7)
+    dx, dy = 7 * math.sin(t * 0.9), 6 * math.sin(t * 1.3 + 1)
+    cx, cy = W / 2 + dx, H / 2 + dy
+    return cv.transform((W, H), Image.AFFINE, (1 / z, 0, cx - W / 2 / z, 0, 1 / z, cy - H / 2 / z), Image.BILINEAR)
 
 
 @lru_cache(None)
@@ -288,11 +363,12 @@ def picture(t):
 
 def frame(n):
     t = n / FPS
-    cv = picture(t)
+    cv = sway(picture(t), t)
     if t < 0.12:                                    # white flash on frame 0 for the hook
         cv = Image.blend(cv, Image.new('RGB', (W, H), (255, 255, 255)), 0.7 * (1 - t / 0.12))
     if E['overlay']: E['overlay'](cv, t)
     GAR.vignette(cv)
+    series_tag(cv, t)
     captions(cv, t)
     if t >= E['end_t'] - 0.3 and credit_img():
         c = credit_img(); cv.paste(c, (int(W / 2 - c.width / 2), H - c.height - 14), c)
