@@ -53,3 +53,13 @@ Each provider utility exposes: `--task FILE`, `--output PATH` (under `out/`), `-
 1. No live generation with `gemini-3.8-flash` yet. It needs separate authorisation, then routing can be enabled.
 2. The OpenRouter utility needs merging from `ccr-82d3dced-0l557o` into a clean branch.
 3. No orchestrator exists yet. Codex should build it on the interface above.
+
+## Rotation integration status (PR #10 with PR #8)
+
+- **Offline combined check:** PR #10 plus the PR #8 helper pass 59 tests. No file overlap, so no conflicts. PR #8 must merge before PR #10, because the adapter imports `tools.openrouter_task`.
+- **Zero-spend cap:** verified read-only via the key-info endpoint. `limit` 0, `limit_remaining` 0, not a management or provisioning key. This is a read, not a spend.
+- **Model price:** `cohere/north-mini-code:free` is listed with prompt and completion price 0. This shows pricing, not current quota.
+- **Sandbox:** Git worktrees are not a sandbox. `unshare` works here, but it does not isolate the filesystem. Generated code is only parsed and staged, never executed.
+- **Fix:** SQLite connections were leaking. Fixed in PR #11 (stacked on PR #10's branch).
+- **Live OpenRouter task:** not run. Needs your approval. Until then, end-to-end is **not verified**.
+- **Gemini:** routing disabled. Live `gemini-3.8-flash` returned 502.
