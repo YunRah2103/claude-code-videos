@@ -38,6 +38,9 @@ Until those exist, do not use this as an autonomous coding system.
 `running` after interruption is not automatically restarted: the prior request
 may have been processed. Its `interrupted` status requires manual review before
 marking review or failed. This is a state store only, not execution recovery.
+Task goals are stored in the local state database; do not put secrets in them.
+CLI plan/create/show output omits the goal, but command-line arguments may be
+visible to other processes or shell history. Protect the state database itself.
 
 `context.py` can package explicitly named UTF-8 files under a byte cap, rejecting
 symlinks and traversal. It does not identify secrets or guarantee protection
