@@ -147,9 +147,6 @@ class OpenRouterTaskTest(unittest.TestCase):
         self.assertEqual(opener.calls, [])
 
 
-if __name__ == "__main__":
-    unittest.main()
-
 class BoundedTransportTests(unittest.TestCase):
     def test_response_size_limit_and_timeout(self):
         calls = []
@@ -183,3 +180,7 @@ class BoundedTransportTests(unittest.TestCase):
         self.assertEqual(caught.exception.code, 'NETWORK_FAILURE')
         self.assertNotIn('SECRET_CREDENTIAL', str(caught.exception))
         self.assertEqual(len(opener.calls), 1)
+
+
+if __name__ == "__main__":
+    unittest.main()
