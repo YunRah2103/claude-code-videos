@@ -116,13 +116,14 @@ class OpenRouterTaskTest(unittest.TestCase):
         opener = FakeOpener(error=rate_limit_error())
         with tempfile.TemporaryDirectory() as tmp:
             task_file = Path(tmp) / "task.txt"
-            task_file.write_text("write code")
+            task_file.write_text("SECRET_PROMPT_DO_NOT_LOG")
             out = io.StringIO()
             with contextlib.redirect_stdout(out):
                 code = task.main(["--task", str(task_file), "--output", str(Path(tmp) / "x.py"), "--dry-run"], opener)
         self.assertEqual(code, 0)
         self.assertEqual(opener.calls, [])
         self.assertIn("max_tokens", out.getvalue())
+        self.assertNotIn("SECRET_PROMPT_DO_NOT_LOG", out.getvalue())
 
     def test_main_refuses_unsupervised_live_request(self):
         opener = FakeOpener(FakeResponse(200, GOOD_BODY))

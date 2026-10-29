@@ -1,7 +1,7 @@
 # OpenRouter helper: integration status
 
-The standalone CLI is **inspection-only**: `--dry-run` constructs a request but
-prints the task text locally; without that flag it refuses to send. The helper's
+The standalone CLI is **inspection-only**: `--dry-run` redacts the task text in
+its output; without that flag it refuses to send. The helper's
 `send` function remains callable by Python code, so callers must enforce the
 rotation policy, reviewed task, account-level zero-spend protection and quota
 ledger. A `:free` suffix alone does not prove a particular account cannot be billed.

@@ -133,7 +133,9 @@ def main(argv=None, opener=urllib.request.urlopen):
         check_output_path(args.output)
         payload = build_payload(args.task.read_text(), args.model, args.max_tokens)
         if args.dry_run:
-            print(json.dumps(payload, indent=2))
+            safe_payload = dict(payload)
+            safe_payload['messages'] = [{'role': 'user', 'content': '[REDACTED]'}]
+            print(json.dumps(safe_payload, indent=2))
             return 0
         raise TaskError('standalone live requests disabled; use the reviewed rotation workflow')
     except (TaskError, OSError) as error:
