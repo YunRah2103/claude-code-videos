@@ -24,3 +24,22 @@ class WorkspaceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             for value in ('../x', '', '/tmp/evil', 'a/b', '..'):
                 with self.assertRaises(ValueError): create_workspace(Path(tmp), Path(tmp) / 'out', value)
+
+class SQLiteCloseTests(unittest.TestCase):
+    def test_transaction_closes_on_success_and_failure(self):
+        import sqlite3
+        from tools.agent_rotation.core import transaction
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp)/'db'
+            with transaction(path) as db:
+                db.execute('CREATE TABLE sample (v INTEGER)')
+            with self.assertRaises(sqlite3.ProgrammingError): db.execute('SELECT 1')
+            try:
+                with transaction(path) as failed:
+                    failed.execute('INSERT INTO sample VALUES (1)')
+                    raise ValueError('rollback')
+            except ValueError:
+                pass
+            with self.assertRaises(sqlite3.ProgrammingError): failed.execute('SELECT 1')
+            with transaction(path) as check:
+                self.assertEqual(check.execute('SELECT COUNT(*) FROM sample').fetchone()[0], 0)
