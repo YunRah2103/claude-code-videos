@@ -33,17 +33,39 @@ DUR, END_T = 18.9, 17.6
 # ------------------------------------------------------------------ episode sprites
 @lru_cache(None)
 def badge():
-    """Generic oval name badge (36x15): gold rim, deep-blue enamel, DINO in pixel capitals."""
-    g = Grid(36, 15)
-    for y in range(15):
-        inset = [4, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 4][y]
-        g.rect(inset, y, 35 - inset, y, '#e8b923')
-    for y in range(2, 13):
-        inset = [0, 0, 3, 2, 1, 1, 1, 1, 1, 1, 1, 2, 3][y]
-        g.rect(inset + 1, y, 34 - inset, y, '#1d2a5e')
-    g.rect(3, 3, 32, 3, '#2f4590')
-    g.text(6, 4, 'DINO', '#ffd23f')
-    return g.image()
+    """Generic oval name badge (48x20): bevelled two-tone gold rim, deep enamel with a soft gradient, DINO in raised
+    gold capitals with a drop shadow. Plain lettering, no real logo."""
+    w, h = 48, 20
+    img = Image.new('RGBA', (w, h), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
+    d.rounded_rectangle((0, 0, w - 1, h - 1), 9, fill=(176, 128, 20))                     # dark gold base
+    d.rounded_rectangle((0, 0, w - 1, h - 3), 9, fill=(232, 185, 35))                     # gold rim
+    d.rounded_rectangle((1, 1, w - 2, 5), 4, fill=(255, 226, 120))                        # top bevel highlight
+    d.rounded_rectangle((3, 3, w - 4, h - 5), 6, fill=(20, 28, 70))                       # enamel
+    for y in range(4, h - 5):
+        c = (24 + y * 2, 36 + y * 3, 92 + y * 5)
+        d.line([(5 if y in (4, h - 6) else 4, y), (w - 6 if y in (4, h - 6) else w - 5, y)], fill=c)
+    d.line([(8, 4), (w - 9, 4)], fill=(90, 120, 200))                                     # enamel gloss line
+    g = Grid(26, 9); g.text(1, 1, 'DINO', '#7a5a10'); sh = g.image(outline=False)
+    g = Grid(26, 9); g.text(1, 1, 'DINO', '#ffd23f'); fg = g.image(outline=False)
+    img.alpha_composite(sh, (12, 6)); img.alpha_composite(fg, (11, 5))
+    for x in range(12, 36):                                                                # top-light on the letters
+        for y in range(5, 14):
+            r, gg, b, a = img.getpixel((x, y))
+            if a and (r, gg, b) == (255, 210, 63) and img.getpixel((x, y - 1))[:3] != (255, 210, 63): img.putpixel((x, y), (255, 244, 170, 255))
+    for x in (6, w - 7): d.rectangle((x, 9, x + 1, 10), fill=(232, 185, 35))              # side studs
+    return outline(img)
+
+
+def shine(img, u, width=0.18):
+    """Diagonal light sweep across a sprite: u 0..1 moves the band from left to right."""
+    if not 0 < u < 1: return img
+    w, h = img.size
+    band = Image.new('L', (w, h), 0); d = ImageDraw.Draw(band)
+    x = -0.3 * w + 1.6 * w * u
+    d.polygon([(x, 0), (x + width * w, 0), (x + width * w - 0.4 * h, h), (x - 0.4 * h, h)], fill=150)
+    m = Image.composite(band, Image.new('L', (w, h), 0), img.getchannel('A'))
+    out = img.copy(); out.alpha_composite(Image.merge('RGBA', (*[Image.new('L', (w, h), 255)] * 3, m)))
+    return out
 
 
 @lru_cache(None)
@@ -117,7 +139,8 @@ def cone():
 
 # ================================================================== shot 1: hook, the badge in the dark
 BX, BY = 540, 860
-CAM1 = Camera(W, H, [(-1.0, (540, 860, 1.0)), (0.0, (540, 860, 1.0)), (3.4, (540, 860, 1.32), 'io')], kicks=[(0.76, 0.1, BX, BY), (2.87, 0.06, BX, BY)])
+CAM1 = Camera(W, H, [(-1.0, (540, 860, 1.0)), (0.0, (540, 860, 1.0)), (3.4, (540, 860, 1.32), 'io')], kicks=[(0.76, 0.14, BX, BY), (2.16, 0.06, BX, BY), (2.87, 0.08, BX, BY)],
+              shakes=[(0.76, 0.2, 8)])
 P1 = Presenter([
     (1.8, dict(path=Track([(1.8, (-200, 600)), (2.16, (170, GROUND), 'oc')]), size=7, legs='auto', arms='fly', expr='smile', face=1, ground=None)),
     (2.16, dict(ground=GROUND, squash=True, arms='point', point=(BX, BY), look=(BX, BY), expr='smile', face=None)),
@@ -125,14 +148,22 @@ P1 = Presenter([
 
 
 def shot_hook(t):
-    img = dim_base().copy(); fg = layer()
-    a = oc(prog(t, 0.0, 0.9))
-    fx.rays(fg, t, 0.76, BX, BY, GLOW, life=1.2, r=520)
-    b = up(badge(), 18).copy(); b.putalpha(b.getchannel('A').point(lambda v: int(v * a)))
-    blit(fg, b, BX, BY, 1 + 0.04 * popin(t, 0.76, 0.3) * popout(t, 1.0), 1, 0, anchor='center')
-    fx.glint(fg, t, 0.9, BX - 120, BY - 60, r=200)
-    fx.ring(fg, t, 0.76, BX, BY, GLOW, life=0.4, r1=420)
-    if t >= 0.76: fx.sparkles(fg, t, BX, BY, 640, 300, n=7, seed=21)
+    img = dim_base().copy()
+    if t >= 0.0:                                                                   # spotlight clunks on at frame 0
+        c = cone().copy(); c.putalpha(c.getchannel('A').point(lambda v: int(v * (1.6 + 0.2 * math.sin(t * 3))))); img.alpha_composite(c)
+    fg = layer()
+    a = oc(prog(t, 0.0, 0.7))
+    fx.rays(fg, t, 0.76, BX, BY, GLOW, life=1.4, r=560)
+    k = lerp(1.35, 1.0, oc(prog(t, 0.0, 0.7))) * (1 + 0.06 * popin(t, 0.76, 0.3) * popout(t, 1.05))
+    b = shine(up(badge(), 15), prog(t, 0.8, 0.7)).copy() if t >= 0 else up(badge(), 15).copy()
+    b.putalpha(b.getchannel('A').point(lambda v: int(v * a)))
+    blit(fg, b, BX, BY + 10 * math.sin(t * 2), k, k, 0, anchor='center')
+    fx.ring(fg, t, 0.76, BX, BY, GLOW, life=0.45, r1=460)
+    fx.burst(fg, t, 0.76, BX, BY, GLOW, n=14, r0=260, r1=520, seed=23)
+    if t >= 0.76: fx.sparkles(fg, t, BX, BY, 720, 320, n=8, seed=21)
+    for i in range(14):                                                            # dust motes in the beam
+        u = (t * 0.08 + i * 0.07) % 1
+        ImageDraw.Draw(fg).rectangle((440 + (i * 41) % 220, 160 + u * 1000, 446 + (i * 41) % 220, 166 + u * 1000), fill=(255, 240, 200, 80))
     P1.draw(fg, t)
     GAR.reflect(img, fg)
     return finish(img, fg, CAM1, t)
@@ -215,7 +246,7 @@ def shot_car(t):
     fx.rays(fg, t, 11.9, CAR4, GROUND - 200, GLOW, life=0.9, r=420)
     fx.contact_shadow(fg, x, GROUND, 620, s=S, alpha=140)
     sr, sv = wob(t, (12.1,), 0.06)
-    draw_car(fg, 'red', x, 7, dist=x + 500, lights=True, sx=1.06 * sr, sy=0.86 * sv)
+    draw_car(fg, 'red', x, 8, dist=x + 500, lights=True, sx=sr, sy=sv)
     if t >= 12.46:
         k = popin(t, 12.46, 0.25) * popout(t, 13.4)
         blit(fg, fx.big('badge', '1968', '#7fe3a0', '#1a1a2e', '#3cc85a', s=11), 760, 640, k, k, -5 + 3 * math.sin(t * 5), anchor='center')
@@ -237,19 +268,18 @@ P5 = Presenter([
     (14.4, dict(path=Track([(14.4, (180, GROUND)), (14.5, (180, GROUND))]), size=8, legs='stand', arms='present', look=(600, 900), expr='smile', face=1, ground=GROUND)),
     (16.12, dict(arms='thumb', look=None, look_camera=True, expr='smile')),
 ], words=WORDS, base_size=8)
+BADGE_Y = GROUND + 160 - 17 * 16
 CAM5 = Camera(W, H, [(14.4, (600, 900, 1.05)), (17.1, (600, 900, 1.2), 'io')], kicks=[(15.32, 0.06, 640, 840)])
 
 
 def shot_badge(t):
     img = GAR.frame(t).convert('RGBA'); fg = layer()
-    d = ImageDraw.Draw(fg)                                                      # the car's red flank fills the frame
-    d.rectangle((260, 560, 1180, GROUND - 40), fill=(232, 52, 63)); d.rectangle((260, 560, 1180, 600), fill=(255, 122, 128))
-    d.rectangle((260, 900, 1180, 940), fill=(181, 34, 44)); d.rectangle((260, GROUND - 80, 1180, GROUND - 40), fill=(140, 24, 32))
-    d.rectangle((250, 550, 260, GROUND - 40), fill=(26, 26, 46))
-    blit(fg, up(badge(), 13), 680, 760, 1, 1, 0, anchor='center')
-    fx.glint(fg, t, 15.32, 680, 760, r=260, life=0.6)
-    fx.sparkles(fg, t, 680, 760, 500, 200, n=5, seed=50)
-    dg.label(fg, t, 16.12, 'A STORY', (680, 660), (760, 420), '#ffd23f', '#1a1a2e', '#e8b923', s=8)
+    fx.contact_shadow(fg, 760, GROUND + 160, 1300, s=S, alpha=150)
+    draw_car(fg, 'red', 760 - 30 * prog(t, 14.4, 2.7), 16, y=GROUND + 160, lights=True)     # the car fills the frame, drifting slowly
+    blit(fg, shine(up(badge(), 8), prog(t, 15.2, 0.6)), 680 - 30 * prog(t, 14.4, 2.7), BADGE_Y, 1, 1, 0, anchor='center')
+    fx.glint(fg, t, 15.32, 680, BADGE_Y, r=220, life=0.6)
+    fx.sparkles(fg, t, 680, BADGE_Y, 500, 200, n=5, seed=50)
+    dg.label(fg, t, 16.12, 'A STORY', (680, BADGE_Y - 90), (700, 420), '#ffd23f', '#1a1a2e', '#e8b923', s=8)
     P5.draw(fg, t)
     GAR.reflect(img, fg)
     return finish(img, fg, CAM5, t)
@@ -263,7 +293,7 @@ TRANS = {1: (3.4, 3.6, 'whip', dict(dx=-1)), 2: (7.0, 7.4, 'push', None), 3: (11
          4: (14.4, 14.6, 'iris', (CAR4 + 60, GROUND - 120)), 5: (17.1, 17.3, 'whip', dict(dx=1))}
 KEYCOL = {'dino': YEL, 'son.': RED, 'son': RED, 'v6': YEL, '24': RED, '1956': RED, 'name': GRN, '1968': GRN, 'badge': YEL, 'story': YEL}
 CUES = [
-    (0.0, 'boom', 0.35), (0.05, 'stamp', 0.5), (0.76, 'ding', 0.8), (0.78, 'sparkle', 0.7), (0.9, 'sparkle', 0.4), (2.16, 'thump', 0.5),
+    (0.0, 'click', 0.9), (0.02, 'boom', 0.45), (0.05, 'stamp', 0.5), (0.76, 'ding', 0.8), (0.78, 'sparkle', 0.7), (0.9, 'sparkle', 0.4), (2.16, 'thump', 0.5),
     (3.45, 'pop', 0.6), (3.6, 'click', 0.4), (4.4, 'click', 0.4), (5.0, 'click', 0.4), (5.72, 'pop', 0.7), (5.74, 'sparkle', 0.5), (6.2, 'pop', 0.6),
     (11.4, 'vroom', 0.5), (12.1, 'thump', 0.5), (12.46, 'ding', 0.6), (12.75, 'pop', 0.5), (13.47, 'whoosh', 0.5), (13.99, 'stamp', 0.6),
     (14.0, 'sparkle', 0.6), (15.32, 'sparkle', 0.6), (16.12, 'pop', 0.5),

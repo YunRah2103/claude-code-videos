@@ -57,7 +57,7 @@ def kit_pal(col):
     return PAL[col]
 
 
-def draw_fcar(cv, col, x, s, h, y=GROUND, dist=0.0, lights=False, sx=1.06, sy=0.86, rot=0.0, flip=False):
+def draw_fcar(cv, col, x, s, h, y=GROUND, dist=0.0, lights=False, sx=1.0, sy=1.0, rot=0.0, flip=False):
     blit(cv, up(fin_car(col, int(round(h)), wheel_deg(dist, s) // 30 * 30, lights), s), x, y, sx, sy, rot, flip=flip)
 
 
@@ -102,22 +102,38 @@ def calendar(year):
 
 
 @lru_cache(None)
-def designer(suit, pose=0, face=1):
-    """Generic 1950s designer (20x44): suit, tie, hair; pose 0 arms down, 1 one arm jabbing, 2 both arms up."""
-    img = Image.new('RGBA', (20, 44), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
-    skin, hair = (240, 196, 160), (60, 44, 36)
-    d.rectangle((6, 1, 13, 9), fill=skin); d.rectangle((6, 0, 13, 2), fill=hair); d.rectangle((6, 0, 7, 5), fill=hair)
-    d.point((11, 5), fill=(26, 26, 46)); d.line([(10, 8), (12, 8)], fill=(150, 60, 60))
-    d.rectangle((5, 10, 14, 27), fill=suit); d.polygon([(9, 10), (10, 10), (11, 16), (9, 18), (8, 16)], fill=(214, 48, 58))
-    d.rectangle((6, 28, 9, 41), fill=(40, 42, 50)); d.rectangle((10, 28, 13, 41), fill=(40, 42, 50))
-    d.rectangle((5, 41, 9, 43), fill=(20, 20, 26)); d.rectangle((10, 41, 15, 43), fill=(20, 20, 26))
-    if pose == 0: d.rectangle((14, 11, 16, 24), fill=suit)
-    if pose == 1: d.line([(14, 12), (19, 6)], fill=suit, width=3); d.rectangle((17, 3, 19, 5), fill=skin)
-    if pose == 2:
-        d.line([(14, 12), (18, 2)], fill=suit, width=3); d.line([(5, 12), (1, 2)], fill=suit, width=3)
-        d.rectangle((17, 0, 19, 2), fill=skin); d.rectangle((0, 0, 2, 2), fill=skin)
-    else:
-        d.rectangle((3, 11, 5, 24), fill=suit)
+def designer(suit, pose=0, face=1, shout=False, hair=(60, 44, 36)):
+    """Generic 1950s designer (30x62): shaded suit with lapels, shirt and tie, side-parted hair, readable face.
+    pose 0 arms down, 1 one arm jabbing forward, 2 both fists up."""
+    img = Image.new('RGBA', (30, 62), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
+    skin, skin_sh = (240, 198, 160), (212, 164, 128)
+    sd = tuple(int(c * 0.72) for c in suit); sh = tuple(min(255, int(c * 1.25)) for c in suit)
+    d.rectangle((10, 4, 20, 16), fill=skin); d.rectangle((10, 13, 20, 16), fill=skin_sh)          # head
+    d.rectangle((9, 8, 9, 11), fill=skin_sh); d.rectangle((21, 8, 21, 11), fill=skin_sh)            # ears
+    d.rectangle((9, 1, 21, 5), fill=hair); d.rectangle((9, 1, 11, 9), fill=hair); d.line([(14, 1), (20, 1)], fill=tuple(min(255, c + 40) for c in hair))
+    d.line([(13, 7), (15, 7)], fill=hair); d.line([(17, 7), (19, 7)], fill=hair)                    # brows (angry when shouting)
+    if shout: d.point((15, 8), fill=hair); d.point((17, 8), fill=hair)
+    for x in (14, 18): d.rectangle((x, 9, x, 10), fill=(26, 26, 46)); d.point((x - 1, 9), fill=(255, 255, 255))
+    d.point((16, 11), fill=skin_sh)
+    if shout: d.rectangle((14, 13, 18, 15), fill=(90, 30, 36)); d.line([(15, 13), (17, 13)], fill=(255, 255, 255))
+    else: d.line([(14, 14), (18, 14)], fill=(150, 70, 70))
+    d.rectangle((13, 17, 17, 18), fill=skin_sh)                                                     # neck
+    d.polygon([(6, 19), (24, 19), (25, 40), (5, 40)], fill=suit)                                    # jacket
+    d.line([(6, 19), (24, 19)], fill=sh); d.rectangle((5, 36, 25, 40), fill=sd)
+    d.polygon([(12, 19), (18, 19), (15, 30)], fill=(244, 244, 240))                                 # shirt V
+    d.polygon([(14, 20), (16, 20), (17, 28), (15, 31), (13, 28)], fill=(200, 40, 52)); d.point((15, 21), fill=(255, 110, 110))
+    d.line([(12, 19), (15, 31)], fill=sh); d.line([(18, 19), (15, 31)], fill=sd)                     # lapels
+    for y in (32, 36): d.point((15, y), fill=(230, 210, 140))
+    d.rectangle((7, 41, 14, 55), fill=(44, 46, 56)); d.rectangle((16, 41, 23, 55), fill=(44, 46, 56))   # trousers
+    d.line([(10, 42), (10, 55)], fill=(64, 66, 78)); d.line([(19, 42), (19, 55)], fill=(64, 66, 78))
+    d.rectangle((6, 56, 14, 59), fill=(24, 22, 26)); d.rectangle((16, 56, 25, 59), fill=(24, 22, 26))
+    d.line([(17, 56), (23, 56)], fill=(80, 76, 82)); d.line([(7, 56), (12, 56)], fill=(80, 76, 82))
+    def arm(p0, p1):
+        d.line([p0, p1], fill=suit, width=4); d.line([p0, p1], fill=sh, width=1)
+        d.rectangle((p1[0] - 2, p1[1] - 2, p1[0] + 1, p1[1] + 1), fill=skin)
+    if pose == 0: arm((4, 21), (3, 37)); arm((26, 21), (27, 37))
+    if pose == 1: arm((4, 21), (3, 37)); arm((25, 21), (29, 12))
+    if pose == 2: arm((5, 20), (2, 4)); arm((25, 20), (28, 4))
     img = outline(img)
     return img if face > 0 else img.transpose(Image.FLIP_LEFT_RIGHT)
 
@@ -190,7 +206,7 @@ def shot_hook(t):
         for k in range(8):
             fx.puff(fg, t, 0.95 + k * 0.08, CX1 - 220, GROUND - 40, seed=10 + k, life=0.8, size=1.1, drift=(-200 + 60 * k, -80), col=(200, 202, 210))
     sr, sv = wob(t, (0.8, 1.73), 0.08)
-    draw_fcar(fg, 'red', CX1, 7, fin1(t), y=GROUND + ly, sx=1.06 * sr, sy=0.86 * sv)
+    draw_fcar(fg, 'red', CX1, 7, fin1(t), y=GROUND + ly, sx=sr, sy=sv)
     for k, tx in enumerate((CX1 - 300, CX1 - 270)):
         fx.burst(fg, t, 0.8, tx, GROUND - 330, GLOW, n=10, r0=40, r1=220, seed=20 + k)
     fx.dust(fg, t, 1.73, CX1, GROUND - 10, n=16, seed=43)
@@ -233,7 +249,7 @@ def shot_p38(t):
     fg = layer()
     fx.contact_shadow(fg, CAR2, GROUND, 640, s=S, alpha=120)
     sr, sv = wob(t, (5.88,), 0.1)
-    draw_fcar(fg, 'red', CAR2, 7, fin2(t), sx=1.06 * sr, sy=0.86 * sv)
+    draw_fcar(fg, 'red', CAR2, 7, fin2(t), sx=sr, sy=sv)
     px = plane_x(t)
     if 3.75 <= t:
         fx.speed_lines(fg, 0.4, int(t * 10) % 5, col=(230, 236, 246)) if t < 4.6 else None
@@ -275,7 +291,7 @@ def shot_fifties(t):
     fx.contact_shadow(fg, CAR3, GROUND, 640, s=S, alpha=140)
     flips = [ts for ts, _ in YEARS if t >= ts]
     sr, sv = wob(t, tuple(flips[-1:]) or (0,), 0.05)
-    draw_fcar(fg, 'blue', CAR3, 7, fin3(t), sx=1.06 * sr, sy=0.86 * sv)
+    draw_fcar(fg, 'blue', CAR3, 7, fin3(t), sx=sr, sy=sv)
     for ts, _ in YEARS: fx.burst(fg, t, ts, CAR3 - 290, GROUND - 400, GLOW, n=8, r0=40, r1=180, seed=int(ts * 10))
     kc = popin(t, 6.6, 0.3)
     if kc > 0:
@@ -304,13 +320,13 @@ def x4(t, i):
     ts = [9.95] + [tb for tb, _, _ in BRANDS] + [13.1]
     k = next((j for j in range(len(ts) - 1) if t < ts[j + 1]), len(ts) - 2)
     off = [-0.7, 0, 1, 2, 3, 3.5][k] + ([-0.7, 0, 1, 2, 3, 3.5][k + 1] - [-0.7, 0, 1, 2, 3, 3.5][k]) * io(prog(t, ts[k], min(0.35, ts[k + 1] - ts[k])))
-    return 540 + 400 * (i - off)
+    return 540 + 560 * (i - off)
 CAM4 = Camera(W, H, [(9.95, (540, 1000, 1.25)), (11.0, (600, 1000, 1.2), 'io'), (12.4, (540, 980, 1.1), 'io'), (13.1, (540, 980, 1.12))],
               kicks=[(tb, 0.08, 540, 1000) for tb, _, _ in BRANDS] + [(12.8, 0.12, 540, 900)])
 P4 = Presenter([
-    (9.95, dict(path=Track([(9.95, (540, -200)), (10.3, (540, 700), 'oc'), (13.1, (560, 680))]), size=5, legs='auto', arms='fly', expr='grin', face=1, ground=None)),
+    (9.95, dict(path=Track([(9.95, (540, -200)), (10.3, (540, 760), 'oc'), (13.1, (560, 740))]), size=6, legs='auto', arms='fly', expr='grin', face=1, ground=None)),
     (12.8, dict(arms='cheer2', expr='wow', squash=True)),
-], words=WORDS, base_size=5)
+], words=WORDS, base_size=6)
 
 
 def shot_everyone(t):
@@ -318,19 +334,19 @@ def shot_everyone(t):
     img = kit.street(t, sc); cars = layer()
     for i, (tb, col, x0) in enumerate(BRANDS):
         x = x4(t, i)
-        h = 10 * oc(prog(t, tb, 0.25))
-        headlights(cars, x + 190, kit.ROAD_Y - 40, 220)
-        fx.contact_shadow(cars, x, kit.ROAD_Y, 400, s=S, alpha=150)
-        draw_fcar(cars, col, x, 4, h, y=kit.ROAD_Y, dist=sc, lights=True)
+        h = 12 * oc(prog(t, tb, 0.25))
+        headlights(cars, x + 230, kit.ROAD_Y - 40, 220)
+        fx.contact_shadow(cars, x, kit.ROAD_Y, 470, s=S, alpha=150)
+        draw_fcar(cars, col, x, 5, h, y=kit.ROAD_Y, dist=sc, lights=True)
     kit.ROAD.reflect(img, cars, depth=160, strength=0.3)
     img.alpha_composite(cars)
     fg = layer()
     for i, (tb, col, x0) in enumerate(BRANDS):
         x = x4(t, i)
-        fx.burst(fg, t, tb, x - 100, kit.ROAD_Y - 130, GLOW, n=10, r0=30, r1=160, seed=30 + i)
+        fx.burst(fg, t, tb, x - 190, kit.ROAD_Y - 200, GLOW, n=10, r0=30, r1=160, seed=30 + i)
         if t >= tb:
             k = popin(t, tb, 0.22)
-            blit(fg, fx.big('check', s=7), x, kit.ROAD_Y - 290, k, k, anchor='center')
+            blit(fg, fx.big('check', s=8), x, kit.ROAD_Y - 360, k, k, anchor='center')
     if t >= 12.8:
         k = popin(t, 12.8, 0.3) * (1 + 0.05 * math.sin(t * 9))
         blit(fg, fx.big('badge', 'FINS FOR ALL', '#ffd23f', '#d6303a', '#e8b923', s=8), 540, 760, k, k, -4, anchor='center')
@@ -341,10 +357,10 @@ def shot_everyone(t):
 
 
 # ================================================================== shot 5: the boardroom war
-TBL = GROUND - 120
+TBL = GROUND - 170
 P5 = Presenter([
-    (13.05, dict(path=Track([(13.05, (1300, 300)), (13.45, (960, GROUND), 'oc')]), size=6, legs='auto', arms='fly', expr='talk', face=-1, ground=None)),
-    (13.45, dict(ground=GROUND, squash=True, arms='hips', look=(540, 800), expr='smirk', face=None)),
+    (13.05, dict(path=Track([(13.05, (1300, 300)), (13.45, (990, GROUND + 120), 'oc')]), size=6, legs='auto', arms='fly', expr='talk', face=-1, ground=None)),
+    (13.45, dict(ground=GROUND + 120, squash=True, arms='hips', look=(540, 800), expr='smirk', face=None)),
     (14.85, dict(arms='shock', expr='shock', squash=True, look=None, look_camera=True)),
 ], words=WORDS, base_size=6)
 CAM5 = Camera(W, H, [(13.1, (540, 900, 1.15)), (14.3, (540, 860, 1.3), 'io'), (14.85, (540, 860, 1.25), 'io'), (16.0, (540, 860, 1.28))],
@@ -354,24 +370,30 @@ CAM5 = Camera(W, H, [(13.1, (540, 900, 1.15)), (14.3, (540, 860, 1.3), 'io'), (1
 def shot_war(t):
     img = boardroom().copy(); fg = layer()
     d = ImageDraw.Draw(fg)
-    d.rectangle((90, TBL - 40, 990, TBL), fill=(120, 76, 50)); d.rectangle((90, TBL - 40, 990, TBL - 32), fill=(160, 108, 72))
-    d.rectangle((140, TBL, 170, GROUND), fill=(90, 56, 38)); d.rectangle((910, TBL, 940, GROUND), fill=(90, 56, 38))
     hot = t >= 14.32
-    for i, (x, suit, face) in enumerate(((300, (60, 70, 110), 1), (780, (110, 84, 60), -1))):
+    for i, (x, suit, face, hair) in enumerate(((290, (54, 66, 120), 1, (60, 44, 36)), (790, (118, 88, 60), -1, (150, 150, 156)))):
         pose = (2 if int(t * 6 + i) % 2 else 1) if hot else (1 if int(t * 3 + i) % 2 else 0)
-        hop = 18 * abs(math.sin(t * 12 + i)) if hot else 0
-        blit(fg, up(designer(suit, pose, face), 9), x, TBL - hop)
-    fh = 10 + 4 * math.sin(t * 5) * hot                                            # fin model on the table between them
-    draw_fcar(fg, 'red', 540, 3, fh, y=TBL - 40, sx=1.06, sy=0.86)
+        hop = 16 * abs(math.sin(t * 12 + i)) if hot else 3 * math.sin(t * 4 + i)
+        fx.contact_shadow(fg, x, GROUND, 240, s=S, alpha=110)
+        blit(fg, up(designer(suit, pose, face, hot or int(t * 4 + i) % 3 == 0, hair), 9), x, GROUND - hop)
+    d.rectangle((150, TBL - 46, 930, TBL), fill=(120, 76, 50)); d.rectangle((150, TBL - 46, 930, TBL - 37), fill=(176, 120, 80))   # table
+    d.rectangle((150, TBL - 6, 930, TBL), fill=(84, 52, 34))
+    for x in (190, 860): d.rectangle((x, TBL, x + 30, GROUND - 20), fill=(90, 56, 38)); d.rectangle((x, TBL, x + 8, GROUND - 20), fill=(120, 76, 50))
+    fh = 9 + 7 * oc(prog(t, 13.8, 0.5)) + 3 * math.sin(t * 7) * hot                 # the scale model's fins keep growing
+    sr, sv = wob(t, (13.8, 14.85), 0.08)
+    draw_fcar(fg, 'red', 540, 5, fh, y=TBL - 46, sx=sr, sy=sv)
+    fx.glint(fg, t, 13.85, 470, TBL - 200, r=120)
     for i, (x, ch) in enumerate(((330, '!'), (750, '?'))):
         if t >= 13.4 + 0.3 * i:
             k = popin(t, 13.4 + 0.3 * i, 0.2)
-            blit(fg, fx.big('glyph', ch, '#e0303a', s=12), x, 640 + 12 * math.sin(t * 10 + i), k, k, 10 * math.sin(t * 8 + i), anchor='center')
+            blit(fg, fx.big('bubble', 0, s=11), x, 560, k, k, anchor='center')
+            blit(fg, fx.big('glyph', ch, '#e0303a', s=9), x, 548 + 8 * math.sin(t * 10 + i), k, k, 8 * math.sin(t * 8 + i), anchor='center')
     if hot:
-        for k in range(5): fx.puff(fg, t, 14.32 + k * 0.15, 540, TBL - 200, seed=50 + k, life=0.7, size=0.8, drift=(0, -300), col=(230, 232, 240))
-    fx.stamp_at(fg, t, 14.85, 'WAR?', 540, 470, rot=-10, s=11)
-    fx.ring(fg, t, 14.85, 540, 520, (224, 48, 58), life=0.35, r1=420)
-    fx.burst(fg, t, 14.85, 540, 520, RED, seed=51)
+        for k in range(6): fx.puff(fg, t, 14.32 + k * 0.14, 540, TBL - 260, seed=50 + k, life=0.7, size=0.8, drift=(0, -300), col=(230, 232, 240))
+        for k in range(3): fx.burst(fg, t, 14.32 + 0.18 * k, 540, TBL - 260, (255, 210, 63), n=8, r0=40, r1=200, seed=60 + k)
+    fx.stamp_at(fg, t, 14.85, 'WAR?', 540, 400, rot=-10, s=11)
+    fx.ring(fg, t, 14.85, 540, 400, (224, 48, 58), life=0.35, r1=420)
+    fx.burst(fg, t, 14.85, 540, 400, RED, seed=51)
     P5.draw(fg, t)
     return finish(img, fg, CAM5, t, rim=False)
 

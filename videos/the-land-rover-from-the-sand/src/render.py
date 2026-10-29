@@ -31,45 +31,74 @@ DUR, END_T = 19.6, 18.3
 
 
 # ------------------------------------------------------------------ episode sprites
-def _wheel(d, cx, cy, r, spin, rim):
+def _wheel(d, cx, cy, r, spin, rim, rim_sh=None):
+    """Chunky off-road tyre: tread blocks that turn with `spin`, sidewall ring, painted rim with hub and nuts."""
     d.ellipse((cx - r, cy - r, cx + r, cy + r), fill=(30, 31, 36))
-    for k in range(10):
-        a = math.radians(k * 36 + spin)
-        d.point((cx + (r - 1) * math.cos(a), cy + (r - 1) * math.sin(a)), fill=(56, 58, 64))
-    d.ellipse((cx - r * 0.55, cy - r * 0.55, cx + r * 0.55, cy + r * 0.55), fill=rim)
-    a = math.radians(spin)
-    d.line([(cx - 2 * math.cos(a), cy - 2 * math.sin(a)), (cx + 2 * math.cos(a), cy + 2 * math.sin(a))], fill=(40, 42, 48))
+    for k in range(16):
+        a = math.radians(k * 22.5 + spin)
+        x, y = cx + (r - 0.6) * math.cos(a), cy + (r - 0.6) * math.sin(a)
+        d.rectangle((x - 1, y - 1, x, y), fill=(58, 60, 68))
+    d.ellipse((cx - r + 2, cy - r + 2, cx + r - 2, cy + r - 2), fill=(44, 46, 52))
+    rr = r * 0.55
+    d.ellipse((cx - rr, cy - rr, cx + rr, cy + rr), fill=rim)
+    d.arc((cx - rr, cy - rr, cx + rr, cy + rr), 200, 330, fill=tuple(min(255, c + 50) for c in rim))
+    d.arc((cx - rr, cy - rr, cx + rr, cy + rr), 20, 150, fill=rim_sh or tuple(int(c * 0.7) for c in rim))
+    d.ellipse((cx - 2, cy - 2, cx + 2, cy + 2), fill=(60, 63, 71))
+    for k in range(5):
+        a = math.radians(k * 72 + spin)
+        d.point((cx + 3.2 * math.cos(a), cy + 3.2 * math.sin(a)), fill=(200, 204, 212))
 
 
 @lru_cache(None)
-def series1(spin=0, col=((150, 178, 128), (112, 138, 92), (190, 212, 168))):
-    """Early boxy 4x4 in side view (84x48 grid), nose right: flat panels, canvas tilt, spare wheel on the bonnet."""
-    body, shade, hi = col
-    img = Image.new('RGBA', (84, 48), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
-    d.rectangle((4, 8, 40, 30), fill=(196, 182, 140)); d.line([(4, 8), (40, 8)], fill=(222, 210, 170))   # canvas tilt
-    for x in (14, 26): d.line([(x, 9), (x, 29)], fill=(170, 156, 116))
-    d.rectangle((2, 24, 80, 36), fill=body); d.line([(2, 24), (80, 24)], fill=hi)                      # tub + wings
-    d.rectangle((42, 10, 46, 25), fill=shade); d.rectangle((44, 11, 52, 23), fill=(126, 158, 184))      # door top + glass
-    d.line([(52, 8), (52, 24)], fill=(60, 63, 71), width=2)                                             # upright windscreen
-    d.rectangle((52, 18, 80, 25), fill=body); d.line([(52, 18), (80, 18)], fill=hi)                     # bonnet
-    d.ellipse((58, 12, 70, 19), fill=(40, 42, 48)); d.ellipse((61, 13, 67, 18), fill=shade)             # spare wheel on bonnet
-    d.rectangle((79, 19, 82, 33), fill=(70, 72, 80))                                                    # grille
-    d.rectangle((80, 22, 82, 25), fill=(255, 240, 180))
-    d.rectangle((2, 33, 80, 36), fill=shade); d.rectangle((40, 26, 41, 35), fill=shade)
-    d.pieslice((6, 30, 30, 54), 180, 360, fill=shade); d.pieslice((54, 30, 78, 54), 180, 360, fill=shade)
-    for cx in (18, 66): _wheel(d, cx, 41, 7, spin, body)
+def series1(spin=0):
+    """Early 80-inch 4x4 in side view (96x58 grid), nose right: light-green aluminium panels with galvanised cappings,
+    khaki canvas tilt with hoops and a side window, upright split screen, mesh grille with the lamp behind it."""
+    body, shade, hi, deep = (138, 168, 116), (104, 132, 86), (186, 212, 160), (76, 98, 62)
+    canvas, can_sh, can_hi = (198, 184, 140), (166, 150, 108), (226, 214, 176)
+    galv = (190, 196, 204)
+    img = Image.new('RGBA', (96, 58), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
+    d.rounded_rectangle((4, 6, 46, 30), 3, fill=canvas)                                      # rear tilt
+    d.line([(6, 6), (44, 6)], fill=can_hi); d.rectangle((4, 27, 46, 30), fill=can_sh)
+    for x in (16, 30): d.line([(x, 7), (x, 29)], fill=can_sh)
+    d.rectangle((33, 11, 43, 20), fill=(150, 176, 196)); d.line([(33, 11), (43, 11)], fill=(200, 222, 238))   # side window
+    d.rectangle((46, 12, 58, 30), fill=canvas); d.line([(46, 12), (58, 12)], fill=can_hi)    # cab side screen
+    d.rectangle((48, 15, 57, 24), fill=(150, 176, 196))
+    d.polygon([(58, 8), (61, 8), (62, 31), (59, 31)], fill=(70, 74, 84))                     # screen frame
+    d.polygon([(59, 10), (60, 10), (61, 29), (60, 29)], fill=(170, 200, 222))
+    d.rectangle((2, 30, 60, 44), fill=body)                                                   # tub + door
+    d.line([(2, 30), (60, 30)], fill=galv); d.line([(2, 31), (60, 31)], fill=hi)
+    d.rectangle((2, 42, 60, 44), fill=shade); d.line([(46, 32), (46, 43)], fill=deep); d.line([(60, 32), (60, 43)], fill=deep)
+    for y in (33, 40): d.rectangle((47, y, 48, y + 1), fill=(60, 63, 71))                    # door hinges
+    d.rectangle((56, 36, 58, 36), fill=galv)                                                  # handle
+    for x in range(4, 46, 6): d.point((x, 33), fill=deep)                                     # rivets
+    d.polygon([(61, 27), (90, 27), (90, 33), (61, 33)], fill=body)                            # flat bonnet
+    d.line([(61, 27), (90, 27)], fill=hi); d.line([(64, 29), (88, 29)], fill=shade)
+    d.polygon([(62, 33), (94, 33), (94, 37), (90, 42), (62, 42)], fill=body)                  # front wing
+    d.line([(62, 33), (94, 33)], fill=galv); d.rectangle((62, 40, 92, 42), fill=shade)
+    d.rectangle((90, 27, 94, 41), fill=(54, 58, 66))                                          # grille mesh + lamp
+    for y in range(28, 41, 2): d.line([(90, y), (94, y)], fill=(84, 88, 98))
+    d.ellipse((90, 28, 95, 33), fill=(255, 238, 180)); d.point((91, 29), fill=(255, 255, 255))
+    d.rectangle((92, 43, 95, 46), fill=(40, 42, 48)); d.rectangle((1, 43, 4, 46), fill=(40, 42, 48))   # bumpers
+    d.rectangle((86, 34, 88, 35), fill=(255, 150, 60))                                        # side lamp
+    for cx in (22, 74):                                                                       # wheel arches
+        d.pieslice((cx - 13, 33, cx + 13, 59), 180, 360, fill=deep)
+    for cx in (22, 74): _wheel(d, cx, 47, 10, spin, (150, 178, 128))
     return outline(img)
 
 
 @lru_cache(None)
 def sketch_lines(col=(150, 112, 64)):
-    """Outline of the 4x4's silhouette only, as if drawn with a finger (same grid as series1)."""
+    """Groove of the 4x4 silhouette as if drawn with a finger: 2 px dark groove with a light lip (series1 grid)."""
     a = series1().getchannel('A').load(); w, h = series1().size
     img = Image.new('RGBA', (w, h), (0, 0, 0, 0)); p = img.load()
+    lip = tuple(min(255, c + 70) for c in col)
     for y in range(h):
         for x in range(w):
             if a[x, y] and any(not (0 <= x + dx < w and 0 <= y + dy < h) or not a[x + dx, y + dy] for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
                 p[x, y] = col + (255,)
+                if y > 0 and not a[x, y - 1]: p[x, y - 1] = lip + (255,)
+    for cx in (22, 74):                                                                        # wheels as circles
+        ImageDraw.Draw(img).ellipse((cx - 6, 41, cx + 6, 53), outline=col)
     return img
 
 
@@ -83,30 +112,47 @@ def sketch_reveal(level, col=(150, 112, 64)):
 
 @lru_cache(None)
 def jeep(spin=0):
-    """Wartime light utility jeep in side view (70x40 grid), nose right: olive drab, folded screen, spare at the back."""
-    body, shade, hi = (104, 110, 70), (78, 84, 52), (140, 148, 98)
-    img = Image.new('RGBA', (70, 40), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
-    d.rectangle((3, 16, 64, 27), fill=body); d.line([(3, 16), (64, 16)], fill=hi)
-    d.rectangle((44, 12, 64, 17), fill=body); d.line([(44, 12), (64, 12)], fill=hi)                   # bonnet
-    d.line([(42, 13), (30, 11)], fill=(60, 63, 71), width=2)                                            # folded windscreen
-    d.rectangle((16, 10, 22, 16), fill=(60, 52, 40)); d.rectangle((14, 14, 24, 16), fill=(70, 60, 46))  # seat
-    d.rectangle((0, 12, 4, 24), fill=(40, 42, 48))                                                      # spare wheel
-    d.rectangle((64, 13, 67, 26), fill=(60, 63, 71)); d.rectangle((65, 15, 66, 16), fill=(255, 240, 180))
-    d.rectangle((3, 25, 64, 27), fill=shade)
-    d.ellipse((24, 18, 28, 22), fill=(240, 240, 236)); d.point((26, 20), fill=body)                     # white star
-    for cx in (14, 54): _wheel(d, cx, 31, 7, spin, shade)
+    """Wartime light utility jeep in side view (92x52 grid), nose right: olive drab, slotted grille, flat wings,
+    split windscreen up, canvas seats, steering wheel, jerrycan, rear spare, hood star."""
+    body, shade, hi, deep = (100, 108, 62), (76, 82, 46), (138, 148, 92), (56, 60, 34)
+    img = Image.new('RGBA', (92, 52), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
+    d.rectangle((0, 22, 6, 42), fill=(32, 33, 38)); d.rectangle((1, 23, 5, 41), fill=(48, 50, 56))   # spare
+    d.rectangle((2, 30, 4, 34), fill=shade)
+    d.rectangle((7, 24, 14, 34), fill=deep); d.rectangle((8, 25, 13, 27), fill=shade)          # jerrycan
+    d.rounded_rectangle((6, 26, 60, 40), 2, fill=body)                                          # tub
+    d.line([(7, 26), (59, 26)], fill=hi); d.rectangle((6, 38, 60, 40), fill=shade)
+    d.polygon([(34, 26), (46, 26), (44, 31), (36, 31)], fill=(0, 0, 0, 0))                     # side cut-out
+    d.line([(36, 31), (44, 31)], fill=deep)
+    d.rectangle((18, 16, 22, 26), fill=(70, 62, 46)); d.rectangle((16, 22, 28, 26), fill=(84, 74, 54))   # rear seat
+    d.rectangle((36, 15, 40, 26), fill=(70, 62, 46)); d.rectangle((34, 22, 46, 26), fill=(84, 74, 54))   # driver seat
+    d.line([(52, 25), (48, 16)], fill=(40, 42, 48)); d.ellipse((44, 13, 51, 17), outline=(30, 31, 36))   # wheel
+    d.polygon([(58, 4), (61, 4), (61, 26), (58, 26)], fill=(64, 68, 50))                        # screen frame
+    d.rectangle((59, 6, 60, 20), fill=(160, 190, 210))
+    d.rectangle((60, 22, 86, 30), fill=body); d.line([(60, 22), (86, 22)], fill=hi)            # bonnet
+    d.line([(62, 25), (84, 25)], fill=shade)
+    d.polygon([(70, 24), (72, 24), (73, 22), (74, 24), (76, 24), (74, 26), (75, 28), (73, 27), (71, 28), (72, 26)], fill=(236, 236, 228))  # star
+    d.rectangle((86, 22, 90, 38), fill=deep)                                                     # slotted grille
+    for y in range(23, 38, 2): d.line([(86, y), (90, y)], fill=(40, 42, 30))
+    d.ellipse((87, 23, 91, 27), fill=(255, 240, 180)); d.point((88, 24), fill=(255, 255, 255))
+    d.polygon([(60, 30), (91, 30), (91, 33), (87, 37), (60, 37)], fill=body)                    # front wing
+    d.line([(60, 30), (91, 30)], fill=hi); d.rectangle((60, 35, 88, 37), fill=shade)
+    d.rectangle((89, 38, 92, 41), fill=(40, 42, 48))                                             # bumper
+    for cx in (20, 74): d.pieslice((cx - 12, 30, cx + 12, 54), 180, 360, fill=deep)
+    for cx in (20, 74): _wheel(d, cx, 42, 9, spin, (92, 100, 56))
     return outline(img)
 
 
 @lru_cache(None)
 def hand():
-    """A pointing hand seen from above (18x30), finger tip at the bottom centre."""
-    img = Image.new('RGBA', (18, 30), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
-    skin, sh = (236, 190, 150), (204, 156, 118)
-    d.rectangle((2, 0, 15, 15), fill=(250, 250, 250)); d.line([(2, 4), (15, 4)], fill=(214, 216, 224))  # white sleeve
-    d.rectangle((3, 14, 15, 21), fill=skin); d.line([(3, 21), (15, 21)], fill=sh)
-    d.rectangle((7, 21, 10, 29), fill=skin); d.line([(10, 21), (10, 29)], fill=sh)
-    for x in (11, 13): d.rectangle((x, 20, x + 1, 23), fill=sh)
+    """A pointing hand seen from above (24x40): white cuff, shaded knuckles and nails, index finger down."""
+    img = Image.new('RGBA', (24, 40), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
+    skin, sh, hi, nail = (236, 190, 150), (204, 156, 118), (250, 214, 180), (250, 220, 210)
+    d.rectangle((3, 0, 20, 12), fill=(248, 248, 250)); d.rectangle((3, 9, 20, 12), fill=(214, 216, 224))   # cuff
+    d.rounded_rectangle((3, 13, 21, 27), 3, fill=skin); d.line([(5, 14), (19, 14)], fill=hi)
+    for x in (13, 16, 19): d.rounded_rectangle((x - 2, 21, x, 29), 1, fill=skin); d.line([(x, 22), (x, 28)], fill=sh)   # curled fingers
+    d.rounded_rectangle((3, 18, 7, 25), 2, fill=sh)                                                          # thumb
+    d.rounded_rectangle((8, 24, 12, 39), 2, fill=skin); d.line([(12, 25), (12, 38)], fill=sh)               # index finger
+    d.line([(9, 25), (9, 37)], fill=hi); d.rectangle((9, 36, 11, 38), fill=nail)
     return outline(img)
 
 
@@ -164,10 +210,10 @@ def _sky(y): return tuple(int(a + (b - a) * min(1, y / 110)) for a, b in zip((70
 
 @lru_cache(None)
 def beach():
-    img, d = _bg([(108, _sky), (118, (60, 120, 170)), (121, (236, 240, 244)), (214, (226, 196, 140))])
+    img, d = _bg([(58, _sky), (70, (60, 120, 170)), (73, (236, 240, 244)), (214, (226, 196, 140))])
     for x in range(0, 120, 3):
-        for y in range(124, 214, 5): d.point((x + (y // 5) % 3, y), fill=(206, 174, 120))
-    d.ellipse((90, 18, 104, 32), fill=(255, 236, 160))
+        for y in range(76, 214, 5): d.point((x + (y // 5) % 3, y), fill=(206, 174, 120))
+    d.ellipse((90, 12, 104, 26), fill=(255, 236, 160))
     return up(img, S).crop((0, 0, W, H)).convert('RGBA')
 
 
@@ -188,25 +234,31 @@ def farm():
 
 
 # ================================================================== shot 1: hook, drawn in the sand
-SX, SY, SS = 560, 1300, 10
+SX, SY, SS = 540, 1290, 10
 def draw_lvl(t): return clamp((t - 0.05) / 1.8)
-CAM1 = Camera(W, H, [(-1.0, (560, 1100, 1.25)), (0.0, (560, 1100, 1.25)), (1.96, (560, 1080, 1.05), 'io'), (2.5, (560, 1080, 1.08))],
-              kicks=[(0.0, 0.08, 560, 1100), (1.07, 0.06, 560, 1100), (1.96, 0.14, 560, 1100)])
+CAM1 = Camera(W, H, [(-1.0, (330, 1000, 1.45)), (0.0, (330, 1000, 1.45)), (1.2, (540, 980, 1.12), 'io'), (1.96, (540, 960, 1.0), 'io'), (2.5, (540, 960, 1.04))],
+              kicks=[(0.0, 0.08, 330, 1000), (1.07, 0.06, 540, 1000), (1.96, 0.14, 540, 1000)])
 
 
 def shot_sand(t):
     img = beach().copy(); fg = layer()
+    d = ImageDraw.Draw(img)                                                       # sea glints and a foam line that washes in
+    for i in range(12):
+        x = (i * 97 + t * 60 * (1 + i % 3)) % 1180 - 50
+        d.rectangle((x, 540 + (i * 23) % 80, x + 36, 546 + (i * 23) % 80), fill=(200, 226, 246))
+    fy = 657 + 12 * math.sin(t * 2.4)
+    d.rectangle((0, fy - 9, W, fy), fill=(244, 248, 250)); d.rectangle((0, fy, W, fy + 18), fill=(204, 186, 136))
     sk, cut = sketch_reveal(draw_lvl(t))
     blit(fg, up(sk, SS), SX, SY)
     if t < 2.1:                                                                  # the finger rides the drawing edge
-        x0 = SX - 42 * SS + cut * SS
+        x0 = SX - 48 * SS + cut * SS
         a = sketch_lines().getchannel('A').load()
-        ys = [y for y in range(48) if a[min(83, cut), y]] or [24]
-        fy = SY - 48 * SS + ys[int(t * 7) % len(ys)] * SS
-        blit(fg, up(hand(), 9), x0, fy + 10, 1, 1, -12)
-        fx.dust(fg, t, int(t * 6) / 6, x0, fy, n=4, seed=int(t * 6), col=(236, 214, 160))
-    fx.sparkles(fg, t, SX, SY - 240, 700, 300, n=6, seed=60) if t > 1.96 else None
-    fx.ring(fg, t, 1.96, SX, SY - 240, GLOW, life=0.4, r1=520)
+        ys = [y for y in range(58) if a[min(95, cut), y]] or [29]
+        fy = SY - 58 * SS + ys[int(t * 7) % len(ys)] * SS
+        blit(fg, up(hand(), 9), x0 + 20, fy + 30, 1, 1, -12)
+    fx.sparkles(fg, t, SX, SY - 290, 900, 400, n=8, seed=60) if t > 1.96 else None
+    fx.ring(fg, t, 1.96, SX, SY - 290, GLOW, life=0.4, r1=560)
+    fx.burst(fg, t, 1.96, SX, SY - 290, GLOW, n=14, r0=300, r1=600, seed=61)
     return finish(img, fg, CAM1, t, rim=False)
 
 
@@ -231,7 +283,7 @@ def shot_farm(t):
     x = jeep_x(t)
     fx.contact_shadow(fg, x, GROUND, 560, s=S, alpha=130)
     sr, sv = wob(t, (5.1,), 0.07)
-    blit(fg, up(jeep(int(x * 0.8) % 360 // 15 * 15), 8), x, GROUND + 4 * math.sin(t * 30) * (t < 5.1), sr, sv)
+    blit(fg, up(jeep(int(x * 0.8) % 360 // 15 * 15), 7), x, GROUND + 4 * math.sin(t * 30) * (t < 5.1), sr, sv)
     for k in range(5): fx.puff(fg, t, 4.45 + k * 0.12, x - 300, GROUND - 30, seed=70 + k, life=0.7, size=0.8, drift=(-200, -80), col=(170, 140, 100))
     fx.dust(fg, t, 5.1, x, GROUND - 10, n=12, seed=71, col=(170, 140, 100))
     if t >= 4.1:
@@ -263,7 +315,7 @@ def shot_rough(t):
     bump = 26 * abs(math.sin(t * 16)) if rough else 0
     rot = 4 * math.sin(t * 13) if rough else 0
     fx.contact_shadow(fg, JX, GROUND, 560, s=S, alpha=130)
-    blit(fg, up(jeep(int(t * 400) % 360 // 15 * 15), 8), JX, GROUND - bump, 1, 1, rot)
+    blit(fg, up(jeep(int(t * 400) % 360 // 15 * 15), 7), JX, GROUND - bump, 1, 1, rot)
     if rough:
         for k in range(6): fx.puff(fg, t, 6.85 + k * 0.15, JX - 280, GROUND - 20, seed=80 + k, life=0.6, size=0.8, drift=(-160, -120), col=(170, 140, 100))
     if t >= 6.11:
@@ -336,9 +388,9 @@ def shot_show(t):
     d.ellipse((140, STAND - 40, 940, STAND + 80), fill=(60, 63, 71)); d.ellipse((140, STAND - 50, 940, STAND + 60), fill=(150, 156, 168))
     fx.rays(fg, t, 14.27, 540, STAND - 220, GLOW, life=1.0, r=560)
     m = morph(t)
-    if m < 1: blit(fg, up(sketch_lines((236, 214, 160)), 8), 540, STAND, 1, 1)
+    if m < 1: blit(fg, up(sketch_lines((236, 214, 160)), 7), 540, STAND, 1, 1)
     if m > 0:
-        car_ = up(series1(int(t * 60) % 360 // 15 * 15), 8).copy()
+        car_ = up(series1(int(t * 60) % 360 // 15 * 15), 7).copy()
         car_.putalpha(car_.getchannel('A').point(lambda v: int(v * m)))
         sr, sv = wob(t, (14.3,), 0.07)
         blit(fg, car_, 540, STAND, sr, sv)
@@ -373,7 +425,7 @@ def shot_icon(t):
     img = GAR.frame(t).convert('RGBA'); fg = layer()
     fx.rays(fg, t, 17.38, CAR6, GROUND - 220, GLOW, life=1.0, r=600)
     fx.contact_shadow(fg, CAR6, GROUND, 620, s=S, alpha=140)
-    blit(fg, up(series1(), 8), CAR6, GROUND)
+    blit(fg, up(series1(), 7), CAR6, GROUND)
     if t >= 16.28:                                                                  # the sand sketch, framed on the wall
         k = popin(t, 16.28, 0.25) * popout(t, 17.3)
         card = Image.new('RGBA', (300, 190), (236, 214, 160, 255)); ImageDraw.Draw(card).rectangle((0, 0, 299, 189), outline=(26, 26, 46), width=6)
