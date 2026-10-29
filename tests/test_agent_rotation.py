@@ -153,3 +153,34 @@ class ReportCLITests(unittest.TestCase):
             result = subprocess.run([sys.executable, '-m', 'tools.agent_rotation', '--state', str(db), 'report'], capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn('unknown_cost_counts', result.stdout)
+
+class SupervisedPreflightTests(unittest.TestCase):
+    def test_preflight_is_read_only_and_preserves_provider_block(self):
+        import json, subprocess, sys
+        from tools.agent_rotation.tasks import TaskStore
+        with tempfile.TemporaryDirectory() as tmp:
+            db = Path(tmp) / 'state.db'
+            store = TaskStore(db)
+            store.create('safe-id', 'private goal', ['result.py'])
+            ledger = Ledger(db)
+            worker = Worker('openrouter', frozenset({'code'}), True, True, True, 1, 60)
+            self.assertTrue(ledger.reserve(worker, 'safe-id', 100))
+            ledger.block('openrouter', 'existing manual block')
+            cmd = [sys.executable, '-m', 'tools.agent_rotation', '--state', str(db), 'preflight', '--id', 'safe-id']
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = json.loads(result.stdout)
+            self.assertFalse(report['request_sent'])
+            self.assertFalse(report['can_run'])
+            self.assertTrue(report['provider_blocked'])
+            self.assertTrue(report['reservation_present'])
+            self.assertNotIn('private goal', result.stdout)
+            self.assertFalse(Ledger(db).available(worker, 100000))
+
+    def test_preflight_missing_database_does_not_create_it(self):
+        import subprocess, sys
+        with tempfile.TemporaryDirectory() as tmp:
+            db = Path(tmp) / 'missing.db'
+            result = subprocess.run([sys.executable, '-m', 'tools.agent_rotation', '--state', str(db), 'preflight', '--id', 'x'], capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertFalse(db.exists())
