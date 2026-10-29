@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "local-qwen": {
+      "type": "stdio",
+      "command": "python",
+      "args": [
+        "${CLAUDE_PROJECT_DIR:-.}/tools/local_qwen_mcp.py"
+      ]
+    }
+  }
+}
