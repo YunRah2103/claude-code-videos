@@ -49,3 +49,23 @@ It is *not* the same as **Ollama → Apps → Claude Code** /
   but consume your PC's electricity.
 - If Qwen is unavailable, tell the user. Do not silently switch models
   or retry paid requests.
+
+## Output length and reasoning
+
+- The local worker requests `num_predict=-1`, so there is **no artificial
+  2,500-token generation cap**. Ollama's model configuration, available VRAM,
+  context window and finite tool/API response size still impose practical limits.
+- By default the worker sends `think: false` for **code-first output**,
+  preventing long reasoning from consuming the entire response. For particularly
+  difficult assignments Claude can pass `deep_thinking: true` to enable
+  Qwen's extra reasoning, which will be slower.
+- The connector no longer overrides the model's `num_ctx`. The installed
+  `Q3_K_M` model currently configures approximately 24K context for 16GB VRAM.
+  This is context, not the generated-answer token cap.
+- A single synchronous Ollama request still has a **one-hour network timeout**;
+  it does not run indefinitely. For projects longer than that, delegate
+  successive focused tasks and save each reviewed result.
+- Long returned code consumes Claude's **own** context/usage when it reviews
+  the answer. Avoid asking for thousands of unrelated lines in one tool call.
+- If Ollama reports a `length` stop, treat the code as incomplete and report
+  that honestly rather than assuming it passed.

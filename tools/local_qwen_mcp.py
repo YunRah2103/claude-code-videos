@@ -30,6 +30,11 @@ TOOLS = [
             "properties": {
                 "task": {"type": "string", "description": "Focused coding task with acceptance criteria."},
                 "context": {"type": "string", "description": "Optional non-secret relevant source excerpts."},
+                "deep_thinking": {
+                    "type": "boolean",
+                    "description": "Enable extended reasoning for complex work (default: false; may take much longer).",
+                    "default": False,
+                },
             },
             "required": ["task"],
             "additionalProperties": False,
@@ -64,32 +69,44 @@ def execute_tool(name, args):
             )
         if name == "qwen_generate_code":
             task, context = args.get("task"), args.get("context", "")
+            deep_thinking = args.get("deep_thinking", False)
+            if not isinstance(deep_thinking, bool):
+                return tool_result("deep_thinking must be a boolean.", True)
             if not isinstance(task, str) or not task.strip() or len(task) > MAX_PROMPT:
                 return tool_result("task must be non-empty and <= 20000 characters.", True)
             if not isinstance(context, str) or len(context) > MAX_PROMPT:
                 return tool_result("context must be a string <= 20000 characters.", True)
             prompt = (
                 "You are a focused coding worker. Solve only this task. "
-                "Provide complete code and brief usage instructions. "
+                "Begin the final response with complete runnable code, not plans or reasoning. "
+                "Follow the task\u0027s requested output format; only add short instructions after the code. "
                 "Do not claim files were created, commands run, tests passed, or videos rendered. "
                 "Do not invent missing project context.\n\n"
                 f"TASK:\n{task.strip()}\n\nRELEVANT CONTEXT:\n{context}\n"
             )
             data = ollama_json("/api/generate", {
                 "model": MODEL, "prompt": prompt, "stream": False,
-                "options": {"num_predict": 2500, "num_ctx": 8192},
-            }, timeout=600)
+                "think": deep_thinking,
+                # -1 removes the artificial 2,500-token output cap. The model
+                # still has its configured context/memory limits.
+                "options": {"num_predict": -1},
+            }, timeout=3600)
             answer = data.get("response", "")
             if not isinstance(answer, str) or not answer.strip():
-                return tool_result("Qwen returned an empty response.", True)
+                reason = "Qwen returned only reasoning and no final code." if data.get("thinking") else "Qwen returned an empty response."
+                return tool_result(reason, True)
             count = data.get("eval_count") or 0
             duration = data.get("eval_duration") or 0
             speed = f"{count / (duration / 1e9):.1f}" if duration else "unknown"
+            truncated = data.get("done_reason") == "length"
+            suffix = "\nWARNING: Ollama stopped at a length/context limit; verify completeness." if truncated else ""
             return tool_result(
                 "UNTRUSTED LOCAL QWEN OUTPUT — Claude must review before use:\n"
                 + answer
                 + f"\n\nTokens generated: {count}. Eval rate: {speed} tok/s."
                 + "\nThis tool did not create files or run commands."
+                + suffix,
+                is_error=truncated,
             )
         return tool_result(f"Unknown tool: {name}", True)
     except (OSError, TimeoutError, urllib.error.URLError, ValueError, json.JSONDecodeError) as exc:
