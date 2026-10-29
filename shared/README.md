@@ -18,10 +18,11 @@ Reusable pieces for the pixel-art explainer episodes. Nothing here depends on on
 | `pixanim/` | Presenter rig + timeline, flight paths, shot camera, transitions, effects, diagram labels, dashboard, engine cutaway, car, street, props | `pixanim/README.md` |
 | `audio/sfx.py` | Synthesised sound effects (pop, whoosh, stamp, ding, click, confetti, vroom, etc.) and `render(cues, duration)` | docstrings in the file |
 
-## Not shared yet (still in `videos/ac-idle/src/render.py`)
+| `episode.py` | Episode kit lifted from ac-idle/jaguar: captions (one highlighted keyword), hook `title`, framed real `photo` cards, progress bar, NEXT EPISODE `teaser`, photo-credit line, `build_audio` mixer, `still`/`video` CLI. No corner gauge. Example: `videos/tractors-vs-ferraris/src/render.py` | module docstring |
+| `align.py` | `align(script, mp3, out_json, say=, extra=)`: pocketsphinx forced alignment -> `words.json` (numbers spoken as words, extra phones for names) | docstring |
+| `photos.py` | Fetch Wikimedia Commons photos + `credits.json` (file, source, licence, author) into `videos/<ep>/assets/` (jpgs are git-ignored) | docstring |
 
-- Caption chunking and highlighting, title and end-card text, progress bar, and the `build_audio` mixer.
-  Copy these from the reference episode when you need them. They depend on that episode's `WORDS` timing.
+Older episodes still carry their own copies of the caption/progress/mixer code; new ones use `episode.py`.
 
 ## Importing from an episode
 

@@ -10,3 +10,6 @@ out/
 *.raw
 **/stills/
 **/mix.*
+
+# downloaded reference photos (re-fetch with shared/photos.py; credits.json is committed)
+videos/*/assets/*.jpg
