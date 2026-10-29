@@ -21,12 +21,17 @@ OUT_DIR = ROOT / "out"
 ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
 DEFAULT_MODEL = "cohere/north-mini-code:free"
 DEFAULT_MAX_TOKENS = 8192
-TIMEOUT_SECONDS = 400
+TIMEOUT_SECONDS = 30
+MAX_RESPONSE_BYTES = 1024 * 1024
 FENCE = re.compile(r"```(?:python)?\n(.*?)```", re.S)
 
 
 class TaskError(Exception):
     """A validation, request or reply problem to report to the caller."""
+    def __init__(self, message, *, code='VALIDATION_ERROR', response_received=None):
+        super().__init__(message)
+        self.code = code
+        self.response_received = response_received
 
 
 def is_free_model(model):
@@ -56,24 +61,27 @@ def send(payload, opener=urllib.request.urlopen):
     )
     try:
         with opener(request, timeout=TIMEOUT_SECONDS) as response:
-            body = response.read()
+            body = response.read(MAX_RESPONSE_BYTES + 1)
+            if len(body) > MAX_RESPONSE_BYTES:
+                raise TaskError('response exceeds size limit', code='RESPONSE_TOO_LARGE', response_received=True)
     except urllib.error.HTTPError as error:
-        raise TaskError(describe_http_error(error)) from None
+        raise TaskError(describe_http_error(error), code='HTTP_FAILURE', response_received=True) from None
     except urllib.error.URLError as error:
-        raise TaskError(f"network error: {error.reason}; not retrying") from None
+        if isinstance(error.reason, TimeoutError):
+            raise TaskError('request timed out; delivery is unknown', code='REQUEST_TIMEOUT') from None
+        raise TaskError('network error; delivery is unknown', code='NETWORK_FAILURE') from None
     except TimeoutError:
-        raise TaskError("request timed out; the server may still have processed it, so not retrying") from None
+        raise TaskError("request timed out; the server may still have processed it, so not retrying", code='REQUEST_TIMEOUT') from None
     try:
         return response.status, json.loads(body)
     except ValueError:
-        raise TaskError(f"HTTP {response.status} with a non-JSON body") from None
+        raise TaskError(f"HTTP {response.status} with a non-JSON body", code='RESPONSE_DECODING_FAILED', response_received=True) from None
 
 
 def describe_http_error(error):
     """Classify an HTTP error by status only; never echo the body."""
     if error.code == 429:
-        retry_after = error.headers.get("Retry-After", "unknown")
-        return f"rate limited (HTTP 429, Retry-After={retry_after}); not retrying"
+        return "rate limited (HTTP 429); not retrying"
     if error.code in (401, 403):
         return f"authentication or permission failure (HTTP {error.code}); not retrying"
     return f"HTTP {error.code} from OpenRouter; not retrying"
@@ -81,7 +89,7 @@ def describe_http_error(error):
 
 def parse_reply(status, data):
     if status != 200 or "error" in data:
-        raise TaskError(f"API error (HTTP {status}): {str(data.get('error', ''))[:200]}")
+        raise TaskError(f"API error (HTTP {status})")
     choices = data.get("choices") or []
     if not choices:
         raise TaskError("reply has no choices")
@@ -127,20 +135,10 @@ def main(argv=None, opener=urllib.request.urlopen):
         if args.dry_run:
             print(json.dumps(payload, indent=2))
             return 0
-        status, data = send(payload, opener)
-        reply = parse_reply(status, data)
+        raise TaskError('standalone live requests disabled; use the reviewed rotation workflow')
     except (TaskError, OSError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(extract_code(reply["content"]))
-    usage = reply["usage"]
-    print(
-        f"HTTP 200 | model={reply['model']} | finish_reason={reply['finish_reason']} | "
-        f"completion_tokens={usage.get('completion_tokens')} | cost={usage.get('cost')} | "
-        f"wrote {args.output}"
-    )
-    return 0
 
 
 if __name__ == "__main__":
