@@ -25,8 +25,8 @@ class FakeResponse:
         self.status = status
         self._body = json.dumps(body).encode()
 
-    def read(self):
-        return self._body
+    def read(self, size=-1):
+        return self._body[:size] if size >= 0 else self._body
 
     def __enter__(self):
         return self
@@ -86,7 +86,7 @@ class OpenRouterTaskTest(unittest.TestCase):
 
     def test_non_json_success_body_is_a_task_error(self):
         class TextResponse(FakeResponse):
-            def read(self):
+            def read(self, size=-1):
                 return b"<html>proxy page</html>"
 
         opener = FakeOpener(TextResponse(200, {}))
@@ -124,16 +124,17 @@ class OpenRouterTaskTest(unittest.TestCase):
         self.assertEqual(opener.calls, [])
         self.assertIn("max_tokens", out.getvalue())
 
-    def test_main_writes_code_to_output(self):
+    def test_main_refuses_unsupervised_live_request(self):
         opener = FakeOpener(FakeResponse(200, GOOD_BODY))
         with tempfile.TemporaryDirectory() as tmp:
             task_file = Path(tmp) / "task.txt"
             task_file.write_text("write code")
             output = Path(tmp) / "sub" / "x.py"
-            with contextlib.redirect_stdout(io.StringIO()):
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
                 code = task.main(["--task", str(task_file), "--output", str(output)], opener)
-            self.assertEqual(code, 0)
-            self.assertEqual(output.read_text(), "print(1)\n")
+            self.assertNotEqual(code, 0)
+            self.assertFalse(output.exists())
+            self.assertEqual(opener.calls, [])
 
     def test_output_inside_production_tree_is_refused(self):
         opener = FakeOpener(FakeResponse(200, GOOD_BODY))
@@ -148,3 +149,37 @@ class OpenRouterTaskTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class BoundedTransportTests(unittest.TestCase):
+    def test_response_size_limit_and_timeout(self):
+        calls = []
+        class LargeResponse:
+            status = 200
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def read(self, size=-1):
+                calls.append(size)
+                return b'x' * size
+        def opener(request, timeout):
+            self.assertLessEqual(timeout, 60)
+            return LargeResponse()
+        with self.assertRaises(task.TaskError) as caught:
+            task.send(task.build_payload('x'), opener)
+        self.assertEqual(caught.exception.code, 'RESPONSE_TOO_LARGE')
+        self.assertEqual(calls, [task.MAX_RESPONSE_BYTES + 1])
+
+    def test_timeout_has_stable_code_and_unknown_delivery(self):
+        opener = FakeOpener(error=TimeoutError('SECRET'))
+        with self.assertRaises(task.TaskError) as caught:
+            task.send(task.build_payload('x'), opener)
+        self.assertEqual(caught.exception.code, 'REQUEST_TIMEOUT')
+        self.assertIsNone(caught.exception.response_received)
+        self.assertNotIn('SECRET', str(caught.exception))
+
+    def test_network_error_does_not_expose_reason(self):
+        opener = FakeOpener(error=urllib.error.URLError('SECRET_CREDENTIAL'))
+        with self.assertRaises(task.TaskError) as caught:
+            task.send(task.build_payload('x'), opener)
+        self.assertEqual(caught.exception.code, 'NETWORK_FAILURE')
+        self.assertNotIn('SECRET_CREDENTIAL', str(caught.exception))
+        self.assertEqual(len(opener.calls), 1)
