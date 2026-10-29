@@ -111,3 +111,24 @@ get around a block.
 - Use templates and `--context` files to keep prompts small. `--context` is limited to 8000 bytes.
 - The goal is limited to 16000 bytes. Split larger tasks.
 - Token savings have **not been measured** yet. No savings figure is claimed.
+
+## Free-Agent-First Manager: starting a session
+
+1. Open this repository in Claude Code. `CLAUDE.md` loads automatically and contains the
+   **FREE-AGENT-FIRST CODING POLICY**.
+2. Optional, for other projects: install the same policy into your user-level instructions.
+
+   ```bash
+   bash tools/install_user_policy.sh
+   ```
+
+   This writes `~/.claude/CLAUDE.md` idempotently. Files in `~/.claude` may not persist across
+   Claude Code Cloud sessions, so add this command to the environment's setup script if you want
+   it in every new session.
+3. Say: **"Use my free agents first."** Claude will check `status` and `providers`, delegate only
+   to eligible workers, and report blocks and quota limits. It will not send a live request
+   without your typed approval for that one attempt.
+
+Current state at merge: OpenRouter is blocked (earlier failed attempt, block preserved). Gemini and
+Kilo are disabled. Nothing is verified for live generation. Ponytail is not installed in the cloud
+session, and the npm package named `ponytail` is unrelated, so it is not used.
