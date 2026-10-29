@@ -78,6 +78,52 @@ def send(payload, opener=urllib.request.urlopen):
         raise TaskError(f"HTTP {response.status} with a non-JSON body", code='RESPONSE_DECODING_FAILED', response_received=True) from None
 
 
+KEY_ENDPOINT = "https://openrouter.ai/api/v1/key"
+MODELS_ENDPOINT = "https://openrouter.ai/api/v1/models"
+
+
+def read_only_json(url, opener=urllib.request.urlopen):
+    """GET a metadata endpoint. Never generates text and never retries."""
+    request = urllib.request.Request(url, headers={"Accept": "application/json"}, method="GET")
+    try:
+        with opener(request, timeout=TIMEOUT_SECONDS) as response:
+            body = response.read(MAX_RESPONSE_BYTES + 1)
+    except urllib.error.HTTPError as error:
+        raise TaskError(describe_http_error(error), code='HTTP_FAILURE', response_received=True) from None
+    except (urllib.error.URLError, TimeoutError, OSError):
+        raise TaskError('metadata request failed; not retrying', code='NETWORK_FAILURE') from None
+    if len(body) > MAX_RESPONSE_BYTES:
+        raise TaskError('metadata response exceeds size limit', code='RESPONSE_TOO_LARGE', response_received=True)
+    try:
+        return json.loads(body)
+    except ValueError:
+        raise TaskError('metadata response was not JSON', code='RESPONSE_DECODING_FAILED', response_received=True) from None
+
+
+def account_spend_status(opener=urllib.request.urlopen):
+    """Return only the spending-protection fields from the key-info endpoint."""
+    data = read_only_json(KEY_ENDPOINT, opener).get("data")
+    if not isinstance(data, dict):
+        raise TaskError('key-info response had no data object', code='INVALID_PROVIDER_RESPONSE', response_received=True)
+    return {
+        "zero_spend_verified": data.get("limit") == 0 and data.get("limit_remaining") == 0,
+        "is_free_tier": data.get("is_free_tier") is True,
+        "management_or_provisioning": data.get("is_management_key") is True or data.get("is_provisioning_key") is True,
+    }
+
+
+def model_is_listed_free(model, opener=urllib.request.urlopen):
+    """True only if the model is listed with zero prompt and completion prices."""
+    entries = read_only_json(MODELS_ENDPOINT, opener).get("data")
+    if not isinstance(entries, list):
+        raise TaskError('model list had no data array', code='INVALID_PROVIDER_RESPONSE', response_received=True)
+    for entry in entries:
+        if isinstance(entry, dict) and entry.get("id") == model:
+            pricing = entry.get("pricing") or {}
+            return str(pricing.get("prompt")) == "0" and str(pricing.get("completion")) == "0"
+    return False
+
+
 def describe_http_error(error):
     """Classify an HTTP error by status only; never echo the body."""
     if error.code == 429:
