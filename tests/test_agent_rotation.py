@@ -142,3 +142,14 @@ class QuotaCalendarTests(unittest.TestCase):
             self.assertFalse(ledger.reserve(worker, 'b', ts(1) + 120))
             self.assertTrue(ledger.reserve(worker, 'b', ts(2)))
             self.assertFalse(Ledger(path).reserve(worker, 'c', ts(3)))
+
+class ReportCLITests(unittest.TestCase):
+    def test_report_keeps_missing_metrics_unknown(self):
+        import subprocess, sys
+        from tools.agent_rotation.metrics import Metrics
+        with tempfile.TemporaryDirectory() as tmp:
+            db = Path(tmp) / 'state.db'
+            Metrics(db).record('t', 'example', 'uncertain')
+            result = subprocess.run([sys.executable, '-m', 'tools.agent_rotation', '--state', str(db), 'report'], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('unknown_cost_counts', result.stdout)

@@ -5,6 +5,7 @@ import time
 from pathlib import Path
 from .core import Ledger, Registry
 from .tasks import TaskStore
+from .metrics import Metrics
 
 
 def main():
@@ -12,6 +13,7 @@ def main():
     parser.add_argument('--state', type=Path, default=Path('out/agent-rotation/state.db'))
     sub = parser.add_subparsers(dest='command', required=True)
     sub.add_parser('status')
+    sub.add_parser('report')
     plan = sub.add_parser('plan')
     plan.add_argument('--task', required=True)
     create = sub.add_parser('create')
@@ -22,6 +24,9 @@ def main():
     show.add_argument('--id', required=True)
     args = parser.parse_args()
     ledger, registry = Ledger(args.state), Registry.defaults()
+    if args.command == 'report':
+        print(json.dumps(Metrics(args.state).report(), indent=2))
+        return
     if args.command in ('create', 'show'):
         store = TaskStore(args.state)
         try:

@@ -20,3 +20,16 @@ class MetricsTests(unittest.TestCase):
             metrics = Metrics(Path(tmp) / 'metrics.db')
             for kw in ({'prompt_tokens': -1}, {'completion_tokens': 1.2}, {'cost': float('nan')}):
                 with self.assertRaises(ValueError): metrics.record('id', 'x', 'failed', **kw)
+
+    def test_reports_known_totals_and_unknowns_separately(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            metrics = Metrics(Path(tmp) / 'metrics.db')
+            metrics.record('a', 'x', 'success', prompt_tokens=10, completion_tokens=4, reasoning_tokens=2, total_tokens=16, cost=0)
+            metrics.record('b', 'x', 'failed')
+            summary = metrics.report()
+            self.assertEqual(summary['known_completion_tokens'], 4)
+            self.assertEqual(summary['known_reasoning_tokens'], 2)
+            self.assertEqual(summary['known_total_tokens'], 16)
+            self.assertEqual(summary['unknown_total_counts'], 1)
+            self.assertEqual(summary['known_cost'], 0)
+            self.assertEqual(summary['unknown_cost_counts'], 1)

@@ -12,27 +12,33 @@ class Metrics:
             db.execute('''CREATE TABLE IF NOT EXISTS request_metrics
                 (task_id TEXT PRIMARY KEY, provider TEXT NOT NULL, outcome TEXT NOT NULL,
                  prompt_tokens INTEGER, completion_tokens INTEGER, reasoning_tokens INTEGER, cost REAL)''')
+            columns = {row[1] for row in db.execute('PRAGMA table_info(request_metrics)')}
+            if 'total_tokens' not in columns:
+                db.execute('ALTER TABLE request_metrics ADD COLUMN total_tokens INTEGER')
 
     def record(self, task_id, provider, outcome, prompt_tokens=None, completion_tokens=None,
-               reasoning_tokens=None, cost=None):
+               reasoning_tokens=None, cost=None, total_tokens=None):
         if not all(isinstance(x, str) and x.strip() for x in (task_id, provider, outcome)):
             raise ValueError('task, provider and outcome are required')
-        for n in (prompt_tokens, completion_tokens, reasoning_tokens):
+        for n in (prompt_tokens, completion_tokens, reasoning_tokens, total_tokens):
             if n is not None and (type(n) is not int or n < 0):
                 raise ValueError('token counts must be nonnegative integers or unknown')
         if cost is not None and (isinstance(cost, bool) or not isinstance(cost, (int, float)) or not math.isfinite(cost) or cost < 0):
             raise ValueError('cost must be nonnegative and finite or unknown')
         with sqlite3.connect(self.path) as db:
             try:
-                db.execute('INSERT INTO request_metrics VALUES (?,?,?,?,?,?,?)',
-                           (task_id, provider, outcome, prompt_tokens, completion_tokens, reasoning_tokens, cost))
+                db.execute('INSERT INTO request_metrics (task_id,provider,outcome,prompt_tokens,completion_tokens,reasoning_tokens,cost,total_tokens) VALUES (?,?,?,?,?,?,?,?)',
+                           (task_id, provider, outcome, prompt_tokens, completion_tokens, reasoning_tokens, cost, total_tokens))
             except sqlite3.IntegrityError:
                 raise ValueError('metrics already recorded for task') from None
 
     def report(self):
         with sqlite3.connect(self.path) as db:
-            row = db.execute('''SELECT COUNT(*), COALESCE(SUM(prompt_tokens),0),
-                SUM(CASE WHEN completion_tokens IS NULL THEN 1 ELSE 0 END),
-                SUM(CASE WHEN cost IS NULL THEN 1 ELSE 0 END) FROM request_metrics''').fetchone()
-        return {'requests': row[0], 'known_prompt_tokens': row[1],
-                'unknown_completion_counts': row[2] or 0, 'unknown_cost_counts': row[3] or 0}
+            rows = db.execute('SELECT prompt_tokens,completion_tokens,reasoning_tokens,total_tokens,cost FROM request_metrics').fetchall()
+        result = {'requests': len(rows)}
+        for i, label in enumerate(('prompt', 'completion', 'reasoning', 'total', 'cost')):
+            values = [row[i] for row in rows]
+            key = 'known_cost' if label == 'cost' else f'known_{label}_tokens'
+            result[key] = sum(v for v in values if v is not None)
+            result[f'unknown_{label}_counts'] = sum(v is None for v in values)
+        return result
