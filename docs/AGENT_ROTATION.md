@@ -52,8 +52,7 @@ can make one request only when supplied an enabled policy, a specific allowed
 those inputs default to disabled. A flag is not independent proof of billing
 protection. The adapter has only offline tests in this environment and is not
 wired into the CLI. On uncertain failures it retains the quota reservation and
-blocks the provider. The existing helper has a 400-second timeout and an
-unbounded response read; harden those before unattended use. Kilo preflight
+blocks the provider. The integrated helper uses a 30-second per-socket timeout and a 1 MiB response cap; a socket timeout is not a total wall-clock deadline. Kilo preflight
 reports unavailable here; its primary model being free does not establish that
 background requests are free. Gemini remains disabled.
 
@@ -80,3 +79,34 @@ command until these safeguards and a real secure test environment are available.
 remain counted separately. `python -m tools.agent_rotation.benchmark` measures
 local SQLite reservation overhead only, with simulated workers and zero API
 calls. It does not measure coding success, model performance or token savings.
+
+## Failure diagnostics and manual recovery
+
+The adapter reports a fixed failure code and stage plus tri-state request,
+response and model verification flags. A missing value is unknown; it is not
+zero or proof that a request was not sent. Only validated numeric usage and
+provider-reported cost are stored; prompts, generated text, response bodies,
+HTTP messages and exception text are excluded from diagnostics. The failure
+row and metric insert share one SQLite transaction; an existing metric is never
+replaced. If storage itself fails, the task may remain `running` and diagnostics
+may be incomplete: do not infer that no request was sent.
+
+All post-reservation failures leave the task `interrupted`, retain the reservation
+and block the provider. `PYTHON_SYNTAX_INVALID` with a received response is a
+known completed response, whereas `REQUEST_TIMEOUT` leaves delivery unknown.
+Neither is automatically retried. Static syntax checks do not execute code or
+prove correctness. Git worktrees are not security sandboxes.
+
+Before any separately authorised recovery, an operator must inspect task history,
+reservation and diagnostic records, review the existing block and check provider
+request/usage history and the account's zero-spend protection where available.
+Reconcile incomplete or conflicting records manually; a timeout may have been
+processed even if usage is not visible. If the state remains uncertain, keep the
+provider blocked. Never delete a reservation or silently resubmit under a new ID.
+Any decision to lift a block requires explicit authorisation and a separate,
+reviewed action; this code has no automatic unblock or retry.
+
+The integrated helper supplies fixed transport error codes. Older helpers without
+structured codes fail closed as `INTERNAL_ADAPTER_ERROR`. The standalone helper
+CLI cannot send requests; the rotation CLI's `preflight` is read-only. No raw response is retained, so this change cannot identify the cause of the
+previous live failure retroactively.
