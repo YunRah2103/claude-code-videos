@@ -16,3 +16,4 @@ videos/*/assets/*.jpg
 
 # generated sprites and stills (rebuild with each src/make_assets.py)
 videos/*/assets/*.png
+videos/*/assets/*.saved
