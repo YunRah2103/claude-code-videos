@@ -105,7 +105,7 @@ def overlay(cv, t):
     title(cv, t, 0.05, 2.15, 'Faster than', YEL, 470, 120, -3)
     title(cv, t, 0.25, 2.15, 'you can blink', YEL, 610, 120, 2)
     title(cv, t, 7.0 + 1.86, 9.75, 'three motors', GRN, 560, 120, -3)
-    title(cv, t, 11.94, 13.1, 'claimed', RED, 560, 140, 3)
+    title(cv, t, 11.94, 13.1, 'claimed', RED, 380, 120, 3)
 
 
 # ================================================================== shot 2: a claimed 1.99 s

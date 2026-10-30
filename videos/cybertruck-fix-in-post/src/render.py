@@ -107,7 +107,7 @@ def truck_at(fg, x, y, s, t, drv=0.0, drv_sh=False, rear=0.0, tape=0.0):
     cracks(fg, ox, oy, s, DRIVER_HIT, drv, 3, drv_sh); cracks(fg, ox, oy, s, REAR_HIT, rear, 7)
     if tape > 0:
         for hit, rot in ((DRIVER_HIT, 20), (REAR_HIT, -15)):
-            tp = fx.big('tag', 'FIXED', '#f0e6c8', '#1a1a2e', s=6)
+            tp = fx.big('tag', 'FIXED', '#f0e6c8', '#1a1a2e', s=4)
             blit(fg, tp, ox + hit[0] * s, oy + hit[1] * s, tape, tape, rot, anchor='center')
     return ox, oy
 
@@ -260,7 +260,7 @@ def shot_post(t):
     if t >= TAPE:
         fx.sparkles(fg, t, 420, 860, 600, 300, n=8, seed=41); fx.dust(fg, t, TAPE, 420, 900, n=8, seed=42)
     if t >= 13.35:
-        fx.stamp_at(fg, t, 13.35, 'IN POST?', 480, 1110, rot=-10, s=8)
+        fx.stamp_at(fg, t, 13.35, 'IN POST?', 560, 830, rot=-8, s=8)
     P5.draw(fg, t)
     GAR.reflect(img, fg)
     return finish(img, fg, CAM5, t)
