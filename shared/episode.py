@@ -36,10 +36,11 @@ GAR = Garage(W, H, GROUND, S)
 E = {}   # episode state, filled by setup(); forked render workers inherit it
 
 
-def setup(here, words, dur, end_t, shots, trans, cues, keycol, overlay=None, bar_car='red', gauge=False, loud=False, crisp=False):
-    """crisp=True: the handheld sway resamples with nearest-neighbour, so pixel art never goes soft."""
+def setup(here, words, dur, end_t, shots, trans, cues, keycol, overlay=None, bar_car='red', gauge=False, loud=False, gap=None, crisp=False):
+    """gap=(t, d): the mixer inserts d s of silence into the voiceover at t (shift the words with shift_words to match).
+    crisp=True: the handheld sway resamples with NEAREST so pixel edges stay hard."""
     E.update(here=here, words=words, dur=dur, end_t=end_t, shots=shots, trans=trans, cues=cues, keycol=keycol, overlay=overlay,
-             bar_car=bar_car, gauge=gauge, loud=loud, crisp=crisp, photo_dir=os.path.join(here, '..', 'assets'))
+             bar_car=bar_car, gauge=gauge, loud=loud, gap=gap, crisp=crisp, photo_dir=os.path.join(here, '..', 'assets'))
     E['gauge_ev'] = sorted([(tc, GAUGE_KICK.get(name, 0.12) * vol) for tc, name, vol in cues] + [(tc, 0.3) for tc, _ in shots[1:]])
     E['chunks'] = make_chunks()
     cr = os.path.join(E['photo_dir'], 'credits.json')
@@ -47,6 +48,11 @@ def setup(here, words, dur, end_t, shots, trans, cues, keycol, overlay=None, bar
 
 
 def load_words(here, name='words.json'): return json.load(open(os.path.join(here, name)))
+
+
+def shift_words(words, t, d):
+    """Aligned words with every word starting at or after t moved d s later (pairs with setup(gap=(t, d)))."""
+    return [dict(w, s=round(w['s'] + d, 2), e=round(w['e'] + d, 2)) if w['s'] >= t else w for w in words]
 
 
 # ------------------------------------------------------------------ scene helpers (as in the reference episodes)
@@ -264,6 +270,60 @@ def photo(fg, t, t0, t1, name, x, y, w, h=None, rot=0.0, label='', focus=(0.5, 0
     blit(fg, _shadow(w, h), x + 14, y + 18, k, k, r, anchor='center')
     blit(fg, photo_card(name, w, h, label, clamp((t - t0) / 3), focus, zoom, pix), x, y, k, k, r, anchor='center')
     fx.burst(fg, t, t0, x, y, GLOW, n=8, r0=90, r1=260, seed=int(x) % 90)
+
+
+# ------------------------------------------------------------------ hi-fi photo card, drawn in screen space after the camera
+PB = 6   # border pixel size
+
+
+def _cropped(name, crop):
+    src = _src(name)
+    if not crop: return src
+    return src.crop(tuple(round(v * (src.width if i % 2 == 0 else src.height)) for i, v in enumerate(crop)))
+
+
+def photo_size(name, w, crop=None):
+    """Card height for a card `w` wide that shows the (optionally cropped) photo at its own proportions."""
+    sw, sh = _cropped(name, crop).size; b = 4 * PB
+    return round((w - 2 * b) * sh / sw) + b + 16 * PB
+
+
+@lru_cache(None)
+def hq_card(name, w, label, rot, crop=None):
+    """Photo (Lanczos, never stretched; crop=(x0, y0, x1, y1) fractions trims bystanders) in a chunky pixel frame
+    with a caption strip, tilted once with bicubic."""
+    src = _cropped(name, crop); b = 4 * PB; iw = w - 2 * b; ih = round(iw * src.height / src.width); h = ih + b + 16 * PB
+    gw, gh = w // PB, h // PB
+    fr = Image.new('RGBA', (gw, gh), (0, 0, 0, 0)); d = ImageDraw.Draw(fr)
+    d.rectangle((1, 0, gw - 2, gh - 1), fill=NAVY + (255,)); d.rectangle((0, 1, gw - 1, gh - 2), fill=NAVY + (255,))
+    d.rectangle((2, 1, gw - 3, gh - 2), fill=(248, 246, 238, 255)); d.rectangle((1, 2, gw - 2, gh - 3), fill=(248, 246, 238, 255))
+    d.line([(2, gh - 3), (gw - 3, gh - 3)], fill=(214, 217, 226, 255)); d.line([(gw - 3, 2), (gw - 3, gh - 3)], fill=(214, 217, 226, 255))
+    d.rectangle((3, 3, gw - 4, 3 + ih // PB + 1), fill=NAVY + (255,))
+    img = fr.resize((gw * PB, gh * PB), Image.NEAREST)
+    img.paste(src.resize((iw, ih), Image.LANCZOS), (b, b))
+    if label:
+        dl = ImageDraw.Draw(img); f = font(38)
+        while dl.textlength(label, font=f) > w - 60 and f.size > 20: f = font(f.size - 2)
+        dl.text((w / 2 - dl.textlength(label, font=f) / 2, b + ih + 4 * PB), label, font=f, fill=NAVY + (255,))
+    sh = Image.new('RGBA', img.size, (0, 0, 0, 0)); sh.putalpha(img.getchannel('A').point(lambda a: a * 110 // 255))
+    out = Image.new('RGBA', (img.width + 24, img.height + 30), (0, 0, 0, 0))
+    out.paste(sh, (24, 30), sh); out.alpha_composite(img)
+    return out.rotate(rot, resample=Image.BICUBIC, expand=True) if rot else out
+
+
+def photo_hq(cv, t, t0, t1, name, x, y, w, rot=-3.0, label='', crop=None):
+    """Pop a real photo in at t0 (overshoot + sparkle burst), hold with a slow bob, pop it out at t1. Call from overlay()."""
+    if not (t0 <= t < t1 + 0.25) or not os.path.isfile(os.path.join(E['photo_dir'], name + '.jpg')): return
+    k = popin(t, t0, 0.3) * popout(t, t1, 0.2)
+    if k <= 0.01: return
+    img = hq_card(name, w, label, rot, crop)
+    if abs(k - 1) > 0.004: img = img.resize((max(1, round(img.width * k)), max(1, round(img.height * k))), Image.LANCZOS)
+    yy = y + 6 * math.sin(t * 2.2)
+    cv.paste(img, (round(x - img.width / 2), round(yy - img.height / 2)), img)
+    fl = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+    fx.burst(fl, t, t0, x, y, GLOW, n=10, r0=w * 0.4, r1=w * 0.75, seed=int(x) % 90)
+    fx.sparkles(fl, t, x, y, w + 80, img.height + 40, n=5, seed=int(y) % 70)
+    cv.paste(fl, (0, 0), fl)
 
 
 # ------------------------------------------------------------------ captions: chunks of <=3 words, one highlighted keyword
@@ -493,6 +553,8 @@ def build_audio(vo_path, out_wav):
     raw = subprocess.run(['ffmpeg', '-v', 'error', '-i', vo_path, '-ar', str(sfx.SR), '-ac', '1', '-f', 'f32le', '-'],
                          capture_output=True, check=True).stdout
     vo = np.frombuffer(raw, np.float32).astype(np.float64)
+    if E.get('gap'):
+        g0 = int(E['gap'][0] * sfx.SR); vo = np.concatenate([vo[:g0], np.zeros(int(E['gap'][1] * sfx.SR)), vo[g0:]])
     n = int(sfx.SR * E['dur'])
     mix = np.zeros(n); m = min(n, len(vo)); mix[:m] = vo[:m]
     cues = E['cues'] + [(t, 'whoosh', 0.6) for t, _ in E['shots'][1:]]

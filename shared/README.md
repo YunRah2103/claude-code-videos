@@ -30,6 +30,10 @@ Reusable pieces for the pixel-art explainer episodes. Nothing here depends on on
 
 Older episodes still carry their own copies of the caption/progress/mixer code; new ones use `episode.py`.
 
+`episode.py` extras: `photo_hq(cv, t, ...)` (call from `overlay`) draws an uncropped real photo, Lanczos-scaled at its own
+proportions, in a pixel frame (`crop=` trims bystanders); `setup(..., gap=(t, d))` with `shift_words(words, t, d)` holds a
+pause in the voiceover mix; `setup(..., crisp=True)` keeps the handheld sway NEAREST. Example: `videos/rimac-nevera-1914`.
+
 ## Importing from an episode
 
 An episode lives at `videos/<name>/src/render.py`, so `shared/` is three levels up:
