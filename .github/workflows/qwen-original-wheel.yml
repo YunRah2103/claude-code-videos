@@ -27,7 +27,15 @@ jobs:
           test -s "$HOME/wheel_preview.png"
           cp "$HOME/wheel_test.blend" output/qwen_original_wheel.blend
           cp "$HOME/wheel_preview.png" output/qwen_original_preview.png
+      - name: Upload untouched Qwen Blender result
+        uses: actions/upload-artifact@v4
+        with:
+          name: qwen-original-assets
+          path: |
+            output/qwen_original_wheel.blend
+            output/qwen_original_preview.png
       - name: Camera-only animation of Qwen geometry
+        if: false
         env:
           WHEEL_FRAMES: ${{ runner.temp }}/qwen-frames
         run: |
@@ -36,7 +44,7 @@ jobs:
           ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1 output/qwen_original_turntable.mp4
           ffmpeg -v error -i output/qwen_original_turntable.mp4 -f null -
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: false
         with:
           name: qwen-original-wheel
           path: output/
