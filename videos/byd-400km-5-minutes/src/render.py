@@ -107,7 +107,6 @@ def shot_photo(t):
         fx.burst(fg, t, 3.88, 260, 1130, GLOW, n=10, seed=21)
     if t >= 5.21:
         k = fx.slam(t, 5.21) * popin(t, 5.21, 0.2)
-        blit(fg, up(stopwatch(prog(t, 5.21, 1.0) * 0.99), 5), 640, 1080, k, k, 5, anchor='bottom')
         blit(fg, fx.big('badge', '5 MIN', '#ffffff', '#1a1a2e', '#d6d9e2', s=9), 640, 1130, k, k, 3, anchor='center')
         fx.sparkles(fg, t, 450, 1100, 600, 180, n=6, seed=22)
     P2.draw(fg, t)
