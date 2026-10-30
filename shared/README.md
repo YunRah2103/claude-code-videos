@@ -26,6 +26,7 @@ Reusable pieces for the pixel-art explainer episodes. Nothing here depends on on
 | `photos.py` | Fetch Wikimedia Commons photos + `credits.json` (file, source, licence, author) into `videos/<ep>/assets/` (jpgs are git-ignored) | docstring |
 
 `episode.setup(..., crisp=True)` keeps the handheld sway nearest-neighbour; `photo(..., hq=True)` called from the overlay shows the whole photo uncropped, Lanczos-scaled. `vo.pace()` adds silence for very short reads.
+`vo_split.py` joins voiceover blocks with a fixed gap and cuts per-episode clips at the detected pauses nearest each word-count boundary, for reads whose episode gaps are no longer than sentence pauses (where `split_vo.py` cannot get one segment per episode). `photo(..., fit=True)` shows the whole photo in the world layer with a held, bicubic-rotated tilt.
 
 Older episodes still carry their own copies of the caption/progress/mixer code; new ones use `episode.py`.
 

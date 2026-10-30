@@ -203,7 +203,7 @@ def cover(name, iw, ih, focus=(0.5, 0.5), zoom=0.0, k=0.0, pix=0):
     sc = max(iw / sw, ih / sh) * (1 + zoom + 0.12 * k)
     cw, ch = iw / sc, ih / sc
     cx = min(max(focus[0] * sw, cw / 2), sw - cw / 2); cy = min(max(focus[1] * sh, ch / 2), sh - ch / 2)
-    return src.crop((int(cx - cw / 2), int(cy - ch / 2), int(cx + cw / 2), int(cy + ch / 2))).resize((iw, ih), Image.NEAREST if pix else Image.BILINEAR)
+    return src.crop((int(cx - cw / 2), int(cy - ch / 2), int(cx + cw / 2), int(cy + ch / 2))).resize((iw, ih), Image.NEAREST if pix else Image.LANCZOS)
 
 
 def photo_card(name, w, h, label='', k=0.0, focus=(0.5, 0.5), zoom=0.0, pix=0):
@@ -232,13 +232,28 @@ def _hq_blit(cv, img, cx, cy, k, rot):
     cv.paste(img, (round(cx - img.width / 2), round(cy - img.height / 2)), img)
 
 
-def photo(fg, t, t0, t1, name, x, y, w, h=None, rot=0.0, label='', focus=(0.5, 0.5), zoom=0.0, pix=0, hq=False):
+@lru_cache(None)
+def _fit_card(name, w, h, label, rot):
+    return (_shadow(w, h).rotate(rot, Image.BICUBIC, expand=True),
+            photo_card(name, w, h, label).rotate(rot, Image.BICUBIC, expand=True))
+
+
+def photo(fg, t, t0, t1, name, x, y, w, h=None, rot=0.0, label='', focus=(0.5, 0.5), zoom=0.0, pix=0, hq=False, fit=False):
     """Pop a real photo card in at t0, sway and push in slowly, pop it out at t1. pix=N redraws it in N-px pixels.
     hq=True: call it from the overlay (after the camera); the whole photo is shown uncropped at its own aspect
-    (h from photo_h), Lanczos-scaled and bicubic-rotated, so it stays sharp next to the pixel art."""
+    (h from photo_h), Lanczos-scaled and bicubic-rotated, so it stays sharp next to the pixel art.
+    fit=True: drawn in the world like the default card, but whole and uncropped at its own aspect, with a held tilt
+    rotated once (bicubic) so the photo does not shimmer."""
     if not (t0 <= t < t1 + 0.25) or not os.path.isfile(os.path.join(E['photo_dir'], name + '.jpg')): return   # not fetched: skip
+    if fit:
+        h = photo_h(name, w)
     k = popin(t, t0, 0.3) * popout(t, t1, 0.2)
     if k <= 0.01: return
+    if fit:
+        sh_img, card = _fit_card(name, w, h, label, rot)
+        blit(fg, sh_img, x + 14, y + 18, k, k, anchor='center'); blit(fg, card, x, y, k, k, anchor='center')
+        fx.burst(fg, t, t0, x, y, GLOW, n=8, r0=90, r1=260, seed=int(x) % 90)
+        return
     r = rot + 2.5 * math.sin(t * 2.2 + x)
     if hq:
         h = photo_h(name, w)

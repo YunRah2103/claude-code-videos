@@ -44,3 +44,57 @@ def sheet(lift=0.0):
     d.line([(12, 9), (22, 4), (34, 3), (44, 6), (52, 12)], fill=hi)
     d.line([(8, 14), (10, 11)], fill=hi)
     return outline(img)
+
+
+@lru_cache(None)
+def charger(glow=0.0, screen=0):
+    """Fast-charging post (24x50): tall cabinet, lit screen (`screen` 0..3 bars), holster, cable coiled down the side.
+    glow 0..1 lights the side strip. No lettering or logos."""
+    img = Image.new('RGBA', (24, 50), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
+    body, shade, hi = (226, 230, 238), (176, 182, 194), (248, 250, 252)
+    d.rectangle((3, 49, 20, 49), fill=(60, 63, 72))                                   # plinth
+    d.rounded_rectangle((4, 2, 19, 48), 3, fill=body)
+    d.rectangle((15, 4, 18, 47), fill=shade); d.line([(5, 4), (5, 46)], fill=hi)
+    g = int(80 + 175 * glow)
+    d.rectangle((4, 10, 5, 40), fill=(40, min(255, 120 + g // 2), min(255, 60 + g // 3)))  # status strip
+    d.rectangle((7, 7, 15, 15), fill=(26, 26, 46))                                     # screen
+    for k in range(screen): d.rectangle((9, 13 - k * 2, 13, 13 - k * 2), fill=(90, 220, 120))
+    d.rectangle((8, 20, 14, 28), fill=(60, 63, 72)); d.rectangle((9, 21, 13, 23), fill=(26, 26, 46))  # holster
+    d.arc((14, 26, 24, 44), 270, 90, fill=(26, 27, 32), width=2)                       # cable loop
+    return outline(img)
+
+
+@lru_cache(None)
+def plug():
+    """Charging plug head (12x8) with a short cable stub on the left."""
+    img = Image.new('RGBA', (12, 8), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
+    d.rectangle((0, 3, 3, 4), fill=(26, 27, 32))
+    d.rounded_rectangle((3, 0, 10, 7), 2, fill=(60, 63, 72)); d.rectangle((10, 2, 11, 5), fill=(176, 182, 194))
+    d.point((5, 1), fill=(150, 156, 170))
+    return outline(img)
+
+
+@lru_cache(None)
+def bolt(col=(255, 217, 59)):
+    """Lightning bolt (10x16)."""
+    img = Image.new('RGBA', (10, 16), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
+    d.polygon([(6, 0), (0, 9), (4, 9), (2, 15), (9, 5), (5, 5), (7, 0)], fill=col)
+    d.line([(6, 1), (2, 8)], fill=(255, 250, 220))
+    return outline(img)
+
+
+@lru_cache(None)
+def stopwatch(frac=0.0):
+    """Pixel stopwatch (34x40): crown, two buttons, white dial, red hand at `frac` of a turn."""
+    img = Image.new('RGBA', (34, 40), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
+    d.rectangle((14, 0, 19, 4), fill=(200, 204, 214)); d.rectangle((12, 4, 21, 6), fill=(150, 156, 170))
+    d.rectangle((3, 6, 7, 9), fill=(150, 156, 170)); d.rectangle((26, 6, 30, 9), fill=(150, 156, 170))
+    d.ellipse((0, 6, 33, 39), fill=(150, 156, 170)); d.ellipse((2, 8, 31, 37), fill=(248, 248, 244))
+    for k in range(12):
+        a = math.radians(k * 30)
+        d.point((16.5 + 12 * math.sin(a), 22.5 - 12 * math.cos(a)), fill=(26, 26, 46))
+    a = math.radians(frac * 360)
+    d.line([(16.5, 22.5), (16.5 + 11 * math.sin(a), 22.5 - 11 * math.cos(a))], fill=(224, 48, 58), width=2)
+    d.ellipse((15, 21, 18, 24), fill=(26, 26, 46))
+    d.arc((4, 10, 29, 35), 200, 260, fill=(255, 255, 255))
+    return outline(img)
