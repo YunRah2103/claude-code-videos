@@ -76,24 +76,24 @@ def overlay(cv, t):
 P2 = Presenter([
     (2.9, dict(path=Track([(2.9, (1300, 300)), (3.25, (930, GROUND), 'oc')]), size=6, legs='auto', arms='fly', expr='talk', face=-1, ground=None)),
     (3.25, dict(ground=GROUND, squash=True, arms='shrug', look_camera=True, expr='smirk', face=None)),
-    (4.34, dict(arms='point', point=(320, 1110), look=(320, 1110), expr='wow', squash=True)),
+    (4.34, dict(arms='point', point=(280, 1150), look=(280, 1150), expr='wow', squash=True)),
 ], words=WORDS, base_size=6)
 CAM2 = Camera(W, H, [(2.95, (540, 880, 1.06)), (4.34, (500, 900, 1.14), 'io'), (5.75, (500, 900, 1.16), 'io')],
-              kicks=[(3.05, 0.1, 500, 780), (3.3, 0.14, 700, 1040), (4.34, 0.12, 320, 1110), (5.03, 0.08, 320, 1110)])
+              kicks=[(3.05, 0.1, 500, 780), (3.3, 0.14, 660, 1170), (4.34, 0.12, 280, 1150), (5.03, 0.08, 280, 1150)])
 
 
 def shot_photo(t):
     img = GAR.frame(t).convert('RGBA'); fg = layer()
     fx.rays(fg, t, 3.0, 500, 780, GLOW, hold=True, r=640)
-    photo(fg, t, 3.05, 9.0, 'emeya', 500, 780, 900, 0, -3, 'THE REAL CAR', fit=True)
+    photo(fg, t, 3.05, 9.0, 'emeya', 500, 760, 780, 0, -3, 'THE REAL CAR', fit=True)
     if t >= 3.3:
         k = fx.slam(t, 3.3) * popin(t, 3.3, 0.2)
-        blit(fg, fx.big('tag', 'CLAIMED', '#fff6e0', '#d6303a', s=9), 720, 1040, k, k, -8, anchor='center')
-        fx.burst(fg, t, 3.3, 720, 1040, RED, n=10, seed=21)
+        blit(fg, fx.big('tag', 'CLAIMED', '#fff6e0', '#d6303a', s=8), 660, 1170, k, k, -8, anchor='center')
+        fx.burst(fg, t, 3.3, 660, 1170, RED, n=10, seed=21)
     if t >= 4.34:
         k = popin(t, 4.34, 0.25)
-        blit(fg, fx.big('badge', '0-60 MPH', '#ffffff', '#1a1a2e', '#d6d9e2', s=8), 320, 1110, k, k, 4, anchor='center')
-        fx.sparkles(fg, t, 320, 1110, 420, 140, n=5, seed=22)
+        blit(fg, fx.big('badge', '0-60 MPH', '#ffffff', '#1a1a2e', '#d6d9e2', s=8), 280, 1150, k, k, 4, anchor='center')
+        fx.sparkles(fg, t, 280, 1150, 420, 140, n=5, seed=22)
     P2.draw(fg, t)
     GAR.reflect(img, fg)
     return finish(img, fg, CAM2, t)

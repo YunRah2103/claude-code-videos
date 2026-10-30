@@ -127,7 +127,7 @@ def shot_photo(t):
         fx.burst(fg, t, 3.14, 330, 1110, GLOW, n=14, seed=21); fx.sparkles(fg, t, 330, 1110, 500, 160, n=6, seed=22)
     if t >= 3.6:
         k = popin(t, 3.6, 0.25)
-        blit(fg, fx.big('tag', 'CLAIMED', '#fff6e0', '#d6303a', s=7), 640, 1060, k, k, 8, anchor='center')
+        blit(fg, fx.big('tag', 'CLAIMED', '#fff6e0', '#d6303a', s=7), 640, 1180, k, k, 8, anchor='center')
     P2.draw(fg, t)
     GAR.reflect(img, fg)
     return finish(img, fg, CAM2, t)
