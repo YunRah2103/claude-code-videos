@@ -474,10 +474,10 @@ def main():
         build_audio(vo, mix)
         F0, N = int(t0 * FPS), int(t1 * FPS)
         ff = subprocess.Popen(['ffmpeg', '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{W}x{H}', '-r', str(FPS),
-                               '-i', '-', '-ss', str(t0), '-t', str(t1 - t0), '-i', mix, '-c:v', 'libx264', '-preset', 'medium', '-crf', '18',
-                               '-maxrate', '8M', '-bufsize', '12M', '-pix_fmt', 'yuv420p',
+                               '-i', '-', '-ss', str(t0), '-t', str(t1 - t0), '-i', mix, '-c:v', 'libx264', '-preset', 'slow', '-crf', '17',
+                               '-maxrate', '16M', '-bufsize', '24M', '-pix_fmt', 'yuv420p', '-aspect', '9:16',
                                *(['-af', 'loudnorm=I=-14:TP=-1.5:LRA=11', '-ar', '48000'] if E.get('loud') else []),   # short-form loudness
-                               '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart', '-shortest', out], stdin=subprocess.PIPE)
+                               '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', '-shortest', out], stdin=subprocess.PIPE)
         with Pool(os.cpu_count() or 4) as pool:
             for i, b in enumerate(pool.imap(frame, range(F0, N), chunksize=6)):
                 ff.stdin.write(b)
