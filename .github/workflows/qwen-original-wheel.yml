@@ -1,0 +1,43 @@
+name: Render Qwen original wheel (no model edits)
+
+on:
+  push:
+    branches:
+      - experiment/qwen-original-wheel
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  render-qwen:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install open-source Blender and FFmpeg
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y blender ffmpeg
+      - name: Run Qwen original script UNMODIFIED
+        run: |
+          mkdir -p output
+          blender -b -t 4 --python experiments/qwen-original-wheel/qwen_wheel_original.py
+          test -s "$HOME/wheel_test.blend"
+          test -s "$HOME/wheel_preview.png"
+          cp "$HOME/wheel_test.blend" output/qwen_original_wheel.blend
+          cp "$HOME/wheel_preview.png" output/qwen_original_preview.png
+      - name: Camera-only animation of Qwen geometry
+        env:
+          WHEEL_FRAMES: ${{ runner.temp }}/qwen-frames
+        run: |
+          blender -b -t 4 --python experiments/qwen-original-wheel/camera_only_turntable.py
+          ffmpeg -hide_banner -loglevel error -y -framerate 12 -i "$WHEEL_FRAMES/frame_%03d.png" -vf "fps=30,format=yuv420p" -c:v libx264 -preset medium -crf 19 -movflags +faststart output/qwen_original_turntable.mp4
+          ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1 output/qwen_original_turntable.mp4
+          ffmpeg -v error -i output/qwen_original_turntable.mp4 -f null -
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qwen-original-wheel
+          path: output/
+          if-no-files-found: warn
