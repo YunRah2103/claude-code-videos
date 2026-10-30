@@ -18,7 +18,7 @@ def align(script, mp3, out_json, say=None, extra=None):
                          capture_output=True, check=True).stdout
     d = Decoder(samprate=16000, bestpath=False)
     for w, ph in (extra or {}).items():
-        d.add_word(w, ph, True)
+        if not d.lookup_word(w): d.add_word(w, ph, True)   # names already in the dictionary keep their entry
     d.set_align_text(' '.join(t for s in spoken for t in s))
     d.start_utt(); d.process_raw(raw, full_utt=True); d.end_utt()
     segs = [(s.start_frame / 100, (s.end_frame + 1) / 100) for s in d.seg() if s.word not in ('<s>', '</s>', '<sil>', '[NOISE]')]

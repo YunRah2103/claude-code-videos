@@ -36,9 +36,10 @@ GAR = Garage(W, H, GROUND, S)
 E = {}   # episode state, filled by setup(); forked render workers inherit it
 
 
-def setup(here, words, dur, end_t, shots, trans, cues, keycol, overlay=None, bar_car='red', gauge=False, loud=False):
+def setup(here, words, dur, end_t, shots, trans, cues, keycol, overlay=None, bar_car='red', gauge=False, loud=False, crisp=False):
+    """crisp=True: the handheld sway resamples with nearest-neighbour, so pixel art never goes soft."""
     E.update(here=here, words=words, dur=dur, end_t=end_t, shots=shots, trans=trans, cues=cues, keycol=keycol, overlay=overlay,
-             bar_car=bar_car, gauge=gauge, loud=loud, photo_dir=os.path.join(here, '..', 'assets'))
+             bar_car=bar_car, gauge=gauge, loud=loud, crisp=crisp, photo_dir=os.path.join(here, '..', 'assets'))
     E['gauge_ev'] = sorted([(tc, GAUGE_KICK.get(name, 0.12) * vol) for tc, name, vol in cues] + [(tc, 0.3) for tc, _ in shots[1:]])
     E['chunks'] = make_chunks()
     cr = os.path.join(E['photo_dir'], 'credits.json')
@@ -211,12 +212,40 @@ def photo_card(name, w, h, label='', k=0.0, focus=(0.5, 0.5), zoom=0.0, pix=0):
     return img
 
 
-def photo(fg, t, t0, t1, name, x, y, w, h, rot=0.0, label='', focus=(0.5, 0.5), zoom=0.0, pix=0):
-    """Pop a real photo card in at t0, sway and push in slowly, pop it out at t1. pix=N redraws it in N-px pixels."""
+def photo_h(name, w):
+    """Card height that shows the whole photo at its own aspect ratio for a card `w` px wide (no crop)."""
+    sw, sh = _src(name).size
+    return round((w - 32) * sh / sw) + 16 + 64
+
+
+@lru_cache(None)
+def _hq_card(name, w, h, label):
+    """Real photo card for screen space: whole photo, Lanczos-scaled, original proportions."""
+    b = 16; iw, ih = w - 2 * b, h - b - 64
+    img = _frame(w, h, label).copy(); img.paste(_src(name).resize((iw, ih), Image.LANCZOS), (b, b))
+    return img
+
+
+def _hq_blit(cv, img, cx, cy, k, rot):
+    if k != 1: img = img.resize((max(1, round(img.width * k)), max(1, round(img.height * k))), Image.LANCZOS)
+    if rot: img = img.rotate(rot, resample=Image.BICUBIC, expand=True)
+    cv.paste(img, (round(cx - img.width / 2), round(cy - img.height / 2)), img)
+
+
+def photo(fg, t, t0, t1, name, x, y, w, h=None, rot=0.0, label='', focus=(0.5, 0.5), zoom=0.0, pix=0, hq=False):
+    """Pop a real photo card in at t0, sway and push in slowly, pop it out at t1. pix=N redraws it in N-px pixels.
+    hq=True: call it from the overlay (after the camera); the whole photo is shown uncropped at its own aspect
+    (h from photo_h), Lanczos-scaled and bicubic-rotated, so it stays sharp next to the pixel art."""
     if not (t0 <= t < t1 + 0.25) or not os.path.isfile(os.path.join(E['photo_dir'], name + '.jpg')): return   # not fetched: skip
     k = popin(t, t0, 0.3) * popout(t, t1, 0.2)
     if k <= 0.01: return
     r = rot + 2.5 * math.sin(t * 2.2 + x)
+    if hq:
+        h = photo_h(name, w)
+        _hq_blit(fg, _shadow(w, h), x + 14 * k, y + 18 * k, k, r)
+        _hq_blit(fg, _hq_card(name, w, h, label), x, y, k, r)
+        fx.burst(fg, t, t0, x, y, GLOW, n=8, r0=90, r1=260, seed=int(x) % 90)
+        return
     blit(fg, _shadow(w, h), x + 14, y + 18, k, k, r, anchor='center')
     blit(fg, photo_card(name, w, h, label, clamp((t - t0) / 3), focus, zoom, pix), x, y, k, k, r, anchor='center')
     fx.burst(fg, t, t0, x, y, GLOW, n=8, r0=90, r1=260, seed=int(x) % 90)
@@ -321,7 +350,8 @@ def sway(cv, t):
     z = 1.015 + 0.004 * math.sin(t * 0.7)
     dx, dy = 7 * math.sin(t * 0.9), 6 * math.sin(t * 1.3 + 1)
     cx, cy = W / 2 + dx, H / 2 + dy
-    return cv.transform((W, H), Image.AFFINE, (1 / z, 0, cx - W / 2 / z, 0, 1 / z, cy - H / 2 / z), Image.BILINEAR)
+    return cv.transform((W, H), Image.AFFINE, (1 / z, 0, cx - W / 2 / z, 0, 1 / z, cy - H / 2 / z),
+                        Image.NEAREST if E.get('crisp') else Image.BILINEAR)
 
 
 @lru_cache(None)
