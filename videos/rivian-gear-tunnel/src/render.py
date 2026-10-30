@@ -53,12 +53,13 @@ def bench(fold=0.0, door=0.0):
     for x in (30, 60): d.line([(x, 46), (x, 62)], fill=SEAT_D)
     # opening behind the armrest
     d.rectangle((36, 6, 53, 40), fill=HOLE)
-    if door > 0:
+    if door > 0 and 6 + round(34 * (1 - door)) <= 38:
         gy = 6 + round(34 * (1 - door))
         d.rectangle((37, gy, 52, 39), fill=(40, 46, 66))
         d.rectangle((37, gy, 52, gy + 1), fill=(255, 217, 59))                     # tunnel light strip
-        d.rounded_rectangle((40, max(gy + 3, 22), 49, 37), 2, fill=(214, 90, 60))  # a duffel bag inside
-        d.line([(42, max(gy + 3, 22) + 2), (47, max(gy + 3, 22) + 2)], fill=(255, 160, 120))
+        by = max(gy + 3, 22)
+        if by <= 33:                                                              # a duffel bag inside
+            d.rounded_rectangle((40, by, 49, 37), 2, fill=(214, 90, 60)); d.line([(42, by + 2), (47, by + 2)], fill=(255, 160, 120))
     hd = round(34 * (1 - door))                                                   # the door panel slides up out of view
     if hd > 0:
         d.rectangle((36, 6, 53, 6 + hd), fill=TRIM)
