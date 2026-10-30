@@ -115,7 +115,7 @@ CAM2 = Camera(W, H, [(3.7, (540, 860, 1.06)), (4.51, (500, 880, 1.12), 'io'), (5
 def shot_photo(t):
     img = GAR.frame(t).convert('RGBA'); fg = layer()
     fx.rays(fg, t, 3.75, 500, 760, GLOW, hold=True, r=640)
-    photo(fg, t, 3.8, 9.0, 'a110', 500, 760, 880, 0, -3, 'THE REAL CAR', fit=True)
+    photo(fg, t, 3.8, 9.0, 'a110', 500, 740, 780, 0, -3, 'THE REAL CAR', fit=True)
     if t >= 4.51:
         k = fx.slam(t, 4.51) * popin(t, 4.51, 0.2)
         blit(fg, fx.big('badge', 'ALUMINIUM', '#d6d9e2', '#1a1a2e', '#a6acb8', s=9), 360, 1110, k, k, -4, anchor='center')

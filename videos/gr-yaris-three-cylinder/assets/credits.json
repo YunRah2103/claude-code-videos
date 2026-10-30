@@ -1,1 +1,14 @@
-[]
+[
+ {
+  "file": "yaris.jpg",
+  "title": "Toyota GR Yaris RZ 1X7A0252.jpg",
+  "source": "https://commons.wikimedia.org/wiki/File:Toyota_GR_Yaris_RZ_1X7A0252.jpg",
+  "licence": "CC BY-SA 4.0",
+  "licence_url": "https://creativecommons.org/licenses/by-sa/4.0",
+  "author": "Alexander Migl",
+  "original": "yaris_original.jpg",
+  "original_url": "https://upload.wikimedia.org/wikipedia/commons/3/36/Toyota_GR_Yaris_RZ_1X7A0252.jpg",
+  "saved_as": "1280px Commons rendering",
+  "attribution": "Alexander Migl, CC BY-SA 4.0, via Wikimedia Commons"
+ }
+]
