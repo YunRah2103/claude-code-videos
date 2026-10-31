@@ -36,15 +36,19 @@ GAR = Garage(W, H, GROUND, S)
 E = {}   # episode state, filled by setup(); forked render workers inherit it
 
 
-def setup(here, words, dur, end_t, shots, trans, cues, keycol, overlay=None, bar_car='red', gauge=False, loud=False, gap=None, crisp=False):
+def setup(here, words, dur, end_t, shots, trans, cues, keycol, overlay=None, bar_car='red', gauge=False, loud=False, gap=None, crisp=False,
+          end=None):
     """gap=(t, d): the mixer inserts d s of silence into the voiceover at t (shift the words with shift_words to match).
-    crisp=True: the handheld sway resamples with NEAREST so pixel edges stay hard."""
+    crisp=True: the handheld sway resamples with NEAREST so pixel edges stay hard.
+    end=(line1, line2): end-card text (default: series tag over 'follow for the next one')."""
     E.update(here=here, words=words, dur=dur, end_t=end_t, shots=shots, trans=trans, cues=cues, keycol=keycol, overlay=overlay,
-             bar_car=bar_car, gauge=gauge, loud=loud, gap=gap, crisp=crisp, photo_dir=os.path.join(here, '..', 'assets'))
+             bar_car=bar_car, gauge=gauge, loud=loud, gap=gap, crisp=crisp, photo_dir=os.path.join(here, '..', 'assets'),
+             end=end or ('car stuff, explained', 'follow for the next one'))
     E['gauge_ev'] = sorted([(tc, GAUGE_KICK.get(name, 0.12) * vol) for tc, name, vol in cues] + [(tc, 0.3) for tc, _ in shots[1:]])
     E['chunks'] = make_chunks()
     cr = os.path.join(E['photo_dir'], 'credits.json')
-    E['credits'] = json.load(open(cr)) if os.path.isfile(cr) else []
+    E['credits'] = [c for c in (json.load(open(cr)) if os.path.isfile(cr) else [])   # credit only photos that are present
+                    if 'file' not in c or os.path.isfile(os.path.join(E['photo_dir'], c['file']))]
 
 
 def load_words(here, name='words.json'): return json.load(open(os.path.join(here, name)))
@@ -380,9 +384,9 @@ def caption_img(ci, active=-1, pop=0):
 
 @lru_cache(None)
 def end_img():
-    """Two-line end card as in ac-idle: series tag over 'follow for the next one'."""
+    """Two-line end card as in ac-idle: series tag over a call to action (setup(end=...))."""
     img = Image.new('RGBA', (1300, 240), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
-    for txt, col, sz, y in (('car stuff, explained', WHITE, 76, 0), ('follow for the next one', YEL, 96, 88)):
+    for txt, col, sz, y in ((E['end'][0], WHITE, 76, 0), (E['end'][1], YEL, 96, 88)):
         f = font(sz); w = d.textlength(txt, font=f)
         d.text((650 - w / 2 + 6, y + 8), txt, font=f, fill=NAVY, stroke_width=14, stroke_fill=NAVY)
         d.text((650 - w / 2, y), txt, font=f, fill=col, stroke_width=13, stroke_fill=(10, 10, 16))
