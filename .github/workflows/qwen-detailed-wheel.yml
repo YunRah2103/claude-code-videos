@@ -1,0 +1,43 @@
+name: Render Qwen detailed wheel
+on:
+  push:
+    branches: [experiment/qwen-detailed-wheel]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qwen-wheel:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Blender and headless graphics libraries
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y blender ffmpeg libegl1 libgl1-mesa-dri libglx-mesa0
+      - name: Run Qwen geometry with minimal completion
+        env:
+          OUTPUT_DIR: ${{ runner.temp }}/qwen-detailed
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: |
+          mkdir -p "$OUTPUT_DIR"
+          blender -b -t 4 --python experiments/qwen-detailed-wheel/qwen_completed_for_render.py
+          test -s "$OUTPUT_DIR/qwen_detailed_wheel.blend"
+          test -s "$OUTPUT_DIR/qwen_detailed_preview.png"
+      - name: Encode MP4 using generated camera frames
+        env:
+          OUTPUT_DIR: ${{ runner.temp }}/qwen-detailed
+        run: |
+          ffmpeg -y -hide_banner -loglevel error -framerate 4 -i "$OUTPUT_DIR/frames/frame_%03d.png" -vf "fps=30,scale=1280:720:flags=lanczos,format=yuv420p" -c:v libx264 -crf 20 -preset medium -movflags +faststart "$OUTPUT_DIR/qwen_detailed_showcase.mp4"
+          ffprobe -v error -show_entries stream=width,height,nb_frames -show_entries format=duration -of default=noprint_wrappers=1 "$OUTPUT_DIR/qwen_detailed_showcase.mp4"
+          ffmpeg -v error -i "$OUTPUT_DIR/qwen_detailed_showcase.mp4" -f null -
+      - name: Upload unchanged Qwen geometry and render
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qwen-detailed-wheel
+          path: ${{ runner.temp }}/qwen-detailed/
+          if-no-files-found: warn
+          retention-days: 7
