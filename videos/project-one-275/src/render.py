@@ -25,8 +25,10 @@ from pixanim import fx, diagram as dg
 from pixanim.fx import blit, popin, popout
 from pixanim.grid import up, outline
 
-WORDS = kit.load_words(HERE)
-DUR, END_T = 16.4, 14.06
+WORDS = kit.load_words(HERE, 'words_v1.json')     # first read: the shots are timed on it
+NEW = kit.load_words(HERE)                          # current read (captions); WARP maps it onto WORDS
+BODY_END, END_T = 16.7, 18.0
+DUR = END_T + 1.0
 SILVER, DARK = (196, 202, 212), (40, 42, 52)
 
 
@@ -149,16 +151,20 @@ def shot_showroom(t):
     if t >= 1.19:
         k = popin(t, 1.19, 0.25) * popout(t, 2.5)
         blit(fg, fx.big('tag', 'ROAD CAR?', '#fff6e0', '#1a1a2e', s=8), 780, 1350 - 520, k, k, 5, anchor='center')
-    photo(fg, t, 2.85, 3.5, 'projectone', 540, 820, 620, 440, -3, 'THE REAL CAR, FRANKFURT 2017', focus=(0.5, 0.55), pix=4)
     GAR.reflect(img, fg)
     return finish(img, fg, CAM1, t)
 
 
 def overlay(cv, t):
-    title(cv, t, 0.05, 3.45, 'Formula One', YEL, 420, 140, -3)
-    title(cv, t, 0.3, 3.45, 'engineering', YEL, 570, 120, 2)
-    title(cv, t, 6.41, 8.3, '1,000 horsepower', RED, 430, 120, -2)
-    title(cv, t, 11.44, 13.85, '275 buyers', GRN, 420, 120, 2)
+    title(cv, t, 0.05, 3.2, '1,000+ applied', WHITE, 480, 116, -3)
+    title(cv, t, 0.3, 3.2, 'for one car', YEL, 610, 120, 2)
+    to = WARP(t)
+    if 6.3 <= t < BODY_END:
+        title(cv, to, 1.96, 3.45, 'Formula One', YEL, 480, 130, -3)
+        title(cv, to, 2.2, 3.45, 'engineering', YEL, 610, 120, 2)
+        title(cv, to, 6.41, 8.3, '1,000 horsepower', RED, 480, 116, -2)
+    title(cv, t, BODY_END + 0.05, END_T - 0.1, 'Would you', WHITE, 480, 120, -2)
+    title(cv, t, BODY_END + 0.25, END_T - 0.1, 'have applied?', YEL, 610, 120, 2)
 
 
 # ================================================================== shot 2: the 1.6 L V6 hybrid
@@ -227,10 +233,10 @@ CAM3 = Camera(W, H, [(8.4, (540, 960, 1.3)), (8.94, (540, 940, 1.05), 'oc'), (11
 def shot_applied(t):
     img = GAR.frame(t).convert('RGBA'); fg = layer()
     crowd(fg, t)
-    if t >= 8.94:
-        k = popin(t, 8.94, 0.25); v = int(1000 * oc(prog(t, 8.94, 0.8)))
-        blit(fg, fx.big('badge', f'{v:,}+ APPLIED' if v >= 1000 else f'{v} APPLIED', '#ffffff', '#1a1a2e', '#d6d9e2', s=9), 520, 440, k, k, -2 + 2 * math.sin(t * 4), anchor='center')
-        fx.sparkles(fg, t, 540, 430, 800, 200, n=6, seed=30)
+    if t >= 10.0:                                  # after the series tag has shrunk away
+        k = popin(t, 10.0, 0.25); v = int(1000 * oc(prog(t, 10.0, 0.6)))
+        blit(fg, fx.big('badge', f'{v:,}+ APPLIED' if v >= 1000 else f'{v} APPLIED', '#ffffff', '#1a1a2e', '#d6d9e2', s=9), 520, 300, k, k, -2 + 2 * math.sin(t * 4), anchor='center')
+        fx.sparkles(fg, t, 540, 300, 800, 200, n=6, seed=30)
     GAR.reflect(img, fg)
     return finish(img, fg, CAM3, t)
 
@@ -261,13 +267,23 @@ def shot_keys(t):
     return finish(img, fg, CAM4, t)
 
 
-shot_teaser, TEASE_CUES = kit.teaser(13.95, WORDS)
+# ================================================================== new read, reordered: applicants, 275 keys, showroom, engine, question
+def section(n0, n1, o0, o1):
+    """(new, old) anchors for one stretch of the new read that replays the old span o0..o1, matched word by word."""
+    nw = [w for w in NEW if n0 <= w['s'] < n1]; ow = [w for w in WORDS if o0 <= w['s'] < o1]
+    return [(n0, o0)] + [p for p in kit.word_pairs(nw, ow)] + [(n1 - 0.01, o1)]
+SECS = [(0.0, 3.3, 8.45, 11.05), (3.3, 6.3, 11.1, 13.9), (6.3, 11.6, -0.2, 3.5), (11.6, BODY_END, 3.6, 8.38), (BODY_END, END_T + 0.2, 9.6, 11.0)]
+ANCH = sum((section(*sc) for sc in SECS), [])
+WARP = kit.warp(ANCH)
+shot_teaser, TEASE_CUES = kit.teaser(END_T, NEW)
 
 # ================================================================== shots + transitions
-SHOTS = [(-1.0, shot_showroom), (3.55, shot_engine), (8.4, shot_applied), (11.1, shot_keys), (13.95, shot_teaser)]
-TRANS = {1: (3.55, 3.75, 'whip', dict(dx=1)), 2: (8.4, 8.6, 'iris', (560, 620)), 4: (13.95, 14.15, 'whip', dict(dx=1))}
-KEYCOL = {'mercedes': YEL, 'road': YEL, 'formula': YEL, '1.6-litre': YEL, 'hybrid,': GRN, '1,000': RED, 'thousand': YEL, 'applied': YEL,
-          '275': GRN, 'chance.': GRN}
+SHOTS = [(-1.0, kit.retime(shot_applied, WARP)), (3.3, kit.retime(shot_keys, WARP)), (6.3, kit.retime(shot_showroom, WARP)),
+         (11.6, kit.retime(shot_engine, WARP)), (BODY_END, kit.retime(shot_applied, WARP)), (END_T, shot_teaser)]
+TRANS = {2: (6.3, 6.5, 'whip', dict(dx=1)), 3: (11.6, 11.8, 'whip', dict(dx=0, dy=1)), 4: (BODY_END, BODY_END + 0.2, 'iris', (560, 620)),
+         5: (END_T, END_T + 0.2, 'whip', dict(dx=1))}
+KEYCOL = {'thousand': YEL, 'applied': YEL, '275': GRN, 'chance': GRN, 'mercedes\'': YEL, 'project': YEL, 'formula': YEL, '1.6-litre': YEL,
+          'hybrid,': GRN, '1,000': RED, 'applied?': YEL}
 CUES = [
     (0.0, 'whoosh', 0.4), (0.05, 'pop', 0.5), (0.1, 'ding', 0.5), (0.3, 'pop', 0.5), (0.6, 'sparkle', 0.5), (1.19, 'pop', 0.6),
     (1.96, 'vroom', 0.6), (MORPH - 0.05, 'whoosh', 0.6), (MORPH, 'poof', 0.8), (MORPH + 0.02, 'sparkle', 0.8), (2.85, 'pop', 0.5),
@@ -276,9 +292,11 @@ CUES = [
     (8.45, 'pop', 0.4), (8.6, 'pop', 0.4), (8.75, 'pop', 0.4), (8.94, 'whoosh', 0.5), (9.74, 'pop', 0.5), (10.3, 'ding', 0.5),
     (GONE, 'poof', 0.8), (GONE + 0.3, 'coin', 0.5), (GONE + 0.5, 'coin', 0.5), (11.44, 'stamp', 0.7), (11.98, 'ding', 0.8),
     (12.44, 'pop', 0.6), (12.8, 'thump', 0.5), (13.01, 'confetti', 0.8),
-] + TEASE_CUES
+]
+CUES = [(0.0, 'whoosh', 0.4), (0.05, 'pop', 0.5)] + kit.warp_cues(CUES, ANCH, END_T) + TEASE_CUES
 
-kit.setup(HERE, WORDS, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='silver', gauge=True, loud=True)
+kit.setup(HERE, NEW, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='silver', gauge=True, loud=True, crisp=True,
+          end=('car stuff, explained', 'tell me in the comments'))
 
 if __name__ == '__main__':
     kit.main()

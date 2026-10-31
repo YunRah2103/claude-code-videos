@@ -26,8 +26,10 @@ from pixanim import fx, diagram as dg
 from pixanim.fx import blit, popin, popout
 from pixanim.grid import up, outline
 
-WORDS = kit.load_words(HERE)
-DUR, END_T = 17.2, 15.3
+WORDS = kit.load_words(HERE, 'words_v1.json')     # first read: the body shots are timed on it
+NEW = kit.load_words(HERE)                          # current read (captions); WARP maps it onto WORDS
+Q_END, BODY_END, END_T = 2.55, 17.45, 19.1
+DUR = END_T + 1.0
 PENCIL = (60, 90, 170)
 
 
@@ -146,10 +148,37 @@ def shot_envelope(t):
 
 
 def overlay(cv, t):
-    title(cv, t, 0.05, 2.5, 'Drawn on', YEL, 380, 130, -3)
-    title(cv, t, 0.3, 2.5, 'an envelope', YEL, 520, 120, 2)
-    title(cv, t, 6.52, 8.35, 'Sixteen cylinders', GRN, 470, 110, -3)
-    title(cv, t, 11.04, 12.45, 'about 1,000 horsepower', RED, 470, 96, 2)
+    title(cv, t, 0.05, Q_END - 0.1, 'What would you draw', WHITE, 480, 92, -3)
+    title(cv, t, 0.3, Q_END - 0.1, 'on an envelope?', YEL, 610, 116, 2)
+    to = WARP(t)
+    if Q_END <= t < BODY_END:
+        title(cv, to, 6.52, 8.35, 'Sixteen cylinders', GRN, 470, 110, -3)
+        title(cv, to, 11.04, 12.45, 'about 1,000 horsepower', RED, 470, 96, 2)
+    kit.photo_hq(cv, t, 13.95, 14.85, 'w16', 540, 900, 620, -3, 'A LATER PRODUCTION W16')
+    title(cv, t, BODY_END + 0.05, END_T - 0.1, 'Would you bet', WHITE, 480, 110, -2)
+    title(cv, t, BODY_END + 0.3, END_T - 0.1, 'on that sketch?', YEL, 610, 116, 2)
+
+
+# ================================================================== shot 0: the question, a blank envelope and a pencil
+CAM0 = Camera(W, H, [(-1.0, (540, 980, 1.3)), (0.0, (540, 980, 1.3)), (1.0, (540, 960, 1.14), 'io'), (Q_END, (540, 960, 1.2), 'io')],
+              kicks=[(0.44, 0.12, 540, 1000), (1.48, 0.16, 760, 760)])
+
+
+def shot_q(t):
+    img = GAR.frame(t).convert('RGBA'); fg = layer()
+    k = popin(t, 0.05, 0.3)
+    blit(fg, up(envelope(0.0), 8), 480, 1260, k, k, 3 * math.sin(t * 3))
+    px, py = 700 + 40 * math.sin(t * 5), 900 + 30 * math.cos(t * 4)
+    ImageDraw.Draw(fg).line([(px, py), (px + 110, py - 200)], fill=(240, 196, 60), width=26)
+    ImageDraw.Draw(fg).polygon([(px, py), (px + 12, py - 34), (px - 10, py - 26)], fill=(40, 40, 50))
+    if t >= 0.86: fx.dust(fg, t, 0.86, px, py, n=6, seed=70, col=(120, 140, 200))
+    if t >= 1.48:
+        kq = popin(t, 1.48, 0.25) * (1 + 0.1 * math.sin(t * 9))
+        blit(fg, fx.big('glyph', '?', '#e0303a', s=18), 800, 800, kq, kq, 10 * math.sin(t * 5), anchor='center')
+        fx.burst(fg, t, 1.48, 800, 800, RED, n=12, seed=71)
+    fx.sparkles(fg, t, 540, 1000, 800, 400, n=6, seed=72)
+    GAR.reflect(img, fg)
+    return finish(img, fg, CAM0, t)
 
 
 # ================================================================== shot 2: the sketch
@@ -284,23 +313,25 @@ def shot_back(t):
         fx.rays(fg, t, FLIP, 680, 1000, GLOW, hold=True, r=480)
         fx.sparkles(fg, t, 680, 1000, 640, 440, n=9, seed=40)
         fx.burst(fg, t, FLIP, 680, 1000, GLOW, n=16, seed=41)
-    if t >= 13.35:
-        k = popin(t, 13.35, 0.25) * popout(t, 14.0)
-        blit(fg, fx.big('tag', 'BEST ENGINES', '#fff6e0', '#1a1a2e', s=8), 680, 560, k, k, 4, anchor='center')
-    photo(fg, t, 12.67, 13.3, 'w16', 640, 860, 640, 460, -3, 'THE PRODUCTION W16', pix=4)
     P6.draw(fg, t)
     GAR.reflect(img, fg)
     return finish(img, fg, CAM6, t)
 
 
-shot_teaser, TEASE_CUES = kit.teaser(15.2, WORDS)
+# ================================================================== new read: question, body on the first read's timing, question
+BODY = [p for p in kit.word_pairs(NEW, WORDS) if Q_END < p[0] < BODY_END - 0.3]
+ANCH = [(Q_END - 0.05, BODY[0][1] - (BODY[0][0] - Q_END + 0.05))] + BODY + [(BODY_END - 0.01, 12.45), (BODY_END, 13.6), (END_T + 0.2, 15.2)]
+WARP, N = kit.warp(ANCH), kit.unwarp(BODY)
+shot_teaser, TEASE_CUES = kit.teaser(END_T, NEW)
 
 # ================================================================== shots + transitions
-SHOTS = [(-1.0, shot_envelope), (2.6, shot_sketch), (5.1, shot_turbos), (6.4, shot_w16), (8.4, shot_2001), (12.5, shot_back), (15.2, shot_teaser)]
-TRANS = {1: (2.6, 2.8, 'push', None), 2: (5.1, 5.3, 'whip', dict(dx=1)), 3: (6.4, 6.6, 'iris', (540, 900)), 4: (8.4, 8.6, 'whip', dict(dx=0, dy=1)),
-         5: (12.5, 12.7, 'push', None), 6: (15.2, 15.4, 'whip', dict(dx=1))}
-KEYCOL = {'1997,': YEL, 'reportedly': YEL, '16-cylinder': YEL, 'envelope.': YEL, 'turbochargers.': GRN, 'cylinders,': GRN, 'w': YEL,
-          '2001,': YEL, 'version': YEL, '1,000': RED, 'best': YEL, 'back': YEL}
+SHOTS = [(-1.0, shot_q), (Q_END, kit.retime(shot_envelope, WARP)), (N(2.6), kit.retime(shot_sketch, WARP)), (N(5.1), kit.retime(shot_turbos, WARP)),
+         (N(6.4), kit.retime(shot_w16, WARP)), (N(8.4), kit.retime(shot_2001, WARP)), (BODY_END, kit.retime(shot_back, WARP)), (END_T, shot_teaser)]
+TRANS = {1: (Q_END, Q_END + 0.2, 'iris', (480, 1000)), 2: (N(2.6), N(2.6) + 0.2, 'push', None), 3: (N(5.1), N(5.1) + 0.2, 'whip', dict(dx=1)),
+         4: (N(6.4), N(6.4) + 0.2, 'iris', (540, 900)), 5: (N(8.4), N(8.4) + 0.2, 'whip', dict(dx=0, dy=1)), 6: (BODY_END, BODY_END + 0.2, 'push', None),
+         7: (END_T, END_T + 0.2, 'whip', dict(dx=1))}
+KEYCOL = {'draw': YEL, 'envelope?': YEL, '1997,': YEL, 'reportedly': YEL, '16-cylinder': YEL, 'turbochargers.': GRN, 'cylinders,': GRN, 'w': YEL,
+          '2001,': YEL, 'version': YEL, '1,000': RED, 'bet': YEL, 'sketch?': YEL}
 CUES = [
     (0.0, 'whoosh', 0.4), (0.05, 'pop', 0.5), (0.14, 'pop', 0.6), (0.2, 'creak', 0.6), (0.6, 'slide_down', 0.5), (0.9, 'sparkle', 0.6),
     (1.26, 'pop', 0.3), (2.21, 'stamp', 0.6),
@@ -309,9 +340,12 @@ CUES = [
     (6.45, 'whoosh', 0.5), (6.95, 'thump', 0.8), (7.0, 'vroom', 0.8), (7.76, 'stamp', 0.9), (7.78, 'sparkle', 0.7),
     (8.86, 'ding', 0.7), (9.94, 'pop', 0.6), (10.71, 'vroom', 1.0), (11.28, 'whoosh', 0.5), (11.88, 'confetti', 0.8), (11.9, 'ding', 0.8),
     (12.67, 'pop', 0.5), (13.35, 'pop', 0.6), (FLIP - 0.15, 'whoosh', 0.6), (FLIP, 'sparkle', 0.9), (14.63, 'ding', 0.6),
-] + TEASE_CUES
+]
+Q_CUES = [(0.0, 'whoosh', 0.4), (0.05, 'pop', 0.6), (0.44, 'pop', 0.5), (0.86, 'click', 0.5), (1.1, 'click', 0.4), (1.48, 'pop', 0.8), (1.5, 'sparkle', 0.6)]
+CUES = Q_CUES + kit.warp_cues(CUES, ANCH, END_T) + TEASE_CUES
 
-kit.setup(HERE, WORDS, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='blue', gauge=True, loud=True)
+kit.setup(HERE, NEW, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='blue', gauge=True, loud=True, crisp=True,
+          end=('car stuff, explained', 'tell me in the comments'))
 
 if __name__ == '__main__':
     kit.main()

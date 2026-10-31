@@ -27,8 +27,10 @@ from pixanim import fx, diagram as dg
 from pixanim.fx import blit, popin, popout
 from pixanim.grid import up, outline
 
-WORDS = kit.load_words(HERE)
-DUR, END_T = 17.2, 15.32
+WORDS = kit.load_words(HERE, 'words_v1.json')     # first read: the body shots are timed on it
+NEW = kit.load_words(HERE)                          # current read (captions); WARP maps it onto WORDS
+Q_END, BODY_END, END_T = 2.3, 17.15, 18.6          # the read stops after 'protection.': the closing question is shown, not spoken
+DUR = END_T + 1.0
 STEEL, STEEL_HI, STEEL_LO = (186, 190, 196), (224, 228, 234), (140, 144, 152)
 GLASS = (46, 56, 72)
 FRONT_WIN = [(60, 8), (88, 17), (88, 19), (60, 19)]
@@ -149,11 +151,17 @@ def shot_hook(t):
 
 
 def overlay(cv, t):
-    title(cv, t, 0.05, 2.0, 'Not quite.', RED, 470, 160, -3)
-    title(cv, t, 2.22, 3.45, '3 mm stainless steel', YEL, 520, 88, 2)
-    title(cv, t, 6.82, 8.5, 'resisted 9mm', GRN, 430, 130, -2)
-    title(cv, t, 8.92, 10.9, 'rifle rounds', RED, 400, 120, 2)
-    title(cv, t, 9.1, 10.9, 'got through', RED, 530, 120, -2)
+    title(cv, t, 0.05, Q_END - 0.1, 'Is it', WHITE, 480, 140, -3)
+    title(cv, t, 0.25, Q_END - 0.1, 'bulletproof?', RED, 610, 140, 3)
+    to = WARP(t)
+    if Q_END <= t < BODY_END:
+        title(cv, to, 2.22, 3.45, '3 mm stainless steel', YEL, 520, 88, 2)
+        title(cv, to, 6.82, 8.5, 'resisted 9mm', GRN, 480, 130, -2)
+        title(cv, to, 8.92, 10.9, 'rifle rounds', RED, 480, 120, 2)
+        title(cv, to, 9.1, 10.9, 'got through', RED, 610, 120, -2)
+    kit.photo_hq(cv, t, 2.45, 3.15, 'cybertruck', 540, 980, 600, 3, 'A PRODUCTION TRUCK')
+    title(cv, t, BODY_END + 0.05, END_T - 0.1, 'So, would you', WHITE, 480, 120, -2)
+    title(cv, t, BODY_END + 0.25, END_T - 0.1, 'still buy one?', YEL, 610, 130, 2)
 
 
 # ================================================================== shot 2: 3 mm stainless, same as the rocket
@@ -269,7 +277,6 @@ def shot_windows(t):
     if t >= 12.7:
         k = fx.slam(t, 12.7) * popin(t, 12.7, 0.2)
         blit(fg, fx.big('badge', 'NO REAL PROTECTION', '#e0303a', '#ffffff', '#b8222c', s=7), 540, 640, k, k, -5, anchor='center')
-    photo(fg, t, 11.02, 11.55, 'cybertruck', 560, 700, 560, 400, 3, 'A PRODUCTION TRUCK', focus=(0.5, 0.6), pix=4)
     dg.label(fg, t, 11.33, 'WINDOWS', (ox + 74 * s, oy + 12 * s), (820, 700), '#7fd4ff', '#1a1a2e', '#3c9ad8', s=7, t1=12.6)
     GAR.reflect(img, fg)
     return finish(img, fg, CAM5, t)
@@ -289,20 +296,28 @@ CAM6 = Camera(W, H, [(13.3, (560, 920, 1.12)), (13.77, (560, 880, 1.18), 'io'), 
 def shot_verdict(t):
     img = GAR.frame(t).convert('RGBA'); fg = layer()
     sign_scene(fg, t, 13.4, tx=600, s=7)
-    if t >= NOTQ: fx.stamp_at(fg, t, NOTQ, 'NOT QUITE', 560, 1040, rot=-10, s=10)
+    if t >= NOTQ:
+        k = popin(t, NOTQ, 0.25)
+        blit(fg, fx.big('tag', 'STILL BUY ONE?', '#fff6e0', '#1a1a2e', s=8), 560, 1060, k, k, -6 + 2 * math.sin(t * 5), anchor='center')
+        fx.burst(fg, t, NOTQ, 560, 1060, GLOW, n=12, seed=70)
     P6.draw(fg, t)
     GAR.reflect(img, fg)
     return finish(img, fg, CAM6, t)
 
 
-shot_teaser, TEASE_CUES = kit.teaser(15.2, WORDS)
+# ================================================================== new read: question (the sign), body on the first read's timing, question
+BODY = [p for p in kit.word_pairs(NEW, WORDS) if Q_END < p[0] < BODY_END - 0.3 and p[1] >= 2.6]
+ANCH = [(0.0, -0.2), (Q_END, 2.0), (Q_END + 0.01, 2.05), (3.27, 2.38)] + BODY + [(BODY_END - 0.01, 13.25), (BODY_END, 13.35), (END_T + 0.2, 15.0)]
+WARP, N = kit.warp(ANCH), kit.unwarp(ANCH[3:-2])
+shot_teaser, TEASE_CUES = kit.teaser(END_T, NEW)
 
 # ================================================================== shots + transitions
-SHOTS = [(-1.0, shot_hook), (2.1, shot_steel), (5.45, shot_9mm), (8.6, shot_rifle), (11.0, shot_windows), (13.3, shot_verdict), (15.2, shot_teaser)]
-TRANS = {1: (2.1, 2.3, 'iris', (480, 840)), 2: (5.45, 5.65, 'whip', dict(dx=1)), 3: (8.6, 8.8, 'push', None), 4: (11.0, 11.2, 'whip', dict(dx=0, dy=1)),
-         5: (13.3, 13.5, 'push', None), 6: (15.2, 15.4, 'whip', dict(dx=1))}
-KEYCOL = {'3': YEL, 'stainless': YEL, 'alloy': YEL, 'starship.': YEL, 'independent': YEL, '9mm': GRN, 'rifle': RED, 'outer': RED,
-          'windows': YEL, 'protection.': RED, 'bulletproof?': YEL, 'quite.': RED}
+SHOTS = [(-1.0, kit.retime(shot_hook, WARP)), (Q_END, kit.retime(shot_steel, WARP)), (N(5.45), kit.retime(shot_9mm, WARP)),
+         (N(8.6), kit.retime(shot_rifle, WARP)), (N(11.0), kit.retime(shot_windows, WARP)), (BODY_END, kit.retime(shot_verdict, WARP)), (END_T, shot_teaser)]
+TRANS = {1: (Q_END, Q_END + 0.2, 'iris', (480, 840)), 2: (N(5.45), N(5.45) + 0.2, 'whip', dict(dx=1)), 3: (N(8.6), N(8.6) + 0.2, 'push', None),
+         4: (N(11.0), N(11.0) + 0.2, 'whip', dict(dx=0, dy=1)), 5: (BODY_END, BODY_END + 0.2, 'push', None), 6: (END_T, END_T + 0.2, 'whip', dict(dx=1))}
+KEYCOL = {'bulletproof?': RED, '3': YEL, 'stainless': YEL, 'alloy': YEL, 'starship.': YEL, 'independent': YEL, '9mm': GRN, 'rifle': RED, 'outer': RED,
+          'windows': YEL, 'protection.': RED}
 CUES = [
     (0.0, 'whoosh', 0.4), (0.05, 'stamp', 0.6), (0.2, 'pop', 0.7), (0.3, 'boom', 0.4), (0.32, 'sparkle', 0.5), (0.86, 'click', 0.4),
     (2.15, 'thump', 0.6), (2.4, 'pop', 0.6), (2.62, 'pop', 0.5), (2.7, 'pop', 0.4), (3.52, 'pop', 0.6), (4.23, 'vroom', 0.9), (4.25, 'boom', 0.3),
@@ -312,9 +327,11 @@ CUES = [
     (PIERCE - 0.6, 'whoosh', 0.7), (PIERCE, 'crash', 0.9), (PIERCE + 0.02, 'boom', 0.4), (10.38, 'pop', 0.6), (10.56, 'buzzer', 0.7),
     (11.33, 'pop', 0.5), (11.6, 'crash', 0.6), (11.87, 'crash', 0.5), (12.14, 'crash', 0.5), (12.7, 'stamp', 0.8),
     (13.4, 'pop', 0.6), (13.55, 'pop', 0.6), (13.7, 'thump', 0.4), (NOTQ, 'stamp', 1.0), (NOTQ + 0.02, 'buzzer', 0.4),
-] + TEASE_CUES
+]
+CUES = kit.warp_cues(CUES, ANCH, END_T) + [(BODY_END + 0.05, 'pop', 0.6), (BODY_END + 0.3, 'pop', 0.6)] + TEASE_CUES
 
-kit.setup(HERE, WORDS, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='silver', gauge=True, loud=True)
+kit.setup(HERE, NEW, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='silver', gauge=True, loud=True, crisp=True,
+          end=('car stuff, explained', 'tell me in the comments'))
 
 if __name__ == '__main__':
     kit.main()

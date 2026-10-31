@@ -28,6 +28,11 @@ Reusable pieces for the pixel-art explainer episodes. Nothing here depends on on
 `episode.setup(..., crisp=True)` keeps the handheld sway nearest-neighbour; `photo(..., hq=True)` called from the overlay shows the whole photo uncropped, Lanczos-scaled. `vo.pace()` adds silence for very short reads.
 `vo_split.py` joins voiceover blocks with a fixed gap and cuts per-episode clips at the detected pauses nearest each word-count boundary, for reads whose episode gaps are no longer than sentence pauses (where `split_vo.py` cannot get one segment per episode). `photo(..., fit=True)` shows the whole photo in the world layer with a held, bicubic-rotated tilt.
 
+Re-voicing an episode (new read, same story): `word_pairs(new, old)` matches the words both reads share, `warp(anchors)`
+maps new time onto the old timeline (jumps allowed at cuts, so a stretch can replay an old shot), `retime(shot, warp)`
+runs an old shot on the new read, `warp_cues` moves its sound cues and `unwarp` places cuts. Keep the old timings as
+`words_v1.json`. Example: `videos/project-one-275` (story reordered section by section).
+
 Older episodes still carry their own copies of the caption/progress/mixer code; new ones use `episode.py`.
 
 `episode.py` extras: `photo_hq(cv, t, ...)` (call from `overlay`) draws an uncropped real photo, Lanczos-scaled at its own

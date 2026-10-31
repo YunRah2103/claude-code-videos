@@ -597,3 +597,39 @@ def main():
         os.remove(mix)
         print('done', ff.returncode)
         raise SystemExit(ff.returncode)
+
+
+# ------------------------------------------------------------------ re-voicing: run an episode's shots on a new read
+def word_pairs(new, old, skip=()):
+    """(new_s, old_s) for the words both reads share, in order (difflib on cleaned words); skip: old indices to drop."""
+    import difflib
+    a, b = [clean(w['w']) for w in new], [clean(w['w']) for w in old]
+    out = []
+    for m in difflib.SequenceMatcher(None, a, b, autojunk=False).get_matching_blocks():
+        out += [(new[m.a + k]['s'], old[m.b + k]['s']) for k in range(m.size) if m.b + k not in skip]
+    return out
+
+
+def warp(pairs):
+    """New-read time -> old-read time, piecewise linear through sorted (new, old) anchors. Two anchors at nearly
+    the same new time make a jump, so a segment can replay or skip part of the old timeline at a cut."""
+    xs, ys = map(list, zip(*sorted(pairs)))
+    return lambda t: float(np.interp(t, xs, ys, left=ys[0] + t - xs[0], right=ys[-1] + t - xs[-1]))
+
+
+def warp_cues(cues, pairs, t1=None):
+    """Old-timeline sound cues placed on the new timeline: each cue lands wherever a rising anchor segment covers
+    its old time (before t1, if given), so cues follow replays and drop out of skipped spans."""
+    ps = sorted(pairs); out = []
+    for (n0, o0), (n1, o1) in zip(ps, ps[1:]):
+        if o1 <= o0 or n1 <= n0: continue
+        out += [(n0 + (c - o0) * (n1 - n0) / (o1 - o0), name, vol) for c, name, vol in cues if o0 <= c < o1]
+    return sorted(c for c in out if t1 is None or c[0] < t1)
+
+
+def retime(fn, w): return lambda t: fn(w(t))
+
+
+def unwarp(pairs):
+    """Old-read time -> new-read time through monotone (new, old) anchors (for placing cuts and transitions)."""
+    ps = sorted(pairs, key=lambda p: p[1]); return lambda o: float(np.interp(o, [p[1] for p in ps], [p[0] for p in ps]))

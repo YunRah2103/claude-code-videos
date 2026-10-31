@@ -1,18 +1,16 @@
-"""Tighten and align the voiceover (OpenAI.fm 'cedar' TTS, supplied with the brief).
+"""Align the voiceover clip for this episode (OpenAI.fm 'cedar' TTS, three chunks supplied with the brief).
 
-voiceover_src.mp3 is the supplied read; vo.tighten() shortens its pauses into voiceover.mp3, which is aligned
-again so words.json matches the audio that ships.
+out/voiceover/full_voiceover.wav joins the three loudness-matched chunks with 2 s gaps; shared/vo_split.py cuts it
+into one clip per episode, saved as out/bugatti-envelope/voiceover.wav (not committed). The audio is used as read: no
+tightening or tempo change. words_v1.json keeps the previous read's timings, which render.py maps onto this one.
 """
 import os, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, '..', '..', '..', 'shared'))
 from align import align
-from vo import tighten
-SCRIPT = ('In 1997, Ferdinand Piëch reportedly sketched a 16-cylinder engine on an envelope. Four turbochargers. Sixteen cylinders, in a W shape. By 2001, the first version was running at about 1,000 horsepower. Some of the best engines start on the back of an envelope. Follow for the next one.')
+SCRIPT = ('What would you draw on the back of an envelope? In 1997, Ferdinand Piëch reportedly sketched a 16-cylinder engine. Four turbochargers. Sixteen cylinders, in a W shape. By 2001, the first version was running at about 1,000 horsepower. Would you have bet on that sketch?')
 SAY = {'1997': 'nineteen ninety seven', 'Piëch': 'piech', '16-cylinder': 'sixteen cylinder', 'W': 'double u', '2001': 'two thousand one', '1,000': 'one thousand', 'turbochargers': 'turbo chargers'}
 EXTRA = {}
-TARGET = 16.4
-J = lambda f: os.path.join(HERE, f)
-src = align(SCRIPT, J('voiceover_src.mp3'), J('words_src.json'), say=SAY, extra=EXTRA)
-tighten(J('voiceover_src.mp3'), src, J('voiceover.mp3'), target=TARGET, max_tempo=1.12, sent=0.26, comma=0.16, inner=0.18)
-align(SCRIPT, J('voiceover.mp3'), J('words.json'), say=SAY, extra=EXTRA)
+VO = os.path.join(HERE, '..', '..', '..', 'out', 'bugatti-envelope', 'voiceover.wav')
+if __name__ == '__main__':
+    align(SCRIPT, VO, os.path.join(HERE, 'words.json'), say=SAY, extra=EXTRA)

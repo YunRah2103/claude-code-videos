@@ -1,18 +1,16 @@
-"""Tighten and align the voiceover (OpenAI.fm 'cedar' TTS, supplied with the brief).
+"""Align the voiceover clip for this episode (OpenAI.fm 'cedar' TTS, three chunks supplied with the brief).
 
-voiceover_src.mp3 is the supplied read; vo.tighten() shortens its pauses into voiceover.mp3, which is aligned
-again so words.json matches the audio that ships.
+out/voiceover/full_voiceover.wav joins the three loudness-matched chunks with 2 s gaps; shared/vo_split.py cuts it
+into one clip per episode, saved as out/bugatti-3712-parts/voiceover.wav (not committed). The audio is used as read: no
+tightening or tempo change. words_v1.json keeps the previous read's timings, which render.py maps onto this one.
 """
 import os, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, '..', '..', '..', 'shared'))
 from align import align
-from vo import tighten
-SCRIPT = ('Bugatti says two people spend six days building one of its W16 engines. It has 3,712 parts. And it watches every spark plug, checking for problems. If it spots one, it can shut down a cylinder or pull back the boost. Precision you can count. Follow for the next one.')
+SCRIPT = ('How many parts go into one engine? Bugatti says two people spend six days building one of its W16 engines. It has 3,712 parts. And it watches every spark plug, checking for problems. If it spots one, it can shut down a cylinder or pull back the boost. Would you trust a car that watches every spark plug?')
 SAY = {'W16': 'double u sixteen', '3,712': 'three thousand seven hundred and twelve'}
 EXTRA = {}
-TARGET = 16.4
-J = lambda f: os.path.join(HERE, f)
-src = align(SCRIPT, J('voiceover_src.mp3'), J('words_src.json'), say=SAY, extra=EXTRA)
-tighten(J('voiceover_src.mp3'), src, J('voiceover.mp3'), target=TARGET, max_tempo=1.12, sent=0.26, comma=0.16, inner=0.18)
-align(SCRIPT, J('voiceover.mp3'), J('words.json'), say=SAY, extra=EXTRA)
+VO = os.path.join(HERE, '..', '..', '..', 'out', 'bugatti-3712-parts', 'voiceover.wav')
+if __name__ == '__main__':
+    align(SCRIPT, VO, os.path.join(HERE, 'words.json'), say=SAY, extra=EXTRA)

@@ -27,8 +27,10 @@ from pixanim import fx, sprites, diagram as dg
 from pixanim.fx import blit, popin, popout
 from pixanim.grid import up, outline, Grid, text_width
 
-WORDS = kit.load_words(HERE)
-DUR, END_T = 17.2, 15.35
+WORDS = kit.load_words(HERE, 'words_v1.json')     # first read: the body shots are timed on it
+NEW = kit.load_words(HERE)                          # current read (captions); WARP maps it onto WORDS
+Q_END, BODY_END, END_T = 2.15, 18.2, 21.1
+DUR = END_T + 1.0
 
 
 # ------------------------------------------------------------------ episode sprites
@@ -167,11 +169,16 @@ def shot_boom(t):
 
 
 def overlay(cv, t):
-    title(cv, t, 0.05, 1.65, '3,712', RED, 400, 190, -3)
-    title(cv, t, 0.3, 1.65, 'parts', WHITE, 570, 140, 3)
-    title(cv, t, 1.85, 4.9, 'six days', YEL, 420, 130, -2)
-    title(cv, t, 7.88, 10.25, 'watches every', GRN, 420, 110, -2)
-    title(cv, t, 8.1, 10.25, 'spark plug', GRN, 550, 120, 2)
+    title(cv, t, 0.05, Q_END - 0.1, 'How many parts', WHITE, 480, 112, -3)
+    title(cv, t, 0.3, Q_END - 0.1, 'in one engine?', RED, 610, 120, 2)
+    to = WARP(t)
+    if Q_END <= t < BODY_END:
+        title(cv, to, 1.85, 4.9, 'six days', YEL, 480, 130, -2)
+        title(cv, to, 7.88, 10.25, 'watches every', GRN, 480, 110, -2)
+        title(cv, to, 8.1, 10.25, 'spark plug', GRN, 610, 120, 2)
+    kit.photo_hq(cv, t, 9.6, 10.5, 'w16', 540, 900, 600, 3, 'A W16 ON DISPLAY', crop=(0.0, 0.2, 1.0, 1.0))
+    title(cv, t, BODY_END + 0.05, END_T - 0.1, 'Would you trust', WHITE, 480, 104, -2)
+    title(cv, t, BODY_END + 0.3, END_T - 0.1, 'a car that checks?', GRN, 610, 104, 2)
 
 
 # ================================================================== shot 2: two people, six days
@@ -228,7 +235,6 @@ def shot_count(t):
              480, 560, k, k, -2 + 2 * math.sin(t * 5), anchor='center')
         fx.sparkles(fg, t, 480, 560, 700, 220, n=6, seed=31)
     if t >= 6.86: fx.burst(fg, t, 6.86, 480, 560, RED, n=18, seed=32); fx.confetti(fg, t, 6.86, 480, 500, n=30, seed=33)
-    photo(fg, t, 6.0, 6.8, 'w16', 500, 900, 600, 420, -3, 'A W16 ON DISPLAY', pix=4)
     P3.draw(fg, t)
     GAR.reflect(img, fg)
     return finish(img, fg, CAM3, t)
@@ -322,14 +328,19 @@ def shot_snap(t):
     return finish(img, fg, CAM6, t)
 
 
-shot_teaser, TEASE_CUES = kit.teaser(15.25, WORDS)
+# ================================================================== new read: question (the engine bursts), body on the first read's timing, question
+BODY = [p for p in kit.word_pairs(NEW, WORDS) if Q_END < p[0] < BODY_END - 0.3 and p[1] >= 1.8]
+ANCH = [(0.0, -0.3), (Q_END, 1.65), (Q_END + 0.01, 0.9)] + BODY + [(BODY_END - 0.01, 13.85), (BODY_END, 7.45), (END_T + 0.2, 10.3)]
+WARP, N = kit.warp(ANCH), kit.unwarp(BODY)
+shot_teaser, TEASE_CUES = kit.teaser(END_T, NEW)
 
 # ================================================================== shots + transitions
-SHOTS = [(-1.0, shot_boom), (1.7, shot_build), (4.95, shot_count), (7.35, shot_plugs), (10.3, shot_problem), (13.85, shot_snap), (15.25, shot_teaser)]
-TRANS = {1: (1.7, 1.9, 'whip', dict(dx=1)), 2: (4.95, 5.15, 'push', None), 3: (7.35, 7.55, 'iris', (480, 560)), 4: (10.3, 10.5, 'whip', dict(dx=0, dy=1)),
-         5: (13.85, 14.05, 'push', None), 6: (15.25, 15.45, 'whip', dict(dx=1))}
-KEYCOL = {'bugatti': YEL, 'six': YEL, 'w16': YEL, '3,712': RED, 'spark': GRN, 'problems.': RED, 'spots': RED, 'cylinder': YEL,
-          'boost.': YEL, 'precision': GRN}
+SHOTS = [(-1.0, kit.retime(shot_boom, WARP)), (Q_END, kit.retime(shot_build, WARP)), (N(4.95), kit.retime(shot_count, WARP)),
+         (N(7.35), kit.retime(shot_plugs, WARP)), (N(10.3), kit.retime(shot_problem, WARP)), (BODY_END, kit.retime(shot_plugs, WARP)), (END_T, shot_teaser)]
+TRANS = {1: (Q_END, Q_END + 0.2, 'whip', dict(dx=1)), 2: (N(4.95), N(4.95) + 0.2, 'push', None), 3: (N(7.35), N(7.35) + 0.2, 'iris', (480, 560)),
+         4: (N(10.3), N(10.3) + 0.2, 'whip', dict(dx=0, dy=1)), 5: (BODY_END, BODY_END + 0.2, 'iris', (540, 900)), 6: (END_T, END_T + 0.2, 'whip', dict(dx=1))}
+KEYCOL = {'parts': RED, 'bugatti': YEL, 'six': YEL, 'w16': YEL, '3,712': RED, 'spark': GRN, 'problems.': RED, 'spots': RED, 'cylinder': YEL,
+          'boost.': YEL, 'trust': GRN}
 CUES = [
     (0.0, 'whoosh', 0.4), (0.05, 'pop', 0.5), (BOOM, 'boom', 1.0), (BOOM + 0.02, 'crash', 0.5), (BOOM + 0.05, 'sparkle', 0.8), (0.6, 'poof', 0.4),
     (1.01, 'pop', 0.6), (1.75, 'thump', 0.5), (1.87, 'thump', 0.5)] + [(1.85 + k * 2.5 / 6, 'click', 0.6) for k in range(6)] + [
@@ -338,9 +349,11 @@ CUES = [
     (7.5, 'click', 0.6), (8.31, 'whoosh', 0.6), (8.55, 'pop', 0.6), (9.25, 'ding', 0.5), (9.69, 'pop', 0.6),
     (10.64, 'buzzer', 0.7), (10.66, 'thump', 0.6), (11.65, 'poof', 0.7), (11.89, 'stamp', 0.6), (12.74, 'pop', 0.6), (12.87, 'slide_down', 0.5),
     (13.99, 'pop', 0.6), (SNAP, 'whoosh', 0.7), (SNAP + 0.35, 'thump', 0.9), (SNAP + 0.37, 'sparkle', 0.8), (14.76, 'ding', 0.7),
-] + TEASE_CUES
+]
+CUES = kit.warp_cues(CUES, ANCH, END_T) + TEASE_CUES
 
-kit.setup(HERE, WORDS, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='blue', gauge=True, loud=True)
+kit.setup(HERE, NEW, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='blue', gauge=True, loud=True, crisp=True,
+          end=('car stuff, explained', 'tell me in the comments'))
 
 if __name__ == '__main__':
     kit.main()

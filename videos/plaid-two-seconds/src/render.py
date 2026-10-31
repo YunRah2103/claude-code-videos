@@ -26,9 +26,13 @@ from pixanim.dash import Dashboard
 from pixanim import fx, diagram as dg
 from pixanim.fx import blit, popin, popout
 from pixanim.grid import up, outline
+from pixanim import autos
+from pixanim.street import Street
 
-WORDS = kit.load_words(HERE)
-DUR, END_T = 17.0, 15.2
+WORDS = kit.load_words(HERE, 'words_v1.json')     # first read: the body shots are timed on it
+NEW = kit.load_words(HERE)                          # current read (captions); WARP maps it onto WORDS
+Q_END, BODY_END, END_T = 3.35, 15.95, 18.45
+DUR = END_T + 1.0
 
 
 # ------------------------------------------------------------------ episode sprites
@@ -102,10 +106,45 @@ def shot_timer(t):
 
 
 def overlay(cv, t):
-    title(cv, t, 0.05, 2.15, 'Faster than', YEL, 470, 120, -3)
-    title(cv, t, 0.25, 2.15, 'you can blink', YEL, 610, 120, 2)
-    title(cv, t, 7.0 + 1.86, 9.75, 'three motors', GRN, 560, 120, -3)
-    title(cv, t, 11.94, 13.1, 'claimed', RED, 380, 120, 3)
+    title(cv, t, 0.05, Q_END - 0.1, 'Four-door car', WHITE, 480, 108, -3)
+    title(cv, t, 0.3, Q_END - 0.1, 'vs supercar?', YEL, 610, 120, 3)
+    to = WARP(t)
+    if Q_END <= t < BODY_END:
+        title(cv, to, 7.0 + 1.86, 9.75, 'three motors', GRN, 560, 120, -3)
+        title(cv, to, 11.94, 13.1, 'claimed', RED, 380, 120, 3)
+    title(cv, t, BODY_END + 0.05, END_T - 0.1, 'What would you do', WHITE, 480, 96, -2)
+    title(cv, t, BODY_END + 0.3, END_T - 0.1, 'with 1.99 s?', YEL, 610, 120, 2)
+
+
+# ================================================================== shot 0: the question, four-door vs supercar at the line
+GREEN = 2.3
+CAM0 = Camera(W, H, [(-1.0, (540, 1000, 1.3)), (0.0, (540, 1000, 1.3)), (1.6, (540, 980, 1.14), 'io'), (GREEN, (560, 1000, 1.22), 'io'), (Q_END, (640, 1000, 1.12), 'io')],
+              kicks=[(0.87, 0.1, 300, 1100), (1.64, 0.12, 780, 1100), (GREEN, 0.24, 540, 1050)], shakes=[(GREEN, 0.5, 14)])
+
+
+def shot_q(t):
+    go = t >= GREEN
+    scroll = 0 if not go else 2200 * ic(prog(t, GREEN, 0.9)) + max(0, t - GREEN - 0.9) * 2200
+    img = street(t, scroll); fg = layer()
+    stage = 0 if t < 0.6 else 4 if go else min(3, 1 + int((t - 0.6) / 0.45))
+    blit(fg, up(autos.light_tree(stage), 6), 540, ROAD_Y - 150, popin(t, 0.1), popin(t, 0.1))
+    u = ic(prog(t, GREEN, 1.0)) if go else 0
+    k1, k2 = popin(t, 0.87, 0.25), popin(t, 1.64, 0.25)
+    shk = 3 * math.sin(t * 60)
+    draw_car(fg, 'silver', 250 + 1600 * u * 1.05, 4, y=ROAD_Y - 40 + shk * (not go), dist=scroll, lights=True, sx=k1, sy=k1)
+    blit(fg, up(autos.supercar('wedge', int(scroll) % 360 // 30 * 30, True), 4), 790 + 1600 * u, ROAD_Y + 30 - shk * (not go), k2, k2)
+    if go:
+        fx.speed_lines(fg, 0.9, int(t * 12) % 5, col=(200, 204, 220)); fx.ring(fg, t, GREEN, 540, ROAD_Y - 330, (60, 230, 90), r1=520)
+        for k in range(5): fx.puff(fg, t, GREEN + k * 0.05, 200, ROAD_Y - 20, seed=60 + k, drift=(-300, -60), col=(200, 204, 214))
+    if t >= 0.87: fx.burst(fg, t, 0.87, 260, ROAD_Y - 120, GLOW, n=8, r0=60, r1=220, seed=61)
+    if t >= 1.64: fx.burst(fg, t, 1.64, 800, ROAD_Y - 60, RED, n=8, r0=60, r1=220, seed=62)
+    if t >= 0.87:
+        k = popin(t, 0.87, 0.25) * popout(t, GREEN)
+        blit(fg, fx.big('tag', '4 DOORS', '#fff6e0', '#1a1a2e', s=7), 260, ROAD_Y - 330, k, k, -5, anchor='center')
+    if t >= 1.64:
+        k = popin(t, 1.64, 0.25) * popout(t, GREEN)
+        blit(fg, fx.big('tag', 'SUPERCAR', '#fff6e0', '#d6303a', s=7), 820, ROAD_Y - 300, k, k, 5, anchor='center')
+    return CAM0.apply(Image.alpha_composite(img, fg).convert('RGB'), t, (14, 15, 18))
 
 
 # ================================================================== shot 2: a claimed 1.99 s
@@ -172,7 +211,6 @@ def shot_launch(t):
             blit(fg, up(motor(1.0 if int(t * 6 + i) % 3 else 0.6), 7), 340 + i * 200, 900 + 10 * math.sin(t * 6 + i), k, k, 0, anchor='center')
             fx.burst(fg, t, t0, 340 + i * 200, 900, (60, 200, 90), n=8, r0=60, r1=200, seed=22 + i)
     if t >= 8.86: fx.gsparkles(fg, t, 540, 900, 700, 200, n=8, seed=25)
-    photo(fg, t, 6.56, 7.4, 'plaid', 560, 1000, 620, 440, -3, 'A MODEL S PLAID, 2022', focus=(0.5, 0.6), pix=6)
     return CAM3.apply(Image.alpha_composite(img, fg).convert('RGB'), t, (14, 15, 18))
 
 
@@ -245,14 +283,19 @@ def shot_blink(t):
     return finish(img, fg, CAM5, t)
 
 
-shot_teaser, TEASE_CUES = kit.teaser(14.95, WORDS)
+# ================================================================== new read: question, body on the first read's timing, question
+BODY = [p for p in kit.word_pairs(NEW, WORDS) if Q_END < p[0] < BODY_END - 1]
+ANCH = [(Q_END - 0.05, BODY[0][1] - (BODY[0][0] - Q_END + 0.05))] + BODY + [(BODY_END - 0.01, 12.9), (BODY_END, 4.25), (END_T + 0.2, 6.4)]
+WARP, N = kit.warp(ANCH), kit.unwarp(BODY)
+shot_teaser, TEASE_CUES = kit.teaser(END_T, NEW)
 
 # ================================================================== shots + transitions
-SHOTS = [(-1.0, shot_timer), (2.2, shot_claimed), (6.45, shot_launch), (9.85, shot_power), (13.2, shot_blink), (14.95, shot_teaser)]
-TRANS = {1: (2.2, 2.4, 'whip', dict(dx=1)), 2: (6.45, 6.65, 'push', None), 3: (9.85, 10.05, 'whip', dict(dx=0, dy=1)),
-         4: (13.2, 13.4, 'iris', (540, 980)), 5: (14.95, 15.15, 'whip', dict(dx=1))}
-KEYCOL = {'plaid': YEL, 'claimed': RED, '60': YEL, '1.99': YEL, 'launched': YEL, '2021,': YEL, 'motors.': GRN, 'motors': GRN,
-          '1,000': YEL, 'company.': RED, 'company': RED, 'faster': YEL, 'blink.': YEL, 'blink': YEL}
+SHOTS = [(-1.0, shot_q), (Q_END, kit.retime(shot_timer, WARP)), (N(2.2), kit.retime(shot_claimed, WARP)), (N(6.45), kit.retime(shot_launch, WARP)),
+         (N(9.85), kit.retime(shot_power, WARP)), (BODY_END, kit.retime(shot_claimed, WARP)), (END_T, shot_teaser)]
+TRANS = {1: (Q_END, Q_END + 0.2, 'whip', dict(dx=0, dy=1)), 2: (N(2.2), N(2.2) + 0.2, 'whip', dict(dx=1)), 3: (N(6.45), N(6.45) + 0.2, 'push', None),
+         4: (N(9.85), N(9.85) + 0.2, 'whip', dict(dx=0, dy=1)), 5: (BODY_END, BODY_END + 0.2, 'iris', (540, 980)), 6: (END_T, END_T + 0.2, 'whip', dict(dx=1))}
+KEYCOL = {'four-door': YEL, 'supercar': RED, 'plaid': YEL, 'claimed': RED, '60': YEL, '1.99': YEL, 'launched': YEL, '2021,': YEL, 'motors.': GRN,
+          '1,000': YEL, 'company.': RED, 'do': YEL, 'seconds?': YEL}
 CUES = [
     (0.0, 'whoosh', 0.4), (0.05, 'pop', 0.5), (0.15, 'vroom', 0.7)] + [(0.15 + k * 0.37, 'click', 0.5) for k in range(5)] + [
     (2.0, 'ding', 0.9), (2.02, 'sparkle', 0.6),
@@ -262,9 +305,13 @@ CUES = [
     (10.02, 'click', 0.6), (10.2, 'click', 0.6), (10.38, 'click', 0.6), (10.34, 'whoosh', 0.5), (11.03, 'ding', 0.9), (11.05, 'confetti', 0.7),
     (12.44, 'stamp', 0.8),
     (13.3, 'pop', 0.5), (14.32, 'click', 0.4), (14.42, 'whoosh', 0.9), (14.5, 'vroom', 0.6), (14.55, 'stamp', 0.7),
-] + TEASE_CUES
+]
+Q_CUES = [(0.0, 'whoosh', 0.4), (0.1, 'pop', 0.5), (0.6, 'click', 0.5), (1.05, 'click', 0.5), (1.5, 'click', 0.5), (0.87, 'pop', 0.6),
+          (1.64, 'vroom', 0.6), (GREEN, 'ding', 0.6), (GREEN + 0.02, 'vroom', 1.0), (GREEN + 0.05, 'screech', 0.4)]
+CUES = Q_CUES + kit.warp_cues(CUES, ANCH, END_T) + TEASE_CUES
 
-kit.setup(HERE, WORDS, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='silver', gauge=True, loud=True)
+kit.setup(HERE, NEW, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='silver', gauge=True, loud=True, crisp=True,
+          end=('car stuff, explained', 'tell me in the comments'))
 
 if __name__ == '__main__':
     kit.main()

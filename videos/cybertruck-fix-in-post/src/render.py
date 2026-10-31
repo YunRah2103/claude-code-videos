@@ -27,8 +27,10 @@ from pixanim import fx, diagram as dg
 from pixanim.fx import blit, popin, popout
 from pixanim.grid import up, outline
 
-WORDS = kit.load_words(HERE)
-DUR, END_T = 16.4, 14.4
+WORDS = kit.load_words(HERE, 'words_v1.json')     # first read: the body shots are timed on it
+NEW = kit.load_words(HERE)                          # current read (captions); WARP maps it onto WORDS
+Q_END, BODY_END, END_T = 3.9, 16.15, 18.2
+DUR = END_T + 1.0
 STEEL, STEEL_HI, STEEL_LO = (186, 190, 196), (224, 228, 234), (140, 144, 152)
 GLASS = (46, 56, 72)
 FRONT_WIN = [(60, 8), (88, 17), (88, 19), (60, 19)]
@@ -124,7 +126,7 @@ def shot_reveal(t):
     truck_at(fg, TX, GROUND, 7, t)
     fx.contact_shadow(fg, TX, GROUND, 740, s=7)
     if t < 1.0:                                           # the hook: a ball whips across the frame
-        u = prog(t, 0.05, 0.8); bx, by = lerp(-100, 1180, u), lerp(980, 640, u) - 160 * math.sin(math.pi * u)
+        u = prog(t, 0.05, 0.8); bx, by = lerp(-100, 1180, u), lerp(1020, 820, u) - 110 * math.sin(math.pi * u)
         for g in range(5): blit(fg, up(ball(), 13 - g * 2), bx - g * 70, by + g * 12, 1, 1, 0, anchor='center')
         fx.speed_lines(fg, 0.7, 2, col=(200, 204, 220))
     if t >= 1.17:
@@ -136,16 +138,20 @@ def shot_reveal(t):
         blit(fg, fx.big('badge', '2019', '#ffffff', '#1a1a2e', '#d6d9e2', s=11), 300, 740, k, k, -6, anchor='center')
         blit(fg, fx.big('tag', 'DEMO TRUCK', '#fff6e0', '#1a1a2e', s=7), 780, 760, k, k, 5, anchor='center')
     fx.sparkles(fg, t, 540, 900, 900, 300, n=6, seed=2)
-    photo(fg, t, 2.5, 3.2, 'cybertruck', 560, 1000, 620, 440, -3, 'A LATER PRODUCTION TRUCK', focus=(0.5, 0.6), pix=4)
     GAR.reflect(img, fg)
     return finish(img, fg, CAM1, t)
 
 
 def overlay(cv, t):
-    title(cv, t, 0.05, 3.2, "We'll fix it", RED, 420, 140, -3)
-    title(cv, t, 0.3, 3.2, 'in post', RED, 570, 140, 3)
-    title(cv, t, 6.42, 7.95, "driver's window", YEL, 430, 104, -2)
-    title(cv, t, 8.14, 10.25, 'then the rear', RED, 430, 110, 2)
+    title(cv, t, 0.05, Q_END - 0.1, 'Steel ball vs', WHITE, 480, 130, -3)
+    title(cv, t, 0.3, Q_END - 0.1, 'Cybertruck?', RED, 610, 140, 3)
+    to = WARP(t)
+    if Q_END <= t < BODY_END:
+        title(cv, to, 6.42, 7.95, "driver's window", YEL, 480, 104, -2)
+        title(cv, to, 8.14, 10.25, 'then the rear', RED, 480, 110, 2)
+    kit.photo_hq(cv, t, 5.3, 5.9, 'cybertruck', 540, 960, 600, -3, 'A LATER PRODUCTION TRUCK')
+    title(cv, t, BODY_END + 0.05, END_T - 0.1, 'Would you trust', WHITE, 480, 110, -2)
+    title(cv, t, BODY_END + 0.3, END_T - 0.1, 'that window?', YEL, 610, 130, 2)
 
 
 # ================================================================== shot 2: the throw
@@ -205,7 +211,7 @@ def shot_driver(t):
         fx.burst(fg, t, SHAT, hx, hy, (220, 236, 255), n=18, seed=21); fx.glint(fg, t, SHAT, hx, hy)
         fx.sparkles(fg, t, hx, hy + 120, 500, 320, n=9, seed=22)
         k = fx.slam(t, SHAT + 0.05) * popin(t, SHAT + 0.05, 0.2)
-        blit(fg, fx.big('badge', 'SHATTERED', '#e0303a', '#ffffff', '#b8222c', s=9), 560, 640, k, k, -6, anchor='center')
+        blit(fg, fx.big('badge', 'SHATTERED', '#e0303a', '#ffffff', '#b8222c', s=9), 560, 790, k, k, -6, anchor='center')
     GAR.reflect(img, fg)
     return finish(img, fg, CAM3, t)
 
@@ -266,14 +272,20 @@ def shot_post(t):
     return finish(img, fg, CAM5, t)
 
 
-shot_teaser, TEASE_CUES = kit.teaser(14.2, WORDS)
+# ================================================================== new read: question (the ball in slow motion), body on the first read's timing, question
+BODY = [p for p in kit.word_pairs(NEW, WORDS) if 7.7 < p[0] < BODY_END - 0.3]
+ANCH = ([(0.0, -0.2), (Q_END, 0.95), (4.49, 1.81), (5.25, 2.6), (5.97, 3.41), (6.11, 3.49), (6.39, 3.78), (6.82, 4.23), (7.69, 5.45)] + BODY +
+        [(BODY_END - 0.01, 13.3), (BODY_END, 6.6), (END_T + 0.2, 7.95)])
+WARP, N = kit.warp(ANCH), kit.unwarp(ANCH[:-2])
+shot_teaser, TEASE_CUES = kit.teaser(END_T, NEW)
 
 # ================================================================== shots + transitions
-SHOTS = [(-1.0, shot_reveal), (3.3, shot_throw), (6.2, shot_driver), (8.0, shot_rear), (10.3, shot_post), (14.2, shot_teaser)]
-TRANS = {1: (3.3, 3.5, 'whip', dict(dx=1)), 2: (6.2, 6.4, 'iris', (800, 900)), 3: (8.0, 8.2, 'push', None), 4: (10.3, 10.5, 'whip', dict(dx=0, dy=1)),
-         5: (14.2, 14.4, 'whip', dict(dx=1))}
-KEYCOL = {'cybertruck': YEL, '2019,': YEL, 'designer': YEL, 'steel': YEL, "driver's": YEL, 'shattered.': RED, 'rear': RED, 'too.': RED,
-          'response:': YEL, 'post.': RED}
+SHOTS = [(-1.0, kit.retime(shot_reveal, WARP)), (N(3.3), kit.retime(shot_throw, WARP)), (N(6.2), kit.retime(shot_driver, WARP)),
+         (N(8.0), kit.retime(shot_rear, WARP)), (N(10.3), kit.retime(shot_post, WARP)), (BODY_END, kit.retime(shot_driver, WARP)), (END_T, shot_teaser)]
+TRANS = {1: (N(3.3), N(3.3) + 0.2, 'whip', dict(dx=1)), 2: (N(6.2), N(6.2) + 0.2, 'iris', (800, 900)), 3: (N(8.0), N(8.0) + 0.2, 'push', None),
+         4: (N(10.3), N(10.3) + 0.2, 'whip', dict(dx=0, dy=1)), 5: (BODY_END, BODY_END + 0.2, 'iris', (540, 900)), 6: (END_T, END_T + 0.2, 'whip', dict(dx=1))}
+KEYCOL = {'throw': YEL, 'cybertruck?': RED, '2019': YEL, 'designer': YEL, 'exactly': YEL, "driver's": YEL, 'shattered.': RED, 'rear': RED, 'too.': RED,
+          'response:': YEL, 'post.': RED, 'trusted': YEL}
 CUES = [
     (0.0, 'whoosh', 0.9), (0.05, 'pop', 0.5), (0.3, 'pop', 0.5), (0.85, 'thump', 0.6), (1.1, 'click', 0.5), (1.17, 'ding', 0.6), (1.81, 'pop', 0.6),
     (1.85, 'stamp', 0.4), (2.35, 'pop', 0.5),
@@ -281,9 +293,11 @@ CUES = [
     (6.42, 'creak', 0.5), (SHAT, 'crash', 1.0), (SHAT + 0.02, 'boom', 0.4), (SHAT + 0.05, 'sparkle', 0.9), (SHAT + 0.08, 'stamp', 0.6),
     (8.6, 'whoosh', 0.7), (HIT2, 'crash', 0.9), (HIT2 + 0.05, 'sparkle', 0.7), (9.72, 'pop', 0.6),
     (10.6, 'thump', 0.4), (11.23, 'slide_down', 0.4), (12.08, 'pop', 0.8), (TAPE, 'stamp', 0.7), (TAPE + 0.05, 'sparkle', 0.7), (13.35, 'stamp', 0.8),
-] + TEASE_CUES
+]
+CUES = kit.warp_cues(CUES, ANCH, END_T) + TEASE_CUES
 
-kit.setup(HERE, WORDS, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='silver', gauge=True, loud=True)
+kit.setup(HERE, NEW, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='silver', gauge=True, loud=True, crisp=True,
+          end=('car stuff, explained', 'tell me in the comments'))
 
 if __name__ == '__main__':
     kit.main()

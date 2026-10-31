@@ -24,8 +24,10 @@ from pixanim import fx, diagram as dg
 from pixanim.fx import blit, popin, popout
 from pixanim.grid import up, outline
 
-WORDS = kit.load_words(HERE)
-DUR, END_T = 16.8, 14.37
+WORDS = kit.load_words(HERE, 'words_v1.json')     # first read: the body shots are timed on it
+NEW = kit.load_words(HERE)                          # current read (captions); WARP maps it onto WORDS
+BODY_END, END_T = 16.2, 18.6
+DUR = END_T + 1.0
 TEAL = (0, 190, 170)
 
 
@@ -127,10 +129,16 @@ def shot_battery(t):
 
 
 def overlay(cv, t):
-    title(cv, t, 0.05, 2.95, '18 minutes', YEL, 440, 150, -3)
-    title(cv, t, 7.95, 11.0, '350 kW charger', RED, 430, 104, 2)
-    title(cv, t, 11.3, 14.15, 'only as fast as', GRN, 400, 96, -2)
-    title(cv, t, 11.5, 14.15, 'the charger', GRN, 520, 110, 2)
+    title(cv, t, 0.05, 3.5, '10-80% in', WHITE, 480, 130, -3)
+    title(cv, t, 0.3, 3.5, '18 minutes', YEL, 610, 140, 2)
+    title(cv, t, 3.63, 4.9, 'Sounds great.', GRN, 520, 120, -2)
+    to = WARP(t)
+    if 4.9 <= t < BODY_END:
+        title(cv, to, 7.95, 11.0, '350 kW charger', RED, 480, 104, 2)
+        title(cv, to, 11.3, 14.15, 'only as fast as', GRN, 480, 96, -2)
+        title(cv, to, 11.5, 14.15, 'the charger', GRN, 600, 110, 2)
+    title(cv, t, BODY_END + 0.05, END_T - 0.1, 'Slowest charger', WHITE, 480, 112, -2)
+    title(cv, t, BODY_END + 0.3, END_T - 0.1, "you've waited at?", RED, 610, 104, 2)
 
 
 # ================================================================== shot 2: the car, 800 volts
@@ -161,7 +169,6 @@ def shot_car(t):
         blit(fg, fx.big('badge', '800 V', '#7fd4ff', '#1a1a2e', '#3c9ad8', s=13), 540, 620, k, k, -3 + 2 * math.sin(t * 6), anchor='center')
         fx.burst(fg, t, 5.67, 540, 620, (120, 200, 255), n=18, seed=11); fx.sparkles(fg, t, 540, 620, 700, 260, n=7, seed=12)
     dg.label(fg, t, 6.48, 'SYSTEM', (x, GROUND - 90), (260, 840), '#ffffff', '#1a1a2e', '#d6d9e2', s=7)
-    photo(fg, t, 3.95, 5.5, 'ioniq', 540, 760, 620, 440, -3, 'THE REAL CAR, IAA 2021', focus=(0.5, 0.6), pix=4)
     P2.draw(fg, t)
     GAR.reflect(img, fg)
     return finish(img, fg, CAM2, t)
@@ -241,12 +248,19 @@ def shot_compare(t):
     return finish(img, fg, CAM4, t)
 
 
-shot_teaser, TEASE_CUES = kit.teaser(14.25, WORDS)
+# ================================================================== new read: hook, body on the first read's timing, question
+BODY = [p for p in kit.word_pairs(NEW, WORDS) if p[0] < BODY_END - 0.3]
+ANCH = [(0.0, -0.1)] + BODY + [(BODY_END - 0.01, 14.2), (BODY_END, 12.3), (END_T + 0.2, 14.2)]
+WARP, N = kit.warp(ANCH), kit.unwarp(BODY)
+shot_teaser, TEASE_CUES = kit.teaser(END_T, NEW)
 
 # ================================================================== shots + transitions
-SHOTS = [(-1.0, shot_battery), (3.0, shot_car), (7.3, shot_charger), (11.1, shot_compare), (14.25, shot_teaser)]
-TRANS = {1: (3.0, 3.2, 'whip', dict(dx=1)), 2: (7.3, 7.5, 'push', None), 3: (11.1, 11.3, 'iris', (560, 660)), 4: (14.25, 14.45, 'whip', dict(dx=1))}
-KEYCOL = {'eighty': GRN, 'eighteen': YEL, 'hyundai': YEL, '800-volt': YEL, '350': RED, 'speed.': YEL, 'fast': GRN, 'charger.': GRN}
+SHOTS = [(-1.0, kit.retime(shot_battery, WARP)), (N(3.0), kit.retime(shot_car, WARP)), (N(7.3), kit.retime(shot_charger, WARP)),
+         (N(11.1), kit.retime(shot_compare, WARP)), (BODY_END, kit.retime(shot_compare, WARP)), (END_T, shot_teaser)]
+TRANS = {1: (N(3.0), N(3.0) + 0.2, 'whip', dict(dx=1)), 2: (N(7.3), N(7.3) + 0.2, 'push', None), 3: (N(11.1), N(11.1) + 0.2, 'iris', (560, 660)),
+         4: (BODY_END, BODY_END + 0.2, 'whip', dict(dx=-1)), 5: (END_T, END_T + 0.2, 'whip', dict(dx=1))}
+KEYCOL = {'eighty': GRN, 'eighteen': YEL, 'great.': GRN, 'hyundai': YEL, '800-volt': YEL, '350': RED, 'speed.': YEL, 'fast': GRN, 'charger.': GRN,
+          'slowest': RED}
 CUES = [
     (0.0, 'whoosh', 0.4), (0.05, 'pop', 0.6), (FILL0, 'whoosh', 0.8), (FILL0 + 0.3, 'click', 0.4), (FILL0 + 0.6, 'click', 0.4),
     (FILL1, 'ding', 0.9), (FILL1 + 0.02, 'sparkle', 0.7), (2.21, 'stamp', 0.7),
@@ -255,9 +269,11 @@ CUES = [
     (10.22, 'pop', 0.6), (10.6, 'ding', 0.6),
     (11.15, 'pop', 0.5), (11.3, 'pop', 0.6), (11.67, 'sparkle', 0.6), (12.23, 'pop', 0.6), (12.74, 'buzzer', 0.7), (13.38, 'ding', 0.9),
     (13.4, 'sparkle', 0.7),
-] + TEASE_CUES
+]
+CUES = kit.warp_cues(CUES, ANCH, END_T) + [(3.63, 'ding', 0.5)] + TEASE_CUES
 
-kit.setup(HERE, WORDS, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='silver', gauge=True, loud=True)
+kit.setup(HERE, NEW, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='silver', gauge=True, loud=True, crisp=True,
+          end=('car stuff, explained', 'tell me in the comments'))
 
 if __name__ == '__main__':
     kit.main()
