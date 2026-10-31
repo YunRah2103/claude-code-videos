@@ -8,6 +8,6 @@ The station map is illustrative: the dots show the 2023 total and that most were
 
 ## Photo credits
 
-None in this cut. The planned photo, "Toyota Mirai – Frontansicht, 11. November 2018, Düsseldorf.jpg" by M 93 (CC BY-SA 3.0 DE, https://creativecommons.org/licenses/by-sa/3.0/de/, via Wikimedia Commons: https://commons.wikimedia.org/wiki/File:Toyota_Mirai_%E2%80%93_Frontansicht,_11._November_2018,_D%C3%BCsseldorf.jpg), will be credited here when it is added.
+Photo: "Toyota Mirai – Frontansicht, 11. November 2018, Düsseldorf.jpg" by M 93, CC BY-SA 3.0 DE (https://creativecommons.org/licenses/by-sa/3.0/de/), via Wikimedia Commons: https://commons.wikimedia.org/wiki/File:Toyota_Mirai_%E2%80%93_Frontansicht,_11._November_2018,_D%C3%BCsseldorf.jpg. Modified: Toyota emblem and FUEL CELL lettering blurred out.
 
 Pixel art, animation and sound effects: original. Voiceover: OpenAI.fm (cedar).

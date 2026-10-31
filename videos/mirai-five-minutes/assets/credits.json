@@ -6,11 +6,11 @@
   "licence": "CC BY-SA 3.0 DE",
   "licence_url": "https://creativecommons.org/licenses/by-sa/3.0/de/",
   "author": "M 93",
-  "original": "mirai_duesseldorf_frontansicht_original.jpg",
+  "original": "mirai_duesseldorf_original_1920.jpg",
   "original_url": "https://upload.wikimedia.org/wikipedia/commons/d/d2/Toyota_Mirai_%E2%80%93_Frontansicht%2C_11._November_2018%2C_D%C3%BCsseldorf.jpg",
-  "dimensions": "3219x1591",
-  "status": "licence confirmed on the Commons file page; file NOT yet downloaded (Commons API and upload host returned HTTP 429 throughout Stage 2). Do not show it until downloaded and checked for people and Toyota badges.",
-  "saved_as": "original, Lanczos-scaled to width for the frame",
-  "attribution": "Photo: M 93 / Wikimedia Commons, CC BY-SA 3.0 DE"
+  "dimensions": "1920x949 (supplied copy); original file 3219x1591",
+  "saved_as": "edited copy, width 1920 (Lanczos-scaled for the frame in render.py)",
+  "attribution": "Photo: M 93 / Wikimedia Commons, CC BY-SA 3.0 DE (modified)",
+  "modified": "resized copy 1920x949 (supplied); Toyota emblem on grille and FUEL CELL lettering on front wing blurred out; no other changes"
  }
 ]
