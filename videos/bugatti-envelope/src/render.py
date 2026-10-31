@@ -28,7 +28,9 @@ from pixanim.grid import up, outline
 
 WORDS = kit.load_words(HERE, 'words_v1.json')     # first read: the body shots are timed on it
 NEW = kit.load_words(HERE)                          # current read (captions); WARP maps it onto WORDS
-Q_END, BODY_END, END_T = 2.55, 17.45, 19.1
+Q_END = kit.at(NEW, 'in') - 0.1                     # cuts follow the read: question / body / question
+BODY_END = kit.at(NEW, 'would', 1) - 0.12
+END_T = NEW[-1]['e'] + 0.3
 DUR = END_T + 1.0
 PENCIL = (60, 90, 170)
 
@@ -154,7 +156,7 @@ def overlay(cv, t):
     if Q_END <= t < BODY_END:
         title(cv, to, 6.52, 8.35, 'Sixteen cylinders', GRN, 470, 110, -3)
         title(cv, to, 11.04, 12.45, 'about 1,000 horsepower', RED, 470, 96, 2)
-    kit.photo_hq(cv, t, 13.95, 14.85, 'w16', 540, 900, 620, -3, 'A LATER PRODUCTION W16')
+    kit.photo_hq(cv, t, kit.at(NEW, 'first'), kit.at(NEW, 'first') + 0.9, 'w16', 540, 900, 620, -3, 'A LATER PRODUCTION W16')
     title(cv, t, BODY_END + 0.05, END_T - 0.1, 'Would you bet', WHITE, 480, 110, -2)
     title(cv, t, BODY_END + 0.3, END_T - 0.1, 'on that sketch?', YEL, 610, 116, 2)
 

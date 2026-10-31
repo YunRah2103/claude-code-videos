@@ -31,7 +31,9 @@ from pixanim.street import Street
 
 WORDS = kit.load_words(HERE, 'words_v1.json')     # first read: the body shots are timed on it
 NEW = kit.load_words(HERE)                          # current read (captions); WARP maps it onto WORDS
-Q_END, BODY_END, END_T = 3.35, 15.95, 18.45
+Q_END = kit.at(NEW, "Tesla's") - 0.2                # cuts follow the read: question / body / question
+BODY_END = kit.at(NEW, 'what') - 0.12
+END_T = NEW[-1]['e'] + 0.3
 DUR = END_T + 1.0
 
 
@@ -117,7 +119,7 @@ def overlay(cv, t):
 
 
 # ================================================================== shot 0: the question, four-door vs supercar at the line
-GREEN = 2.3
+GREEN = kit.at(NEW, 'off')
 CAM0 = Camera(W, H, [(-1.0, (540, 1000, 1.3)), (0.0, (540, 1000, 1.3)), (1.6, (540, 980, 1.14), 'io'), (GREEN, (560, 1000, 1.22), 'io'), (Q_END, (640, 1000, 1.12), 'io')],
               kicks=[(0.87, 0.1, 300, 1100), (1.64, 0.12, 780, 1100), (GREEN, 0.24, 540, 1050)], shakes=[(GREEN, 0.5, 14)])
 

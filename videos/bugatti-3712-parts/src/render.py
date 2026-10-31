@@ -29,7 +29,9 @@ from pixanim.grid import up, outline, Grid, text_width
 
 WORDS = kit.load_words(HERE, 'words_v1.json')     # first read: the body shots are timed on it
 NEW = kit.load_words(HERE)                          # current read (captions); WARP maps it onto WORDS
-Q_END, BODY_END, END_T = 2.15, 18.2, 21.1
+Q_END = kit.at(NEW, 'bugatti') - 0.1                # cuts follow the read: question / body / question
+BODY_END = kit.at(NEW, 'would') - 0.12
+END_T = NEW[-1]['e'] + 0.3
 DUR = END_T + 1.0
 
 
@@ -176,7 +178,7 @@ def overlay(cv, t):
         title(cv, to, 1.85, 4.9, 'six days', YEL, 480, 130, -2)
         title(cv, to, 7.88, 10.25, 'watches every', GRN, 480, 110, -2)
         title(cv, to, 8.1, 10.25, 'spark plug', GRN, 610, 120, 2)
-    kit.photo_hq(cv, t, 9.6, 10.5, 'w16', 540, 900, 600, 3, 'A W16 ON DISPLAY', crop=(0.0, 0.2, 1.0, 1.0))
+    kit.photo_hq(cv, t, kit.at(NEW, 'and') - 0.1, kit.at(NEW, 'and') + 0.8, 'w16', 540, 900, 600, 3, 'A W16 ON DISPLAY', crop=(0.0, 0.2, 1.0, 1.0))
     title(cv, t, BODY_END + 0.05, END_T - 0.1, 'Would you trust', WHITE, 480, 104, -2)
     title(cv, t, BODY_END + 0.3, END_T - 0.1, 'a car that checks?', GRN, 610, 104, 2)
 

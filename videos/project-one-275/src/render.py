@@ -27,7 +27,9 @@ from pixanim.grid import up, outline
 
 WORDS = kit.load_words(HERE, 'words_v1.json')     # first read: the shots are timed on it
 NEW = kit.load_words(HERE)                          # current read (captions); WARP maps it onto WORDS
-BODY_END, END_T = 16.7, 18.0
+S1, S2, S3 = kit.at(NEW, 'only') - 0.13, kit.at(NEW, "it's") - 0.2, kit.at(NEW, 'a', 2) - 0.12   # section cuts follow the read
+BODY_END = kit.at(NEW, 'would') - 0.12
+END_T = NEW[-1]['e'] + 0.3
 DUR = END_T + 1.0
 SILVER, DARK = (196, 202, 212), (40, 42, 52)
 
@@ -156,10 +158,10 @@ def shot_showroom(t):
 
 
 def overlay(cv, t):
-    title(cv, t, 0.05, 3.2, '1,000+ applied', WHITE, 480, 116, -3)
-    title(cv, t, 0.3, 3.2, 'for one car', YEL, 610, 120, 2)
+    title(cv, t, 0.05, S1 - 0.1, '1,000+ applied', WHITE, 480, 116, -3)
+    title(cv, t, 0.3, S1 - 0.1, 'for one car', YEL, 610, 120, 2)
     to = WARP(t)
-    if 6.3 <= t < BODY_END:
+    if S2 <= t < BODY_END:
         title(cv, to, 1.96, 3.45, 'Formula One', YEL, 480, 130, -3)
         title(cv, to, 2.2, 3.45, 'engineering', YEL, 610, 120, 2)
         title(cv, to, 6.41, 8.3, '1,000 horsepower', RED, 480, 116, -2)
@@ -272,15 +274,15 @@ def section(n0, n1, o0, o1):
     """(new, old) anchors for one stretch of the new read that replays the old span o0..o1, matched word by word."""
     nw = [w for w in NEW if n0 <= w['s'] < n1]; ow = [w for w in WORDS if o0 <= w['s'] < o1]
     return [(n0, o0)] + [p for p in kit.word_pairs(nw, ow)] + [(n1 - 0.01, o1)]
-SECS = [(0.0, 3.3, 8.45, 11.05), (3.3, 6.3, 11.1, 13.9), (6.3, 11.6, -0.2, 3.5), (11.6, BODY_END, 3.6, 8.38), (BODY_END, END_T + 0.2, 9.6, 11.0)]
+SECS = [(0.0, S1, 8.45, 11.05), (S1, S2, 11.1, 13.9), (S2, S3, -0.2, 3.5), (S3, BODY_END, 3.6, 8.38), (BODY_END, END_T + 0.2, 9.6, 11.0)]
 ANCH = sum((section(*sc) for sc in SECS), [])
 WARP = kit.warp(ANCH)
 shot_teaser, TEASE_CUES = kit.teaser(END_T, NEW)
 
 # ================================================================== shots + transitions
-SHOTS = [(-1.0, kit.retime(shot_applied, WARP)), (3.3, kit.retime(shot_keys, WARP)), (6.3, kit.retime(shot_showroom, WARP)),
-         (11.6, kit.retime(shot_engine, WARP)), (BODY_END, kit.retime(shot_applied, WARP)), (END_T, shot_teaser)]
-TRANS = {2: (6.3, 6.5, 'whip', dict(dx=1)), 3: (11.6, 11.8, 'whip', dict(dx=0, dy=1)), 4: (BODY_END, BODY_END + 0.2, 'iris', (560, 620)),
+SHOTS = [(-1.0, kit.retime(shot_applied, WARP)), (S1, kit.retime(shot_keys, WARP)), (S2, kit.retime(shot_showroom, WARP)),
+         (S3, kit.retime(shot_engine, WARP)), (BODY_END, kit.retime(shot_applied, WARP)), (END_T, shot_teaser)]
+TRANS = {2: (S2, S2 + 0.2, 'whip', dict(dx=1)), 3: (S3, S3 + 0.2, 'whip', dict(dx=0, dy=1)), 4: (BODY_END, BODY_END + 0.2, 'iris', (560, 620)),
          5: (END_T, END_T + 0.2, 'whip', dict(dx=1))}
 KEYCOL = {'thousand': YEL, 'applied': YEL, '275': GRN, 'chance': GRN, 'mercedes\'': YEL, 'project': YEL, 'formula': YEL, '1.6-litre': YEL,
           'hybrid,': GRN, '1,000': RED, 'applied?': YEL}

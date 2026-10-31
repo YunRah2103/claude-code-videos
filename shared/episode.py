@@ -566,6 +566,7 @@ def build_audio(vo_path, out_wav):
     fxa *= 0.32 * np.max(np.abs(vo)) / max(1e-9, np.max(np.abs(fxa)))
     mix += fxa
     mix /= max(1.0, np.max(np.abs(mix)) / 0.97)
+    k = int(sfx.SR * 0.4); mix[-k:] *= np.linspace(1, 0, k) ** 2      # fade out: end-card effects never cut off mid-sound
     with wave.open(out_wav, 'wb') as w:
         w.setnchannels(1); w.setsampwidth(2); w.setframerate(sfx.SR); w.writeframes((mix * 32767).astype('<i2').tobytes())
 
@@ -633,3 +634,8 @@ def retime(fn, w): return lambda t: fn(w(t))
 def unwarp(pairs):
     """Old-read time -> new-read time through monotone (new, old) anchors (for placing cuts and transitions)."""
     ps = sorted(pairs, key=lambda p: p[1]); return lambda o: float(np.interp(o, [p[1] for p in ps], [p[0] for p in ps]))
+
+
+def at(words, w, k=0, end=False):
+    """Start (or end) time of the k-th aligned word that reads `w` (punctuation ignored)."""
+    return [x for x in words if clean(x['w']) == clean(w)][k]['e' if end else 's']

@@ -9,7 +9,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, '..', '..', '..', 'shared'))
 from align import align
 SCRIPT = ('How many parts go into one engine? Bugatti says two people spend six days building one of its W16 engines. It has 3,712 parts. And it watches every spark plug, checking for problems. If it spots one, it can shut down a cylinder or pull back the boost. Would you trust a car that watches every spark plug?')
-SAY = {'W16': 'double u sixteen', '3,712': 'three thousand seven hundred and twelve'}
+SAY = {'W16': 'double u sixteen', '3,712': 'three thousand seven hundred twelve'}
 EXTRA = {}
 VO = os.path.join(HERE, '..', '..', '..', 'out', 'bugatti-3712-parts', 'voiceover.wav')
 if __name__ == '__main__':

@@ -29,7 +29,9 @@ from pixanim.grid import up, outline
 
 WORDS = kit.load_words(HERE, 'words_v1.json')     # first read: the body shots are timed on it
 NEW = kit.load_words(HERE)                          # current read (captions); WARP maps it onto WORDS
-Q_END, BODY_END, END_T = 3.9, 16.15, 18.2
+Q_END = kit.at(NEW, 'at', 1) - 0.25                 # cuts follow the read: question / body / question
+BODY_END = kit.at(NEW, 'would') - 0.12
+END_T = NEW[-1]['e'] + 0.3
 DUR = END_T + 1.0
 STEEL, STEEL_HI, STEEL_LO = (186, 190, 196), (224, 228, 234), (140, 144, 152)
 GLASS = (46, 56, 72)
@@ -149,7 +151,7 @@ def overlay(cv, t):
     if Q_END <= t < BODY_END:
         title(cv, to, 6.42, 7.95, "driver's window", YEL, 480, 104, -2)
         title(cv, to, 8.14, 10.25, 'then the rear', RED, 480, 110, 2)
-    kit.photo_hq(cv, t, 5.3, 5.9, 'cybertruck', 540, 960, 600, -3, 'A LATER PRODUCTION TRUCK')
+    kit.photo_hq(cv, t, kit.at(NEW, 'reveal') + 0.05, kit.at(NEW, 'chief') - 0.1, 'cybertruck', 540, 960, 600, -3, 'A LATER PRODUCTION TRUCK')
     title(cv, t, BODY_END + 0.05, END_T - 0.1, 'Would you trust', WHITE, 480, 110, -2)
     title(cv, t, BODY_END + 0.3, END_T - 0.1, 'that window?', YEL, 610, 130, 2)
 
@@ -274,7 +276,8 @@ def shot_post(t):
 
 # ================================================================== new read: question (the ball in slow motion), body on the first read's timing, question
 BODY = [p for p in kit.word_pairs(NEW, WORDS) if 7.7 < p[0] < BODY_END - 0.3]
-ANCH = ([(0.0, -0.2), (Q_END, 0.95), (4.49, 1.81), (5.25, 2.6), (5.97, 3.41), (6.11, 3.49), (6.39, 3.78), (6.82, 4.23), (7.69, 5.45)] + BODY +
+ANCH = ([(0.0, -0.2), (Q_END, 0.95), (kit.at(NEW, '2019', 0), 1.81), (kit.at(NEW, 'reveal', 0), 2.6), (kit.at(NEW, 'the', 1), 3.41), (kit.at(NEW, 'chief', 0), 3.49),
+          (kit.at(NEW, 'designer', 0), 3.78), (kit.at(NEW, 'did', 0), 4.23), (kit.at(NEW, 'that', 0), 5.45)] + BODY +
         [(BODY_END - 0.01, 13.3), (BODY_END, 6.6), (END_T + 0.2, 7.95)])
 WARP, N = kit.warp(ANCH), kit.unwarp(ANCH[:-2])
 shot_teaser, TEASE_CUES = kit.teaser(END_T, NEW)

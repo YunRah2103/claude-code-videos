@@ -29,7 +29,9 @@ from pixanim.grid import up, outline
 
 WORDS = kit.load_words(HERE, 'words_v1.json')     # first read: the body shots are timed on it
 NEW = kit.load_words(HERE)                          # current read (captions); WARP maps it onto WORDS
-Q_END, BODY_END, END_T = 2.3, 17.15, 18.6          # the read stops after 'protection.': the closing question is shown, not spoken
+Q_END = kit.at(NEW, 'its') - 0.2                    # cuts follow the read: question / body / question
+BODY_END = kit.at(NEW, 'so') - 0.12
+END_T = NEW[-1]['e'] + 0.3
 DUR = END_T + 1.0
 STEEL, STEEL_HI, STEEL_LO = (186, 190, 196), (224, 228, 234), (140, 144, 152)
 GLASS = (46, 56, 72)
@@ -159,7 +161,7 @@ def overlay(cv, t):
         title(cv, to, 6.82, 8.5, 'resisted 9mm', GRN, 480, 130, -2)
         title(cv, to, 8.92, 10.9, 'rifle rounds', RED, 480, 120, 2)
         title(cv, to, 9.1, 10.9, 'got through', RED, 610, 120, -2)
-    kit.photo_hq(cv, t, 2.45, 3.15, 'cybertruck', 540, 980, 600, 3, 'A PRODUCTION TRUCK')
+    kit.photo_hq(cv, t, Q_END + 0.15, Q_END + 0.85, 'cybertruck', 540, 980, 600, 3, 'A PRODUCTION TRUCK')
     title(cv, t, BODY_END + 0.05, END_T - 0.1, 'So, would you', WHITE, 480, 120, -2)
     title(cv, t, BODY_END + 0.25, END_T - 0.1, 'still buy one?', YEL, 610, 130, 2)
 
@@ -307,7 +309,7 @@ def shot_verdict(t):
 
 # ================================================================== new read: question (the sign), body on the first read's timing, question
 BODY = [p for p in kit.word_pairs(NEW, WORDS) if Q_END < p[0] < BODY_END - 0.3 and p[1] >= 2.6]
-ANCH = [(0.0, -0.2), (Q_END, 2.0), (Q_END + 0.01, 2.05), (3.27, 2.38)] + BODY + [(BODY_END - 0.01, 13.25), (BODY_END, 13.35), (END_T + 0.2, 15.0)]
+ANCH = [(0.0, -0.2), (Q_END, 2.0), (Q_END + 0.01, 2.05), (kit.at(NEW, '3', 0), 2.38)] + BODY + [(BODY_END - 0.01, 13.25), (BODY_END, 13.35), (END_T + 0.2, 15.0)]
 WARP, N = kit.warp(ANCH), kit.unwarp(ANCH[3:-2])
 shot_teaser, TEASE_CUES = kit.teaser(END_T, NEW)
 
@@ -328,7 +330,7 @@ CUES = [
     (11.33, 'pop', 0.5), (11.6, 'crash', 0.6), (11.87, 'crash', 0.5), (12.14, 'crash', 0.5), (12.7, 'stamp', 0.8),
     (13.4, 'pop', 0.6), (13.55, 'pop', 0.6), (13.7, 'thump', 0.4), (NOTQ, 'stamp', 1.0), (NOTQ + 0.02, 'buzzer', 0.4),
 ]
-CUES = kit.warp_cues(CUES, ANCH, END_T) + [(BODY_END + 0.05, 'pop', 0.6), (BODY_END + 0.3, 'pop', 0.6)] + TEASE_CUES
+CUES = kit.warp_cues(CUES, ANCH, END_T) + [(BODY_END + 0.05, 'pop', 0.6)] + TEASE_CUES
 
 kit.setup(HERE, NEW, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='silver', gauge=True, loud=True, crisp=True,
           end=('car stuff, explained', 'tell me in the comments'))
