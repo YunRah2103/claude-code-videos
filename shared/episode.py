@@ -142,6 +142,30 @@ def teaser(t0, words, sheet_x=660, sign_at=(560, 520)):
     return shot, cues
 
 
+def ask(t0, words, prop=None):
+    """Closing-question beat: he steps in, faces the camera with a shrug while a big '?' pulses beside him;
+    prop(fg, t) paints an episode object behind the '?'. Returns (shot, cues)."""
+    P = Presenter([
+        (t0 - 0.05, dict(path=Track([(t0 - 0.05, (1300, 420)), (t0 + 0.35, (380, GROUND), 'oc')]), size=8, legs='auto', arms='fly',
+                         expr='talk', face=-1, ground=None)),
+        (t0 + 0.35, dict(ground=GROUND, squash=True, arms='shrug', look=None, look_camera=True, expr='think', face=None)),
+    ], words=words, base_size=8)
+    cam = Camera(W, H, [(t0, (540, 920, 1.1)), (t0 + 0.4, (520, 940, 1.14), 'io'), (t0 + 6, (520, 940, 1.18))],
+                 kicks=[(t0 + 0.35, 0.1, 380, 1000), (t0 + 0.55, 0.14, 740, 640)])
+
+    def shot(t):
+        img = GAR.frame(t).convert('RGBA'); fg = layer()
+        if prop: prop(fg, t)
+        if t >= t0 + 0.55:
+            k = popin(t, t0 + 0.55, 0.25) * (1 + 0.08 * math.sin(t * 7))
+            blit(fg, fx.big('glyph', '?', '#ffd23f', s=24), 740, 700, k, k, 8 * math.sin(t * 4), anchor='center')
+            fx.burst(fg, t, t0 + 0.55, 740, 640, GLOW, n=14, seed=91); fx.sparkles(fg, t, 740, 640, 420, 360, n=6, seed=92)
+        P.draw(fg, t)
+        GAR.reflect(img, fg)
+        return finish(img, fg, cam, t)
+    return shot, [(t0 + 0.35, 'thump', 0.4), (t0 + 0.55, 'pop', 0.8), (t0 + 0.57, 'sparkle', 0.6)]
+
+
 # ------------------------------------------------------------------ fonts and text
 FONT_PATH = os.environ.get('PIXEL_FONT', '/usr/share/fonts/opentype/inter/Inter-Black.otf')
 CJK_FONT = '/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc'   # credit lines with CJK author names

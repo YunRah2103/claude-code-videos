@@ -1,6 +1,6 @@
 # Civic Type R: 7:44.881 at the Nürburgring
 
-Honda's Civic Type R set a 7:44.881 lap of the Nürburgring in April 2023. It was reported as the fastest front-wheel-drive production car around the track.
+How fast can a front-wheel-drive car lap the Nürburgring? Honda's Civic Type R set a 7 minutes 44.881 second lap in April 2023. It was reported as the fastest front-wheel-drive production car around the track. Would you bet against a front-wheel-drive car on a track?
 
 Follow for the next one.
 

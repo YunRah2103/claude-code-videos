@@ -1,6 +1,6 @@
 # Rimac Nevera: 1,914 hp from four motors
 
-Four electric motors make 1,914 horsepower in the Rimac Nevera. Rimac claims it does the quarter mile in 8.58 seconds, at 167 miles an hour.
+What happens when you put four electric motors in one car? The Rimac Nevera makes 1,914 horsepower. Rimac claims it does the quarter mile in 8.58 seconds. That's at 167 miles an hour. Would you be brave enough to launch it?
 
 Follow for the next one.
 

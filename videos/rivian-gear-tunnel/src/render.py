@@ -1,16 +1,16 @@
 """Renders 'R1T gear tunnel': a hidden tunnel behind the rear seats, reached by folding the armrest and sliding a door up.
 
 Template: videos/plaid-two-seconds (ac-idle shot structure on shared/episode.py). Word times come from align.py ->
-words.json; the voiceover is out/rivian-gear-tunnel/voiceover.wav (clip 4 of out/voiceover/full_voiceover.wav; its
-first 1.1 s is the tail of the 2 s join gap). The mixer holds a 2.0 s pause before 'Follow for the next one' (GAP)
-for the recap beat; later words are shifted to match. The truck and cabin are generic pixel drawings, no lettering.
+words.json; the voiceover is out/rivian-gear-tunnel/voiceover.wav (clip 4 of out/voiceover2/full_voiceover.wav, with
+1 s of the join gap trimmed off the front). The truck and cabin are generic pixel drawings, no lettering.
 Shots:
-  1 hatch    0.00  hook: rear bench, the armrest folds down, a door slides up, the tunnel glows, 'A hidden tunnel.'
-  2 photo    2.00  garage: the real R1T photo pops in, HIDDEN tag
-  3 cutaway  3.90  side cutaway of a generic pickup: the tunnel slot between the rear seats and the bed, 'behind the rear seats'
-  4 cabin    7.05  back in the cabin: he folds the armrest (folding down) and slides the door (sliding a door up)
-  5 recap   10.20  cutaway again: a bag slides into the tunnel from the cabin side, GEAR TUNNEL label, tick
-  6 teaser  12.55  shared NEXT EPISODE ending ('Follow for the next one.')
+  1 hatch    0.00  hook question: rear bench, the armrest folds down (hide), a door slides up (tunnel), 'A hidden tunnel.'
+  2 photo    3.30  garage: the real R1T photo pops in, HIDDEN tag on 'has one'
+  3 cutaway  4.85  side cutaway of a generic pickup: the tunnel slot between the rear seats and the bed, 'behind the rear seats'
+  4 cabin    8.10  back in the cabin: he folds the armrest (folding down) and slides the door (sliding a door up)
+  5 recap   10.75  cutaway again: a bag slides into the tunnel, GEAR TUNNEL label, tick
+  6 ask     12.25  closing question: he shrugs to camera beside the truck, a big '?' (shared kit.ask)
+  7 teaser  13.40  shared NEXT EPISODE ending
 """
 import math, os, sys
 from functools import lru_cache
@@ -27,11 +27,9 @@ from pixanim.fx import blit, popin, popout
 from pixanim.grid import up, outline
 from pixanim.sprites import check
 
-RAW = kit.load_words(HERE)
-GAP = (10.2, 2.0)                                     # pause inserted between 'up.' and 'Follow'
-WORDS = kit.shift_words(RAW, *GAP)
-DUR = 17.0
-END_T = 12.55
+WORDS = kit.load_words(HERE)
+DUR = 16.6
+END_T = 13.4
 def ws(i): return WORDS[i]['s']
 
 
@@ -108,8 +106,8 @@ def truck(tunnel=0, bag=-1.0):
 
 
 # ================================================================== shot 1: hook, the secret door
-FOLD1, DOOR1 = 0.25, 0.95
-CAM1 = Camera(W, H, [(-1.0, (540, 900, 1.02)), (0.0, (540, 900, 1.02)), (DOOR1, (540, 880, 1.1), 'io'), (2.1, (540, 860, 1.16), 'io')],
+FOLD1, DOOR1 = ws(3), ws(6)                           # 'hide', 'tunnel' in the hook question
+CAM1 = Camera(W, H, [(-1.0, (540, 900, 1.02)), (0.0, (540, 900, 1.02)), (DOOR1, (540, 880, 1.1), 'io'), (3.3, (540, 860, 1.16), 'io')],
               kicks=[(FOLD1 + 0.35, 0.12, 540, 980), (DOOR1 + 0.35, 0.2, 540, 700)], shakes=[(DOOR1 + 0.35, 0.3, 10)])
 
 
@@ -126,34 +124,34 @@ def shot_hatch(t):
 
 
 # ================================================================== shot 2: the real truck
-T2 = 2.0
+T2 = 3.3
 P2 = Presenter([
     (T2 - 0.05, dict(path=Track([(T2 - 0.05, (-200, 300)), (T2 + 0.4, (200, GROUND), 'oc')]), size=7, legs='auto', arms='fly', expr='talk', face=1, ground=None)),
     (T2 + 0.4, dict(ground=GROUND, squash=True, arms='point', point=(560, 640), look=(560, 640), expr='smirk', face=None)),
-    (ws(5), dict(arms='shock', point=None, look_camera=True, expr='wow', squash=True)),
+    (ws(15), dict(arms='shock', point=None, look_camera=True, expr='wow', squash=True)),
 ], words=WORDS, base_size=7)
-CAM2 = Camera(W, H, [(T2, (540, 900, 1.08)), (3.9, (540, 880, 1.16), 'io')],
-              kicks=[(T2 + 0.1, 0.08, 560, 640), (ws(5), 0.16, 700, 1080)], shakes=[(ws(5), 0.25, 8)])
+CAM2 = Camera(W, H, [(T2, (540, 900, 1.08)), (4.85, (540, 880, 1.16), 'io')],
+              kicks=[(T2 + 0.1, 0.08, 560, 640), (ws(15), 0.16, 700, 1080)], shakes=[(ws(15), 0.25, 8)])
 
 
 def shot_photo(t):
     img = GAR.frame(t).convert('RGBA'); fg = layer()
-    if t >= ws(5):                                     # 'hidden'
-        k = fx.slam(t, ws(5)) * popin(t, ws(5), 0.2)
+    if t >= ws(15):                                     # 'has one'
+        k = fx.slam(t, ws(15)) * popin(t, ws(15), 0.2)
         blit(fg, fx.big('tag', 'HIDDEN', '#fff6e0', '#d6303a', s=10), 700, 1090, k, k, -6 + 2 * math.sin(t * 5), anchor='center')
-        fx.burst(fg, t, ws(5), 700, 1090, RED, n=12, seed=21)
+        fx.burst(fg, t, ws(15), 700, 1090, RED, n=12, seed=21)
     P2.draw(fg, t)
     GAR.reflect(img, fg)
     return finish(img, fg, CAM2, t)
 
 
 # ================================================================== shot 3: cutaway, behind the rear seats
-T3 = 3.9
-B0 = ws(8)                                            # 'behind'
+T3 = 4.85
+B0 = ws(16)                                            # 'behind'
 TX, TY, TS = 540, 1060, 8                             # truck centre-bottom and scale
 def slot(): return TX - 60 * TS + 62 * TS, TY - 46 * TS + 27 * TS   # tunnel centre on screen (grid 62, 27)
-CAM3 = Camera(W, H, [(T3, (540, 880, 1.0)), (B0, (540, 880, 1.03), 'io'), (ws(10), (540, 860, 1.08), 'io'), (7.05, (540, 860, 1.1))],
-              kicks=[(T3 + 0.1, 0.08, 540, 860), (B0, 0.1, *slot()), (ws(11), 0.16, *slot())], shakes=[(ws(11), 0.25, 8)])
+CAM3 = Camera(W, H, [(T3, (540, 880, 1.0)), (B0, (540, 880, 1.03), 'io'), (ws(18), (540, 860, 1.08), 'io'), (8.1, (540, 860, 1.1))],
+              kicks=[(T3 + 0.1, 0.08, 540, 860), (B0, 0.1, *slot()), (ws(19), 0.16, *slot())], shakes=[(ws(19), 0.25, 8)])
 
 
 def shot_cutaway(t):
@@ -166,24 +164,24 @@ def shot_cutaway(t):
         d = ImageDraw.Draw(fg); r = 70 + 10 * math.sin(t * 8)
         d.rectangle((sx - r, sy - r - 10, sx + r, sy + r + 10), outline=(255, 217, 59, 230), width=9)
         fx.ring(fg, t, B0, sx, sy, GLOW, r1=300)
-    dg.label(fg, t, ws(10), 'REAR SEATS', (sx - 70, sy - 40), (sx - 200, sy - 300), '#ffffff', '#1a1a2e', '#d6d9e2', s=7)
-    dg.label(fg, t, ws(11), 'BED', (sx + 200, sy - 90), (sx + 250, sy - 300), '#ffffff', '#1a1a2e', '#d6d9e2', s=7)
-    if t >= ws(11): fx.sparkles(fg, t, sx, sy, 260, 200, n=6, seed=31)
+    dg.label(fg, t, ws(18), 'REAR SEATS', (sx - 70, sy - 40), (sx - 200, sy - 300), '#ffffff', '#1a1a2e', '#d6d9e2', s=7)
+    dg.label(fg, t, ws(19), 'BED', (sx + 200, sy - 90), (sx + 250, sy - 300), '#ffffff', '#1a1a2e', '#d6d9e2', s=7)
+    if t >= ws(19): fx.sparkles(fg, t, sx, sy, 260, 200, n=6, seed=31)
     GAR.reflect(img, fg)
     return finish(img, fg, CAM3, t)
 
 
 # ================================================================== shot 4: in the cabin, fold and slide
-T4 = 7.05
-FOLD4, DOOR4 = ws(20), ws(25)                         # 'folding', 'sliding'
+T4 = 8.1
+FOLD4, DOOR4 = ws(28), ws(33)                         # 'folding', 'sliding'
 P4 = Presenter([
     (T4 - 0.05, dict(path=Track([(T4 - 0.05, (1300, 300)), (T4 + 0.4, (900, GROUND), 'oc')]), size=6, legs='auto', arms='fly', expr='talk', face=-1, ground=None)),
     (T4 + 0.4, dict(ground=GROUND, squash=True, arms='point', point=(540, 860), look=(540, 860), expr='smile', face=None)),
     (DOOR4, dict(arms='point', point=(540, 700), look=(540, 700), expr='wow')),
     (DOOR4 + 0.7, dict(arms='thumb', point=None, look=None, look_camera=True, expr='grin', squash=True)),
 ], words=WORDS, base_size=6)
-CAM4 = Camera(W, H, [(T4, (540, 900, 1.02)), (FOLD4, (540, 920, 1.08), 'io'), (DOOR4, (540, 860, 1.14), 'io'), (10.2, (540, 860, 1.18))],
-              kicks=[(ws(16), 0.08, 540, 860), (FOLD4 + 0.35, 0.14, 540, 980), (DOOR4 + 0.35, 0.18, 540, 700)], shakes=[(DOOR4 + 0.35, 0.25, 8)])
+CAM4 = Camera(W, H, [(T4, (540, 900, 1.02)), (FOLD4, (540, 920, 1.08), 'io'), (DOOR4, (540, 860, 1.14), 'io'), (10.75, (540, 860, 1.18))],
+              kicks=[(ws(24), 0.08, 540, 860), (FOLD4 + 0.35, 0.14, 540, 980), (DOOR4 + 0.35, 0.18, 540, 700)], shakes=[(DOOR4 + 0.35, 0.25, 8)])
 
 
 def shot_cabin(t):
@@ -202,8 +200,8 @@ def shot_cabin(t):
 
 
 # ================================================================== shot 5: recap, gear goes in
-T5 = 10.2
-CAM5 = Camera(W, H, [(T5, (540, 880, 1.02)), (T5 + 1.0, (540, 860, 1.1), 'io'), (END_T, (540, 860, 1.12))],
+T5 = 10.75
+CAM5 = Camera(W, H, [(T5, (540, 880, 1.02)), (T5 + 1.0, (540, 860, 1.1), 'io'), (12.25, (540, 860, 1.12))],
               kicks=[(T5 + 0.3, 0.08, *slot()), (T5 + 1.1, 0.16, *slot())])
 
 
@@ -223,31 +221,34 @@ def shot_recap(t):
     return finish(img, fg, CAM5, t)
 
 
+T6 = 12.25
+shot_ask, ASK_CUES = kit.ask(T6, WORDS, lambda fg, t: blit(fg, up(truck(int(t * 6) % 2), 4), 800, GROUND))
 shot_teaser, TEASE_CUES = kit.teaser(END_T, WORDS)
 
 
 def overlay(cv, t):
-    title(cv, t, 0.05, 1.95, 'A hidden', YEL, 380, 130, -3)
-    title(cv, t, 0.2, 1.95, 'tunnel.', YEL, 520, 130, 2)
-    kit.photo_hq(cv, t, T2 + 0.1, 3.8, 'r1t', 560, 640, 800, rot=-3, label='THE REAL TRUCK')
-    title(cv, t, B0, 7.0, 'behind the', GRN, 380, 116, -2)
-    title(cv, t, ws(10), 7.0, 'rear seats', GRN, 510, 116, 2)
+    title(cv, t, 0.05, 3.2, 'A hidden', YEL, 380, 130, -3)
+    title(cv, t, 0.2, 3.2, 'tunnel.', YEL, 520, 130, 2)
+    kit.photo_hq(cv, t, T2 + 0.1, T3 - 0.1, 'r1t', 560, 640, 800, rot=-3, label='THE REAL TRUCK')
+    title(cv, t, B0, T4 - 0.1, 'behind the', GRN, 380, 116, -2)
+    title(cv, t, ws(18), T4 - 0.1, 'rear seats', GRN, 510, 116, 2)
 
 
 # ================================================================== shots + transitions
-SHOTS = [(-1.0, shot_hatch), (T2, shot_photo), (T3, shot_cutaway), (T4, shot_cabin), (T5, shot_recap), (END_T, shot_teaser)]
+SHOTS = [(-1.0, shot_hatch), (T2, shot_photo), (T3, shot_cutaway), (T4, shot_cabin), (T5, shot_recap), (T6, shot_ask), (END_T, shot_teaser)]
 TRANS = {1: (T2, T2 + 0.2, 'whip', dict(dx=1)), 2: (T3, T3 + 0.2, 'push', None), 3: (T4, T4 + 0.2, 'iris', (540, 860)),
-         4: (T5, T5 + 0.2, 'whip', dict(dx=0, dy=1)), 5: (END_T, END_T + 0.2, 'whip', dict(dx=1))}
-KEYCOL = {'rivian': YEL, 'hidden': YEL, 'behind': GRN, 'seats': GRN, 'inside': YEL, 'armrest': YEL, 'door': YEL}
+         4: (T5, T5 + 0.2, 'whip', dict(dx=0, dy=1)), 5: (T6, T6 + 0.2, 'whip', dict(dx=1)),
+         6: (END_T, END_T + 0.2, 'iris', (540, 980))}
+KEYCOL = {'hide': YEL, 'pickup': YEL, 'rivian': YEL, 'one': YEL, 'ever': YEL, 'told': GRN, 'behind': GRN, 'seats': GRN, 'inside': YEL, 'armrest': YEL, 'door': YEL}
 CUES = [(0.0, 'whoosh', 0.4), (0.05, 'pop', 0.5), (FOLD1, 'creak', 0.6), (FOLD1 + 0.35, 'thump', 0.6), (DOOR1, 'slide_down', 0.5),
         (DOOR1 + 0.35, 'ding', 0.8), (DOOR1 + 0.37, 'sparkle', 0.8),
-        (T2 + 0.1, 'pop', 0.7), (T2 + 0.4, 'thump', 0.4), (ws(5), 'stamp', 0.7),
-        (T3 + 0.05, 'pop', 0.5), (B0, 'ding', 0.6), (ws(10), 'pop', 0.6), (ws(11), 'pop', 0.6), (ws(11) + 0.02, 'sparkle', 0.6),
+        (T2 + 0.1, 'pop', 0.7), (T2 + 0.4, 'thump', 0.4), (ws(15), 'stamp', 0.7),
+        (T3 + 0.05, 'pop', 0.5), (B0, 'ding', 0.6), (ws(18), 'pop', 0.6), (ws(19), 'pop', 0.6), (ws(19) + 0.02, 'sparkle', 0.6),
         (T4 + 0.4, 'thump', 0.4), (FOLD4, 'creak', 0.6), (FOLD4 + 0.35, 'thump', 0.6), (DOOR4, 'slide_down', 0.5), (DOOR4 + 0.4, 'ding', 0.7),
         (DOOR4 + 0.42, 'sparkle', 0.7), (T5 + 0.1, 'pop', 0.6), (T5 + 0.3, 'whoosh', 0.5), (T5 + 1.1, 'ding', 0.8), (T5 + 1.12, 'confetti', 0.7),
-] + TEASE_CUES
+] + ASK_CUES + TEASE_CUES
 
-kit.setup(HERE, WORDS, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='silver', gauge=True, loud=True, gap=GAP, crisp=True)
+kit.setup(HERE, WORDS, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='silver', gauge=True, loud=True, crisp=True)
 
 if __name__ == '__main__':
     kit.main()

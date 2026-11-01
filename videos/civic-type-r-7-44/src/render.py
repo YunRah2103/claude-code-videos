@@ -1,14 +1,14 @@
 """Renders 'Type R, 7:44.881': an April 2023 Nurburgring lap, reported as the fastest front-wheel-drive production car.
 
 Template: videos/plaid-two-seconds (ac-idle shot structure on shared/episode.py). Word times come from align.py ->
-words.json; the voiceover is out/civic-type-r-7-44/voiceover.wav (clip 5 of out/voiceover/full_voiceover.wav). The
-mixer holds a 0.6 s pause before 'Follow for the next one' (GAP); later words are shifted to match. The record is
+words.json; the voiceover is out/civic-type-r-7-44/voiceover.wav (clip 5 of out/voiceover2/full_voiceover.wav). The record is
 'reported' (REPORTED tag). The track is a generic pixel loop and the car a generic hatch, no badges or lettering.
 Shots:
-  1 lap      0.00  hook: top-down green circuit, a pixel car laps it while the timer runs to 7:44.881, '7:44.881'
-  2 photo    4.55  garage: the real Type R photo pops in, APRIL 2023 tag
-  3 flag     7.90  a winner's flag waves, REPORTED, FASTEST, the front wheels glow, 'front-wheel drive', the car blasts off
-  4 teaser  13.25  shared NEXT EPISODE ending ('Follow for the next one.')
+  1 lap      0.00  hook question: top-down green circuit, a pixel car laps it while the timer runs to 7:44.881, '7:44.881'
+  2 photo    6.55  garage: the real Type R photo pops in, APRIL 2023 tag
+  3 flag     8.75  a winner's flag waves, REPORTED, FASTEST, the front wheels glow, 'front-wheel drive', the car blasts off
+  4 ask     12.70  closing question: he shrugs to camera beside the flag, a big '?' (shared kit.ask)
+  5 teaser  15.20  shared NEXT EPISODE ending
 """
 import math, os, sys
 from functools import lru_cache
@@ -24,11 +24,9 @@ from pixanim import fx, diagram as dg
 from pixanim.fx import blit, popin, popout
 from pixanim.grid import up, outline
 
-RAW = kit.load_words(HERE)
-GAP = (12.3, 0.6)                                     # pause inserted between 'track.' and 'Follow'
-WORDS = kit.shift_words(RAW, *GAP)
+WORDS = kit.load_words(HERE)
 DUR = 17.0
-END_T = 13.25
+END_T = 15.2
 def ws(i): return WORDS[i]['s']
 
 
@@ -81,7 +79,7 @@ def flag(ph=0):
 
 
 # ================================================================== shot 1: hook, the lap and the timer
-L0, L1 = 0.1, WORDS[8]['e']                        # the timer runs out as '44.881' ends
+L0, L1 = 0.1, WORDS[17]['e']                       # the timer runs out as '44.881' ends
 LAP = 7 * 60 + 44.881
 def lap_u(t): return clamp((t - L0) / (L1 - L0))
 def clock(t):
@@ -89,8 +87,8 @@ def clock(t):
     return f'{int(v // 60)}:{v % 60:06.3f}'
 CX, CY = 540, 1000
 def on_screen(u): x, y = loop(u); return CX - TW * TS / 2 + x * TS, CY - TH * TS / 2 + y * TS
-CAM1 = Camera(W, H, [(-1.0, (540, 960, 1.0)), (0.0, (540, 960, 1.0)), (2.0, (540, 960, 1.04), 'io'), (4.6, (540, 960, 1.08), 'io')],
-              kicks=[(L0, 0.08, 540, 860), (ws(6), 0.1, CX, CY), (ws(8), 0.12, CX, CY), (L1, 0.2, CX, CY)], shakes=[(L1, 0.3, 10)])
+CAM1 = Camera(W, H, [(-1.0, (540, 960, 1.0)), (0.0, (540, 960, 1.0)), (2.0, (540, 960, 1.04), 'io'), (6.55, (540, 960, 1.1), 'io')],
+              kicks=[(L0, 0.08, 540, 860), (ws(4), 0.08, CX, CY), (ws(8), 0.1, CX, CY), (ws(9), 0.08, CX, CY), (ws(15), 0.1, CX, CY), (ws(17), 0.12, CX, CY), (L1, 0.2, CX, CY)], shakes=[(L1, 0.3, 10)])
 
 
 def shot_lap(t):
@@ -115,15 +113,15 @@ def shot_lap(t):
 
 
 # ================================================================== shot 2: the real car, April 2023
-T2 = 4.55
-AP = ws(15)                                           # 'April'
+T2 = 6.55
+AP = ws(21)                                           # 'April'
 P2 = Presenter([
     (T2 - 0.05, dict(path=Track([(T2 - 0.05, (1300, 300)), (T2 + 0.4, (880, GROUND), 'oc')]), size=7, legs='auto', arms='fly', expr='talk', face=-1, ground=None)),
     (T2 + 0.4, dict(ground=GROUND, squash=True, arms='point', point=(540, 620), look=(540, 620), expr='wow', face=None)),
     (AP, dict(arms='thumb', point=None, look_camera=True, expr='grin', squash=True)),
 ], words=WORDS, base_size=7)
-CAM2 = Camera(W, H, [(T2, (540, 900, 1.08)), (7.9, (540, 880, 1.16), 'io')],
-              kicks=[(T2 + 0.15, 0.08, 540, 620), (ws(13), 0.1, 540, 620), (AP, 0.16, 400, 1090)], shakes=[(AP, 0.25, 8)])
+CAM2 = Camera(W, H, [(T2, (540, 900, 1.08)), (8.75, (540, 880, 1.16), 'io')],
+              kicks=[(T2 + 0.15, 0.08, 540, 620), (ws(19), 0.1, 540, 620), (AP, 0.16, 400, 1090)], shakes=[(AP, 0.25, 8)])
 
 
 def shot_photo(t):
@@ -132,19 +130,19 @@ def shot_photo(t):
         k = fx.slam(t, AP) * popin(t, AP, 0.2)
         blit(fg, fx.big('badge', 'APRIL 2023', '#ffffff', '#1a1a2e', '#d6d9e2', s=10), 400, 1090, k, k, -4, anchor='center')
         fx.burst(fg, t, AP, 400, 1090, GLOW, n=12, seed=21)
-    if t >= ws(13): blit(fg, up(topcar(), 5), 200 + 60 * ((t - ws(13)) % 2), 300, 1, 1, 0, anchor='center')
+    if t >= ws(19): blit(fg, up(topcar(), 5), 200 + 60 * ((t - ws(19)) % 2), 300, 1, 1, 0, anchor='center')
     P2.draw(fg, t)
     GAR.reflect(img, fg)
     return finish(img, fg, CAM2, t)
 
 
 # ================================================================== shot 3: winner's flag, front-wheel drive
-T3 = 7.9
-RP, FA, FW, PR, AR = ws(19), ws(22), ws(23), ws(24), ws(26)   # reported, fastest, front-wheel-drive, production, around
+T3 = 8.75
+RP, FA, FW, PR, AR = ws(25), ws(28), ws(29), ws(30), ws(32)   # reported, fastest, front-wheel-drive, production, around
 CAR_X = 500
 def car_x3(t): return CAR_X if t < AR else CAR_X + 2200 * ic(prog(t, AR, 1.0))
-CAM3 = Camera(W, H, [(T3, (540, 900, 1.06)), (FW, (560, 960, 1.08), 'io'), (AR, (600, 960, 1.1), 'io'), (END_T, (560, 940, 1.14), 'io')],
-              kicks=[(ws(17), 0.08, 820, 900), (RP, 0.12, 380, 420), (FA, 0.14, 600, 580), (FW, 0.12, CAR_X + 150, 1150), (AR, 0.2, CAR_X, 1100)],
+CAM3 = Camera(W, H, [(T3, (540, 900, 1.06)), (FW, (560, 960, 1.08), 'io'), (AR, (600, 960, 1.1), 'io'), (12.7, (560, 940, 1.14), 'io')],
+              kicks=[(ws(23), 0.08, 820, 900), (RP, 0.12, 380, 420), (FA, 0.14, 600, 580), (FW, 0.12, CAR_X + 150, 1150), (AR, 0.2, CAR_X, 1100)],
               shakes=[(AR, 0.4, 12)])
 
 
@@ -176,27 +174,29 @@ def shot_flag(t):
     return finish(img, fg, CAM3, t)
 
 
+T4 = 12.7
+shot_ask, ASK_CUES = kit.ask(T4, WORDS, lambda fg, t: blit(fg, up(flag(int(t * 10) % 8), 6), 860, GROUND))
 shot_teaser, TEASE_CUES = kit.teaser(END_T, WORDS)
 
 
 def overlay(cv, t):
-    title(cv, t, 0.05, 4.5, '7:44.881', RED, 430, 150, -3)
-    kit.photo_hq(cv, t, T2 + 0.1, 7.8, 'civic', 540, 640, 820, rot=-3, label='THE REAL CAR')
-    title(cv, t, FW, 12.6, 'front-wheel drive', YEL, 740, 112, 2)
+    title(cv, t, 0.05, T2 - 0.1, '7:44.881', RED, 430, 150, -3)
+    kit.photo_hq(cv, t, T2 + 0.1, T3 - 0.1, 'civic', 540, 640, 820, rot=-3, label='THE REAL CAR')
+    title(cv, t, FW, T4 - 0.1, 'front-wheel drive', YEL, 740, 112, 2)
 
 
 # ================================================================== shots + transitions
-SHOTS = [(-1.0, shot_lap), (T2, shot_photo), (T3, shot_flag), (END_T, shot_teaser)]
-TRANS = {1: (T2, T2 + 0.2, 'whip', dict(dx=1)), 2: (T3, T3 + 0.2, 'push', None), 3: (END_T, END_T + 0.2, 'iris', (540, 980))}
-KEYCOL = {'civic': YEL, '44.881': RED, 'lap': YEL, 'nürburgring': YEL, 'april': GRN, 'reported': RED, 'fastest': YEL, 'front-wheel-drive': YEL, 'track': GRN}
+SHOTS = [(-1.0, shot_lap), (T2, shot_photo), (T3, shot_flag), (T4, shot_ask), (END_T, shot_teaser)]
+TRANS = {1: (T2, T2 + 0.2, 'whip', dict(dx=1)), 2: (T3, T3 + 0.2, 'push', None), 3: (T4, T4 + 0.2, 'whip', dict(dx=1)), 4: (END_T, END_T + 0.2, 'iris', (540, 980))}
+KEYCOL = {'fast': YEL, 'bet': RED, 'civic': YEL, '44.881': RED, 'lap': YEL, 'nürburgring': YEL, 'april': GRN, 'reported': RED, 'fastest': YEL, 'front-wheel-drive': YEL, 'track': GRN}
 CUES = [(0.0, 'whoosh', 0.4), (0.05, 'pop', 0.6), (L0, 'vroom', 0.8)] + [(L0 + 0.5 * k, 'whoosh', 0.25) for k in range(1, 8)] + [
         (L1, 'ding', 0.9), (L1 + 0.02, 'confetti', 0.7), (L1 + 0.04, 'stamp', 0.5),
         (T2 + 0.1, 'pop', 0.7), (T2 + 0.4, 'thump', 0.4), (AP, 'stamp', 0.7),
         (T3 + 0.05, 'pop', 0.6), (RP, 'stamp', 0.6), (FA, 'ding', 0.8), (FA + 0.02, 'sparkle', 0.6), (FW, 'pop', 0.6), (FW + 0.1, 'pop', 0.4),
         (FW - 0.45, 'vroom', 0.5), (AR, 'vroom', 1.0), (AR + 0.05, 'screech', 0.4), (AR + 0.6, 'confetti', 0.8),
-] + TEASE_CUES
+] + ASK_CUES + TEASE_CUES
 
-kit.setup(HERE, WORDS, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='silver', gauge=True, loud=True, gap=GAP, crisp=True)
+kit.setup(HERE, WORDS, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='silver', gauge=True, loud=True, crisp=True)
 
 if __name__ == '__main__':
     kit.main()

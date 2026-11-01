@@ -1,15 +1,15 @@
 """Renders 'Tourbillon, gauges in the wheel': 1,800 hp from a V16 and three motors; gauges that stay still.
 
 Template: videos/plaid-two-seconds (ac-idle shot structure on shared/episode.py). Word times come from align.py ->
-words.json; the voiceover is out/tourbillon-wheel-gauges/voiceover.wav (clip 2 of out/voiceover/full_voiceover.wav).
-The mixer holds a 1.3 s pause before 'Follow for the next one' (GAP) so the wheel beat can land; the words after it
-are shifted by the same amount. The wheel and engine are generic pixel drawings with no lettering or logos.
+words.json; the voiceover is out/tourbillon-wheel-gauges/voiceover.wav (clip 2 of out/voiceover2/full_voiceover.wav).
+The wheel and engine are generic pixel drawings with no lettering or logos.
 Shots:
-  1 wheel    0.00  hook: a pixel steering wheel turns while the hub gauges stay still, 'Gauges that never move.'
-  2 photo    1.75  garage: the real Tourbillon photo slides in, the hp counter runs to 1,800
-  3 engine   3.70  cutaway: sixteen cylinders light up bank by bank, then three motors glow, 'V16 and three motors'
-  4 hub      6.60  close-up: the wheel swings lock to lock, the hub dials hold level, FIXED / ALWAYS VISIBLE tags
-  5 teaser  12.60  shared NEXT EPISODE ending ('Follow for the next one.')
+  1 wheel    0.00  hook question: a pixel steering wheel turns while the hub gauges stay still, 'Gauges that never move.'
+  2 photo    3.60  garage: the real Tourbillon photo slides in, the hp counter runs to 1,800
+  3 engine   6.60  cutaway: sixteen cylinders light up bank by bank, then three motors glow, 'V16 and three motors'
+  4 hub      9.30  close-up: the wheel swings lock to lock, the hub dials hold level, FIXED HUB / ALWAYS VISIBLE
+  5 ask     14.00  closing question: he shrugs to camera beside a spinning wheel, a big '?' (shared kit.ask)
+  6 teaser  15.90  shared NEXT EPISODE ending
 """
 import math, os, sys
 from functools import lru_cache
@@ -25,11 +25,9 @@ from pixanim import fx, diagram as dg
 from pixanim.fx import blit, popin, popout
 from pixanim.grid import up, outline
 
-RAW = kit.load_words(HERE)
-GAP = (11.2, 1.3)                                     # pause inserted before 'Follow' (between 'turns.' and 'Follow')
-WORDS = kit.shift_words(RAW, *GAP)
-DUR = 17.0
-END_T = 12.6
+WORDS = kit.load_words(HERE)
+DUR = 17.6
+END_T = 15.9
 def ws(i): return WORDS[i]['s']
 
 
@@ -100,7 +98,7 @@ def v16(lit=0):
 
 # ================================================================== shot 1: hook, the wheel turns, the gauges don't
 def steer1(t): return 70 * math.sin(max(0, t - 0.15) * 3.2) * min(1, max(0, t) * 2)
-CAM1 = Camera(W, H, [(-1.0, (540, 940, 1.12)), (0.0, (540, 940, 1.12)), (1.0, (540, 960, 1.2), 'io'), (2.0, (540, 960, 1.24))],
+CAM1 = Camera(W, H, [(-1.0, (540, 940, 1.12)), (0.0, (540, 940, 1.12)), (2.0, (540, 960, 1.2), 'io'), (3.6, (540, 960, 1.24))],
               kicks=[(0.15, 0.1, 540, 1000), (0.75, 0.08, 540, 1000), (1.25, 0.12, 540, 1000)])
 
 
@@ -123,15 +121,15 @@ def shot_wheel(t):
 
 
 # ================================================================== shot 2: the real car slides in, 1,800 hp
-T2 = 1.75
-HP0 = ws(3)                                           # '1,800'
+T2 = 3.6
+HP0 = ws(15)                                           # '1,800'
 def hp(t): return int(1800 * oc(prog(t, HP0, 1.1)))
 P2 = Presenter([
     (T2 - 0.05, dict(path=Track([(T2 - 0.05, (-200, 300)), (T2 + 0.4, (220, GROUND), 'oc')]), size=7, legs='auto', arms='fly', expr='talk', face=1, ground=None)),
     (T2 + 0.4, dict(ground=GROUND, squash=True, arms='point', point=(540, 600), look=(540, 600), expr='wow', face=None)),
     (HP0 + 1.1, dict(arms='shock', point=None, look_camera=True, expr='wow', squash=True)),
 ], words=WORDS, base_size=7)
-CAM2 = Camera(W, H, [(T2, (540, 900, 1.1)), (3.7, (540, 880, 1.18), 'io')],
+CAM2 = Camera(W, H, [(T2, (540, 900, 1.1)), (6.6, (540, 880, 1.18), 'io')],
               kicks=[(T2 + 0.15, 0.08, 540, 600), (HP0 + 1.1, 0.18, 760, 1080)], shakes=[(HP0 + 1.1, 0.3, 10)])
 
 
@@ -147,11 +145,11 @@ def shot_photo(t):
 
 
 # ================================================================== shot 3: V16 + three motors
-T3 = 3.7
-V0, M0 = ws(7), ws(9)                                 # 'V16', 'three'
+T3 = 6.6
+V0, M0 = ws(19), ws(21)                                 # 'V16', 'three'
 def lit(t): return int(16 * clamp((t - V0) / 0.75))
 MX = (300, 540, 780)
-CAM3 = Camera(W, H, [(T3, (540, 900, 1.06)), (V0, (540, 860, 1.14), 'io'), (M0, (540, 940, 1.1), 'io'), (6.6, (540, 940, 1.14), 'io')],
+CAM3 = Camera(W, H, [(T3, (540, 900, 1.06)), (V0, (540, 860, 1.14), 'io'), (M0, (540, 940, 1.1), 'io'), (9.3, (540, 940, 1.14), 'io')],
               kicks=[(V0, 0.12, 540, 700), (V0 + 0.75, 0.16, 540, 700)] + [(M0 + 0.2 * i, 0.08, MX[i], 1050) for i in range(3)],
               shakes=[(V0 + 0.75, 0.35, 10)])
 
@@ -181,19 +179,19 @@ def shot_engine(t):
 
 
 # ================================================================== shot 4: the hub stays put as the wheel turns
-T4 = 6.6
-G0, VIS, TURN = ws(13), ws(22), ws(25)                # 'gauges', 'visible', 'wheel' (turns)
+T4 = 9.3
+G0, VIS, TURN = ws(25), ws(34), ws(37)                # 'gauges', 'visible', 'wheel' (turns)
 def steer4(t):
-    u = max(0.0, t - (ws(19) - 0.2))                   # starts turning on 'so'
+    u = max(0.0, t - (ws(31) - 0.2))                   # starts turning on 'so'
     return 120 * math.sin(u * 2.4) * min(1, u * 1.5) + (200 * io(prog(t, TURN, 0.8)) if t >= TURN else 0)
 P4 = Presenter([
     (T4 - 0.05, dict(path=Track([(T4 - 0.05, (1300, 400)), (T4 + 0.4, (900, GROUND), 'oc')]), size=6, legs='auto', arms='fly', expr='talk', face=-1, ground=None)),
     (T4 + 0.4, dict(ground=GROUND, squash=True, arms='point', point=(540, 760), look=(540, 760), expr='smile', face=None)),
     (VIS, dict(arms='thumb', point=None, look=None, look_camera=True, expr='grin', squash=True)),
 ], words=WORDS, base_size=6)
-CAM4 = Camera(W, H, [(T4, (540, 820, 1.1)), (G0, (540, 760, 1.3), 'io'), (ws(19), (540, 820, 1.12), 'io'), (TURN, (540, 800, 1.2), 'io'),
+CAM4 = Camera(W, H, [(T4, (540, 820, 1.1)), (G0, (540, 760, 1.3), 'io'), (ws(31), (540, 820, 1.12), 'io'), (TURN, (540, 800, 1.2), 'io'),
                      (END_T, (540, 800, 1.26), 'io')],
-              kicks=[(G0, 0.14, 540, 760), (ws(17), 0.1, 540, 760), (VIS, 0.14, 540, 520), (TURN, 0.12, 540, 760)], shakes=[(TURN + 0.8, 0.25, 8)])
+              kicks=[(G0, 0.14, 540, 760), (ws(29), 0.1, 540, 760), (VIS, 0.14, 540, 520), (TURN, 0.12, 540, 760)], shakes=[(TURN + 0.5, 0.25, 8)])
 
 
 def shot_hub(t):
@@ -208,45 +206,49 @@ def shot_hub(t):
         kk = popin(t, G0, 0.2)
         hl = 110 * kk + 8 * math.sin(t * 8)                 # highlight ring around the fixed hub
         d.ellipse((540 - hl - 60, 760 - hl - 60, 540 + hl + 60, 760 + hl + 60), outline=(255, 217, 59, 230), width=9)
-    dg.label(fg, t, ws(15), 'FIXED HUB', (540, 640), (540, 340), '#ffd23f', '#1a1a2e', '#e8b923', s=8, t1=ws(19) + 0.6)
+    dg.label(fg, t, ws(27), 'FIXED HUB', (540, 640), (540, 340), '#ffd23f', '#1a1a2e', '#e8b923', s=8, t1=ws(31) + 0.6)
     if t >= VIS:
         kk = popin(t, VIS, 0.25)
         blit(fg, fx.big('tag', 'ALWAYS VISIBLE', '#fff6e0', '#2f9e52', s=8), 540, 380, kk, kk, -4 + 2 * math.sin(t * 5), anchor='center')
         fx.burst(fg, t, VIS, 540, 380, GRN, n=12, seed=41)
-    if t >= TURN + 0.8:
-        fx.stamp_at(fg, t, TURN + 0.8, 'STILL LEVEL', 540, 960, rot=-8, s=8, col='#2f9e52')
-        fx.sparkles(fg, t, 540, 760, 500, 400, n=8, seed=42); fx.confetti(fg, t, TURN + 0.8, 540, 600, n=24, seed=43)
+    if t >= TURN + 0.5:
+        fx.stamp_at(fg, t, TURN + 0.5, 'STILL LEVEL', 540, 960, rot=-8, s=8, col='#2f9e52')
+        fx.sparkles(fg, t, 540, 760, 500, 400, n=8, seed=42); fx.confetti(fg, t, TURN + 0.5, 540, 600, n=24, seed=43)
     P4.draw(fg, t)
     GAR.reflect(img, fg)
     return finish(img, fg, CAM4, t)
 
 
+T5 = 14.0
+def ask_prop(fg, t):                                  # a small wheel spinning under the '?', hub held level
+    wheel(fg, t, 800, 1030, round(t * 120) % 360, 5, 0.4)
+shot_ask, ASK_CUES = kit.ask(T5, WORDS, ask_prop)
 shot_teaser, TEASE_CUES = kit.teaser(END_T, WORDS)
 
 
 def overlay(cv, t):
-    title(cv, t, 0.05, 1.7, 'Gauges that', YEL, 440, 124, -3)
-    title(cv, t, 0.2, 1.7, 'never move.', YEL, 580, 124, 2)
-    kit.photo_hq(cv, t, T2 + 0.1, 3.6, 'tourbillon', 540, 690, 860, rot=3, label='THE REAL CAR', crop=(0.0, 0.27, 1.0, 1.0))
-    title(cv, t, V0, 6.5, 'V16 and', RED, 420, 116, -2)
-    title(cv, t, M0 - 0.1, 6.5, 'three motors', RED, 550, 116, 2)
+    title(cv, t, 0.05, 3.5, 'Gauges that', YEL, 440, 124, -3)
+    title(cv, t, 0.2, 3.5, 'never move.', YEL, 580, 124, 2)
+    kit.photo_hq(cv, t, T2 + 0.1, T3 - 0.1, 'tourbillon', 540, 690, 860, rot=3, label='THE REAL CAR', crop=(0.0, 0.27, 1.0, 1.0))
+    title(cv, t, V0, T4 - 0.1, 'V16 and', RED, 420, 116, -2)
+    title(cv, t, M0 - 0.1, T4 - 0.1, 'three motors', RED, 550, 116, 2)
 
 
 # ================================================================== shots + transitions
-SHOTS = [(-1.0, shot_wheel), (T2, shot_photo), (T3, shot_engine), (T4, shot_hub), (END_T, shot_teaser)]
+SHOTS = [(-1.0, shot_wheel), (T2, shot_photo), (T3, shot_engine), (T4, shot_hub), (T5, shot_ask), (END_T, shot_teaser)]
 TRANS = {1: (T2, T2 + 0.2, 'push', None), 2: (T3, T3 + 0.2, 'whip', dict(dx=1)), 3: (T4, T4 + 0.2, 'iris', (540, 760)),
-         4: (END_T, END_T + 0.2, 'whip', dict(dx=1))}
-KEYCOL = {'tourbillon': YEL, '1,800': RED, 'v16': RED, 'motors': YEL, 'gauges': YEL, 'steering': YEL, 'visible': GRN, 'turns': YEL}
+         4: (T5, T5 + 0.2, 'whip', dict(dx=1)), 5: (END_T, END_T + 0.2, 'iris', (540, 980))}
+KEYCOL = {'speedometer': YEL, 'anywhere': YEL, 'tourbillon': YEL, 'dials': YEL, '1,800': RED, 'v16': RED, 'motors': YEL, 'gauges': YEL, 'steering': YEL, 'visible': GRN, 'turns': YEL}
 CUES = [(0.0, 'whoosh', 0.4), (0.05, 'pop', 0.6), (0.15, 'creak', 0.4), (0.75, 'creak', 0.4), (0.55, 'pop', 0.5), (1.25, 'creak', 0.4),
         (T2 + 0.1, 'whoosh', 0.6), (T2 + 0.15, 'pop', 0.6), (T2 + 0.4, 'thump', 0.4)] + [(HP0 + 0.1 * k, 'click', 0.4) for k in range(10)] + [
         (HP0 + 1.1, 'ding', 0.9), (HP0 + 1.12, 'sparkle', 0.6), (T3 + 0.05, 'pop', 0.5)] + [
         (V0 + 0.05 * k, 'click', 0.45) for k in range(15)] + [(V0 + 0.75, 'vroom', 0.9), (V0 + 0.77, 'boom', 0.4)] + [
         (M0 + 0.2 * i, 'pop', 0.7) for i in range(3)] + [(M0 + 0.45, 'sparkle', 0.6),
-        (T4 + 0.4, 'thump', 0.4), (G0, 'ding', 0.6), (ws(15), 'pop', 0.6), (ws(19), 'creak', 0.5), (VIS, 'stamp', 0.6), (VIS + 0.02, 'sparkle', 0.6),
-        (TURN, 'creak', 0.6), (TURN + 0.8, 'stamp', 0.8), (TURN + 0.82, 'confetti', 0.6),
-] + TEASE_CUES
+        (T4 + 0.4, 'thump', 0.4), (G0, 'ding', 0.6), (ws(27), 'pop', 0.6), (ws(31), 'creak', 0.5), (VIS, 'stamp', 0.6), (VIS + 0.02, 'sparkle', 0.6),
+        (TURN, 'creak', 0.6), (TURN + 0.5, 'stamp', 0.8), (TURN + 0.52, 'confetti', 0.6),
+] + ASK_CUES + TEASE_CUES
 
-kit.setup(HERE, WORDS, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='silver', gauge=True, loud=True, gap=GAP, crisp=True)
+kit.setup(HERE, WORDS, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='silver', gauge=True, loud=True, crisp=True)
 
 if __name__ == '__main__':
     kit.main()

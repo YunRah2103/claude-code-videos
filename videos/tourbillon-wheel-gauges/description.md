@@ -1,6 +1,6 @@
 # Bugatti Tourbillon: gauges that never move
 
-Bugatti's Tourbillon makes 1,800 horsepower from a V16 and three electric motors. Its gauges sit inside the steering wheel, so they stay visible as the wheel turns.
+Where would you put your speedometer if you could put it anywhere? Bugatti's Tourbillon makes 1,800 horsepower, from a V16 and three electric motors. Its gauges sit inside the steering wheel, so they stay visible as the wheel turns. Would you want your dials in the wheel?
 
 Follow for the next one.
 

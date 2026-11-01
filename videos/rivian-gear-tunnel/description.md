@@ -1,6 +1,6 @@
 # Rivian R1T: the hidden gear tunnel
 
-The Rivian R1T has a hidden gear tunnel behind the rear seats. You can reach it from inside the cabin by folding down the armrest and sliding a door up.
+Where would you hide a gear tunnel in a pickup truck? The Rivian R1T has one, behind the rear seats. You reach it from inside the cabin, by folding down the armrest and sliding a door up. Would you ever find it without being told?
 
 Follow for the next one.
 

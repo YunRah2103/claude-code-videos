@@ -1,6 +1,6 @@
 # Koenigsegg Jesko Absolut: 0-400-0 km/h
 
-Koenigsegg's Jesko Absolut was reportedly timed at 27.83 seconds from 0 to 400 km/h and back to zero (reported July 2024; run at Örebro, Sweden).
+How long does it take to go to 400 km/h and stop again? Koenigsegg's Jesko Absolut was reportedly timed at 27.83 seconds (reported July 2024; run at Örebro, Sweden), from 0 to 400 km/h and back to zero.
 
 Follow for the next one.
 

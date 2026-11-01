@@ -1,16 +1,14 @@
 """Renders 'Jesko, 0-400-0': the Jesko Absolut was reportedly timed at 27.83 s from 0 to 400 km/h and back to zero.
 
 Template: videos/plaid-two-seconds (ac-idle shot structure on shared/episode.py). Word times come from align.py ->
-words.json; the voiceover is out/jesko-0-400-0/voiceover.wav (clip 6 of out/voiceover/full_voiceover.wav). The
-mixer holds a 2.6 s pause before 'Follow for the next one' (GAP) for the recap beat; later words are shifted to
-match. 27.83 s was checked against CarExpert's report (2 July 2024: Orebro runway, driver Markus Lundh); the
+words.json; the voiceover is out/jesko-0-400-0/voiceover.wav (clip 6 of out/voiceover2/full_voiceover.wav). 27.83 s was checked against CarExpert's report (2 July 2024: Orebro runway, driver Markus Lundh); the
 script hedges it as 'reportedly' (REPORTEDLY tag). The car is a generic pixel coupe, no badges or lettering.
 Shots:
-  1 sweep    0.00  hook: the speedo sweeps 0 -> 400 -> 0 while a timer races to 27.83, '27.83 seconds'
-  2 photo    2.10  garage: the real Jesko Absolut photo pops in, 'reportedly', the 27.83 S stopwatch slams down
-  3 run      5.20  night street: 0 KM/H, launch, the counter climbs to 400, brakes glow, back to 0
-  4 recap    9.50  garage: 0-400-0 badge, stopwatch 27.83, REPORTEDLY stamp
-  5 teaser  12.45  shared NEXT EPISODE ending ('Follow for the next one.')
+  1 sweep    0.00  hook question: the speedo sweeps 0 -> 400 (on 'km/h') -> 0 (on 'again') while a timer races to 27.83
+  2 photo    4.40  garage: the real Jesko Absolut photo pops in, 'reportedly', the 27.83 S stopwatch slams down
+  3 run      9.25  night street: 0 KM/H, launch, the counter climbs to 400, brakes glow, back to 0
+  4 recap   12.60  garage: 0-400-0 badge, stopwatch 27.83, REPORTEDLY stamp
+  5 teaser  14.60  shared NEXT EPISODE ending
 """
 import math, os, sys
 from functools import lru_cache
@@ -27,11 +25,9 @@ from pixanim import fx, diagram as dg
 from pixanim.fx import blit, popin, popout
 from pixanim.grid import up, outline
 
-RAW = kit.load_words(HERE)
-GAP = (9.5, 2.6)                                      # pause inserted between 'zero.' and 'Follow'
-WORDS = kit.shift_words(RAW, *GAP)
+WORDS = kit.load_words(HERE)
 DUR = 17.0
-END_T = 12.45
+END_T = 14.6
 def ws(i): return WORDS[i]['s']
 
 
@@ -57,38 +53,39 @@ def sdeg(kmh): return 225 - 270 * kmh / 400        # speedo needle for 0..400 km
 
 # ================================================================== shot 1: hook, 0 -> 400 -> 0 in one sweep
 DASH = Dashboard()
+HK_TOP, HK_END = WORDS[9]['s'], WORDS[12]['e']         # up to 400 by 'km/h', back to 0 as 'again?' ends
 def hook_kmh(t):
-    u = clamp((t - 0.1) / 1.8)
-    return 400 * (io(u / 0.62) if u < 0.62 else 1 - io((u - 0.62) / 0.38))
-CAM1 = Camera(W, H, [(-1.0, (560, 880, 1.22)), (0.0, (560, 880, 1.22)), (1.0, (600, 920, 1.3), 'io'), (2.2, (580, 920, 1.36), 'io')],
-              kicks=[(0.1, 0.1, 560, 880), (1.2, 0.14, 790, 985), (1.9, 0.2, 560, 1000)], shakes=[(1.0, 0.4, 6), (1.9, 0.25, 12)])
+    if t < HK_TOP: return 400 * io(clamp((t - 0.1) / (HK_TOP - 0.1)))
+    return 400 * (1 - io(clamp((t - HK_TOP - 0.4) / (HK_END - HK_TOP - 0.4))))
+CAM1 = Camera(W, H, [(-1.0, (560, 880, 1.22)), (0.0, (560, 880, 1.22)), (HK_TOP, (600, 920, 1.3), 'io'), (4.4, (580, 920, 1.36), 'io')],
+              kicks=[(0.1, 0.1, 560, 880), (HK_TOP, 0.14, 790, 985), (ws(11), 0.12, 790, 985), (HK_END, 0.2, 560, 1000)], shakes=[(HK_TOP, 0.4, 6), (HK_END, 0.25, 12)])
 
 
 def shot_sweep(t):
     v = hook_kmh(t)
     img = DASH.frame(t, rpm_deg=225 - 250 * (v / 400) + 4 * math.sin(t * 33), speed_deg=sdeg(v), lcd=f'{int(v)}')
     fg = layer()
-    sec = 27.83 * clamp((t - 0.1) / 1.8)
-    k = popin(t, 0.1, 0.25) * (fx.slam(t, 1.9, k=0.5) if t >= 1.9 else 1)
-    blit(fg, fx.big('badge', f'{sec:.2f} S', '#ffffff' if t < 1.9 else '#ffd23f', '#1a1a2e', '#d6d9e2', s=11), 560, 1080, k, k, -3, anchor='center')
+    sec = 27.83 * clamp((t - 0.1) / (HK_END - 0.1))
+    k = popin(t, 0.1, 0.25) * (fx.slam(t, HK_END, k=0.5) if t >= HK_END else 1)
+    blit(fg, fx.big('badge', f'{sec:.2f} S', '#ffffff' if t < HK_END else '#ffd23f', '#1a1a2e', '#d6d9e2', s=11), 560, 1080, k, k, -3, anchor='center')
     blit(fg, up(stopwatch(sec / 60), 7), 250, 990, popin(t, 0.25), popin(t, 0.25), 6 * math.sin(t * 9), anchor='center')
-    if t >= 1.9: fx.burst(fg, t, 1.9, 560, 1080, GLOW, n=16, seed=2); fx.ring(fg, t, 1.9, 560, 1080, GLOW)
+    if t >= HK_END: fx.burst(fg, t, HK_END, 560, 1080, GLOW, n=16, seed=2); fx.ring(fg, t, HK_END, 560, 1080, GLOW)
     fx.sparkles(fg, t, 560, 1080, 700, 200, n=6, seed=1)
     img.alpha_composite(fg)
     return CAM1.apply(img.convert('RGB'), t, (14, 15, 18))
 
 
 # ================================================================== shot 2: the real car, reportedly 27.83 s
-T2 = 2.1
-SW = ws(7)                                            # '27.83'
+T2 = 4.4
+SW = ws(20)                                            # '27.83'
 P2 = Presenter([
     (T2 - 0.05, dict(path=Track([(T2 - 0.05, (1300, 300)), (T2 + 0.4, (880, GROUND), 'oc')]), size=7, legs='auto', arms='fly', expr='talk', face=-1, ground=None)),
     (T2 + 0.4, dict(ground=GROUND, squash=True, arms='point', point=(540, 600), look=(540, 600), expr='smirk', face=None)),
-    (ws(4), dict(arms='shrug', point=None, look_camera=True, expr='think')),
+    (ws(17), dict(arms='shrug', point=None, look_camera=True, expr='think')),
     (SW, dict(arms='shock', expr='wow', squash=True)),
 ], words=WORDS, base_size=7)
-CAM2 = Camera(W, H, [(T2, (540, 900, 1.08)), (SW, (520, 920, 1.14), 'io'), (5.2, (520, 920, 1.18), 'io')],
-              kicks=[(T2 + 0.15, 0.08, 540, 600), (ws(4), 0.1, 540, 440), (SW, 0.2, 360, 1060)], shakes=[(SW, 0.3, 12)])
+CAM2 = Camera(W, H, [(T2, (540, 900, 1.08)), (SW, (520, 920, 1.14), 'io'), (9.25, (520, 920, 1.18), 'io')],
+              kicks=[(T2 + 0.15, 0.08, 540, 600), (ws(17), 0.1, 540, 440), (SW, 0.2, 360, 1060)], shakes=[(SW, 0.3, 12)])
 
 
 def shot_photo(t):
@@ -105,8 +102,8 @@ def shot_photo(t):
 
 
 # ================================================================== shot 3: the run, 0 -> 400 -> 0
-T3 = 5.2
-GO, TOP, BRK, STOP = ws(10) + 0.1, ws(12) + 0.3, ws(14), WORDS[17]['e']   # '0', '400', 'and', 'zero.'
+T3 = 9.25
+GO, TOP, BRK, STOP = ws(23) + 0.1, ws(25) + 0.3, ws(27), WORDS[17]['e']   # '0', '400', 'and', 'zero.'
 def kmh(t):
     if t < GO: return 0.0
     if t < TOP: return 400 * io(prog(t, GO, TOP - GO))
@@ -117,8 +114,8 @@ def scroll3(t):                                        # integrate the speed for
     return sum(kmh(GO + (i + 0.5) * dt) for i in range(n)) * dt * 9
 def car_x3(t): return 320 + 180 * clamp(kmh(t) / 400) - (60 * math.sin(prog(t, BRK, 0.3) * math.pi) if t >= BRK else 0)
 CAM3 = Camera(W, H, [(T3, (540, 980, 1.12)), (GO, (420, 1040, 1.24), 'io'), (GO + 0.6, (600, 980, 1.08), 'oc'), (BRK, (560, 980, 1.14), 'io'),
-                     (9.5, (540, 980, 1.2), 'io')],
-              kicks=[(ws(10), 0.1, 540, 560), (GO, 0.22, 320, 1080), (TOP, 0.16, 540, 560), (BRK, 0.16, 500, 1080), (STOP, 0.16, 540, 560)],
+                     (12.6, (540, 980, 1.2), 'io')],
+              kicks=[(ws(23), 0.1, 540, 560), (GO, 0.22, 320, 1080), (TOP, 0.16, 540, 560), (BRK, 0.16, 500, 1080), (STOP, 0.16, 540, 560)],
               shakes=[(GO, 0.5, 14), (BRK, 0.6, 10)])
 
 
@@ -138,7 +135,7 @@ def shot_run(t):
             r = 26 + 4 * math.sin(t * 40)
             d.ellipse((wx - r, ROAD_Y - 52 - r, wx + r, ROAD_Y - 52 + r), outline=(255, 120, 40, 230), width=7)
         fx.dust(fg, t, BRK, x + 100, ROAD_Y - 10, n=10, seed=30, dirx=1, col=(255, 200, 90))
-    k = popin(t, ws(10), 0.25)
+    k = popin(t, ws(23), 0.25)
     blit(fg, fx.big('badge', f'{int(v)} KM/H', '#ffd23f' if v >= 399.5 else '#ffffff', '#1a1a2e', '#d6d9e2', s=12), 430, 600, k, k, -2, anchor='center')
     if t >= TOP: fx.burst(fg, t, TOP, 480, 600, GLOW, n=16, seed=31); fx.ring(fg, t, TOP, 480, 600, GLOW)
     if t >= STOP: fx.burst(fg, t, STOP, 480, 600, (90, 220, 120), n=16, seed=32); fx.sparkles(fg, t, 480, 600, 700, 200, n=6, seed=33)
@@ -147,7 +144,7 @@ def shot_run(t):
 
 
 # ================================================================== shot 4: recap
-T4 = 9.5
+T4 = 12.6
 P4 = Presenter([
     (T4 - 0.05, dict(path=Track([(T4 - 0.05, (-200, 400)), (T4 + 0.4, (200, GROUND), 'oc')]), size=7, legs='auto', arms='fly', expr='talk', face=1, ground=None)),
     (T4 + 0.4, dict(ground=GROUND, squash=True, arms='point', point=(600, 640), look=(600, 640), expr='wow', face=None)),
@@ -180,26 +177,26 @@ shot_teaser, TEASE_CUES = kit.teaser(END_T, WORDS)
 
 
 def overlay(cv, t):
-    title(cv, t, 0.05, 2.05, '27.83 seconds', RED, 520, 124, -3)
-    kit.photo_hq(cv, t, T2 + 0.1, 5.1, 'jesko', 540, 740, 840, rot=3, label='THE REAL CAR', crop=(0.0, 0.33, 1.0, 1.0))
-    title(cv, t, ws(4), 5.1, 'reportedly', GRN, 420, 116, -3)
+    title(cv, t, 0.05, T2 - 0.1, '27.83 seconds', RED, 520, 124, -3)
+    kit.photo_hq(cv, t, T2 + 0.1, T3 - 0.1, 'jesko', 540, 740, 840, rot=3, label='THE REAL CAR', crop=(0.0, 0.33, 1.0, 1.0))
+    title(cv, t, ws(17), T3 - 0.1, 'reportedly', GRN, 420, 116, -3)
 
 
 # ================================================================== shots + transitions
 SHOTS = [(-1.0, shot_sweep), (T2, shot_photo), (T3, shot_run), (T4, shot_recap), (END_T, shot_teaser)]
 TRANS = {1: (T2, T2 + 0.2, 'whip', dict(dx=1)), 2: (T3, T3 + 0.2, 'push', None), 3: (T4, T4 + 0.2, 'iris', (540, 980)),
          4: (END_T, END_T + 0.2, 'whip', dict(dx=1))}
-KEYCOL = {'jesko': YEL, 'reportedly': GRN, '27.83': RED, '0': YEL, '400': RED, 'zero': YEL}
-CUES = [(0.0, 'whoosh', 0.4), (0.05, 'pop', 0.6), (0.1, 'vroom', 0.9)] + [(0.1 + k * 0.2, 'click', 0.4) for k in range(9)] + [
-        (1.2, 'screech', 0.5), (1.9, 'ding', 0.9), (1.92, 'sparkle', 0.6),
-        (T2 + 0.1, 'pop', 0.7), (T2 + 0.4, 'thump', 0.4), (ws(4), 'pop', 0.6), (SW, 'boom', 0.5), (SW + 0.02, 'stamp', 0.8), (SW + 0.04, 'sparkle', 0.6),
-        (ws(10), 'pop', 0.6), (GO, 'vroom', 1.0), (GO + 0.05, 'screech', 0.3), (TOP, 'ding', 0.8), (BRK, 'screech', 0.9), (STOP, 'thump', 0.6),
+KEYCOL = {'long': YEL, 'stop': RED, 'jesko': YEL, 'reportedly': GRN, '27.83': RED, '0': YEL, '400': RED, 'zero': YEL}
+CUES = [(0.0, 'whoosh', 0.4), (0.05, 'pop', 0.6), (0.1, 'vroom', 0.9)] + [(0.1 + k * 0.2, 'click', 0.4) for k in range(int(HK_END / 0.2))] + [
+        (HK_TOP + 0.4, 'screech', 0.5), (HK_END, 'ding', 0.9), (HK_END + 0.02, 'sparkle', 0.6),
+        (T2 + 0.1, 'pop', 0.7), (T2 + 0.4, 'thump', 0.4), (ws(17), 'pop', 0.6), (SW, 'boom', 0.5), (SW + 0.02, 'stamp', 0.8), (SW + 0.04, 'sparkle', 0.6),
+        (ws(23), 'pop', 0.6), (GO, 'vroom', 1.0), (GO + 0.05, 'screech', 0.3), (TOP, 'ding', 0.8), (BRK, 'screech', 0.9), (STOP, 'thump', 0.6),
         (STOP + 0.02, 'ding', 0.6),
         (T4 + 0.2, 'pop', 0.6), (T4 + 0.4, 'thump', 0.4), (T4 + 0.9, 'stamp', 0.8), (T4 + 0.92, 'sparkle', 0.6), (T4 + 1.5, 'stamp', 0.8),
         (T4 + 1.52, 'confetti', 0.7),
 ] + TEASE_CUES
 
-kit.setup(HERE, WORDS, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='red', gauge=True, loud=True, gap=GAP, crisp=True)
+kit.setup(HERE, WORDS, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='red', gauge=True, loud=True, crisp=True)
 
 if __name__ == '__main__':
     kit.main()
