@@ -102,21 +102,21 @@ ARRIVE, OUT, GRAB, SNAP = 0.5, 0.72, 1.12, 1.78
 def car_x1(t): return lerp(-560, 400, oc(prog(t, -0.95, ARRIVE + 0.95)))
 FLAP1 = lambda t: (car_x1(t) - 33 * CAR_S + 20, GROUND - 120 * CAR_S / 5)
 HOLSTER = (PUMP_X - 140, GROUND - 9 * 28)
-NOZ1 = Track([(GRAB, HOLSTER), (GRAB + 0.18, (HOLSTER[0] - 60, HOLSTER[1] - 120), 'oc'), (1.62, (330, GROUND - 330), 'io'),
-              (SNAP, (300, GROUND - 320), 'io'), (SNAP + 0.16, (HOLSTER[0] - 40, HOLSTER[1] - 60), 'oc'), (SNAP + 0.5, HOLSTER, 'oc')], smooth=True)
-P1 = Presenter([
-    (-5, dict(path=Track([(OUT, (430, GROUND - 230)), (OUT + 0.16, (560, GROUND - 330), 'oc'), (GRAB - 0.02, reach(HOLSTER, 40, 7, 1).at(0), 'ic')],
-                         smooth=True), size=7, legs='auto', arms='fly', expr='grin', face=1, ground=None, visible=False, look=HOLSTER)),
+NOZ1 = Track([(GRAB, HOLSTER), (GRAB + 0.18, (HOLSTER[0] - 80, HOLSTER[1] + 20), 'oc'), (1.62, (300, GROUND - 230), 'io'),
+              (SNAP, (280, GROUND - 230), 'io'), (SNAP + 0.16, (HOLSTER[0] - 40, HOLSTER[1] - 30), 'oc'), (SNAP + 0.5, HOLSTER, 'oc')], smooth=True)
+P1 = Presenter([            # stays low, under the hook headline: hop out, run to the pump, drag the hose along the car, get yanked back
+    (-5, dict(path=Track([(OUT, (430, GROUND - 200)), (OUT + 0.14, (520, GROUND - 130), 'oc'), (GRAB - 0.02, reach(HOLSTER, 20, 6, 1).at(0), 'ic')],
+                         smooth=True), size=6, legs='auto', arms='fly', expr='grin', face=1, ground=None, visible=False, look=HOLSTER)),
     (OUT, dict(visible=True)),
-    (GRAB - 0.02, dict(path=reach(NOZ1.at, 40, 7, -1), arms=('aim', 40), face=-1, expr='smirk', squash=True, look=None, legs='run1')),
-    (1.42, dict(expr='think', arms=('aim', 10), legs='run2')),
-    (SNAP, dict(path=Track([(SNAP, (330 + 30, GROUND - 310)), (SNAP + 0.3, (700, GROUND - 250), 'oc'), (SNAP + 0.55, (620, GROUND), 'ic')], smooth=True),
+    (GRAB - 0.02, dict(path=reach(NOZ1.at, 20, 6, -1), arms=('aim', 20), face=-1, expr='smirk', squash=True, look=None, legs='run1')),
+    (1.42, dict(expr='think', arms=('aim', 0), legs='run2')),
+    (SNAP, dict(path=Track([(SNAP, reach(NOZ1.at(SNAP), 20, 6, -1).at(0)), (SNAP + 0.25, (640, GROUND - 70), 'oc'), (SNAP + 0.5, (640, GROUND), 'ic')], smooth=True),
                 arms='flail', legs='fly', expr='shock', squash=True, face=1)),
-    (SNAP + 0.55, dict(ground=GROUND, squash=True, arms='shrug', legs='stand', expr='sad', look_camera=True)),
-], words=WORDS, base_size=7)
-CAM1 = Camera(W, H, [(-2.0, (480, 900, 1.22)), (0.0, (520, 900, 1.28)), (ARRIVE, (540, 920, 1.32), 'oc'), (GRAB, (560, 860, 1.36), 'io'),
-                     (SNAP, (500, 860, 1.42), 'io'), (2.6, (560, 900, 1.32), 'io')],
-              kicks=[(ARRIVE, 0.06, 400, 1100), (GRAB, 0.06, *HOLSTER), (SNAP, 0.22, 330, 860)], shakes=[(ARRIVE, 0.2, 8), (SNAP, 0.5, 26)])
+    (SNAP + 0.5, dict(ground=GROUND, squash=True, arms='shrug', legs='stand', expr='sad', look_camera=True)),
+], words=WORDS, base_size=6)
+CAM1 = Camera(W, H, [(-2.0, (480, 930, 1.24)), (0.0, (520, 930, 1.28)), (ARRIVE, (540, 940, 1.32), 'oc'), (GRAB, (560, 940, 1.34), 'io'),
+                     (SNAP, (500, 940, 1.38), 'io'), (2.6, (560, 940, 1.32), 'io')],
+              kicks=[(ARRIVE, 0.06, 400, 1100), (GRAB, 0.06, *HOLSTER), (SNAP, 0.2, 300, 1000)], shakes=[(ARRIVE, 0.2, 8), (SNAP, 0.5, 26)])
 
 
 def shot_pump(t):
@@ -140,9 +140,9 @@ def shot_pump(t):
     blit(fg, up(nozzle(), 9), nx, ny + 36, 1, 1, -20 if taut else 0, anchor='center')
     if 1.45 <= t < SNAP:                                 # strain marks on the hose
         k = int(t * 16) % 2
-        for i in range(3): blit(fg, fx.big('glyph', '!', '#ffd23f', s=5), 480 + i * 90, GROUND - 520 - 20 * k, 1, 1, 0, anchor='center')
+        for i in range(3): blit(fg, fx.big('glyph', '!', '#ffd23f', s=5), 480 + i * 90, GROUND - 420 - 20 * k, 1, 1, 0, anchor='center')
     if t >= SNAP:
-        fx.burst(fg, t, SNAP, 330, GROUND - 320, RED, n=16, seed=12); fx.ring(fg, t, SNAP, 330, GROUND - 320, GLOW, r1=420)
+        fx.burst(fg, t, SNAP, 300, GROUND - 230, RED, n=16, seed=12); fx.ring(fg, t, SNAP, 300, GROUND - 230, GLOW, r1=420)
         fx.sparkles(fg, t + 0.3, 620, GROUND - 330, 260, 120, n=6, seed=13)       # dizzy stars over his head
     P1.draw(fg, t)
     GAR.reflect(img, fg)
@@ -407,8 +407,8 @@ def shot_loop(t): return shot_pump(t - DUR)
 
 
 def overlay(cv, t):
-    headline(cv, t, 2.35, HOOK, y=500, sz=100)
-    if t >= END_T and t - DUR > -0.45: headline(cv, max(-0.35, t - DUR), 2.35, HOOK, y=500, sz=100)
+    headline(cv, t, 2.35, HOOK, y=430, sz=94)
+    if t >= END_T and t - DUR > -0.45: headline(cv, max(-0.35, t - DUR), 2.35, HOOK, y=430, sz=94)
     kit.photo_hq(cv, t, ws(15) - 0.05, T3 - 0.1, 'fuel_gauge', 330, 760, 420, rot=-5, label='THE REAL THING', crop=(0.36, 0.0, 1.0, 1.0))
     sticker(cv, t, T5 + 0.35, T6 - 0.1, ('Did you already know that?',), 400, opts=(('YES', (60, 170, 90)), ('NO', (214, 48, 58))))
     sticker(cv, t, ws(31) - 0.05, END_T - 0.1, ('Send this to the friend who', 'always parks on the wrong side.'), 400, rot=2, w=980)
