@@ -5,7 +5,7 @@ come from align.py -> words.json (aligned on out/demon-8-91/vo_final.wav, the au
 outro, so align.py appends the same voice's 'Follow for the next one.'). The car is a generic pixel coupe with no
 badges or lettering; the real car appears only in the framed Commons photo (a showroom shot: Commons has no
 openly licensed photo of a Demon 170 at a drag strip).
-Shots:
+Shots (times are on the first read's timeline, words_v1.json; ANCHORS + kit.retime play them on the v2 read):
   1 tree     0.00  night drag strip: the light tree counts down, green, the coupe launches; '8.91 seconds.'
   2 power    3.10  garage: the framed real photo pops in; the power counter runs to 1,025 HP
   3 quarter  5.95  the quarter mile: timer runs, CERTIFIED stamp, 8.91 S slams at the finish line
@@ -27,8 +27,11 @@ from pixanim.fx import blit, popin, popout
 from pixanim.grid import up
 from pixanim.autos import muscle, light_tree
 
-WORDS = kit.load_words(HERE)
-DUR, END_T = 16.5, 14.46
+WORDS = kit.load_words(HERE)                      # v2 read: captions
+OLD = kit.load_words(HERE, 'words_v1.json')      # v1 read: the animation timeline (presenter talk, beats)
+END_T = 17.2                                      # just after the closing question
+DUR = END_T + 1.7
+ANCHORS = [('the', 0, 3.1), ('certified', 0, 4.48), ('its', 0, 6.08), ('quarter-mile', 0, 6.22), ('8.91', 0, 9.3), ('seconds', 0, 10.34), ("that's", 0, 11.81), ('151', 0, 12.13), ('hour', 0, 13.35), ('would', 0, 13.6)]   # (v2 word, nth, v1 time)
 CS = 4                                                 # car scale on the street
 
 
@@ -81,7 +84,7 @@ P2 = Presenter([
     (3.05, dict(path=Track([(3.05, (1300, 500)), (3.45, (900, GROUND), 'oc')]), size=7, legs='auto', arms='fly', expr='talk', face=-1, ground=None)),
     (3.45, dict(ground=GROUND, squash=True, arms='point', point=(540, 640), look=(540, 640), expr='smile', face=None)),
     (4.48, dict(arms='shock', point=None, look=None, look_camera=True, expr='wow', squash=True)),
-], words=WORDS, base_size=7)
+], words=OLD, base_size=7)
 CAM2 = Camera(W, H, [(3.1, (540, 960, 1.1)), (4.48, (540, 1000, 1.16), 'io'), (5.95, (540, 1000, 1.2))],
               kicks=[(3.3, 0.08, 540, 640), (3.43, 0.08, 400, 1150), (4.48, 0.2, 400, 1150)], shakes=[(4.48, 0.35, 14)])
 
@@ -109,7 +112,7 @@ LINE_X = 760
 P3 = Presenter([
     (9.4, dict(path=Track([(9.4, (1300, 300)), (9.8, (880, ROAD_Y + 20), 'oc')]), size=5, legs='auto', arms='fly', expr='wow', face=-1, ground=None)),
     (9.8, dict(ground=ROAD_Y + 20, squash=True, arms='cheer', look_camera=True, expr='grin', face=None)),
-], words=WORDS, base_size=5)
+], words=OLD, base_size=5)
 CAM3 = Camera(W, H, [(5.95, (540, 1000, 1.12)), (RUN0, (500, 1040, 1.2), 'io'), (RUN1, (620, 1000, 1.24), 'io'), (11.7, (580, 980, 1.16), 'io')],
               kicks=[(6.22, 0.08, 540, 640), (7.35, 0.14, 760, 760), (RUN1, 0.26, 540, 760)], shakes=[(RUN1, 0.4, 14), (6.35, 0.4, 10)])
 
@@ -169,14 +172,14 @@ def shot_speed(t):
     return out
 
 
-shot_teaser, TEASE_CUES = kit.teaser(14.45, WORDS)
+shot_teaser, TEASE_CUES = kit.teaser(14.45, OLD)
 
 # ================================================================== shots + transitions
 SHOTS = [(-1.0, shot_tree), (3.1, shot_power), (5.95, shot_quarter), (11.7, shot_speed), (14.45, shot_teaser)]
 TRANS = {1: (3.1, 3.3, 'whip', dict(dx=1)), 2: (5.95, 6.15, 'push', None), 3: (11.7, 11.9, 'iris', (790, 800)),
          4: (14.45, 14.65, 'whip', dict(dx=1))}
-KEYCOL = {'dodge': YEL, '170': RED, '1,025': RED, 'quarter-mile': YEL, 'certified': GRN, 'nhra': GRN,
-          '8.91': RED, '151': YEL, 'hour': GRN, 'follow': YEL}
+KEYCOL = {'hour': GRN, 'dodge': YEL, '170': RED, '1,025': RED, 'quarter-mile': YEL, 'certified': GRN, 'nhra': GRN,
+          '8.91': RED, '151': YEL, 'look': YEL, 'drag': YEL, 'makes': GRN, 'ready': YEL, 'launch': RED}
 CUES = [
     (0.0, 'whoosh', 0.3), (0.15, 'click', 0.7), (0.45, 'click', 0.7), (0.75, 'click', 0.7), (GO, 'ding', 0.8),
     (GO, 'vroom', 1.0), (GO + 0.02, 'pop', 0.7), (GO + 0.04, 'screech', 0.6), (1.91, 'stamp', 0.9), (1.93, 'sparkle', 0.6),
@@ -186,7 +189,8 @@ CUES = [
     (11.75, 'vroom', 0.8), (HIT, 'ding', 0.7), (HIT + 0.02, 'pop', 0.6), (PUNCH, 'whoosh', 1.0), (PUNCH + 0.02, 'boom', 0.4),
 ] + TEASE_CUES
 
-kit.setup(HERE, WORDS, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='yellow', gauge=True, loud=True, crisp=True)
+kit.setup(HERE, WORDS, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='yellow', gauge=True, loud=True, crisp=True,
+          warp=kit.retime(WORDS, ANCHORS, END_T, 14.45))
 
 if __name__ == '__main__':
     kit.main()

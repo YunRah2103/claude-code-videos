@@ -5,7 +5,7 @@ come from align.py -> words.json (aligned on out/ford-gt-2016/vo_final.wav, the 
 gets a 1.8 s silent hook, more air after each sentence, and the same voice's 'Follow for the next one.'). The racers
 are generic pixel coupes with plain number roundels and no badges or sponsor text; the real car appears only in
 the framed Commons photo.
-Shots:
+Shots (times are on the first read's timeline, words_v1.json; ANCHORS + kit.retime play them on the v2 read):
   1 finish   0.00  night circuit: the blue GT crosses the line under the chequered flag; '2016'
   2 photo    2.90  garage: the framed real photo of the 2016 car at Le Mans; CLASS WIN and LE MANS tags
   3 years    6.40  a calendar flips back from 2016 to 1966; -50 YEARS; the 1960s racer rolls in; '50 years'
@@ -26,8 +26,11 @@ from pixanim.fx import blit, popin, popout
 from pixanim.grid import up
 from pixanim.autos import racer, flag, trophy, year_cal
 
-WORDS = kit.load_words(HERE)
-DUR, END_T = 15.0, 11.67
+WORDS = kit.load_words(HERE)                      # v2 read: captions
+OLD = kit.load_words(HERE, 'words_v1.json')      # v1 read: the animation timeline (presenter talk, beats)
+END_T = 15.35                                      # just after the closing question
+DUR = END_T + 1.7
+ANCHORS = [('won', 0, 1.0), ('2016', 0, 2.04), ('ford', 0, 3.16), ('won', 1, 3.9), ('mans', 1, 4.8), ('it', 1, 6.54), ('50', 1, 6.78), ('years', 1, 7.12), ('overall', 0, 8.28), ('1966', 0, 9.48), ('would', 0, 10.35)]   # (v2 word, nth, v1 time)
 CS = 4
 
 
@@ -78,7 +81,7 @@ P2 = Presenter([
     (3.25, dict(ground=GROUND, squash=True, arms='point', point=(540, 600), look=(540, 600), expr='smile', face=None)),
     (3.9, dict(arms='cheer', point=None, look=None, look_camera=True, expr='wow', squash=True)),
     (4.7, dict(arms='thumb', expr='grin')),
-], words=WORDS, base_size=7)
+], words=OLD, base_size=7)
 CAM2 = Camera(W, H, [(2.9, (540, 960, 1.08)), (4.7, (540, 980, 1.14), 'io'), (6.4, (540, 980, 1.18), 'io')],
               kicks=[(3.1, 0.08, 540, 600), (3.9, 0.14, 420, 950), (4.7, 0.14, 420, 950)])
 
@@ -109,7 +112,7 @@ P3 = Presenter([
     (6.75, dict(ground=GROUND, squash=True, arms='point', point=(560, 640), look=(560, 640), expr='smile', face=None)),
     (F1, dict(arms='shock', point=None, look=None, look_camera=True, expr='wow', squash=True)),
     (OLD_IN, dict(arms='point', point=(640, GROUND - 120), look=(640, GROUND - 120), expr='grin')),
-], words=WORDS, base_size=7)
+], words=OLD, base_size=7)
 CAM3 = Camera(W, H, [(6.4, (560, 900, 1.1)), (F1, (560, 760, 1.2), 'io'), (OLD_IN, (600, 960, 1.1), 'io'), (10.4, (600, 960, 1.14))],
               kicks=[(F0, 0.1, 560, 640), (F1, 0.22, 560, 640), (8.28, 0.1, 820, 900), (OLD_IN, 0.18, 640, 1050)], shakes=[(F1, 0.3, 12)])
 
@@ -154,13 +157,13 @@ def shot_trophy(t):
     return finish(img, fg, CAM4, t)
 
 
-shot_teaser, TEASE_CUES = kit.teaser(11.65, WORDS)
+shot_teaser, TEASE_CUES = kit.teaser(11.65, OLD)
 
 # ================================================================== shots + transitions
 SHOTS = [(-1.0, shot_finish), (2.9, shot_photo), (6.4, shot_years), (10.35, shot_trophy), (11.65, shot_teaser)]
 TRANS = {1: (2.9, 3.1, 'whip', dict(dx=1)), 2: (6.4, 6.6, 'push', None), 3: (10.35, 10.55, 'iris', (540, 900)),
          4: (11.65, 11.85, 'whip', dict(dx=1))}
-KEYCOL = {'2016': YEL, 'gt': YEL, 'class': GRN, 'mans': GRN, '50': RED, "ford's": YEL, 'overall': GRN, 'win': YEL, '1966': RED, 'follow': YEL}
+KEYCOL = {'2016': YEL, 'gt': YEL, 'class': GRN, 'mans': GRN, '50': RED, "ford's": YEL, 'overall': GRN, '1966': RED, 'back': GRN, 'again': YEL, 'comeback': YEL, 'coincidence': GRN}
 CUES = [
     (0.0, 'vroom', 0.8), (0.05, 'pop', 0.7), (0.3, 'whoosh', 0.6), (CROSS, 'whoosh', 0.9), (CROSS + 0.02, 'ding', 0.8),
     (CROSS + 0.04, 'confetti', 0.8), (2.04, 'pop', 0.7), (2.06, 'sparkle', 0.5),
@@ -170,7 +173,8 @@ CUES = [
     (10.4, 'boom', 0.4), (10.42, 'ding', 0.9), (10.44, 'confetti', 0.8), (10.46, 'sparkle', 0.8),
 ] + TEASE_CUES
 
-kit.setup(HERE, WORDS, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='blue', gauge=True, loud=True, crisp=True)
+kit.setup(HERE, WORDS, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='blue', gauge=True, loud=True, crisp=True,
+          warp=kit.retime(WORDS, ANCHORS, END_T, 11.65))
 
 if __name__ == '__main__':
     kit.main()

@@ -4,7 +4,7 @@ successor.
 Template: videos/ac-idle shot structure on shared/episode.py (captions, progress bar, rev counter, mixer). Word times
 come from align.py -> words.json (aligned on out/revuelto-v12/vo_final.wav, the audio that ships). Cars are
 generic pixel wedges with no badges or lettering; the real car appears only in the framed Commons photo.
-Shots:
+Shots (times are on the first read's timeline, words_v1.json; ANCHORS + kit.retime play them on the v2 read):
   1 hook     0.00  a pixel V12 fires cylinder by cylinder; three motors pop in around it; 'Three motors, one V12.'
   2 power    5.55  garage: the framed real photo pops in, the power counter runs to 1,001 HP; '1,001 horsepower'
   3 unveil   8.45  2023 badge with confetti; the dark predecessor silhouette fades into the new lime wedge
@@ -25,8 +25,11 @@ from pixanim.fx import blit, popin, popout
 from pixanim.grid import up
 from pixanim.autos import supercar, v12, motor
 
-WORDS = kit.load_words(HERE)
-DUR, END_T = 17.3, 15.64
+WORDS = kit.load_words(HERE)                      # v2 read: captions
+OLD = kit.load_words(HERE, 'words_v1.json')      # v1 read: the animation timeline (presenter talk, beats)
+END_T = 19.9                                      # just after the closing question
+DUR = END_T + 1.7
+ANCHORS = [('lamborghini', 0, 1.2), ('6.5-litre', 0, 2.01), ('three', 1, 3.96), ('electric', 1, 4.36), ('motors', 1, 4.77), ('together', 0, 5.65), ('1,001', 0, 6.64), ('horsepower', 0, 7.56), ('it', 1, 8.55), ('2023', 0, 9.37), ('as', 0, 10.5), ('hybrid', 0, 11.31), ('aventador', 0, 12.39), ('could', 0, 13.34), ('saved', 0, 14.68)]   # (v2 word, nth, v1 time)
 VO = os.path.join(HERE, '..', '..', '..', 'out', 'revuelto-v12', 'vo_final.wav')
 
 
@@ -40,7 +43,7 @@ P1 = Presenter([
     (1.7, dict(path=Track([(1.7, (1300, 380)), (2.1, (900, 1500), 'oc')]), size=7, legs='auto', arms='fly', expr='talk', face=-1, ground=None)),
     (2.1, dict(ground=1500, squash=True, arms='point', point=(540, 960), look=(540, 960), expr='smirk', face=None)),
     (3.96, dict(arms='cheer', point=None, look=None, look_camera=True, expr='wow', squash=True)),
-], words=WORDS, base_size=7)
+], words=OLD, base_size=7)
 CAM1 = Camera(W, H, [(-1.0, (540, 960, 1.22)), (0.0, (540, 960, 1.22)), (2.0, (540, 940, 1.12), 'io'), (3.9, (540, 960, 1.04), 'io'),
                      (5.6, (540, 960, 1.08), 'io')],
               kicks=[(0.1, 0.12, 540, 960), (2.98, 0.1, 540, 960), (3.96, 0.08, *MOT[0]), (4.36, 0.08, *MOT[1]), (4.77, 0.14, 540, 1100)],
@@ -77,7 +80,7 @@ def overlay(cv, t):
     title(cv, t, 0.05, 1.95, 'Three motors,', YEL, 470, 130, -3)
     title(cv, t, 0.3, 1.95, 'one V12.', YEL, 620, 130, 2)
     title(cv, t, 7.56, 8.35, '1,001 horsepower', RED, 1090, 110, -2)
-    title(cv, t, 13.8, 15.5, "V12 isn't finished", GRN, 520, 110, 2)
+    title(cv, t, 13.5, 15.5, 'Saved by electricity?', GRN, 520, 100, 2)
     photo(cv, t, 5.7, 8.35, 'revuelto', 540, 640, 860, rot=-3, label='THE REAL CAR (2023)', hq=True)
 
 
@@ -87,7 +90,7 @@ P2 = Presenter([
     (5.5, dict(path=Track([(5.5, (-200, 600)), (5.9, (170, GROUND), 'oc')]), size=7, legs='auto', arms='fly', expr='talk', face=1, ground=None)),
     (5.9, dict(ground=GROUND, squash=True, arms='point', point=(540, 700), look=(540, 700), expr='smile', face=None)),
     (7.56, dict(arms='shock', point=None, look=None, look_camera=True, expr='shock', squash=True)),
-], words=WORDS, base_size=7)
+], words=OLD, base_size=7)
 CAM2 = Camera(W, H, [(5.55, (540, 960, 1.1)), (7.5, (540, 990, 1.16), 'io'), (8.45, (540, 990, 1.18))],
               kicks=[(5.75, 0.08, 540, 700), (6.64, 0.1, 540, 1100), (7.56, 0.2, 540, 1100)], shakes=[(7.56, 0.35, 14)])
 
@@ -115,7 +118,7 @@ P3 = Presenter([
     (8.8, dict(ground=GROUND, squash=True, arms='point', point=(540, 640), look=(540, 640), expr='grin', face=None)),
     (10.5, dict(arms='point', point=(400, GROUND - 150), look=(400, GROUND - 150), expr='smile')),
     (MORPH, dict(arms='shock', point=None, look=(400, GROUND - 150), expr='wow', squash=True)),
-], words=WORDS, base_size=7)
+], words=OLD, base_size=7)
 CAM3 = Camera(W, H, [(8.45, (540, 900, 1.12)), (10.4, (460, 1000, 1.16), 'io'), (MORPH, (420, 1020, 1.22), 'io'), (13.3, (440, 1010, 1.24))],
               kicks=[(9.37, 0.14, 540, 640), (11.31, 0.1, 400, 880), (MORPH, 0.16, 400, 1050)], shakes=[(MORPH, 0.25, 10)])
 
@@ -156,7 +159,7 @@ P4 = Presenter([
     (13.25, dict(path=Track([(13.25, (-200, 500)), (13.6, (180, GROUND), 'oc')]), size=7, legs='auto', arms='fly', expr='talk', face=1, ground=None)),
     (13.6, dict(ground=GROUND, squash=True, arms='point', point=(640, 760), look=(640, 760), expr='smirk', face=None)),
     (REV, dict(arms='thumb', point=None, look=None, look_camera=True, expr='grin', squash=True)),
-], words=WORDS, base_size=7)
+], words=OLD, base_size=7)
 CAM4 = Camera(W, H, [(13.25, (560, 960, 1.12)), (REV, (600, 980, 1.2), 'io'), (15.6, (600, 980, 1.26), 'io')],
               kicks=[(13.85, 0.1, 640, 760), (REV, 0.24, 640, 1000)], shakes=[(REV, 0.6, 16)])
 
@@ -178,14 +181,14 @@ def shot_finished(t):
     return finish(img, fg, CAM4, t)
 
 
-shot_teaser, TEASE_CUES = kit.teaser(15.6, WORDS)
+shot_teaser, TEASE_CUES = kit.teaser(15.6, OLD)
 
 # ================================================================== shots + transitions
 SHOTS = [(-1.0, shot_hook), (5.55, shot_power), (8.45, shot_unveil), (13.25, shot_finished), (15.6, shot_teaser)]
 TRANS = {1: (5.55, 5.75, 'whip', dict(dx=1)), 2: (8.45, 8.65, 'push', None), 3: (13.25, 13.45, 'iris', (540, 960)),
          4: (15.6, 15.8, 'whip', dict(dx=1))}
 KEYCOL = {'revuelto': YEL, '6.5-litre': YEL, 'v12': YEL, 'motors': GRN, 'together': GRN, '1,001': RED, 'unveiled': YEL,
-          '2023': YEL, 'hybrid': GRN, 'aventador': RED, 'proof': YEL, 'finished': GRN, 'follow': YEL}
+          '2023': YEL, 'hybrid': GRN, 'aventador': RED, 'what': YEL, 'helping': GRN, 'saved': GRN, 'electricity': YEL}
 CUES = [
     (0.0, 'whoosh', 0.4), (0.05, 'pop', 0.6), (0.1, 'vroom', 0.9), (0.3, 'pop', 0.5),
     (2.01, 'pop', 0.6), (2.1, 'thump', 0.4), (2.98, 'click', 0.5),
@@ -196,7 +199,8 @@ CUES = [
     (13.6, 'thump', 0.4), (13.85, 'click', 0.4), (REV, 'vroom', 1.0), (REV + 0.02, 'ding', 0.6), (REV + 0.04, 'sparkle', 0.6),
 ] + TEASE_CUES
 
-kit.setup(HERE, WORDS, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='yellow', gauge=True, loud=True, crisp=True)
+kit.setup(HERE, WORDS, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='yellow', gauge=True, loud=True, crisp=True,
+          warp=kit.retime(WORDS, ANCHORS, END_T, 15.6))
 
 if __name__ == '__main__':
     kit.main()

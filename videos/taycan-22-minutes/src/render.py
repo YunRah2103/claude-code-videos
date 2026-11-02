@@ -5,7 +5,7 @@ Template: videos/ac-idle shot structure on shared/episode.py (captions, progress
 come from align.py -> words.json (aligned on out/taycan-22-minutes/vo_final.wav, the audio that ships). The car is
 a generic white pixel saloon with no badges or lettering; the real car appears only in the framed Commons photo.
 'Reportedly' gets a REPORTEDLY tag on screen.
-Shots:
+Shots (times are on the first read's timeline, words_v1.json; ANCHORS + kit.retime play them on the v2 read):
   1 fill     0.00  a cable plugs into a battery that fills fast; REPORTEDLY tag; '22 minutes.'
   2 photo    2.60  garage: white saloon, the framed real photo (a Taycan at a charging hub), 800 V label
   3 charge   5.00  fast charger and car: 5% -> 80%, then a 22 MIN clock badge slams
@@ -27,8 +27,11 @@ from pixanim.fx import blit, popin, popout
 from pixanim.grid import up
 from pixanim.autos import ev, battery, bolt, charger, wallbox, plug, cable
 
-WORDS = kit.load_words(HERE)
-DUR, END_T = 16.9, 14.94
+WORDS = kit.load_words(HERE)                      # v2 read: captions
+OLD = kit.load_words(HERE, 'words_v1.json')      # v1 read: the animation timeline (presenter talk, beats)
+END_T = 18.25                                      # just after the closing question
+DUR = END_T + 1.7
+ANCHORS = [('reportedly', 0, 1.39), ('800-volt', 0, 3.36), ('in', 0, 5.11), ('5', 0, 6.49), ('80', 0, 6.95), ('22', 0, 8.1), ('minutes', 0, 8.51), ('270', 0, 9.4), ('kilowatt', 0, 10.14), ('anyone', 0, 11.71), ('slow', 0, 12.77), ('knows', 0, 13.72), ("what's", 0, 14.2)]   # (v2 word, nth, v1 time)
 
 
 def charge_dots(d, a, b, t, t0, sag=60, n=4, speed=1.6):
@@ -82,7 +85,7 @@ P2 = Presenter([
     (2.55, dict(path=Track([(2.55, (-200, 500)), (2.95, (150, GROUND), 'oc')]), size=7, legs='auto', arms='fly', expr='talk', face=1, ground=None)),
     (2.95, dict(ground=GROUND, squash=True, arms='point', point=(540, 620), look=(540, 620), expr='smile', face=None)),
     (3.36, dict(arms='point', point=(800, 1060), look=(800, 1060), expr='wow', squash=True)),
-], words=WORDS, base_size=7)
+], words=OLD, base_size=7)
 CAM2 = Camera(W, H, [(2.6, (540, 960, 1.08)), (4.05, (560, 980, 1.14), 'io'), (5.0, (560, 980, 1.16))],
               kicks=[(2.8, 0.08, 540, 620), (3.36, 0.14, 800, 1060)], shakes=[(3.36, 0.2, 8)])
 
@@ -122,7 +125,7 @@ P3 = Presenter([
     (5.0, dict(path=Track([(5.0, (-200, 400)), (5.4, (130, GROUND), 'oc')]), size=6, legs='auto', arms='fly', expr='talk', face=1, ground=None)),
     (5.4, dict(ground=GROUND, squash=True, arms='point', point=(380, 640), look=(380, 640), expr='smile', face=None)),
     (8.51, dict(arms='shock', point=None, look=None, look_camera=True, expr='wow', squash=True)),
-], words=WORDS, base_size=6)
+], words=OLD, base_size=6)
 CAM3 = Camera(W, H, [(5.0, (540, 960, 1.06)), (6.49, (480, 900, 1.12), 'io'), (8.1, (540, 900, 1.12), 'io'), (9.2, (560, 920, 1.14))],
               kicks=[(6.49, 0.1, 380, 640), (6.95, 0.12, 380, 640), (8.1, 0.12, 640, 480), (8.51, 0.2, 640, 480)], shakes=[(8.51, 0.3, 12)])
 
@@ -166,7 +169,7 @@ P5 = Presenter([
     (11.6, dict(path=Track([(11.6, (SX + 130, GROUND))]), size=6, legs='sit', arms='think', look=(SX, GROUND - 300), expr='sad', face=-1, ground=GROUND)),
     (12.77, dict(arms='shrug', expr='talk', look_camera=True)),
     (13.72, dict(arms='point', point=(FX, GROUND - 400), look=(FX, GROUND - 400), expr='grin', squash=True)),
-], words=WORDS, base_size=6)
+], words=OLD, base_size=6)
 CAM5 = Camera(W, H, [(11.6, (540, 960, 1.04)), (12.77, (420, 980, 1.12), 'io'), (13.72, (640, 960, 1.12), 'io'), (14.95, (560, 960, 1.08), 'io')],
               kicks=[(12.77, 0.16, SX, GROUND - 330), (13.72, 0.16, FX, GROUND - 450)])
 
@@ -198,7 +201,7 @@ def kit_text(ch):
     return ptext(ch, '#d6d9e2', True)
 
 
-shot_teaser, TEASE_CUES = kit.teaser(14.9, WORDS)
+shot_teaser, TEASE_CUES = kit.teaser(14.9, OLD)
 
 # ================================================================== shots + transitions
 SHOTS = [(-1.0, shot_fill), (2.6, shot_photo), (5.0, shot_charge), (9.2, shot_kw), (11.6, shot_slow), (14.9, shot_teaser)]
@@ -206,7 +209,7 @@ TRANS = {1: (2.6, 2.8, 'whip', dict(dx=1)), 2: (5.0, 5.2, 'push', None), 3: (9.2
          4: (11.6, 11.8, 'whip', dict(dx=0, dy=1)), 5: (14.9, 15.1, 'whip', dict(dx=1))}
 KEYCOL = {'taycan': YEL, 'reportedly': RED, 'production': YEL, '800-volt': YEL, 'test': YEL, 'charged': GRN, '80': GRN,
           'about': YEL, '22': RED, '270': YEL, 'kilowatt': YEL, 'waited': YEL, 'slow': GRN, 'knows': YEL,
-          'difference': GRN, 'follow': YEL}
+          'difference': GRN, 'longest': YEL}
 CUES = [
     (0.0, 'whoosh', 0.5), (0.05, 'pop', 0.6), (CLICK, 'click', 1.0), (CLICK + 0.02, 'ding', 0.5), (0.4, 'pop', 0.4)] + [
     (0.5 + k * 0.2, 'click', 0.3) for k in range(8)] + [
@@ -218,7 +221,8 @@ CUES = [
     (11.8, 'pop', 0.4), (12.0, 'pop', 0.4), (12.77, 'buzzer', 0.7), (12.79, 'stamp', 0.6), (13.72, 'ding', 0.9), (13.74, 'sparkle', 0.7),
 ] + TEASE_CUES
 
-kit.setup(HERE, WORDS, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='silver', gauge=True, loud=True, crisp=True)
+kit.setup(HERE, WORDS, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='silver', gauge=True, loud=True, crisp=True,
+          warp=kit.retime(WORDS, ANCHORS, END_T, 14.9))
 
 if __name__ == '__main__':
     kit.main()

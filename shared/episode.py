@@ -36,15 +36,45 @@ GAR = Garage(W, H, GROUND, S)
 E = {}   # episode state, filled by setup(); forked render workers inherit it
 
 
+def retime(words, anchors, end_t, old_end):
+    """Map a new voiceover onto an animation timed for an earlier read. anchors: [(word, nth, old_t)] ties the start of
+    the nth occurrence (0-based) of `word` in the new words to old time old_t; end_t (new) is tied to old_end (the old
+    teaser start). Returns (new, old) knots for setup(..., warp=...): piecewise linear, slope 1 before 0 and after the end."""
+    knots = [(0.0, 0.0)]
+    for w, n, old in anchors:
+        hits = [x['s'] for x in words if clean(x['w']) == w]
+        knots.append((hits[n], old))
+    knots.append((end_t, old_end))
+    for (a, b), (c, d) in zip(knots, knots[1:]):
+        assert c > a and d > b, f'anchors out of order near new {c:.2f} / old {d:.2f}'
+    return knots
+
+
+def _interp(x, xs, ys):
+    if x <= xs[0]: return ys[0] + (x - xs[0])
+    if x >= xs[-1]: return ys[-1] + (x - xs[-1])
+    return float(np.interp(x, xs, ys))
+
+
 def setup(here, words, dur, end_t, shots, trans, cues, keycol, overlay=None, bar_car='red', gauge=False, loud=False, gap=None, crisp=False,
-          end=None):
+          end=None, warp=None):
     """gap=(t, d): the mixer inserts d s of silence into the voiceover at t (shift the words with shift_words to match).
     crisp=True: the handheld sway resamples with NEAREST so pixel edges stay hard.
-    end=(line1, line2): end-card text (default: series tag over 'follow for the next one')."""
+    end=(line1, line2): end-card text (default: series tag over 'follow for the next one').
+    warp: (new, old) knots from retime(); shots, transitions, cues and the overlay stay in the old timeline and are
+    played back on the new one, while captions, the progress bar and the gauge run on the new words."""
+    if warp:
+        xs, ys = [k[0] for k in warp], [k[1] for k in warp]
+        E['warp'] = lambda t: _interp(t, xs, ys)
+        inv = lambda t: _interp(t, ys, xs)
+        cues = [(inv(tc), name, vol) for tc, name, vol in cues]
+    else:
+        E['warp'] = inv = lambda t: t
+    E['marks'] = [inv(tc) for tc, _ in shots[1:]]
     E.update(here=here, words=words, dur=dur, end_t=end_t, shots=shots, trans=trans, cues=cues, keycol=keycol, overlay=overlay,
              bar_car=bar_car, gauge=gauge, loud=loud, gap=gap, crisp=crisp, photo_dir=os.path.join(here, '..', 'assets'),
              end=end or ('car stuff, explained', 'follow for the next one'))
-    E['gauge_ev'] = sorted([(tc, GAUGE_KICK.get(name, 0.12) * vol) for tc, name, vol in cues] + [(tc, 0.3) for tc, _ in shots[1:]])
+    E['gauge_ev'] = sorted([(tc, GAUGE_KICK.get(name, 0.12) * vol) for tc, name, vol in cues] + [(tc, 0.3) for tc in E['marks']])
     E['chunks'] = make_chunks()
     cr = os.path.join(E['photo_dir'], 'credits.json')
     E['credits'] = [c for c in (json.load(open(cr)) if os.path.isfile(cr) else [])   # credit only photos that are present
@@ -539,7 +569,7 @@ def progress(cv, t):
     if xp > x0 + 32:
         d.rounded_rectangle((x0, y, xp, y + h), 16, fill=GLOW)
         d.rectangle((x0 + 16, y + 7, xp - 16, y + 13), fill=(255, 238, 160))
-    for tc, _ in E['shots'][1:]:
+    for tc in E['marks']:
         xc = x0 + (x1 - x0) * tc / dur; yc = y + h / 2; on = t >= tc
         r = 12 * (1 + 0.6 * math.exp(-(t - tc) * 10) if on else 1)
         d.ellipse((xc - r - 6, yc - r - 6, xc + r + 6, yc + r + 6), fill=NAVY)
@@ -549,6 +579,7 @@ def progress(cv, t):
 
 # ------------------------------------------------------------------ shots, frame, audio, CLI
 def picture(t):
+    t = E['warp'](t)
     shots = E['shots']
     idx = max(i for i, (s, _) in enumerate(shots) if t >= s)
     if idx in E['trans']:
@@ -566,7 +597,7 @@ def frame(n):
     cv = sway(picture(t), t)
     if t < 0.12:                                    # white flash on frame 0 for the hook
         cv = Image.blend(cv, Image.new('RGB', (W, H), (255, 255, 255)), 0.7 * (1 - t / 0.12))
-    if E['overlay']: E['overlay'](cv, t)
+    if E['overlay']: E['overlay'](cv, E['warp'](t))
     GAR.vignette(cv)
     if E.get('gauge'): rev_gauge(cv, t)
     series_tag(cv, t)
@@ -585,7 +616,7 @@ def build_audio(vo_path, out_wav):
         g0 = int(E['gap'][0] * sfx.SR); vo = np.concatenate([vo[:g0], np.zeros(int(E['gap'][1] * sfx.SR)), vo[g0:]])
     n = int(sfx.SR * E['dur'])
     mix = np.zeros(n); m = min(n, len(vo)); mix[:m] = vo[:m]
-    cues = E['cues'] + [(t, 'whoosh', 0.6) for t, _ in E['shots'][1:]]
+    cues = E['cues'] + [(t, 'whoosh', 0.6) for t in E['marks']]
     fxa = sfx.render(cues, E['dur'])
     fxa *= 0.32 * np.max(np.abs(vo)) / max(1e-9, np.max(np.abs(fxa)))
     mix += fxa

@@ -4,7 +4,7 @@ cool weather and a long downhill; the official EPA rating is 512 miles.
 Template: videos/ac-idle shot structure on shared/episode.py (captions, progress bar, rev counter, mixer). Word times
 come from align.py -> words.json (aligned on out/lucid-749-miles/vo_final.wav, the audio that ships). The car is a
 generic pixel saloon with no badges or lettering; the real car appears only in the framed Commons photo.
-Shots:
+Shots (times are on the first read's timeline, words_v1.json; ANCHORS + kit.retime play them on the v2 read):
   1 odo      0.00  dashboard close-up: the trip counter runs past 700 to 749 while the battery drains; '749 miles, one charge.'
   2 car      3.30  garage: silver saloon; the framed real photo slides in; 2025 badge
   3 route    5.55  pixel map of the Alps: the route draws itself from St Moritz to Munich; 'St Moritz to Munich'
@@ -28,8 +28,11 @@ from pixanim.fx import blit, popin, popout
 from pixanim.grid import up, outline
 from pixanim.autos import ev, battery, ptext
 
-WORDS = kit.load_words(HERE)
-DUR, END_T = 17.2, 15.49
+WORDS = kit.load_words(HERE)                      # v2 read: captions
+OLD = kit.load_words(HERE, 'words_v1.json')      # v1 read: the animation timeline (presenter talk, beats)
+END_T = 21.5                                      # just after the closing question
+DUR = END_T + 1.7
+ANCHORS = [('749', 0, 2.98), ('miles', 0, 4.0), ('charge', 1, 4.82), ('route', 0, 5.73), ('moritz', 0, 6.61), ('switzerland', 0, 6.98), ('munich', 0, 7.73), ('germany', 0, 8.17), ('hand-picked', 0, 8.98), ('cool', 0, 10.11), ('downhill', 0, 11.42), ('official', 0, 12.69), ('512', 0, 13.98), ('miles', 1, 14.68), ('so', 0, 15.0)]   # (v2 word, nth, v1 time)
 SPR = 6                                                # ev sprite scale in the garage
 
 
@@ -74,7 +77,7 @@ P2 = Presenter([
     (3.25, dict(path=Track([(3.25, (-200, 500)), (3.65, (160, GROUND), 'oc')]), size=7, legs='auto', arms='fly', expr='talk', face=1, ground=None)),
     (3.65, dict(ground=GROUND, squash=True, arms='point', point=(560, 640), look=(560, 640), expr='smile', face=None)),
     (4.82, dict(arms='thumb', point=None, look=None, look_camera=True, expr='grin')),
-], words=WORDS, base_size=7)
+], words=OLD, base_size=7)
 CAM2 = Camera(W, H, [(3.3, (540, 960, 1.1)), (5.55, (560, 980, 1.18), 'io')],
               kicks=[(3.5, 0.1, 560, 640), (4.82, 0.12, 640, 1100)], shakes=[])
 
@@ -171,7 +174,7 @@ P4 = Presenter([
     (9.25, dict(ground=1180, squash=True, arms='point', point=(330, 470), look=(330, 470), expr='smile', face=None)),
     (10.11, dict(arms='shrug', point=None, look=(720, 620), expr='talk')),
     (11.42, dict(arms='point', point=(600, 1000), look=(600, 1000), expr='wow', squash=True)),
-], words=WORDS, base_size=6)
+], words=OLD, base_size=6)
 CAM4 = Camera(W, H, [(8.9, (540, 960, 1.08)), (11.4, (540, 960, 1.12), 'io'), (12.5, (640, 1060, 1.16), 'io')],
               kicks=[(8.98, 0.1, 330, 470), (10.11, 0.1, 720, 620), (11.42, 0.14, 420, 1000)])
 
@@ -213,7 +216,7 @@ P5 = Presenter([
     (12.45, dict(path=Track([(12.45, (-200, 500)), (12.85, (170, GROUND), 'oc')]), size=7, legs='auto', arms='fly', expr='talk', face=1, ground=None)),
     (12.85, dict(ground=GROUND, squash=True, arms='point', point=(540, 1000), look=(540, 1000), expr='smile', face=None)),
     (13.98, dict(arms='shrug', point=None, look=None, look_camera=True, expr='smirk', squash=True)),
-], words=WORDS, base_size=7)
+], words=OLD, base_size=7)
 CAM5 = Camera(W, H, [(12.5, (540, 900, 1.1)), (13.98, (600, 920, 1.18), 'io'), (15.5, (600, 920, 1.2))],
               kicks=[(12.6, 0.1, 540, 700), (13.98, 0.2, 760, 980), (14.68, 0.1, 760, 980)], shakes=[(13.98, 0.25, 10)])
 
@@ -233,14 +236,14 @@ def shot_epa(t):
     return finish(img, fg, CAM5, t)
 
 
-shot_teaser, TEASE_CUES = kit.teaser(15.45, WORDS)
+shot_teaser, TEASE_CUES = kit.teaser(15.45, OLD)
 
 # ================================================================== shots + transitions
 SHOTS = [(-1.0, shot_odo), (3.3, shot_car), (5.55, shot_route), (8.9, shot_helped), (12.5, shot_epa), (15.45, shot_teaser)]
 TRANS = {1: (3.3, 3.5, 'whip', dict(dx=1)), 2: (5.55, 5.75, 'iris', (540, 960)), 3: (8.9, 9.1, 'push', None),
          4: (12.5, 12.7, 'whip', dict(dx=0, dy=1)), 5: (15.45, 15.65, 'whip', dict(dx=1))}
 KEYCOL = {'2025': YEL, 'lucid': YEL, 'grand': YEL, '749': YEL, 'single': GRN, 'route': YEL, 'moritz': GRN, 'switzerland': GRN, 'munich': GRN, 'long': YEL,
-          'hand-picked': YEL, 'cool': GRN, 'downhill': YEL, 'epa': RED, 'rating': YEL, '512': RED, 'follow': YEL}
+          'hand-picked': YEL, 'cool': GRN, 'downhill': YEL, 'epa': RED, 'rating': YEL, '512': RED, 'far': YEL, 'car': YEL, 'one': GRN, 'so': YEL, 'real': RED, 'trust': GRN}
 CUES = [
     (0.0, 'whoosh', 0.4), (0.05, 'pop', 0.6), (0.3, 'pop', 0.5)] + [(0.15 + k * 0.29, 'click', 0.45) for k in range(9)] + [
     (2.62, 'ding', 0.6), (2.98, 'stamp', 0.9), (3.0, 'sparkle', 0.7),
@@ -250,7 +253,8 @@ CUES = [
     (12.6, 'pop', 0.6), (12.85, 'thump', 0.4), (12.69, 'click', 0.4), (13.98, 'stamp', 0.8), (14.0, 'buzzer', 0.4), (14.68, 'stamp', 0.7),
 ] + TEASE_CUES
 
-kit.setup(HERE, WORDS, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='silver', gauge=True, loud=True, crisp=True)
+kit.setup(HERE, WORDS, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='silver', gauge=True, loud=True, crisp=True,
+          warp=kit.retime(WORDS, ANCHORS, END_T, 15.45))
 
 if __name__ == '__main__':
     kit.main()
