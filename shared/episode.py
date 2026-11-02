@@ -36,7 +36,7 @@ GAR = Garage(W, H, GROUND, S)
 E = {}   # episode state, filled by setup(); forked render workers inherit it
 
 
-def retime(words, anchors, end_t, old_end):
+def warp_knots(words, anchors, end_t, old_end):
     """Map a new voiceover onto an animation timed for an earlier read. anchors: [(word, nth, old_t)] ties the start of
     the nth occurrence (0-based) of `word` in the new words to old time old_t; end_t (new) is tied to old_end (the old
     teaser start). Returns (new, old) knots for setup(..., warp=...): piecewise linear, slope 1 before 0 and after the end."""
@@ -61,7 +61,7 @@ def setup(here, words, dur, end_t, shots, trans, cues, keycol, overlay=None, bar
     """gap=(t, d): the mixer inserts d s of silence into the voiceover at t (shift the words with shift_words to match).
     crisp=True: the handheld sway resamples with NEAREST so pixel edges stay hard.
     end=(line1, line2): end-card text (default: series tag over 'follow for the next one').
-    warp: (new, old) knots from retime(); shots, transitions, cues and the overlay stay in the old timeline and are
+    warp: (new, old) knots from warp_knots(); shots, transitions, cues and the overlay stay in the old timeline and are
     played back on the new one, while captions, the progress bar and the gauge run on the new words."""
     if warp:
         xs, ys = [k[0] for k in warp], [k[1] for k in warp]

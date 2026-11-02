@@ -4,7 +4,7 @@ cool weather and a long downhill; the official EPA rating is 512 miles.
 Template: videos/ac-idle shot structure on shared/episode.py (captions, progress bar, rev counter, mixer). Word times
 come from align.py -> words.json (aligned on out/lucid-749-miles/vo_final.wav, the audio that ships). The car is a
 generic pixel saloon with no badges or lettering; the real car appears only in the framed Commons photo.
-Shots (times are on the first read's timeline, words_v1.json; ANCHORS + kit.retime play them on the v2 read):
+Shots (times are on the first read's timeline, words_v1.json; ANCHORS + kit.warp_knots play them on the v2 read):
   1 odo      0.00  dashboard close-up: the trip counter runs past 700 to 749 while the battery drains; '749 miles, one charge.'
   2 car      3.30  garage: silver saloon; the framed real photo slides in; 2025 badge
   3 route    5.55  pixel map of the Alps: the route draws itself from St Moritz to Munich; 'St Moritz to Munich'
@@ -254,7 +254,7 @@ CUES = [
 ] + TEASE_CUES
 
 kit.setup(HERE, WORDS, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='silver', gauge=True, loud=True, crisp=True,
-          warp=kit.retime(WORDS, ANCHORS, END_T, 15.45))
+          warp=kit.warp_knots(WORDS, ANCHORS, END_T, 15.45))
 
 if __name__ == '__main__':
     kit.main()

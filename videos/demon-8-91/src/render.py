@@ -5,7 +5,7 @@ come from align.py -> words.json (aligned on out/demon-8-91/vo_final.wav, the au
 outro, so align.py appends the same voice's 'Follow for the next one.'). The car is a generic pixel coupe with no
 badges or lettering; the real car appears only in the framed Commons photo (a showroom shot: Commons has no
 openly licensed photo of a Demon 170 at a drag strip).
-Shots (times are on the first read's timeline, words_v1.json; ANCHORS + kit.retime play them on the v2 read):
+Shots (times are on the first read's timeline, words_v1.json; ANCHORS + kit.warp_knots play them on the v2 read):
   1 tree     0.00  night drag strip: the light tree counts down, green, the coupe launches; '8.91 seconds.'
   2 power    3.10  garage: the framed real photo pops in; the power counter runs to 1,025 HP
   3 quarter  5.95  the quarter mile: timer runs, CERTIFIED stamp, 8.91 S slams at the finish line
@@ -190,7 +190,7 @@ CUES = [
 ] + TEASE_CUES
 
 kit.setup(HERE, WORDS, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='yellow', gauge=True, loud=True, crisp=True,
-          warp=kit.retime(WORDS, ANCHORS, END_T, 14.45))
+          warp=kit.warp_knots(WORDS, ANCHORS, END_T, 14.45))
 
 if __name__ == '__main__':
     kit.main()

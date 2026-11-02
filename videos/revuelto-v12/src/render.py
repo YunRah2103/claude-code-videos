@@ -4,7 +4,7 @@ successor.
 Template: videos/ac-idle shot structure on shared/episode.py (captions, progress bar, rev counter, mixer). Word times
 come from align.py -> words.json (aligned on out/revuelto-v12/vo_final.wav, the audio that ships). Cars are
 generic pixel wedges with no badges or lettering; the real car appears only in the framed Commons photo.
-Shots (times are on the first read's timeline, words_v1.json; ANCHORS + kit.retime play them on the v2 read):
+Shots (times are on the first read's timeline, words_v1.json; ANCHORS + kit.warp_knots play them on the v2 read):
   1 hook     0.00  a pixel V12 fires cylinder by cylinder; three motors pop in around it; 'Three motors, one V12.'
   2 power    5.55  garage: the framed real photo pops in, the power counter runs to 1,001 HP; '1,001 horsepower'
   3 unveil   8.45  2023 badge with confetti; the dark predecessor silhouette fades into the new lime wedge
@@ -200,7 +200,7 @@ CUES = [
 ] + TEASE_CUES
 
 kit.setup(HERE, WORDS, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='yellow', gauge=True, loud=True, crisp=True,
-          warp=kit.retime(WORDS, ANCHORS, END_T, 15.6))
+          warp=kit.warp_knots(WORDS, ANCHORS, END_T, 15.6))
 
 if __name__ == '__main__':
     kit.main()

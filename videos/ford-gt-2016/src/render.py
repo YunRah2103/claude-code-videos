@@ -5,7 +5,7 @@ come from align.py -> words.json (aligned on out/ford-gt-2016/vo_final.wav, the 
 gets a 1.8 s silent hook, more air after each sentence, and the same voice's 'Follow for the next one.'). The racers
 are generic pixel coupes with plain number roundels and no badges or sponsor text; the real car appears only in
 the framed Commons photo.
-Shots (times are on the first read's timeline, words_v1.json; ANCHORS + kit.retime play them on the v2 read):
+Shots (times are on the first read's timeline, words_v1.json; ANCHORS + kit.warp_knots play them on the v2 read):
   1 finish   0.00  night circuit: the blue GT crosses the line under the chequered flag; '2016'
   2 photo    2.90  garage: the framed real photo of the 2016 car at Le Mans; CLASS WIN and LE MANS tags
   3 years    6.40  a calendar flips back from 2016 to 1966; -50 YEARS; the 1960s racer rolls in; '50 years'
@@ -174,7 +174,7 @@ CUES = [
 ] + TEASE_CUES
 
 kit.setup(HERE, WORDS, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='blue', gauge=True, loud=True, crisp=True,
-          warp=kit.retime(WORDS, ANCHORS, END_T, 11.65))
+          warp=kit.warp_knots(WORDS, ANCHORS, END_T, 11.65))
 
 if __name__ == '__main__':
     kit.main()

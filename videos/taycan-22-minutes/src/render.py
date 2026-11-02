@@ -5,7 +5,7 @@ Template: videos/ac-idle shot structure on shared/episode.py (captions, progress
 come from align.py -> words.json (aligned on out/taycan-22-minutes/vo_final.wav, the audio that ships). The car is
 a generic white pixel saloon with no badges or lettering; the real car appears only in the framed Commons photo.
 'Reportedly' gets a REPORTEDLY tag on screen.
-Shots (times are on the first read's timeline, words_v1.json; ANCHORS + kit.retime play them on the v2 read):
+Shots (times are on the first read's timeline, words_v1.json; ANCHORS + kit.warp_knots play them on the v2 read):
   1 fill     0.00  a cable plugs into a battery that fills fast; REPORTEDLY tag; '22 minutes.'
   2 photo    2.60  garage: white saloon, the framed real photo (a Taycan at a charging hub), 800 V label
   3 charge   5.00  fast charger and car: 5% -> 80%, then a 22 MIN clock badge slams
@@ -222,7 +222,7 @@ CUES = [
 ] + TEASE_CUES
 
 kit.setup(HERE, WORDS, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='silver', gauge=True, loud=True, crisp=True,
-          warp=kit.retime(WORDS, ANCHORS, END_T, 14.9))
+          warp=kit.warp_knots(WORDS, ANCHORS, END_T, 14.9))
 
 if __name__ == '__main__':
     kit.main()

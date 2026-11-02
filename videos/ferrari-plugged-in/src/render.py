@@ -5,7 +5,7 @@ Template: videos/ac-idle shot structure on shared/episode.py (captions, progress
 come from align.py -> words.json (aligned on out/ferrari-plugged-in/vo_final.wav, the audio that ships; the 9.6 s
 read gets a 1.8 s silent hook and a little more air after each sentence). The car is a generic red pixel supercar
 with no badges or lettering; the real car appears only in the framed Commons photo.
-Shots (times are on the first read's timeline, words_v1.json; ANCHORS + kit.retime play them on the v2 read):
+Shots (times are on the first read's timeline, words_v1.json; ANCHORS + kit.warp_knots play them on the v2 read):
   1 plug     0.00  garage: the red supercar rolls up to a wall socket, the plug flies over and clicks in; 'Ferrari, plugged in.'
   2 photo    4.00  the framed real photo appears beside the car; FIRST PLUG-IN tag
   3 power    6.95  a V8 with a battery beside it filling up, power counter to ~1,000 HP; 'about 1,000 horsepower'
@@ -199,7 +199,7 @@ CUES = [
 ] + TEASE_CUES
 
 kit.setup(HERE, WORDS, DUR, END_T, SHOTS, TRANS, CUES, KEYCOL, overlay=overlay, bar_car='red', gauge=True, loud=True, crisp=True,
-          warp=kit.retime(WORDS, ANCHORS, END_T, 11.55))
+          warp=kit.warp_knots(WORDS, ANCHORS, END_T, 11.55))
 
 if __name__ == '__main__':
     kit.main()
