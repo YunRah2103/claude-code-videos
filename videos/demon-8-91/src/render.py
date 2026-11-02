@@ -31,7 +31,7 @@ WORDS = kit.load_words(HERE)                      # v2 read: captions
 OLD = kit.load_words(HERE, 'words_v1.json')      # v1 read: the animation timeline (presenter talk, beats)
 END_T = 17.2                                      # just after the closing question
 DUR = END_T + 1.7
-ANCHORS = [('the', 0, 3.1), ('certified', 0, 4.48), ('its', 0, 6.08), ('quarter-mile', 0, 6.22), ('8.91', 0, 9.3), ('seconds', 0, 10.34), ("that's", 0, 11.81), ('151', 0, 12.13), ('hour', 0, 13.35), ('would', 0, 13.6)]   # (v2 word, nth, v1 time)
+ANCHORS = [('the', 0, 3.1), ('nhra', 0, 5.95), ('8.91', 0, 9.3), ('seconds', 0, 10.34), ("that's", 0, 11.81), ('151', 0, 12.13), ('hour', 0, 13.35), ('would', 0, 13.6)]   # (v2 word, nth, v1 time)
 CS = 4                                                 # car scale on the street
 
 

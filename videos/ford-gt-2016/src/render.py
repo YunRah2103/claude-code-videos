@@ -30,7 +30,7 @@ WORDS = kit.load_words(HERE)                      # v2 read: captions
 OLD = kit.load_words(HERE, 'words_v1.json')      # v1 read: the animation timeline (presenter talk, beats)
 END_T = 15.35                                      # just after the closing question
 DUR = END_T + 1.7
-ANCHORS = [('won', 0, 1.0), ('2016', 0, 2.04), ('ford', 0, 3.16), ('won', 1, 3.9), ('mans', 1, 4.8), ('it', 1, 6.54), ('50', 1, 6.78), ('years', 1, 7.12), ('overall', 0, 8.28), ('1966', 0, 9.48), ('would', 0, 10.35)]   # (v2 word, nth, v1 time)
+ANCHORS = [('won', 0, 1.0), ('2016', 0, 2.04), ('it', 1, 6.54), ('50', 1, 6.78), ('years', 1, 7.12), ('overall', 0, 8.28), ('1966', 0, 9.48), ('would', 0, 10.35)]   # (v2 word, nth, v1 time)
 CS = 4
 
 
