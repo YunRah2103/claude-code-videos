@@ -144,9 +144,20 @@ def creak(d=0.7):
     s = np.sign(np.sin(2*np.pi*np.cumsum(f)/SR)) * (0.6 + 0.4*np.sin(2*np.pi*23*t))
     return fade(lp(s, 6) * np.sin(np.pi*t/d) * 0.35, 0.02, 0.1)
 
+def hum(d=1.2):
+    """EV pedestrian-warning tone: a soft two-tone hum with a slow wobble, faded in and out."""
+    t = T(d); wob = 1 + 0.03 * np.sin(2*np.pi*5*t)
+    x = 0.55*np.sin(2*np.pi*220*wob*t) + 0.3*np.sin(2*np.pi*330*wob*t) + 0.15*np.sin(2*np.pi*660*t)
+    return fade(x * np.minimum(1, t/0.25) * np.minimum(1, (d - t)/0.3), 0.01, 0.05) * 0.7
+
+def boing(d=0.45):
+    """Rubber snap-back: a fast falling pitch with a wobble (a stretched hose letting go)."""
+    t = T(d); f = 520*np.exp(-t*5) + 140
+    return fade(np.sin(2*np.pi*np.cumsum(f*(1 + 0.25*np.sin(2*np.pi*14*t)))/SR) * dec(d, 7)) * 0.8
+
 LIB = dict(click=click, creak=creak, pop=pop, whoosh=whoosh, sparkle=sparkle, ding=ding, thump=thump, boom=boom, stamp=stamp,
            confetti=confetti, vroom=vroom, screech=screech, slide_down=slide_down, poof=poof, buzzer=buzzer,
-           fall=fall, crash=crash, coin=coin_clink, cha_ching=cha_ching)
+           fall=fall, crash=crash, coin=coin_clink, cha_ching=cha_ching, hum=hum, boing=boing)
 
 def render(cues, duration):
     out = np.zeros(int(SR*duration) + SR)

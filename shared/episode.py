@@ -57,10 +57,12 @@ def _interp(x, xs, ys):
 
 
 def setup(here, words, dur, end_t, shots, trans, cues, keycol, overlay=None, bar_car='red', gauge=False, loud=False, gap=None, crisp=False,
-          end=None, warp=None):
+          end=None, warp=None, flash=True, tag='top'):
     """gap=(t, d): the mixer inserts d s of silence into the voiceover at t (shift the words with shift_words to match).
     crisp=True: the handheld sway resamples with NEAREST so pixel edges stay hard.
     end=(line1, line2): end-card text (default: series tag over 'follow for the next one').
+    end=False: no end card (looping format); the photo credits show over the last 0.8 s instead.
+    flash=False: no white flash on frame 0. tag='corner': small series tag in the top-left corner for the whole video.
     warp: (new, old) knots from warp_knots(); shots, transitions, cues and the overlay stay in the old timeline and are
     played back on the new one, while captions, the progress bar and the gauge run on the new words."""
     if warp:
@@ -72,8 +74,8 @@ def setup(here, words, dur, end_t, shots, trans, cues, keycol, overlay=None, bar
         E['warp'] = inv = lambda t: t
     E['marks'] = [inv(tc) for tc, _ in shots[1:]]
     E.update(here=here, words=words, dur=dur, end_t=end_t, shots=shots, trans=trans, cues=cues, keycol=keycol, overlay=overlay,
-             bar_car=bar_car, gauge=gauge, loud=loud, gap=gap, crisp=crisp, photo_dir=os.path.join(here, '..', 'assets'),
-             end=end or ('car stuff, explained', 'follow for the next one'))
+             flash=flash, tag=tag, bar_car=bar_car, gauge=gauge, loud=loud, gap=gap, crisp=crisp, photo_dir=os.path.join(here, '..', 'assets'),
+             end=('car stuff, explained', 'follow for the next one') if end is None else end)
     E['gauge_ev'] = sorted([(tc, GAUGE_KICK.get(name, 0.12) * vol) for tc, name, vol in cues] + [(tc, 0.3) for tc in E['marks']])
     E['chunks'] = make_chunks()
     cr = os.path.join(E['photo_dir'], 'credits.json')
@@ -228,6 +230,67 @@ def title(cv, t, t0, t1, txt, col, y, sz=110, rot=0.0):
     img = text_img(txt, col, sz)
     if img.width > 1020: k *= 1020 / img.width
     blit(cv, img, W / 2, y, k, k, rot + 1.5 * math.sin(t * 3), anchor='center')
+
+
+@lru_cache(None)
+def headline_img(lines, sz=112):
+    """Multi-line hook headline; lines = ((('Why is there an', None), ('ARROW', '#ffd23f')), ...): one highlighted word,
+    drawn on a yellow-edged plate behind the highlighted word so it reads at a glance."""
+    f = font(sz); d0 = ImageDraw.Draw(Image.new('RGB', (1, 1))); sp = d0.textlength(' ', font=f)
+    widths = [sum(d0.textlength(tx, font=f) for tx, _ in ln) + sp * (len(ln) - 1) for ln in lines]
+    lh = int(sz * 1.18); img = Image.new('RGBA', (int(max(widths)) + 80, lh * len(lines) + 50), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
+    for li, (ln, wd) in enumerate(zip(lines, widths)):
+        x, y = (img.width - wd) / 2, 14 + li * lh
+        for tx, col in ln:
+            tw = d0.textlength(tx, font=f)
+            if col:
+                d.rounded_rectangle((x - 18, y + 6, x + tw + 18, y + sz * 1.12), 18, fill=(10, 10, 16), outline=col, width=8)
+            d.text((x + 6, y + 8), tx, font=f, fill=NAVY, stroke_width=14, stroke_fill=NAVY)
+            d.text((x, y), tx, font=f, fill=col or WHITE, stroke_width=13, stroke_fill=(10, 10, 16))
+            x += tw + sp
+    return img
+
+
+def headline(cv, t, t1, lines, y=520, sz=112):
+    """Hook headline: on screen and full size from frame 0 (a punchy settle and a wobble keep it moving), gone at t1.
+    Call it with t measured from the hook (negative t in a loop pre-roll draws it settled)."""
+    if t >= t1 + 0.2: return
+    img = headline_img(lines, sz)
+    k = (1 + 0.14 * math.exp(-max(t, 0) * 9) * math.cos(max(t, 0) * 22)) * popout(t, t1, 0.2) * (1 + 0.02 * math.sin(t * 7))
+    if img.width > 1020: k *= 1020 / img.width
+    blit(cv, img, W / 2, y, k, k, -2 + 1.5 * math.sin(t * 3), anchor='center')
+
+
+@lru_cache(None)
+def _sticker_img(lines, opts, sel, w=860):
+    """White story-style sticker: dark bold text lines over optional poll buttons (sel = lit button index or -1)."""
+    d0 = ImageDraw.Draw(Image.new('RGB', (1, 1))); sz = 66
+    while sz > 30 and max(d0.textlength(ln, font=font(sz)) for ln in lines) > w - 80: sz -= 2
+    f = font(sz); fb = font(70)
+    h = 40 + 82 * len(lines) + (140 if opts else 0) + 20
+    img = Image.new('RGBA', (w, h), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
+    d.rounded_rectangle((10, 14, w - 1, h - 1), 40, fill=NAVY)
+    d.rounded_rectangle((0, 0, w - 11, h - 15), 40, fill=(250, 250, 246), outline=(10, 10, 16), width=6)
+    for i, ln in enumerate(lines):
+        tw = d0.textlength(ln, font=f); d.text(((w - 10 - tw) / 2, 30 + 82 * i), ln, font=f, fill=NAVY)
+    if opts:
+        bw = (w - 10 - 60 - 30 * (len(opts) - 1)) / len(opts); y0 = 40 + 82 * len(lines)
+        for i, (txt, col) in enumerate(opts):
+            x0 = 30 + i * (bw + 30); on = i == sel
+            d.rounded_rectangle((x0, y0, x0 + bw, y0 + 112), 30, fill=col if on else (232, 234, 240), outline=col, width=8)
+            bs = 70
+            while bs > 30 and d0.textlength(txt, font=font(bs)) > bw - 30: bs -= 2
+            tw = d0.textlength(txt, font=font(bs)); d.text((x0 + (bw - tw) / 2, y0 + 16 + (70 - bs) * 0.6), txt, font=font(bs), fill=WHITE if on else NAVY)
+    return img
+
+
+def sticker(cv, t, t0, t1, lines, y, opts=(), rot=-3.0, w=860, x=W / 2):
+    """Pop-in sticker (comment / share prompts, YES / NO polls) between t0 and t1; poll buttons light up in turn."""
+    if not (t0 <= t < t1 + 0.2): return
+    sel = int((t - t0) * 2.5) % len(opts) if opts else -1
+    img = _sticker_img(tuple(lines), tuple(opts), sel, w)
+    k = popin(t, t0, 0.3) * popout(t, t1, 0.2) * (1 + 0.02 * math.sin(t * 6))
+    blit(cv, img, x, y, k, k, rot + 2 * math.sin(t * 2.5), anchor='center')
 
 
 # ------------------------------------------------------------------ real photos in framed cards
@@ -449,7 +512,9 @@ def end_img():
 
 
 def series_tag(cv, t):
-    """'car stuff, explained' from frame 0, shrinking away as the hook lands."""
+    """'car stuff, explained' from frame 0, shrinking away as the hook lands (tag='corner': small, top-left, always)."""
+    if E.get('tag') == 'corner':
+        img = text_img('car stuff, explained', WHITE, 40); cv.paste(img, (60, 172), img); return
     k = 1 - ic(prog(t, 1.9, 0.25))
     if k > 0.02:
         img = text_img('car stuff, explained', WHITE, 62)
@@ -459,6 +524,7 @@ def series_tag(cv, t):
 
 def captions(cv, t):
     if t >= E['end_t']:
+        if not E['end']: return
         img = end_img(); k = 0.72 + 0.28 * ob(prog(t, E['end_t'], 0.16)) + 0.03 * math.sin(t * 8)
         img = img.resize((int(img.width * k), int(img.height * k)), Image.BILINEAR)
         cv.paste(img, (int(W / 2 - img.width / 2), int(CAP_Y + 20 - img.height / 2)), img)
@@ -595,14 +661,14 @@ def picture(t):
 def frame(n):
     t = n / FPS
     cv = sway(picture(t), t)
-    if t < 0.12:                                    # white flash on frame 0 for the hook
+    if t < 0.12 and E.get('flash', True):                                    # white flash on frame 0 for the hook
         cv = Image.blend(cv, Image.new('RGB', (W, H), (255, 255, 255)), 0.7 * (1 - t / 0.12))
     if E['overlay']: E['overlay'](cv, E['warp'](t))
     GAR.vignette(cv)
     if E.get('gauge'): rev_gauge(cv, t)
     series_tag(cv, t)
     captions(cv, t)
-    if t >= E['end_t'] - 0.3 and credit_img():
+    if (t >= E['dur'] - 0.8 if not E['end'] else t >= E['end_t'] - 0.3) and credit_img():
         c = credit_img(); cv.paste(c, (int(W / 2 - c.width / 2), H - c.height - 14), c)
     progress(cv, t)
     return cv.tobytes()
