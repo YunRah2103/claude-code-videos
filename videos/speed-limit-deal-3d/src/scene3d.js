@@ -121,7 +121,7 @@ export async function build(canvas) {
       const r0 = lerpRig(end, RIG.b1[0], u); Object.assign(r, r0); r.yaw += 38 * Math.sin(Math.PI * u);
     }
     S.shoot({ ...r, shake: sh, t });
-    const hostX = t >= T6 - 0.2 ? -40 : -44, hostZ = t >= T6 - 0.2 ? -2 : -4;
+    const hostX = -13, hostZ = WALL_Z - 5;            // stands just behind the force wall, between lanes
     hostShadow.position.set(hostX, 0.1, hostZ); hostShadow.visible = (t >= 2.2 && t < T3) || (t >= T6 && t < END_T);
     S.render();
     const A = {

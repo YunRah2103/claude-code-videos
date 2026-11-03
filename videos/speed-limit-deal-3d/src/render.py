@@ -50,7 +50,7 @@ def anchor(name, t):
 
 
 P = Presenter([
-    (-9, dict(visible=False)),
+    (-9, dict(visible=False, path=Fn(lambda t: anchor('host', t)))),
     (2.25, dict(visible=True, path=Fn(lambda t: anchor('host', t)), size=5, legs='stand', arms='point', squash=True,
                 point=lambda t: anchor('carM', t), expr='smile', ground=None)),
     (ws(9), dict(arms='shrug', expr='smirk')),
@@ -74,7 +74,7 @@ def shot(t):
 def photo(cv, t, t0, t1, x, y, w, rot):
     if not (t0 <= t < t1 + 0.2) or not os.path.isfile(os.path.join(HERE, '..', 'assets', PHOTO + '.jpg')): return
     k = kit.popin(t, t0, 0.3) * kit.popout(t, t1, 0.2)
-    ov.place(cv, kit.hq_card(PHOTO, w, PHOTO_LABEL, rot), x, y + 6 * math.sin(t * 2.2), k, 0, 'photo')
+    ov.place(cv, kit.hq_card(PHOTO, w, PHOTO_LABEL, rot, (0.0, 0.3, 0.4, 1.0)), x, y + 6 * math.sin(t * 2.2), k, 0, 'photo')
 
 
 def credit_line():
@@ -92,24 +92,24 @@ def overlay(cv, t):
     for i, (nm, a) in enumerate((('BMW', 'carL'), ('MERCEDES', 'carM'), ('AUDI', 'carR'))):
         x, y = anchor(a, t)
         ov.chip(cv, t, ws(12 + i) - 0.05, T3 - 0.2, nm, x, 905 - 60 * (i == 1), WHITE, 50)
-    ov.chip(cv, t, ws(15) - 0.05, T3 - 0.2, 'NO LAW', 250, 300, RED, 56, rot=-5)
-    ov.chip(cv, t, ws(15) + 0.25, T3 - 0.2, 'REPORTEDLY', 690, 300, YEL, 50, rot=4)
-    ov.stamp(cv, t, STAMP, T3 - 0.2, ('SECRET', 'DEAL'), 470, 580, rot=-12, scale=0.9)
+    ov.chip(cv, t, ws(15) - 0.05, T3 - 0.2, 'NO LAW', 230, 345, RED, 56, rot=-5)
+    ov.chip(cv, t, ws(15) + 0.25, T3 - 0.2, 'REPORTEDLY', 660, 335, YEL, 50, rot=4)
+    ov.stamp(cv, t, STAMP, T3 - 0.2, ('SECRET', 'DEAL'), 470, 600, rot=-12, scale=0.78)
     # beat 3: the limit
     photo(cv, t, ws(24) + 0.05, T4 - 0.15, 260, 560, 380, -6)
-    ov.chip(cv, t, FILL1 - 0.05, T4 - 0.15, '155 MPH LIMIT', 690, 300, RED, 50, rot=3)
+    ov.chip(cv, t, FILL1 - 0.05, T4 - 0.15, '155 MPH LIMIT', 660, 310, RED, 50, rot=3)
     # beat 4: the one that never joined
-    ov.chip(cv, t, ws(28) - 0.1, T5 - 0.1, 'PORSCHE', 600, 470, YEL, 64, sub='(REPORTEDLY NEVER JOINED)', rot=-3)
+    ov.chip(cv, t, ws(28) - 0.1, T5 - 0.1, 'PORSCHE', 540, 470, YEL, 60, sub='(REPORTEDLY NEVER JOINED)', rot=-3)
     # beat 5: unlock
     ov.chip(cv, t, T5 + 0.05, T6 - 0.15, "DRIVER'S PACKAGE", 430, 560, YEL, 54, rot=-3)
     ov.chip(cv, t, ws(32) - 0.05, T6 - 0.15, 'SOME MODELS', 520, 360, GRN, 56, rot=3)
     # the poll: small from beat 3, grows big for the question, pops out with the loop whip
     g = io(prog(t, T6 - 0.1, 0.35))
     ov.poll(cv, t, POLL0, DUR - 0.32, 'Remove the limit?', lerp(670, ov.SAFE_CX, g), lerp(985, 860, g), lerp(0.5, 0.97, g))
-    if t >= DUR - 0.8 and credit_line(): ov.credit(cv, credit_line(), 1166)
+    if t >= END_T and credit_line(): ov.credit(cv, credit_line(), 1150)
 
 
-def captions(cv, t): ov.captions(cv, t, 1118)
+def captions(cv, t): ov.captions(cv, t, 1100)
 
 
 SHOTS = [(-3.0, shot), (T2, shot), (T3, shot), (T4, shot), (T5, shot), (T6, shot), (END_T, shot)]   # marks for the bar

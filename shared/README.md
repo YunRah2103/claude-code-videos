@@ -23,6 +23,7 @@ Reusable pieces for the pixel-art explainer episodes. Nothing here depends on on
 | `vo.py` | `tighten(src_mp3, words, out_mp3, target=17.2)`: shortens long pauses and applies a gentle atempo for short-form pacing; re-align the result. `episode.setup(..., gauge=True, loud=True)` adds the corner rev counter and -14 LUFS loudness | docstring |
 | `split_vo.py` | Split one long voiceover into per-episode clips at long silences (`silencedetect`, default -35 dB / 1.5 s); fails unless the count matches | docstring |
 | `pixanim/autos.py` | Sprites: supercar wedges, endurance racer, muscle coupe, EV saloons, V12/V8, motor, battery, chargers, plug/socket, light tree, year calendar, trophy, flag | docstring |
+| `assets/` | 3D pixel look (Three.js scene kit, cars, speedometer wall, props) and safe-zone text overlays | `assets/INDEX.md` |
 | `photos.py` | Fetch Wikimedia Commons photos + `credits.json` (file, source, licence, author) into `videos/<ep>/assets/` (jpgs are git-ignored) | docstring |
 
 `episode.setup(..., crisp=True)` keeps the handheld sway nearest-neighbour; `photo(..., hq=True)` called from the overlay shows the whole photo uncropped, Lanczos-scaled. `vo.pace()` adds silence for very short reads.

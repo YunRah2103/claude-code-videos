@@ -106,14 +106,14 @@ def stamp_img(lines=('SECRET', 'DEAL'), col=(224, 48, 58), sz=118):
 
 
 def stamp(cv, t, t0, t1, lines, x, y, rot=-12.0, scale=1.0):
-    """Stamp slams in at t0 (drops from 2.2x to 1x with a squash), holds, pops out at t1."""
+    """Stamp slams in at t0 (drops from 1.35x to 1x with a wobble), holds, pops out at t1."""
     if not (t0 <= t < t1 + 0.2): return
     u = prog(t, t0, 0.13)
-    k = (2.2 - 1.2 * u * u if u < 1 else 1 + 0.06 * math.exp(-(t - t0 - 0.13) * 14) * math.cos((t - t0) * 50)) * popout(t, t1, 0.18)
+    k = (1.35 - 0.35 * u * u if u < 1 else 1 + 0.06 * math.exp(-(t - t0 - 0.13) * 14) * math.cos((t - t0) * 50)) * popout(t, t1, 0.18)
     place(cv, stamp_img(tuple(lines)), x, y, k * scale, rot, 'stamp')
 
 
-def headline(cv, t, t1, lines, x=SAFE_CX, y=420, sz=104, maxw=840):
+def headline(cv, t, t1, lines, x=SAFE_CX, y=420, sz=104, maxw=800):
     """2D-episode hook headline (episode.headline_img: white, black outline, one highlighted word on a plate)."""
     if t >= t1 + 0.2: return
     img = headline_img(lines, sz)
