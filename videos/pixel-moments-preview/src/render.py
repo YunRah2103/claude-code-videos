@@ -1,4 +1,4 @@
-"""Original 10 s pixel-art mood piece: rainy bus stop -> walk on the beach at dusk.
+"""Original 10 s pixel-art mood piece: rainy bus stop -> dusk at the beach.
 Usage: python render.py video OUT.mp4 | python render.py still OUTDIR t1 t2 ..."""
 import math, subprocess, sys, wave
 from pathlib import Path
@@ -6,7 +6,7 @@ import numpy as np
 from PIL import Image
 import sprites as SPR
 
-W = H = 180; S = 6; FPS = 30; DUR = 10.0; CUT = 5.0; SR = 44100
+W = H = 135; S = 8; FPS = 30; DUR = 10.0; CUT = 5.0; SR = 44100
 BAYER = np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]) / 16.0
 YS, XS = np.mgrid[0:H, 0:W]
 
@@ -63,178 +63,116 @@ def P(**kw): return {k: hx(v) for k, v in kw.items()}
 
 rng = np.random.default_rng
 
-# ================= scene 1: rain at the bus stop =================
-DADF = P(H='#23222a', h='#46424f', S='#d49c7c', s='#a86c58', G='#17171d', L='#b98c76', e='#17171d',
-         B='#4b3934', o='#6a3434', F='#8a6a50', f='#5e4434', J='#5b705f', j='#3d4c42', K='#7f9580',
-         T='#94c6c8', t='#6a9ca2', U='#2b2620', P='#3a4762', p='#28324a', X='#1d1d24', x='#44444f')
-KIDR = P(y='#efc24a', Y='#b98a2e', H='#5a3a2a', S='#ecb494', s='#ba7c64', k='#ba7c64', e='#2a2028',
-         J='#efc24a', j='#b98a2e', P='#3a4566', p='#2a3350', X='#c8463e', x='#8e2e2e')
-R1 = rng(7)
-BLD, x = [], -4
-while x < W:
-    w = int(R1.integers(9, 22)); BLD.append((x, w, int(R1.integers(26, 70)))); x += w + int(R1.integers(0, 3))
-WIN = [(bx + 2 + i * 4, 110 - bh + 4 + j * 5, R1.random()) for bx, bw, bh in BLD
-       for i in range((bw - 3) // 4) for j in range((bh - 8) // 5)]
-DROPS = np.c_[R1.random(120) * W, R1.random(120) * H, R1.random(120)]
-PUD = [(46, 151, 20), (100, 150, 16)]   # puddles on the sidewalk front (x, y, w)
-DX, DFEET = 70, 140                      # dad sprite left x, feet y
-KID_FEET = 151
+# ================= scene 1: waiting out the rain in the bus shelter =================
+DADP = P(H='#23222a', h='#46424f', S='#d9a383', s='#b07a62', d='#8e5a4a', g='#5a4038', l='#e6c0a4', e='#2a2028',
+         B='#5a423a', b='#43302b', m='#4a2c2a', F='#9a7a5c', f='#6c5240', J='#5b705f', j='#43544a', K='#7f9580',
+         T='#a8cdd0', t='#7aa4aa', C='#ece4d4', c='#b8ae9e', L='#a4523c', P='#3e4b68', p='#2c3550',
+         Q='#56648a', X='#24242c', x='#4a4a56')
+KIDP = P(y='#efc24a', Y='#c49434', Z='#9a7028', H='#6a442e', S='#f0b898', s='#c88a70', e='#2a2028',
+         r='#e88a80', P='#3a4566', p='#2a3350', R='#c8463e', q='#e8706a')
+R1 = rng(5)
+BOKEH = [(R1.random() * W, 24 + R1.random() * 50, R1.choice(['#d8b36a', '#7fb8c4', '#e07a6a', '#a6d6cc']),
+          R1.random()) for _ in range(26)]
+DROPS = np.c_[R1.random(70) * W, R1.random(70) * H, R1.random(70)]
+SEAT, FLOOR = 92, 106
+DBX, DBY = 26, SEAT - 17          # dad body origin
+KBX, KBY = 56, SEAT - 8           # kid body origin
 
 
-def kid_state(t):
-    """Kid runs back and forth in front of dad, jumping into puddles."""
-    span, x0 = 92, 22
-    d = (t * 30) % (2 * span); fwd = d < span
-    x = x0 + (d if fwd else 2 * span - d)
-    jump = 0
-    for px_, py, pw in PUD:
-        c = px_ + pw / 2; u = (x - (c - 10)) / 12  # arc lands in middle of puddle
-        if 0 < u < 1: jump = max(jump, 7 * math.sin(math.pi * u))
-    return x, not fwd, jump
+def swap(rows, a, b, row=None):
+    return [r.replace(a, b) if row is None or j == row else r for j, r in enumerate(rows)]
 
 
 def scene1(t):
     c = C()
-    c.grad(0, 110, ['#0a1a22', '#0e242e', '#12303a', '#183c46', '#20505a'])
-    for bx, bw, bh in BLD:
-        c.rect(bx, 110 - bh, bw, bh, '#10283a' if bw % 2 else '#112b33')
-        c.rect(bx + bw - 2, 110 - bh, 2, bh, '#0c2028')
-    for wx, wy, r in WIN:
-        if r > .8:
-            on = not (r > .96 and math.sin(t * 2 + r * 50) > .5)
-            if on: c.px(wx, wy, '#d8b36a' if r > .9 else '#5d8f98')
-    # pylon + wires
-    for a, b in ((-12, -1), (12, 1)): c.line(150, 18, 150 + a, 110, '#0d2028')
-    for y in range(30, 110, 12):
-        f = (y - 18) / 92; c.line(150 - 12 * f, y, 150 + 12 * f, y + 9, '#0d2028')
-    c.rect(138, 26, 25, 1, '#0d2028'); c.line(0, 34, 138, 26, '#0d2028'); c.line(162, 26, W, 30, '#0d2028')
-    c.glow(90, 112, 140, '#2f5e66', .35, 14)
-    # back wall / fence line and sidewalk
-    c.rect(0, 104, W, 6, '#173138'); c.rect(0, 104, W, 1, '#2a4a50')
-    for k in range(0, W, 7): c.rect(k, 98, 1, 6, '#173138')
-    c.rect(0, 98, W, 1, '#173138')
-    c.grad(110, 152, ['#1b3036', '#20383e', '#24404a', '#1f3a42'])
-    for k in range(0, W, 18): c.line(k, 110, k - 10, 152, '#1a2d33')
-    c.rect(0, 152, W, 2, '#4a6266'); c.rect(0, 154, W, 2, '#0b161a')
-    c.grad(156, H, ['#0b1a20', '#0f2229', '#12272e'])
-    for k in range(4, W, 22): c.rect(k, 170, 10, 1, '#2a4148')
-    # bus shelter
-    sx = 116
-    c.rect(sx, 62, 64, 4, '#1a292e'); c.rect(sx, 66, 64, 1, '#557a80')
-    c.rect(sx + 2, 67, 2, 75, '#1a292e'); c.rect(sx + 60, 67, 2, 75, '#1a292e')
-    c.rect(sx + 4, 70, 56, 52, '#24434b'); c.rect(sx + 4, 70, 56, 1, '#3f6a74')
-    c.rect(sx + 38, 74, 20, 40, '#a6d6cc'); c.rect(sx + 40, 76, 16, 36, '#d2f0e4')
-    c.rect(sx + 42, 80, 12, 12, '#e98c6c'); c.rect(sx + 44, 82, 4, 4, '#f6c49a')
-    c.rect(sx + 42, 96, 12, 2, '#3c6a72'); c.rect(sx + 42, 100, 8, 1, '#5d8f98')
-    c.rect(sx + 8, 120, 26, 3, '#15252a'); c.rect(sx + 10, 123, 2, 10, '#15252a'); c.rect(sx + 30, 123, 2, 10, '#15252a')
-    c.glow(sx + 48, 96, 30, '#8fd0c4', .38, 42)
-    # bus-stop sign
-    c.rect(112, 54, 1, 88, '#18292e'); c.rect(108, 48, 9, 12, '#d7d9cf'); c.rect(109, 49, 7, 3, '#2f6b9a')
-    c.rect(110, 54, 5, 1, '#33464c'); c.rect(110, 56, 5, 1, '#33464c')
-    # street lamp
-    c.rect(20, 38, 2, 114, '#13222a'); c.rect(20, 36, 14, 2, '#13222a'); c.rect(30, 38, 7, 3, '#13222a')
-    c.glow(33, 40, 13, '#ffd98a', .9); c.rect(31, 41, 5, 1, '#fff1c4')
-    c.glow(36, 140, 40, '#f2c46d', .5, 22)
-    # puddles (reflect lamp/ad)
-    for px_, py, pw in PUD:
-        c.rect(px_, py - 1, pw, 3, '#18343e'); c.rect(px_ + 2, py - 2, pw - 4, 1, '#18343e')
-        c.rect(px_ + 3, py, 4, 1, '#c8a560' if px_ < 60 else '#7fbcb4')
-    for i in range(10):
-        ph = (t * 1.4 + i * .41) % 1; px_, py, pw = PUD[i % 2]
-        rx = px_ + 2 + (i * 7) % (pw - 4); r = int(ph * 3)
-        if ph < .7: c.px(rx - r, py, '#5d929c'); c.px(rx + r, py, '#5d929c')
-    # road reflections
-    for y in range(158, H, 2):
-        wob = int(1.5 * math.sin(y * .7 + t * 6)); k = 1 - (y - 158) / 26
-        if k > 0 and (y // 2 + int(t * 8)) % 3:
-            c.rect(30 + wob, y, 7, 1, col('#f2c46d') * k + c.a[y, 33] * (1 - k))
-            c.rect(sx + 42 + wob, y, 12, 1, col('#8fd0c4') * k * .6 + c.a[y, sx + 46] * (1 - k * .6))
-    # passing car on the road
-    if 2.4 < t < 5.0:
-        cx = W + 20 - (t - 2.4) / 2.2 * (W + 110); cy = 160
-        c.glow(cx - 10, cy + 6, 34, '#fff0c0', .45, 7)
-        c.rect(cx, cy, 58, 11, '#1c2a31'); c.rect(cx + 14, cy - 8, 30, 8, '#1c2a31')
-        c.rect(cx + 17, cy - 6, 12, 6, '#4f7a84'); c.rect(cx + 31, cy - 6, 11, 6, '#5f8a92')
-        c.rect(cx, cy + 3, 58, 1, '#3c5a62'); c.rect(cx, cy + 2, 4, 3, '#fff3c8'); c.rect(cx + 55, cy + 2, 3, 3, '#e04a4a')
-        for wx in (cx + 8, cx + 42):
-            c.rect(wx, cy + 9, 9, 5, '#090f12'); c.rect(wx + 3, cy + 10, 3, 3, '#5a6d72')
-    # ---------- characters (own layer, relit) ----------
+    # night street seen through the shelter glass
+    c.grad(0, 80, ['#0a1820', '#0e222c', '#123038', '#1a3e48'])
+    for i, (bx, by, cl, z) in enumerate(BOKEH):   # out-of-focus lights
+        r = 2 + z * 3; tw = .5 + .5 * math.sin(t * (1 + z) + i)
+        c.glow(bx, by, r, cl, .35 + .3 * tw)
+    c.grad(80, FLOOR, ['#1a3a42', '#163238', '#122a30', '#10262c'])
+    if 2.6 < t < 4.9:   # car headlights sweeping past behind the glass
+        cx = -30 + (t - 2.6) / 2.3 * (W + 60)
+        c.glow(cx, 80, 30, '#fff0c0', .55, 8); c.rect(cx - 22, 78, 26, 7, '#0e1a20')
+        c.rect(cx + 2, 80, 3, 2, '#fff3c8'); c.rect(cx - 22, 80, 2, 2, '#e04a4a')
+    # glass panes: streaks of water running down
+    for k in range(60):
+        x_ = (k * 37) % W; y_ = (k * 53 + t * (8 + k % 5) * 3) % 90 + 4
+        c.line(x_, y_, x_, y_ + 3 + k % 4, '#2e5662')
+        c.px(x_, y_ + 4 + k % 4, '#5d8f98')
+    c.a[4:100] = c.a[4:100] * .82 + col('#2a5560') * .18          # glass tint
+    for gx in (0, 44, 88, 132): c.rect(gx, 4, 3, 96, '#16262c'); c.rect(gx + 1, 4, 1, 96, '#34525a')
+    c.rect(0, 46, W, 2, '#16262c')
+    # ad panel (right)
+    c.rect(94, 14, 38, 72, '#16262c'); c.rect(96, 16, 34, 68, '#bfe6dc'); c.rect(98, 18, 30, 64, '#d8f2e8')
+    c.rect(100, 22, 26, 26, '#f09a72'); c.glow(113, 35, 9, '#ffe2a8', .9)
+    c.rect(100, 54, 22, 3, '#2f5f6a'); c.rect(100, 60, 16, 2, '#5d8f98'); c.rect(100, 64, 18, 2, '#5d8f98')
+    c.rect(100, 72, 8, 6, '#2f5f6a')
+    c.glow(112, 50, 46, '#8fd8cc', .32, 60)
+    # roof + drips
+    c.rect(0, 0, W, 5, '#0e1a1f'); c.rect(0, 4, W, 1, '#4a6a70')
+    # bench
+    c.rect(14, SEAT, 72, 4, '#7a5a44'); c.rect(14, SEAT, 72, 1, '#a07a5a'); c.rect(14, SEAT + 4, 72, 1, '#4a3428')
+    c.rect(18, SEAT + 5, 3, FLOOR - SEAT - 5, '#1c2a2e'); c.rect(80, SEAT + 5, 3, FLOOR - SEAT - 5, '#1c2a2e')
+    c.rect(14, SEAT - 26, 72, 3, '#6a4c3a'); c.rect(14, SEAT - 26, 72, 1, '#90705a')   # backrest
+    c.rect(14, SEAT - 16, 72, 3, '#6a4c3a'); c.rect(14, SEAT - 16, 72, 1, '#90705a')
+    # floor
+    c.grad(FLOOR, H, ['#26404a', '#1e353e', '#182c33', '#13242a'])
+    c.rect(0, FLOOR, W, 1, '#3c5a62')
+    for k in range(0, W, 16): c.line(k, FLOOR + 1, k - 12, H, '#1a2e35')
+    # light from the street lamp (left) and ad (right)
+    c.glow(0, 30, 70, '#f2c46d', .28, 90)
+    # ---------- characters ----------
     L = C(layer=True)
-    kx, back, jump = kid_state(t)
-    bre = int((t % 2.2) > 1.1)
-    rows = list(SPR.DAD_FRONT)
-    look = -1 if kx < DX + 6 else 1
-    blink = (t % 2.7) < .12
-    for j in (8,):
-        r = rows[j]
-        if blink: r = r.replace('LeL', 'GGG')
-        elif look < 0: r = r.replace('LeL', 'eLL')
-        else: r = r.replace('LeL', 'LLe')
-        rows[j] = r
-    # umbrella shaft first (behind hand)
-    hxp, hyp = DX + SPR.DAD_HAND[0], DFEET - len(rows) + SPR.DAD_HAND[1] + bre
-    ux, uy = DX + 12, 70 + bre
-    L.spr(DX, DFEET - len(rows), rows[32:], DADF) if False else None
-    lower = rows[32:]; upper = rows[:32]
-    top = DFEET - len(rows)
-    L.spr(DX, top + 32, lower, DADF)
-    L.spr(DX, top + bre, upper, DADF)
-    dad_a = light(L, (.78, .9, .98), [(1, '#ffc56e', .55), (-1, '#8fd8cc', .35)])
-    # kid
-    K = C(layer=True)
-    phase = (t * 2.7) % 1
-    SPR.person(K, kx, KID_FEET - round(jump), KIDR, 'kid', phase, 'run', flip=back)
-    kid_a = light(K, (.86, .92, .96), [(1, '#ffc56e', .5), (-1, '#8fd8cc', .3)])
-    # contact shadows
-    c.glow(DX + 11, DFEET, 13, '#081217', .55, 2.5)
-    c.glow(kx, KID_FEET, 6 - jump * .4, '#081217', .5, 1.6)
-    comp(c, L, dad_a)
-    # umbrella
-    c.line(hxp + .5, hyp, ux, uy, '#2a2a32')
-    for j in range(10):
-        hw = int(math.sqrt(max(0, 100 - (9 - j) ** 2)) * 2.5)
-        cy = uy - 10 + j
-        c.rect(ux - hw, cy, hw * 2, 1, '#9c3c44' if j < 8 else '#73283a')
-        if j < 8: c.rect(ux - hw, cy, max(1, hw // 2), 1, '#c25a5c')
-        if j < 6: c.rect(ux + hw - max(1, hw // 4), cy, max(1, hw // 4), 1, '#7c2c3a')
-    for k in (-24, -12, 0, 12, 24): c.rect(ux + k - 1, uy, 3, 1, '#5e2232')
-    c.px(ux, uy - 11, '#2a2a32'); c.px(ux, uy - 12, '#2a2a32')
-    comp(c, K, kid_a)
-    # puddle splash when kid lands
-    for px_, py, pw in PUD:
-        cxp = px_ + pw / 2; u = (kx - (cxp - 10)) / 12
-        if .85 < u < 1.6 or (back and -.6 < u < .15):
-            f = min(1, abs(u - (1 if not back else 0)) * 1.6)
-            for s_ in (-1, 1):
-                for k in range(4):
-                    c.px(kx + s_ * (2 + k * 1.5 + 6 * f), py - 1 - 5 * math.sin(f * math.pi) * (1 - k * .2), '#9fd0d6')
-    # rain
+    bre = int((t % 2.4) > 1.2)
+    look = t > 1.9                       # dad turns to look at the kid
+    lean = t > 2.9                       # kid leans on dad's arm
+    blink = (t % 2.6) < .12 or 1.85 < t < 1.95
+    dh = list(SPR.DAD_HEAD)
+    if blink: dh = swap(dh, 'glegglelg', 'gllggllgg', 10)
+    elif look: dh = swap(dh, 'glegglelg', 'gllegglle', 10)
+    if lean: dh = swap(dh, 'BBBSmmmSBBB', 'BBmSSSSSmBB', 15)   # smile
+    L.spr(DBX, DBY + 16, SPR.DAD_BODY[16:], DADP)
+    L.spr(DBX, DBY + bre, SPR.DAD_BODY[:16], DADP)
+    L.spr(DBX + SPR.DAD_HEAD_X + look, DBY + SPR.DAD_HEAD_Y + bre + (lean and look), dh, DADP)
+    kh = list(SPR.KID_HEAD)
+    if lean: kh = swap(kh, 'e', 's'); kh = swap(kh, 'SSSSSSSS', 'SSSSSSSS')
+    elif (t % 3.1) < .12: kh = swap(kh, 'e', 's')
+    swing = int(t * (4 if not lean else 1.5)) % 2
+    kb = int((t % 2.0) > 1.0)
+    L.spr(KBX, KBY + 10, SPR.KID_LEGS[swing], KIDP)
+    L.spr(KBX - lean, KBY + kb * (not lean), SPR.KID_BODY, KIDP)
+    L.spr(KBX + SPR.KID_HEAD_X - 3 * lean, KBY + SPR.KID_HEAD_Y + 2 * lean, kh, KIDP)
+    a = light(L, (.84, .92, .98), [(1, '#ffcf86', .45), (-1, '#9fe4d6', .35)])
+    c.glow(DBX + 15, FLOOR + 1, 16, '#0a161a', .5, 2.5)
+    comp(c, L, a)
+    # steam from the cup
+    for i in range(5):
+        ph = (t * .6 + i / 5) % 1
+        sx = DBX + 15 + math.sin(ph * 6 + i) * 2; sy = DBY + 11 + bre - ph * 18
+        if ph < .85: c.px(sx, sy, col('#e8eef0') * (1 - ph) * .6 + c.a[int(sy), int(sx)] * (1 - (1 - ph) * .6))
+    # rain in the foreground + drips from the roof
     for rx, ry, z in DROPS:
-        y = (ry + t * (170 + 120 * z)) % (H + 20) - 10; x_ = (rx - t * 25 * (1 + z)) % W
-        if ux - 25 < x_ < ux + 25 and uy - 8 < y < DFEET: continue
-        ln = 3 + int(z * 4)
-        c.line(x_, y, x_ - ln * .3, y + ln, '#3d6670' if z < .6 else '#6a98a2')
-    for i in range(8):
-        ph = (t * 3 + i * .29) % 1
-        if ph < .3: c.px(ux - 21 + i * 6, uy - 9 + abs(i - 3.5) * .0 - int(ph * 6) - (3 if 2 < i < 6 else 1), '#a6ccd2')
+        y = (ry + t * (150 + 90 * z)) % (H + 20) - 10; x_ = (rx - t * 18 * (1 + z)) % W
+        if z > .62 and not (DBX - 4 < x_ < KBX + 18 and y < FLOOR): c.line(x_, y, x_ - 1, y + 3 + int(z * 3), '#5f8a94' if z < .8 else '#8fb8c0')
+    for i in range(9):
+        ph = (t * .9 + i * .37) % 1; dx_ = 7 + i * 15
+        c.px(dx_, 5, '#8fb8c0')
+        if ph > .6: c.px(dx_, 5 + (ph - .6) ** 2 * 300, '#8fb8c0')
     return c
 
 
-# ================= scene 2: walk on the beach at dusk =================
-DADB = P(H='#2a2430', h='#4a3c4c', S='#e0a283', s='#b06e5e', G='#1d1820', L='#f0bca0', e='#1d1820', k='#b06e5e',
-         B='#7a5450', o='#6a3434', T='#efe5d2', t='#c2b29e', R='#6f97b4', P='#c24a54', p='#8e3540',
-         X='#d89a7c', x='#a8685a', thigh='#c24a54', thigh2='#8e3540', shin='#e0a283', shin2='#a8685a',
-         upper='#efe5d2', upper2='#c2b29e', fore='#e0a283', fore2='#a8685a', J='#efe5d2', j='#c2b29e')
-KIDB = P(H='#7a4a2c', h='#a8703e', S='#f0b494', s='#c07c66', k='#c07c66', e='#2a2028', T='#e0604c',
-         t='#a8483e', W='#f6dcb0', P='#3f5f8a', p='#2e4568', X='#f0b494', x='#c07c66',
-         thigh='#3f5f8a', thigh2='#2e4568', shin='#f0b494', shin2='#c07c66', upper='#e0604c',
-         upper2='#a8483e', fore='#f0b494', fore2='#c07c66', J='#e0604c', j='#a8483e')
-KIDB_SPEC = dict(torso=SPR.KID_TORSO_BEACH, head=SPR.KID_HEAD_BEACH)
-DADB_SPEC = dict(torso=SPR.DAD_SHIRT_TORSO)
+# ================= scene 2: watching the sunset from the beach =================
+DADBP = P(H='#2a2430', h='#4a3c4c', S='#d89a7c', s='#a8685a', g='#2a2428', W='#efe5d2', w='#c9b8a4',
+          v='#9a8a80', R='#c24a54', r='#8e3540')
+KIDBP = P(K='#7a4a2c', k='#a8703e', T='#e0604c', t='#a8483e', U='#7e3634', P='#3f5f8a', p='#2e4568',
+          S='#f0b494', s='#c07c66')
 R2 = rng(11)
-CLOUDS = sorted([(R2.random() * (W + 80) - 40, int(R2.integers(8, 82)), int(R2.integers(12, 40)),
-                  int(R2.integers(3, 6)), R2.random()) for _ in range(20)], key=lambda q: q[1])
-HZ, FEET = 100, 150
+CLOUDS = sorted([(R2.random() * (W + 120) - 60, int(R2.integers(6, 56)), int(R2.integers(10, 34)),
+                  int(R2.integers(3, 6)), R2.random()) for _ in range(16)], key=lambda q: q[1])
+HZ, SUNX = 72, 96
+DX2, DFEET2 = 28, 126
+KX2, KFEET2 = 58, 127
 
 
 def disc(c, cx, cy, r, colr, ymax):
@@ -244,7 +182,7 @@ def disc(c, cx, cy, r, colr, ymax):
 
 def cloud(c, x, y, w, h, z, t):
     x = (x + t * (1.5 + 2 * z)) % (W + 120) - 60
-    hl, mid, sh = ('#f8cfae', '#e09a90', '#9a6680') if y > 50 else ('#eab0a6', '#b07c92', '#635a80')
+    hl, mid, sh = ('#f8cfae', '#e09a90', '#9a6680') if y > 36 else ('#eab0a6', '#b07c92', '#635a80')
     bl = [(x + k, y - h * .5 * abs(math.sin(k * .3 + z * 9)), h * (.6 + .5 * abs(math.sin(k * .21 + z * 5))))
           for k in range(0, w, 4)]
     for bx, by, r in bl: disc(c, bx, by + 1, r, sh, y + h + 1)
@@ -252,79 +190,80 @@ def cloud(c, x, y, w, h, z, t):
     for bx, by, r in bl: disc(c, bx - 1, by - 2.5, r - 1.8, hl, y + h - 3)
 
 
-def walkers(t):
-    dxh = 34 + t * 11            # dad hip x
-    return dxh, dxh + 13
-
-
 def scene2(t):
     c = C()
     c.grad(0, HZ, ['#2b3f5c', '#3e4f6e', '#6a5d7e', '#a96f85', '#df8f86', '#f2b38d', '#f8d39e'])
-    c.glow(40, HZ, 50, '#ffe2a8', .5, 20)
+    c.glow(SUNX, HZ, 44, '#ffe2a8', .5, 18)
     for q in CLOUDS: cloud(c, *q, t)
-    for j in range(9):
-        hw = int(math.sqrt(max(0, 81 - (9 - j) ** 2))); c.rect(40 - hw, HZ - 9 + j, hw * 2, 1, '#fff2c8')
-    for x in range(W):
-        hh = int(5 + 3 * math.sin(x * .06) + 2 * math.sin(x * .15 + 1))
-        if x > 100: c.rect(x, HZ - hh, 1, hh, '#6a4f72')
-    # sea
-    c.grad(HZ, 128, ['#6a6588', '#4f5578', '#3a4668', '#2c3a5a'])
+    for j in range(8):
+        hw = int(math.sqrt(max(0, 64 - (8 - j) ** 2))); c.rect(SUNX - hw, HZ - 8 + j, hw * 2, 1, '#fff2c8')
+    for x in range(52):
+        hh = int(4 + 2 * math.sin(x * .12) + math.sin(x * .3)); c.rect(x, HZ - hh, 1, hh, '#5e4a6c')
+    # sea + sun glitter
+    c.grad(HZ, 100, ['#6a6588', '#4f5578', '#3a4668', '#2c3a5a'])
     for j in range(0, 28, 2):
-        y = HZ + j; sp_ = 4 + j * .6
+        y = HZ + j; sp_ = 3 + j * .5
         for k in range(3):
             ph = math.sin(t * 2.5 + j * 1.7 + k * 2.1)
-            if ph > .2: c.rect(40 + math.sin(j * 3.1 + k * 7) * sp_, y, 2 + int(ph * 3), 1, '#f6c79a')
-    for i in range(16):
+            if ph > .2: c.rect(SUNX + math.sin(j * 3.1 + k * 7) * sp_, y, 2 + int(ph * 3), 1, '#f6c79a')
+    for i in range(14):
         y = HZ + 3 + (i * 7) % 24; x_ = (i * 41 + t * (5 + i % 3)) % (W + 20) - 10
         c.rect(x_, y, 3 + i % 4, 1, '#7a7898')
-    # wet sand (mirror of the sky) + dry sand
-    c.grad(128, H, ['#8a6a7e', '#a07a80', '#7a5e70', '#5e4a60', '#4a3c52'])
-    for y in range(132, 166, 3):
-        k = (1 - (y - 132) / 34) * .45; w_ = 3 + (y - 132) * .25
-        x_ = 40 - w_ / 2 + 2 * math.sin(y * .8 + t * 3)
-        c.rect(x_, y, w_, 1, col('#f6c79a') * k + c.a[y, int(x_)] * (1 - k))
-    c.grad(166, H, ['#6a5060', '#5a4456', '#4a3a4c'])
-    c.rect(0, 166, W, 1, '#7a5c6a')
-    # waves washing in
+    # wet sand mirrors the sky
+    c.grad(100, H, ['#8a6a7e', '#a07a80', '#7a5e70', '#5e4a60', '#4a3c52'])
+    for y in range(102, H, 3):
+        k = (1 - (y - 102) / 34) * .45; w_ = 3 + (y - 102) * .3
+        if k > 0:
+            x_ = SUNX - w_ / 2 + 2 * math.sin(y * .8 + t * 3)
+            c.rect(x_, y, w_, 1, col('#f6c79a') * k + c.a[y, int(x_)] * (1 - k))
+    # waves washing in over the feet
     for layer in range(2):
         ph = t * .9 + layer * 1.7
-        edge = 128 + 6 + 5 * math.sin(ph) + layer * 3
+        edge = 104 + 5 * math.sin(ph) + layer * 3
         for x in range(W):
-            e = edge + 1.5 * math.sin(x * .12 + ph * 2 + layer) + .8 * math.sin(x * .37 - ph)
-            ys = int(128 + layer * 2)
+            e = edge + 1.5 * math.sin(x * .15 + ph * 2 + layer) + .8 * math.sin(x * .4 - ph)
+            ys = 100 + layer * 2
             c.rect(x, ys, 1, int(e) - ys, '#4a5276' if layer else '#556088')
             c.rect(x, int(e), 1, 1, '#f2e2d6' if (x + int(t * 10)) % 5 else '#c8b8c8')
-            if (x * 7 + int(t * 6)) % 11 == 0: c.px(x, int(e) - 2, '#d8c8d0')
-    # footprints
-    dxh, kxh = walkers(t)
-    for k in range(40):
-        tk = k / 2.0
-        if tk < t - .3:
-            fx = 34 + tk * 11; c.rect(fx - 1 + (k % 2) * 2, FEET + 1, 3, 1, '#4e3e56')
-        tk2 = k / 3.4
-        if tk2 < t - .3:
-            fx = 47 + tk2 * 11; c.rect(fx + (k % 2), FEET + 3, 2, 1, '#4e3e56')
-    # characters
+    # ---------- characters ----------
     L = C(layer=True)
-    hold = (dxh + 7, FEET - 21)
-    SPR.person(L, dxh, FEET, DADB, 'dad', (t * 1.0) % 1, 'walk', hold=hold, spec=DADB_SPEC)
-    SPR.person(L, kxh, FEET + 2, KIDB, 'kid', (t * 1.7 + .3) % 1, 'walk', hold=hold, spec=KIDB_SPEC)
-    a = light(L, (.95, .84, .86), [(1, '#ffd2a0', .75), (-1, '#6a5a8a', .25)])
-    # reflection in wet sand
+    wind = int(t * 4) % 2
+    bre = int((t % 2.6) > 1.3)
+    top = DFEET2 - 17 - 20 - 2
+    L.spr(DX2, top + 22, SPR.DADB_LEGS, DADBP)
+    L.spr(DX2, top + 20, SPR.DADB_HEM[wind], DADBP)
+    L.spr(DX2, top + bre, SPR.DADB_BODY, DADBP)
+    L.spr(DX2 + 6, top - 12 + bre, SPR.DADB_HEAD, DADBP)
+    # dad's right hand reaching down to the kid's hand
+    hxp, hyp = DX2 + 24, top + 20 + bre
+    L.rect(hxp, hyp, 2, 3, DADBP['S']); L.px(hxp + 1, hyp + 3, DADBP['s'])
+    ktop = KFEET2 - 16 - 9
+    kbob = int((t % 1.8) > .9)
+    L.spr(KX2, ktop + 9, SPR.KIDB_BODY, KIDBP)
+    L.spr(KX2, ktop + kbob * 0, SPR.KIDB_HEAD, KIDBP)
+    L.spr(KX2 + 1 + wind, ktop, ["kk"], KIDBP)                       # hair tuft in the wind
+    L.line(KX2 + 1, ktop + 10, hxp + 1, hyp + 3, KIDBP['S'])        # kid's left arm up to dad
+    L.line(KX2, ktop + 10, hxp, hyp + 3, KIDBP['S'])
+    L.px(KX2, ktop + 9, KIDBP['T']); L.px(KX2 - 1, ktop + 9, KIDBP['T'])
+    if 1.6 < t < 4.4:
+        L.spr(KX2 + 11, ktop + 3, SPR.KIDB_ARM_POINT[int(t * 3) % 2], KIDBP)
+    else:
+        L.spr(KX2 + 11, ktop + 9, SPR.KIDB_ARM_DOWN, KIDBP)
+    a = light(L, (.86, .76, .82), [(-1, '#ffd2a0', .7), (1, '#6a5a8a', .2)])
+    # reflections in the wet sand
     ys, xs = np.nonzero(L.m)
     for y, x in zip(ys, xs):
-        ry = 2 * FEET + 2 - y
-        if FEET < ry < 166 and (ry % 3):
-            wx = int(x + math.sin(ry * .9 + t * 5))
-            if 0 <= wx < W: c.a[ry, wx] = c.a[ry, wx] * .55 + a[y, x] * .25
-    c.glow(dxh + 2, FEET + 1, 9, '#3a2c44', .5, 1.6); c.glow(kxh, FEET + 3, 5, '#3a2c44', .5, 1.3)
+        for feet in ((DFEET2,) if x < KX2 - 1 else (KFEET2,)):
+            ry = 2 * feet + 1 - y
+            if feet < ry < H and ry % 3:
+                wx = int(x + math.sin(ry * .9 + t * 5))
+                if 0 <= wx < W: c.a[ry, wx] = c.a[ry, wx] * .6 + a[y, x] * .22
+    c.glow(DX2 + 13, DFEET2, 12, '#3a2c44', .45, 1.6); c.glow(KX2 + 6, KFEET2, 6, '#3a2c44', .45, 1.3)
     comp(c, L, a)
-    # gulls
-    for i in range(3):
-        x_ = (150 - t * 9 + i * 14) % (W + 20) - 10; y_ = 30 + i * 6 + math.sin(t * 1.6 + i) * 2
+    for i in range(3):   # gulls
+        x_ = (120 - t * 7 + i * 12) % (W + 20) - 10; y_ = 22 + i * 5 + math.sin(t * 1.6 + i) * 2
         fl = int(t * 5 + i) % 2
-        c.px(x_, y_, '#3a2c44'); c.px(x_ - 1, y_ - fl, '#3a2c44'); c.px(x_ + 1, y_ - fl, '#3a2c44')
-        c.px(x_ - 2, y_ - 1 + fl * 2 - 1, '#3a2c44'); c.px(x_ + 2, y_ - 1 + fl * 2 - 1, '#3a2c44')
+        for dx_, dy_ in ((0, 0), (-1, -fl), (1, -fl), (-2, fl - 1), (2, fl - 1)): c.px(x_ + dx_, y_ + dy_, '#3a2c44')
     return c
 
 
@@ -348,7 +287,7 @@ def audio(path):
     patter = (r.random(n) > .9993) * r.standard_normal(n) * .5
     patter = np.convolve(patter, np.exp(-np.arange(200) / 30), 'same') * .12
     env1 = np.clip((CUT + .3 - tt) / .6, 0, 1)
-    car = np.convolve(noise, np.ones(40) / 40, 'same') * np.exp(-((tt - 3.6) / .6) ** 2) * .9
+    car = np.convolve(noise, np.ones(40) / 40, 'same') * np.exp(-((tt - 3.7) / .7) ** 2) * .5
     wave_ = np.convolve(noise, np.ones(90) / 90, 'same') * (1.2 + np.sin(tt * 1.3)) * 1.2
     env2 = np.clip((tt - CUT + .3) / .6, 0, 1)
     gull = sum(np.sin(2 * np.pi * (1800 - 600 * ((tt - s) * 4)) * (tt - s)) *
