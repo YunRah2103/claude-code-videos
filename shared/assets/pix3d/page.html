@@ -1,0 +1,12 @@
+<!doctype html><html><head><meta charset="utf-8">
+<style>html,body{margin:0;background:#000}canvas{image-rendering:pixelated}</style>
+<script type="importmap">{"imports":{"three":"../vendor/three-0.160.0.module.min.js"}}</script>
+</head><body><canvas id="c" width="270" height="480"></canvas>
+<script type="module">
+// ?scene=<url of an episode scene module>. The module exports build(canvas) -> { frame(t) -> anchors }.
+const url = new URLSearchParams(location.search).get('scene');
+const mod = await import(url);
+window.EP = await mod.build(document.getElementById('c'));
+window.renderAt = (t) => { const a = window.EP.frame(t); return { png: document.getElementById('c').toDataURL('image/png'), anchors: a }; };
+window.READY = true;
+</script></body></html>
