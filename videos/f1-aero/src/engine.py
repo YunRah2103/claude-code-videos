@@ -129,3 +129,22 @@ def grade(a, top=(1, 1, 1), bottom=(1, 1, 1), vignette=.35, bloom=.35):
         im = Image.fromarray(br.astype(np.uint8)).filter(ImageFilter.GaussianBlur(4))
         a = a + np.asarray(im).astype(np.float32) * bloom
     return np.clip(a, 0, 255)
+
+
+def _poly_fast(c, pts, cl):
+    """Polygon fill limited to its bounding box (much faster than a full-canvas mask)."""
+    xs = [p[0] for p in pts]; ys = [p[1] for p in pts]
+    x0, y0 = max(0, int(math.floor(min(xs)))), max(0, int(math.floor(min(ys))))
+    x1, y1 = min(c.w, int(math.ceil(max(xs))) + 1), min(c.h, int(math.ceil(max(ys))) + 1)
+    if x1 <= x0 or y1 <= y0: return np.zeros((c.h, c.w), bool)
+    im = Image.new('L', (x1 - x0, y1 - y0), 0)
+    from PIL import ImageDraw
+    ImageDraw.Draw(im).polygon([(float(p[0]) - x0, float(p[1]) - y0) for p in pts], fill=1)
+    sub = np.asarray(im, bool)
+    c.a[y0:y1, x0:x1][sub] = col(cl)
+    if c.m is not None: c.m[y0:y1, x0:x1] |= sub
+    m = np.zeros((c.h, c.w), bool); m[y0:y1, x0:x1] = sub
+    return m
+
+
+C.poly = _poly_fast

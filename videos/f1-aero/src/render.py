@@ -9,6 +9,7 @@ from PIL import Image, ImageDraw, ImageFont
 from engine import W, H, SC, C, col, hr, BAYER, ease, grade
 import car as CAR
 import scenes as S
+import race as R
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'new-car-trap' / 'src'))
@@ -25,11 +26,12 @@ F_SMALL = ImageFont.truetype(str(FONT_DIR / 'Inter-Bold.otf'), 38)
 YEL, CYAN, RED, GRN, WHITE = '#ffd84a', '#6ae6ff', '#ff5a48', '#4ade80', '#ffffff'
 
 WORDS, LINE_T = [], []
+OFFSET = 4.0                                         # cold-open race before the voice starts
 
 
 def load_words(p):
     global WORDS, LINE_T
-    WORDS = json.load(open(p)); n = max(w['line'] for w in WORDS) + 1
+    WORDS = [dict(w, s=w['s'] + OFFSET, e=w['e'] + OFFSET) for w in json.load(open(p))]; n = max(w['line'] for w in WORDS) + 1
     LINE_T = [min(w['s'] for w in WORDS if w['line'] == i) for i in range(n)]
 
 
@@ -37,7 +39,7 @@ def wt(line, i): return [w for w in WORDS if w['line'] == line][i]['s']
 
 
 def cur_line(t):
-    k = 0
+    k = -1
     for i, s in enumerate(LINE_T):
         if t >= s - .1: k = i
     return k
@@ -48,7 +50,7 @@ def lab_car(t, cam=(74, 159), k=4.0, Z=0.0, hi=(), flap=0.0, squash=0.0, mode=No
     c, I = S.lab(t, cam, k)
     if mode: S.smoke(I, t, Z=Z if mode == 'under' else 0, mode=mode, when='far', speed=speed)
     if posts: S.lift_posts(I, Z)
-    CAR.f1(I, 0, 0, '+x', t, Z, hi, flap, squash, spin=0 if mode is None else 6)
+    CAR.f1(I, 0, 0, '+x', t, Z=Z, hi=hi, flap=flap, squash=squash, spin=0 if mode is None else 6)
     if mode: S.smoke(I, t, Z=Z if mode == 'under' else 0, mode=mode, cl=smoke_cl, speed=speed)
     return c, I
 
@@ -57,12 +59,32 @@ def g_lab(a): return grade(a, (.92, 1.0, 1.08), (1.0, 1.0, 1.02), .4, .45)
 def g_gold(a): return grade(a, (.95, .95, 1.05), (1.06, 1.0, .92), .38, .35)
 
 
+def tau_of(t):
+    """Race clock: real time until OFFSET, then a slow-motion ramp down to 12 %."""
+    if t <= OFFSET: return t
+    u = np.linspace(0, t - OFFSET, 60)
+    return OFFSET + np.trapezoid(1 - .88 * np.clip(u / .9, 0, 1) ** 2 * (3 - 2 * np.clip(u / .9, 0, 1)), u)
+
+
+def race_hud(tau, alpha=1.0):
+    return [('board', R.standings(tau), R.cars_at(tau), alpha)]
+
+
+def sc_race(t, lt):
+    c, I, cars = R.view(t)
+    return g_gold(c.a), race_hud(t)
+
+
 def sc_hook(t, lt):
-    k = 1.55 + .3 * ease(lt / 3)
-    c, I = S.track(t + 1.0, k=k, cam=(108 - (35 - 18) * k, 196 - ((35 + 18) / 2) * k))
-    a = g_gold(c.a)
-    if wt(0, 6) <= t < wt(0, 6) + .5: a = a[::-1]
-    return a, []
+    tau = tau_of(t)
+    k = 1.7 + 1.5 * ease((t - OFFSET) / 1.1)
+    c, I, cars = R.view(tau, k=k)
+    h = cars[0]
+    I.glow(h['X'], h['Y'], 2, 34, '#ffe86a', .18 * ease((t - OFFSET) / .6), 10)
+    a = g_gold(c.a) * (1 - .25 * ease((t - OFFSET) / .8))
+    hud = race_hud(tau, max(0, 1 - (t - OFFSET) / .5))
+    if t >= wt(0, 6) - .05: hud.append(('wpill', I.p(h['X'], h['Y'], 14), 'UPSIDE DOWN?', YEL))
+    return a, hud
 
 
 def sc_air(t, lt):
@@ -128,9 +150,9 @@ def sc_tyre(t, lt):
 
 
 def sc_corner(t, lt):
-    c, I, (gx, gy), (x, y) = S.corner(t, lt)
-    hud = [('wpill', I.p(gx, gy + 6.5, 12), 'NO AERO', '#c8ccd8'), ('wpill', I.p(x, y, 12), 'AERO', CYAN)]
-    if lt > 1.25: hud.append(('pill', 108, 300, 'SLIDES OFF', RED))
+    c, I, (pg, pa), dust = R.corner_view(lt)
+    hud = [('wpill', I.p(pg[0], pg[1], 12), 'NO AERO', '#c8ccd8'), ('wpill', I.p(pa[0], pa[1], 12), 'AERO', CYAN)]
+    if dust: hud.append(('pill', 108, 300, 'SLIDES OFF', RED))
     return g_gold(c.a), hud
 
 
@@ -202,16 +224,17 @@ def sc_flaps(t, lt):
 
 
 def sc_recap(t, lt):
-    k = 1.7
-    c, I = S.track(t + 1.0, k=k, cam=(108 - 17 * k, 196 - 26.5 * k))
-    hud = [('wpill', I.p(S.TX - 2, 2, 4), 'GRIP', YEL), ('wpill', I.p(2, S.TY - 2, 4), 'GRIP', YEL),
-           ('wpill', I.p(S.TX / 2, S.TY + 3, 4), 'SPEED', CYAN), ('wpill', I.p(S.TX / 2, -3, 4), 'SPEED', CYAN)]
+    tau = 14 + t - LINE_T[15]
+    c, I, cars = R.view(tau, k=1.9)
+    h = cars[0]; corner = abs(h['kap']) > 1 / 170
+    hud = [('wpill', I.p(h['X'], h['Y'], 14), 'GRIP' if corner else 'SPEED', YEL if corner else CYAN)] + race_hud(tau)
     return g_gold(c.a), hud
 
 
 def sc_cta(t, lt):
-    a, _ = sc_recap(t, lt)
-    return a * .45, [('title', 'UPSIDE', 760, YEL), ('title', 'DOWN?', 920, YEL), ('pill', 108, 300 + 0, 'COMMENT BELOW', WHITE)]
+    tau = 14 + t - LINE_T[15]
+    c, I, cars = R.view(tau, k=1.9)
+    return g_gold(c.a) * .45, [('title', 'UPSIDE', 760, YEL), ('title', 'DOWN?', 920, YEL), ('pill', 108, 300, 'COMMENT BELOW', WHITE)]
 
 
 SCENES = [sc_hook, sc_air, sc_wing, sc_wing, sc_slam, sc_tyre, sc_corner, sc_front, sc_rear, sc_floor, sc_under,
@@ -246,7 +269,8 @@ def presenter(img, t, line):
     if p == 'sad': e = 'sadtalk' if talking and int(t * 11) % 2 == 0 else 'sad'
     g = guy_img(e, p)
     bob = 10 if (not talking and (t * 1.6) % 1 < .5) else 0
-    x0, y0 = -40, OH - g.height + 30 + bob
+    slide = int(-500 * (1 - ease((t - LINE_T[0] + .1) / .35)))
+    x0, y0 = -40 + slide, OH - g.height + 30 + bob
     sh = Image.new('RGBA', img.size, (0, 0, 0, 0)); d = ImageDraw.Draw(sh)
     d.ellipse([x0 + 90, OH - 70, x0 + 400, OH - 10], fill=(0, 0, 0, 110))
     img.alpha_composite(sh); img.alpha_composite(g, (x0, y0))
@@ -268,7 +292,7 @@ def captions(img, t):
         cur.append(w)
     if cur: groups.append(cur)
     for gi, g in enumerate(groups):
-        end = groups[gi + 1][0]['s'] if gi + 1 < len(groups) else g[-1]['e'] + .3
+        end = groups[gi + 1][0]['s'] - .05 if gi + 1 < len(groups) else g[-1]['e'] + .3
         if not (g[0]['s'] - .05 <= t < end): continue
         font = F_CAP2 if t - g[0]['s'] < .07 else F_CAP
         toks = [w['w'].upper().strip('.,') for w in g]
@@ -327,6 +351,8 @@ def hud(img, items, t):
                 dd.rounded_rectangle([420, y - 30, OW - 100, y + 30], radius=30, fill=(40, 44, 58))
                 dd.rounded_rectangle([420, y - 30, 420 + (OW - 520) * min(1, max(0, frac)), y + 30], radius=30, fill=cl)
             img.alpha_composite(ov)
+        elif k == 'board':
+            board(img, it[1], it[2], it[3])
         elif k == 'arrow':
             (xa, ya), (xb, yb), label, cl = it[1], it[2], it[3], it[4]
             xa, ya, xb, yb = xa * SC, ya * SC - 260, xb * SC, yb * SC - 260
@@ -339,15 +365,49 @@ def hud(img, items, t):
             stroke_text(d, ((xa + xb) / 2, (ya + yb) / 2 - 80), label, F_NUM, cl, 10)
 
 
+_MM = None
+
+
+def board(img, order, cars, alpha):
+    if alpha <= 0: return
+    global _MM
+    ov = Image.new('RGBA', img.size, (0, 0, 0, 0)); d = ImageDraw.Draw(ov)
+    A = int(215 * alpha); TA = int(255 * alpha)
+    d.rounded_rectangle([40, 360, 330, 420 + 62 * len(order)], radius=26, fill=(12, 14, 22, A))
+    d.text((70, 392), 'LAP 12/57', font=F_SMALL, fill=(255, 216, 74, TA), anchor='lm')
+    chip = {'blue': '#2a5ad8', 'red': '#d8302a', 'orange': '#ff8a1a', 'green': '#1e8a5a', 'pink': '#f05aa8', 'silver': '#b8c0cc'}
+    for i, (code, liv) in enumerate(order):
+        y = 452 + i * 62
+        d.text((70, y), f'{i + 1}', font=F_SMALL, fill=(200, 205, 220, TA), anchor='lm')
+        cl = tuple(int(v) for v in col(chip[liv])) + (TA,)
+        d.rounded_rectangle([112, y - 20, 124, y + 20], radius=4, fill=cl)
+        d.text((142, y), code, font=F_SMALL, fill=(255, 255, 255, TA) if code != 'BLU' else (255, 216, 74, TA), anchor='lm')
+    if _MM is None:
+        P = R.PTS; mn, mx = P.min(0), P.max(0); sc = 250 / (mx - mn).max()
+        _MM = (mn, sc)
+    mn, sc = _MM
+    iso = lambda X, Y: (OW - 200 + ((X - mn[0]) - (Y - mn[1])) * sc * .7 - 40, 400 + ((X - mn[0]) + (Y - mn[1])) * sc * .35)
+    pts = [iso(X, Y) for X, Y in R.PTS[::4]] + [iso(*R.PTS[0])]
+    xs = [p[0] for p in pts]; ys = [p[1] for p in pts]
+    d.rounded_rectangle([min(xs) - 30, min(ys) - 30, max(xs) + 30, max(ys) + 30], radius=26, fill=(12, 14, 22, A))
+    d.line(pts, fill=(255, 255, 255, TA), width=10, joint='curve')
+    for cr in cars:
+        x, y = iso(cr['X'], cr['Y']); liv = R.TEAMS[cr['i']][1]
+        cl = tuple(int(v) for v in col(chip[liv])) + (TA,)
+        rr = 16 if cr['i'] == 0 else 11
+        d.ellipse([x - rr, y - rr, x + rr, y + rr], fill=cl, outline=(255, 255, 255, TA), width=3)
+    img.alpha_composite(ov)
+
+
 def scene_frame(line, t):
-    a, items = SCENES[line](t, t - LINE_T[line])
-    return a, items
+    if line < 0: return sc_race(t, t)
+    return SCENES[line](t, t - LINE_T[line])
 
 
 def frame(t):
     line = cur_line(t)
     a, items = scene_frame(line, t)
-    lt = t - LINE_T[line]
+    lt = t - (LINE_T[line] if line >= 0 else 0)
     if line > 0 and lt < .14:                                   # chunky dissolve from the previous scene
         b, _ = scene_frame(line - 1, t)
         f = lt / .14
@@ -358,7 +418,7 @@ def frame(t):
     a = a * max(0, min(1, t / .25, (end - t) / .5))
     img = Image.fromarray(np.repeat(np.repeat(np.clip(a, 0, 255).astype(np.uint8), SC, 0), SC, 1)).convert('RGBA')
     hud(img, items, t)
-    presenter(img, t, line)
+    if line >= 0: presenter(img, t, line)
     captions(img, t)
     return img.convert('RGB')
 
@@ -368,7 +428,7 @@ def audio(voice_path, out_path, dur):
     with wave.open(str(voice_path)) as w:
         vr = w.getframerate(); v = np.frombuffer(w.readframes(w.getnframes()), np.int16).astype(np.float32) / 32768
     n = int(SR * dur); tt = np.arange(n) / SR
-    voice = np.interp(tt, np.arange(len(v)) / vr, v, right=0)
+    voice = np.interp(tt - OFFSET, np.arange(len(v)) / vr, v, left=0, right=0)
     noise = np.random.default_rng(3).standard_normal(n)
     lp = lambda x, k: np.convolve(x, np.ones(k) / k, 'same')
     tri = lambda f: 2 / np.pi * np.arcsin(np.sin(2 * np.pi * f * tt))
@@ -387,11 +447,24 @@ def audio(voice_path, out_path, dur):
     wind = lp(noise, 30) * .05 * sum(np.clip(np.minimum((tt - LINE_T[i] + .1) / .2, (LINE_T[i + 1] - tt) / .2), 0, 1)
                                      for i in (1, 7, 8, 10, 13) if i + 1 < len(LINE_T))
     cues = [(LINE_T[i] - .05, 'whoosh', .3) for i in range(1, len(LINE_T))]
-    cues += [(.15, 'vroom', .5), (wt(0, 6), 'whoosh', .4), (LINE_T[4] + .25, 'boom', .55), (LINE_T[4] + .3, 'ding', .3),
+    cues += [(.1, 'vroom', .6), (OFFSET - .05, 'boom', .6), (OFFSET, 'slide_down', .4), (wt(0, 6), 'whoosh', .4), (LINE_T[4] + .25, 'boom', .55), (LINE_T[4] + .3, 'ding', .3),
              (LINE_T[6] + 1.2, 'screech', .5), (wt(10, 7) + .25, 'thump', .7), (LINE_T[12] + .6, 'pop', .4),
              (wt(14, 0), 'whoosh', .45), (wt(14, 10), 'stamp', .35), (LINE_T[16], 'sparkle', .4)]
     fx = sfx.render(cues, dur); fx = np.interp(tt, np.arange(len(fx)) / sfx.SR, fx)
-    mix = voice + music * .9 + wind + fx * .55
+    # race: three engines with gear shifts, pitched down by the slow-motion ramp; crowd underneath
+    u = np.clip((tt - OFFSET) / .9, 0, 1); rate = np.where(tt < OFFSET, 1.0, 1 - .88 * u * u * (3 - 2 * u))
+    eng = np.zeros(n)
+    for j, (det, sh) in enumerate(((1.0, 0), (1.04, .37), (.97, .71))):
+        rpm = .5 + .5 * (((tt * rate) * .85 + sh) % 1)
+        f = (150 + 190 * rpm) * det * rate ** .6
+        ph_ = np.cumsum(f) / SR
+        eng += (2 * (ph_ % 1) - 1) * .5 + np.sin(2 * np.pi * ph_ * 2) * .3
+    eng = lp(eng, 5) * .09
+    on = np.clip(np.minimum((LINE_T[1] + .1 - tt) / .3, 1), 0, 1) + np.clip((tt - LINE_T[15]) / .3, 0, 1) * .6
+    crowd = lp(noise, 40) * .25 * on
+    eng *= on * np.where(tt < OFFSET, 1.0, .75)
+    music *= np.clip((tt - OFFSET + .3) / .6, .25, 1)
+    mix = voice + music * .9 + wind + fx * .55 + eng + crowd
     mix *= np.clip(np.minimum(tt / .2, (dur - tt) / .5), 0, 1)
     mix = np.clip(mix / max(1e-6, np.abs(mix).max()) * .89, -1, 1)
     with wave.open(str(out_path), 'wb') as w:
