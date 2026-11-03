@@ -1,10 +1,11 @@
-"""One Gemini TTS request for the whole script -> out/speed-limit-deal-3d/voiceover.wav (resumable).
+"""One Gemini TTS request for the whole script -> out/speed-limit-deal-2d/voiceover.wav (resumable); copy it to out/speed-limit-deal-3d/ for the 3D version.
 
-    python videos/speed-limit-deal-3d/src/voiceover.py
+    python videos/speed-limit-deal-2d/src/voiceover.py
 Model gemini-3.1-flash-tts-preview, prebuilt voice Fenrir, one request. The raw JSON response is saved before any
 processing (raw_response.json) and reused on later runs, so the job never re-requests. HTTP 429: exponential back-off
 30/60/120/240 s honouring Retry-After, giving up after ~10 min. Key: GEMINI_API_KEY or GOOGLE_API_KEY (never printed);
-in the hosted cloud the proxy injects it, so a placeholder is sent. Post: atempo 0.95 (1.0 if >15 s), lead silence <=0.15 s.
+in the hosted cloud the proxy injects it, so a placeholder is sent. Post: the raw read is 18.3 s, over 15 s at 0.95x and 1.0x,
+so pauses are capped at PAUSE s and a pitch-preserving atempo (1.219) lands it on TARGET s; lead silence <=0.15 s.
 """
 import base64, json, os, subprocess, sys, time, urllib.error, urllib.request, wave
 import numpy as np
@@ -15,9 +16,9 @@ SCRIPT = ("Your BMW could go faster. Three German brands reportedly agreed it wo
           "No law, just a gentleman's agreement. A limit of 155 miles an hour. Porsche reportedly never joined. "
           "Some can be unlocked. Would you remove the limit?")
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..')
-OUT = os.path.join(ROOT, 'out', 'speed-limit-deal-3d')
+OUT = os.path.join(ROOT, 'out', 'speed-limit-deal-2d')
 RAW, LOG = os.path.join(OUT, 'raw_response.json'), os.path.join(OUT, 'tts_log.json')
-PAUSE, TARGET = 0.12, 13.4
+PAUSE, TARGET = 0.14, 13.7
 API = 'https://generativelanguage.googleapis.com/v1beta/models'
 
 
@@ -63,7 +64,7 @@ def process():
     dst, tight = os.path.join(OUT, 'voiceover.wav'), os.path.join(OUT, 'voiceover_tight.wav')
     y = np.frombuffer(open(src, 'rb').read()[44:], '<i2').astype(np.float64)
     raw_dur = len(y) / rate
-    # Fenrir's read is ~19.8 s raw (~16.8 s of speech), so 0.95x / 1.0x cannot meet the 15 s cap: cap every pause at
+    # Fenrir's read is ~18.3 s raw (~15 s of speech), so 0.95x / 1.0x cannot meet the 15 s cap: cap every pause at
     # PAUSE s (cuts only inside silences, 10 ms fades), then a pitch-preserving atempo lands the read on TARGET s.
     det = subprocess.run(['ffmpeg', '-i', src, '-af', 'silencedetect=n=-40dB:d=0.12', '-f', 'null', '-'], capture_output=True, text=True).stderr
     st = [float(l.split('silence_start: ')[1]) for l in det.splitlines() if 'silence_start' in l]

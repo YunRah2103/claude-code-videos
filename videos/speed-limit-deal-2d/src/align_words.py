@@ -1,4 +1,4 @@
-"""Word timings for the shipped voiceover: faster-whisper (base.en, word_timestamps) on out/speed-limit-deal-3d/voiceover.wav,
+"""Word timings for the shipped voiceover: faster-whisper (base.en, word_timestamps) on out/speed-limit-deal-2d/voiceover.wav,
 mapped onto the exact script words (recognised words matched in order; unmatched script words interpolated, marked est=1)."""
 import difflib, json, os, re, subprocess, sys
 import numpy as np

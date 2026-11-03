@@ -51,6 +51,7 @@ SUPER = {   # body colour per supercar kind
     'wedge': (120, 200, 60),     # sharp V12 hybrid wedge (lime)
     'old': (60, 62, 74),         # its predecessor, drawn as a dark silhouette
     'rosso': (214, 36, 44),      # mid-engined plug-in hybrid (red)
+    'orange': (255, 140, 30),    # generic orange sports wedge (speed-limit-deal)
 }
 
 
