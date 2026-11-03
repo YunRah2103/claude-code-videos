@@ -313,7 +313,7 @@ def hud(img, items, t):
             ov = Image.new('RGBA', img.size, (0, 0, 0, 0)); dd = ImageDraw.Draw(ov)
             x0, y0, x1, y1 = OW - 200, 500, OW - 100, 1100
             dd.rounded_rectangle([x0 - 14, y0 - 14, x1 + 14, y1 + 14], radius=30, fill=(12, 14, 22, 215))
-            hh = (y1 - y0) * it[2]
+            hh = (y1 - y0) * min(1, max(0, it[2]))
             dd.rounded_rectangle([x0, y1 - hh, x1, y1], radius=18, fill=it[3])
             dd.text(((x0 + x1) / 2, y1 + 70), it[1], font=F_PILL, fill=it[3], anchor='mm')
             img.alpha_composite(ov)
@@ -325,7 +325,7 @@ def hud(img, items, t):
                 y = 420 + row * 130
                 dd.text((100, y), label, font=F_SMALL, fill=(230, 232, 240), anchor='lm')
                 dd.rounded_rectangle([420, y - 30, OW - 100, y + 30], radius=30, fill=(40, 44, 58))
-                dd.rounded_rectangle([420, y - 30, 420 + (OW - 520) * min(1, frac), y + 30], radius=30, fill=cl)
+                dd.rounded_rectangle([420, y - 30, 420 + (OW - 520) * min(1, max(0, frac)), y + 30], radius=30, fill=cl)
             img.alpha_composite(ov)
         elif k == 'arrow':
             (xa, ya), (xb, yb), label, cl = it[1], it[2], it[3], it[4]
