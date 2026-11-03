@@ -1,6 +1,8 @@
-"""Generate the voiceover with Piper (local TTS) and word timings with PocketSphinx.
-Usage: python voice.py VOICE.onnx OUTDIR   -> OUTDIR/voice.wav, OUTDIR/words.json"""
-import json, re, subprocess, sys, wave
+"""Generate the voiceover and word timings (PocketSphinx alignment).
+Usage: python voice.py VOICE.onnx OUTDIR        (local Piper voice, one sentence at a time)
+       python voice.py gemini:Fenrir OUTDIR     (Gemini TTS, whole script in one take)
+-> OUTDIR/voice.wav, OUTDIR/words.json"""
+import base64, json, re, subprocess, sys, urllib.request, wave
 from pathlib import Path
 import numpy as np
 from pocketsphinx import Decoder
@@ -26,6 +28,55 @@ SCRIPT = [
 ]
 EXTRA = {'downforce': 'D AW N F AO R S', "plane's": 'P L EY N Z'}
 GAP, SRATE = .28, 22050
+
+
+
+def decoder():
+    d = Decoder(samprate=16000, bestpath=False)
+    for w, pr in EXTRA.items():
+        if d.lookup_word(w) is None: d.add_word(w, pr, True)
+    return d
+
+
+def align(d, pcm16k, words_norm):
+    d.set_align_text(" ".join(words_norm))
+    d.start_utt(); d.process_raw(pcm16k.tobytes(), full_utt=True); d.end_utt()
+    return [s for s in d.seg() if s.word not in ('<s>', '</s>', '<sil>', '[NOISE]')]
+
+
+def gemini(voice, out):
+    prompt = ("Read this as an energetic, punchy short-form video narrator explaining Formula One, "
+              "with a short natural pause between sentences:\n\n" + "\n".join(SCRIPT))
+    body = {"contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"responseModalities": ["AUDIO"],
+                                 "speechConfig": {"voiceConfig": {"prebuiltVoiceConfig": {"voiceName": voice}}}}}
+    req = urllib.request.Request(
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent",
+        data=json.dumps(body).encode(), headers={"Content-Type": "application/json", "x-goog-api-key": "proxy"})
+    d = json.load(urllib.request.urlopen(req, timeout=300))
+    part = d['candidates'][0]['content']['parts'][0]['inlineData']
+    rate = int(re.search(r'rate=(\d+)', part['mimeType']).group(1))
+    a = np.frombuffer(base64.b64decode(part['data']), np.int16)
+    lead = .35
+    a = np.r_[np.zeros(int(rate * lead), np.int16), a]
+    a16 = np.interp(np.arange(0, len(a), rate / 16000), np.arange(len(a)), a).astype(np.int16)
+    disp, line_of = [], []
+    for si, line in enumerate(SCRIPT):
+        for w in line.split(): disp.append(w); line_of.append(si)
+    norm = [re.sub(r"[^a-z']", "", w.lower()) for w in disp]
+    segs = align(decoder(), a16, norm)
+    assert len(segs) == len(disp), ('alignment mismatch', len(segs), len(disp))
+    words = [dict(w=w, s=round(s.start_frame / 100, 2), e=round((s.end_frame + 1) / 100, 2), line=li)
+             for w, s, li in zip(disp, segs, line_of)]
+    with wave.open(str(out / 'voice.wav'), 'wb') as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(rate); w.writeframes(a.tobytes())
+    json.dump(words, open(out / 'words.json', 'w'))
+    print(f"gemini {voice}: {len(a) / rate:.2f}s, {len(words)} words aligned")
+
+
+if sys.argv[1].startswith('gemini:'):
+    out = Path(sys.argv[2]); out.mkdir(parents=True, exist_ok=True)
+    gemini(sys.argv[1].split(':', 1)[1], out); sys.exit(0)
 
 model, out = sys.argv[1], Path(sys.argv[2]); out.mkdir(parents=True, exist_ok=True)
 pcm, words, t0 = [], [], .35
