@@ -75,8 +75,8 @@ BOKEH = [(R1.random() * W, 24 + R1.random() * 50, R1.choice(['#d8b36a', '#7fb8c4
           R1.random()) for _ in range(26)]
 DROPS = np.c_[R1.random(70) * W, R1.random(70) * H, R1.random(70)]
 SEAT, FLOOR = 92, 106
-DBX, DBY = 26, SEAT - 17          # dad body origin
-KBX, KBY = 56, SEAT - 8           # kid body origin
+DBX, DBY = 28, SEAT - 15          # dad body origin
+KBX, KBY = 52, SEAT - 8           # kid body origin
 
 
 def swap(rows, a, b, row=None):
@@ -132,8 +132,8 @@ def scene1(t):
     if blink: dh = swap(dh, 'glegglelg', 'gllggllgg', 10)
     elif look: dh = swap(dh, 'glegglelg', 'gllegglle', 10)
     if lean: dh = swap(dh, 'BBBSmmmSBBB', 'BBmSSSSSmBB', 15)   # smile
-    L.spr(DBX, DBY + 16, SPR.DAD_BODY[16:], DADP)
-    L.spr(DBX, DBY + bre, SPR.DAD_BODY[:16], DADP)
+    L.spr(DBX, DBY + 15, SPR.DAD_BODY[15:], DADP)
+    L.spr(DBX, DBY + bre, SPR.DAD_BODY[:15], DADP)
     L.spr(DBX + SPR.DAD_HEAD_X + look, DBY + SPR.DAD_HEAD_Y + bre + (lean and look), dh, DADP)
     kh = list(SPR.KID_HEAD)
     if lean: kh = swap(kh, 'e', 's'); kh = swap(kh, 'SSSSSSSS', 'SSSSSSSS')
@@ -144,12 +144,12 @@ def scene1(t):
     L.spr(KBX - lean, KBY + kb * (not lean), SPR.KID_BODY, KIDP)
     L.spr(KBX + SPR.KID_HEAD_X - 3 * lean, KBY + SPR.KID_HEAD_Y + 2 * lean, kh, KIDP)
     a = light(L, (.84, .92, .98), [(1, '#ffcf86', .45), (-1, '#9fe4d6', .35)])
-    c.glow(DBX + 15, FLOOR + 1, 16, '#0a161a', .5, 2.5)
+    c.glow(DBX + 12, FLOOR + 1, 16, '#0a161a', .5, 2.5)
     comp(c, L, a)
     # steam from the cup
     for i in range(5):
         ph = (t * .6 + i / 5) % 1
-        sx = DBX + 15 + math.sin(ph * 6 + i) * 2; sy = DBY + 11 + bre - ph * 18
+        sx = DBX + 11 + math.sin(ph * 6 + i) * 2; sy = DBY + 10 + bre - ph * 18
         if ph < .85: c.px(sx, sy, col('#e8eef0') * (1 - ph) * .6 + c.a[int(sy), int(sx)] * (1 - (1 - ph) * .6))
     # rain in the foreground + drips from the roof
     for rx, ry, z in DROPS:
@@ -171,8 +171,8 @@ R2 = rng(11)
 CLOUDS = sorted([(R2.random() * (W + 120) - 60, int(R2.integers(6, 56)), int(R2.integers(10, 34)),
                   int(R2.integers(3, 6)), R2.random()) for _ in range(16)], key=lambda q: q[1])
 HZ, SUNX = 72, 96
-DX2, DFEET2 = 28, 126
-KX2, KFEET2 = 58, 127
+DX2, DFEET2 = 30, 126
+KX2, KFEET2 = 53, 127
 
 
 def disc(c, cx, cy, r, colr, ymax):
@@ -229,13 +229,13 @@ def scene2(t):
     L = C(layer=True)
     wind = int(t * 4) % 2
     bre = int((t % 2.6) > 1.3)
-    top = DFEET2 - 17 - 20 - 2
-    L.spr(DX2, top + 22, SPR.DADB_LEGS, DADBP)
-    L.spr(DX2, top + 20, SPR.DADB_HEM[wind], DADBP)
+    top = DFEET2 - 33
+    L.spr(DX2, top + 18, SPR.DADB_LEGS, DADBP)
+    L.spr(DX2, top + 16, SPR.DADB_HEM[wind], DADBP)
     L.spr(DX2, top + bre, SPR.DADB_BODY, DADBP)
-    L.spr(DX2 + 6, top - 12 + bre, SPR.DADB_HEAD, DADBP)
+    L.spr(DX2 + 3, top - 12 + bre, SPR.DADB_HEAD, DADBP)
     # dad's right hand reaching down to the kid's hand
-    hxp, hyp = DX2 + 24, top + 20 + bre
+    hxp, hyp = DX2 + 18, top + 16 + bre
     L.rect(hxp, hyp, 2, 3, DADBP['S']); L.px(hxp + 1, hyp + 3, DADBP['s'])
     ktop = KFEET2 - 16 - 9
     kbob = int((t % 1.8) > .9)
@@ -258,7 +258,7 @@ def scene2(t):
             if feet < ry < H and ry % 3:
                 wx = int(x + math.sin(ry * .9 + t * 5))
                 if 0 <= wx < W: c.a[ry, wx] = c.a[ry, wx] * .6 + a[y, x] * .22
-    c.glow(DX2 + 13, DFEET2, 12, '#3a2c44', .45, 1.6); c.glow(KX2 + 6, KFEET2, 6, '#3a2c44', .45, 1.3)
+    c.glow(DX2 + 10, DFEET2, 12, '#3a2c44', .45, 1.6); c.glow(KX2 + 6, KFEET2, 6, '#3a2c44', .45, 1.3)
     comp(c, L, a)
     for i in range(3):   # gulls
         x_ = (120 - t * 7 + i * 12) % (W + 20) - 10; y_ = 22 + i * 5 + math.sin(t * 1.6 + i) * 2
