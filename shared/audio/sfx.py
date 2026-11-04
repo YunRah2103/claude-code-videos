@@ -155,7 +155,14 @@ def boing(d=0.45):
     t = T(d); f = 520*np.exp(-t*5) + 140
     return fade(np.sin(2*np.pi*np.cumsum(f*(1 + 0.25*np.sin(2*np.pi*14*t)))/SR) * dec(d, 7)) * 0.8
 
-LIB = dict(click=click, creak=creak, pop=pop, whoosh=whoosh, sparkle=sparkle, ding=ding, thump=thump, boom=boom, stamp=stamp,
+def snap(d=0.12):
+    """Short mechanical snap (wing flap closing): bright click + low knock."""
+    n = T(d); s = np.random.default_rng(5).standard_normal(len(n)) * dec(d, 90)
+    k = np.sin(2 * np.pi * 180 * n) * dec(d, 40)
+    return fade(0.6 * s + 0.7 * k, 0.001, 0.01)
+
+
+LIB = dict(snap=snap, click=click, creak=creak, pop=pop, whoosh=whoosh, sparkle=sparkle, ding=ding, thump=thump, boom=boom, stamp=stamp,
            confetti=confetti, vroom=vroom, screech=screech, slide_down=slide_down, poof=poof, buzzer=buzzer,
            fall=fall, crash=crash, coin=coin_clink, cha_ching=cha_ching, hum=hum, boing=boing)
 

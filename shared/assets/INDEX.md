@@ -28,3 +28,29 @@ sharp on top with `overlays.py`. Render: `node shared/assets/pix3d/render3d.mjs 
 Two versions of one episode: `videos/speed-limit-deal-3d/src/beats.py` holds the shared timings, text, poll, photo and
 sound cues; each version's `render.py` only supplies the world (`shot(t)`) and screen anchors. Photo credit:
 `videos/speed-limit-deal-*/assets/credits.json` (Wikimedia Commons, CC BY-SA 3.0).
+
+## Isometric F1 kit (`isof1/`)
+
+Lit isometric pixel look from `videos/f1-aero` v3, moved here for the f1-downforce series. Worlds render at 216x384 and
+are upscaled 5x nearest (`hud.upscale`); HUD and text are drawn sharp at 1080x1920 through `overlays.place`, so the
+safe-zone check covers them. Wiring: `isof1/series.py` (kit + loop window + safecheck + cover CLI).
+
+| Asset | What it is | Path | Used by | Credit |
+|---|---|---|---|---|
+| Iso engine | Lit iso boxes (top/left/right shading, edge highlights), soft shadows, dithered glow, floating dioramas, colour grade + bloom | `isof1/engine.py` | f1-downforce-1/2/3 | own work |
+| F1 car model | Open-wheel car from oriented boxes at any heading, cylinder tyres with spinning rims, wing flap opening, highlight pulse, 6 team liveries (no logos) | `isof1/car.py` | f1-downforce-1/2/3 | own work |
+| Track segment / circuit | Spline circuit (road ~3.4 car widths), kerbs, gravel, pit lane, billboards, tyre walls, grandstands, trees; 6-car race sim with braking and passing; corner test with a no-aero ghost | `isof1/race.py` | f1-downforce-1/2/3 | own work |
+| Wind-tunnel lab | Dark-blue lab diorama, cyan turntable ring, spinning fan, smoke streamlines (over, under, front split, rear upwash, wake) | `isof1/scenes.py` `lab()`, `smoke()` | f1-downforce-1/2 | own work |
+| Downforce arrows | Red 3D arrows that slam down onto the car (squat + screen shake) | `isof1/scenes.py` `arrow3d()`, `isof1/shots.py` `downforce()` | f1-downforce-1/2 | own work |
+| Straight road | Golden-hour road diorama with scrolling kerbs, billboards, barriers | `isof1/scenes.py` `straight()`, `isof1/shots.py` `straight_car()` | f1-downforce-1/3 | own work |
+| Ceiling split | Split frame: the road below, the same car driving across the ceiling above | `isof1/shots.py` `ceiling_split()` | f1-downforce-1/3 | own work |
+| Speed streaks | Pixel speed lines streaming the way the scenery moves (cold-open motion) | `isof1/shots.py` `speed_lines()` | f1-downforce-1/2/3 | own work |
+| Wing callouts / pills | Dark pill with a coloured edge (FRONT WING, REAR WING, GRIP, SLIDES OFF, STRAIGHT MODE: LOW DRAG, CORNER MODE: GRIP) | `isof1/hud.py` `pill()` | f1-downforce-1/2/3 | Inter font (SIL OFL) |
+| Headline | White text, dark outline, one yellow highlighted word | `isof1/hud.py` `headline()` | f1-downforce-1/2/3 | Inter font (SIL OFL) |
+| Grip meter | Vertical meter with a GRIP pill | `isof1/hud.py` `meter()` | f1-downforce-2 | own work |
+| Drag arrow | Thick red arrow pointing back along the car with a DRAG pill | `isof1/hud.py` `drag_arrow()`, `isof1/shots.py` `drag()` | f1-downforce-2 | own work |
+| Lap HUD | LAP 12/57 board with team-colour running order (top-left) + mini iso track map with live car dots (top-right) | `isof1/hud.py` `board()`, `track_map()` | f1-downforce-1/2/3 | own work |
+| Poll sticker | Existing 2D poll sticker (YES / NO), reused | `overlays.py` `poll()` | f1-downforce-1/2/3 | - |
+| Presenter placement | Main Guy (`pixanim/guy.py`) at 10x, feet on the bottom edge, lower-left, lip-synced to words.json | `isof1/hud.py` `presenter()` | f1-downforce-1/2/3 | characters/main-guy |
+| Series runner | Kit wiring: progress bar, mixer, 60 fps H.264 + AAC, no running captions, loop crossfade into frame 0, safecheck / cover CLI | `isof1/series.py` | f1-downforce-1/2/3 | - |
+| Snap sound | Short mechanical snap (wing flap closing) | `../audio/sfx.py` `snap()` | f1-downforce-3 | own work |
