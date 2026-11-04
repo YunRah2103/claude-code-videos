@@ -114,7 +114,35 @@ def side(L):
                                    width=max(1, int(0.025 * s))) for x in (0.30, 0.46)])
     louv = mask(lambda d: d.line(P([(0.28, 0.945), (0.66, 1.03)]), fill=1, width=max(1, int(0.02 * s)))) & body
     allm = body | glass | well | mhead | mstalk | pipes
-    return dict(s=s, w=w, h=h, gy=gy, v=v, body=body, glass=glass, well=well, frame=frame & ~glass,
+    # ---- pseudo-3D surface normals from the silhouette (for environment-mapped paint)
+    anyb = body.any(0)
+    tb = np.where(anyb, np.argmax(body, 0), h); bb = np.where(anyb, h - 1 - np.argmax(body[::-1], 0), 0)
+    dt = np.clip((rr - tb[None, :]) / s, 0, 9); db = np.clip((bb[None, :] - rr) / s, 0, 9)
+    anyr = body.any(1)
+    lft = np.where(anyr, np.argmax(body, 1), 0); rgt = np.where(anyr, w - 1 - np.argmax(body[:, ::-1], 1), w)
+    dl = np.clip((cc - lft[:, None]) / s, 0, 9); dr = np.clip((rgt[:, None] - cc) / s, 0, 9)
+    ny = 0.88 * np.exp(-dt / 0.09) - 0.85 * np.exp(-db / 0.06)
+    ny += 0.42 * np.exp(-((xm - 0.85) / 0.62) ** 2 - ((ym - 0.86) / 0.11) ** 2)       # broad rear hips
+    ny += 0.25 * np.exp(-((xm - 3.75) / 0.40) ** 2 - ((ym - 0.80) / 0.07) ** 2)       # front wing crest
+    ny -= 0.14 * np.exp(-((ym - 0.40) / 0.08) ** 2)
+    nx = 0.85 * np.exp(-dr / 0.13) - 0.85 * np.exp(-dl / 0.13)
+    for (wc, r0, ra) in ((RW, WR[0], WR[0] + 0.045), (FW, WR[1], WR[1] + 0.045)):
+        ddx, ddy = xm - wc, ym - r0
+        dist = np.hypot(ddx, ddy) + 1e-6
+        da = dist - ra
+        mag = 0.62 * np.exp(-np.clip(da, 0, 9) / 0.07) * (da > 0) * (da < 0.35) * (ddy > -0.05)
+        nx += mag * ddx / dist; ny += mag * ddy / dist
+    nx = np.clip(nx, -0.96, 0.96); ny = np.clip(ny, -0.96, 0.96)
+    k = np.sqrt(np.clip(nx ** 2 + ny ** 2, 0, None)); over = k > 0.97
+    nx = np.where(over, nx / k * 0.97, nx); ny = np.where(over, ny / k * 0.97, ny)
+    nz = np.sqrt(np.clip(1 - nx ** 2 - ny ** 2, 0.03, 1))
+    lines = (ex | np.roll(hand, 1, 0) & ~hand | mask(lambda d: d.ellipse([X(3.62), Y(0.86), X(3.80), Y(0.80)], outline=1))) & body
+    fuel = mask(lambda d: d.ellipse([X(3.62), Y(0.86), X(3.80), Y(0.80)], outline=1)) & body
+    seats = mask(lambda d: (d.ellipse([X(2.14), Y(1.17), X(2.32), Y(1.02)], fill=1),
+                            d.polygon(P([(1.86, 0.96), (2.02, 1.16), (2.14, 1.14), (2.04, 0.96)]), fill=1),
+                            d.ellipse([X(2.50), Y(1.07), X(2.62), Y(0.95)], outline=1),
+                            d.polygon(P([(1.42, 0.97), (1.60, 1.10), (1.70, 1.08), (1.60, 0.97)]), fill=1))) & glass
+    return dict(s=s, w=w, h=h, gy=gy, v=v, nx=nx, ny=ny, nz=nz, lines=lines, fuel=fuel, seats=seats, handm=hand & body, body=body, glass=glass, well=well, frame=frame & ~glass,
                 trim=(sill | bpil | intake | louv) & (body | glass), mhead=mhead & ~glass, mstalk=mstalk & ~body,
                 head=head, ring=ring, hli=hli, drl=drl, led=led, tail=tail, refl=refl, pipes=pipes & ~body,
                 wing=wing & ~body, wingp=wingp & ~body, lipt=lipt, a=allm, ym=ym, xm=xm, d=d,
@@ -158,6 +186,30 @@ def wheel(rgb, a, cx, cy, r, rim, ang, blur=0.0, env=(0, 0, 0)):
     a[sy0:sy1, sx0:sx1][mm] = 1.0
 
 
+LIGHT = np.array((0.30, 0.78, 0.55)); LIGHT = LIGHT / np.linalg.norm(LIGHT)
+
+
+def paint(c, env, env2, streak, gloss, cc):
+    """Clear-coated Guards Red: diffuse + environment reflection (night sky / city horizon / wet road) + key spec."""
+    nx, ny, nz = c['nx'], c['ny'], c['nz']
+    ry, rx = 2 * nz * ny, 2 * nz * nx
+    rz = 2 * nz * nz - 1
+    lights = 0.45 + 0.55 * np.maximum(0, np.cos(2 * np.pi * (cc * 0.8 + rx * 26 - streak) / 41.0)) ** 3
+    sky = (env[None, None, :] * 0.85 + 14) * (0.45 + 1.0 * smooth(0.05, 0.85, ry))[..., None]
+    hor = (env2[None, None, :] * 0.6 + 110) * (1.6 * np.exp(-((ry - 0.11) / 0.05) ** 2) * lights)[..., None]
+    gnd = np.array((34, 12, 20))[None, None, :] * np.ones_like(ry)[..., None]
+    refl = np.where((ry > 0)[..., None], sky, gnd) + hor
+    fres = (0.30 + 0.5 * (1 - nz) ** 2)[..., None] * gloss
+    dif = np.clip(nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2], 0, 1)
+    base = np.array((214, 22, 30)) * (0.30 + 0.62 * dif)[..., None]
+    spec = np.clip(rx * LIGHT[0] + ry * LIGHT[1] + rz * LIGHT[2], 0, 1) ** 40
+    col = base * (1 - fres * 0.5) + refl * fres + (np.array((255, 236, 226)) * spec[..., None] * 1.1)
+    col += (np.where(c['d'] == 0, 70, np.where(c['d'] == 1, 30, 0)) * c['body'])[..., None]
+    col[c['lines']] *= 0.35
+    col[c['handm']] = col[c['handm']] * 0.6 + 90
+    return np.clip(col, 0, 255)
+
+
 def side_frame(c, ang, blur=0.0, env=(30, 60, 90), env2=None, streak=0.0, lights=True, spoiler=False, gloss=1.0):
     h, w = c['h'], c['w']
     rr, cc = np.mgrid[0:h, 0:w]
@@ -165,18 +217,16 @@ def side_frame(c, ang, blur=0.0, env=(30, 60, 90), env2=None, streak=0.0, lights
     per = max(60, int(c['s'] * 2.2))
     band = np.maximum(0, 1 - np.abs(((cc + 0.55 * rr - streak) % per) - per / 2) / max(2.5, c['s'] * 0.09))
     band2 = np.maximum(0, 1 - np.abs(((cc + 0.35 * rr - streak * 0.6) % (per * 1.7)) - per * 0.85) / max(1.5, c['s'] * 0.035))
-    up = smooth(0.5, 1.0, c['ym'])
-    v = c['v'] + (band * 0.30 + band2 * 0.28) * up * gloss
-    idx = np.clip(np.floor(v * (NT - 0.4) + (bayer(h, w) - 0.5) * 0.5), 0, NT - 1).astype(int)
-    rgb = RED[idx]
-    tk = np.minimum(0.32, (0.08 + 0.2 * up) * gloss)[..., None]
-    rgb = rgb * (1 - tk * 0.45) + (env * (1 - band[..., None]) + env2 * band[..., None]) * tk
+    rgb = paint(c, env, env2, streak, gloss, cc)
     e = np.zeros((h, w, 3))
     gtop = np.where(c['glass'].any(0), np.argmax(c['glass'], 0), 0)
     gd = (rr - gtop[None, :]) / max(1, 0.26 * c['s'])
     gv = 0.52 - 0.36 * np.clip(gd, 0, 1) + band * 0.45 + band2 * 0.4
     gi = np.clip(np.floor(gv * 5 + (bayer(h, w) - 0.5) * 0.5), 0, 5).astype(int)
-    rgb = np.where(c['glass'][..., None], GLASS[gi] * 0.85 + env * 0.18, rgb)
+    rgb = np.clip(np.floor(rgb / 11 + (bayer(h, w)[..., None] - 0.5) * 0.55 + 0.5) * 11, 0, 255)
+    G = GLASS[gi] * 0.85 + env * 0.18
+    G = np.where(c['seats'][..., None], G * 0.35, G)
+    rgb = np.where(c['glass'][..., None], G, rgb)
     rgb[c['frame']] = np.array((168, 172, 184)) * 0.7 + env * 0.3
     rgb[c['well']] = (5, 3, 7)
     rgb[c['trim']] = (14, 14, 18)
