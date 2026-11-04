@@ -6,16 +6,16 @@ an existing raw response is reused, so no second request is made."""
 import base64, json, os, re, subprocess, sys, time, urllib.error, urllib.request, wave
 
 MODEL = 'gemini-3.1-flash-tts-preview'
-VOICE = 'Fenrir'
-STYLE = 'Say the following like a confident, engaging documentary narrator, with energy and clear pacing: '
+VOICE = os.environ.get('TTS_VOICE', 'Fenrir')
+STYLE = os.environ.get('TTS_STYLE', 'Say the following like a confident, engaging documentary narrator, with energy and clear pacing: ')
+TAG = os.environ.get('TTS_TAG', '')            # e.g. '_v2' keeps an earlier read on disk
 SCRIPT = ('Lamborghini exists because of a bad clutch. Ferruccio Lamborghini made tractors, and he owned Ferraris. '
           'Reportedly, his Ferrari clutch kept failing. He took it to Enzo Ferrari. The story says Enzo told him to stick to tractors. '
           'So Ferruccio built his own sports car company. In 1963, Automobili Lamborghini began. Its first production car was the 350 GT. '
           'Whether the insult really happened is still debated. But the rivalry is real. Do you believe the story?')
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..')
 OUT = os.path.join(ROOT, 'out', 'brand-story-lamborghini')
-RAW, PCMWAV, FINAL = (os.path.join(OUT, n) for n in ('tts_response.json', 'tts_raw.wav', 'voiceover.wav'))
-LOG = os.path.join(OUT, 'tts_log.json')
+RAW, PCMWAV, FINAL, LOG = (os.path.join(OUT, n.format(TAG)) for n in ('tts_response{}.json', 'tts_raw{}.wav', 'voiceover{}.wav', 'tts_log{}.json'))
 
 
 def request():
