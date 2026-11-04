@@ -24,6 +24,7 @@ Reusable pieces for the pixel-art explainer episodes. Nothing here depends on on
 | `split_vo.py` | Split one long voiceover into per-episode clips at long silences (`silencedetect`, default -35 dB / 1.5 s); fails unless the count matches | docstring |
 | `pixanim/autos.py` | Sprites: supercar wedges, endurance racer, muscle coupe, EV saloons, V12/V8, motor, battery, chargers, plug/socket, light tree, year calendar, trophy, flag | docstring |
 | `assets/` | 3D pixel look (Three.js scene kit, cars, speedometer wall, props), safe-zone text overlays, and the isometric F1 kit `assets/isof1/` (car, circuit race, wind-tunnel lab, lap HUD, series runner) | `assets/INDEX.md` |
+| `assets/docstyle.py` | Real-photo mini-documentary kit (Ken Burns, parallax over blur, kinetic headline, name chip, timeline + year counter, speech card, grain/vignette, segmented bar). Example: `videos/brand-story-lamborghini` | `assets/INDEX.md` |
 | `photos.py` | Fetch Wikimedia Commons photos + `credits.json` (file, source, licence, author) into `videos/<ep>/assets/` (jpgs are git-ignored) | docstring |
 
 `episode.setup(..., crisp=True)` keeps the handheld sway nearest-neighbour; `photo(..., hq=True)` called from the overlay shows the whole photo uncropped, Lanczos-scaled. `vo.pace()` adds silence for very short reads.

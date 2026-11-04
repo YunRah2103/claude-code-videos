@@ -54,3 +54,28 @@ safe-zone check covers them. Wiring: `isof1/series.py` (kit + loop window + safe
 | Presenter placement | Main Guy (`pixanim/guy.py`) at 10x, feet on the bottom edge, lower-left, lip-synced to words.json | `isof1/hud.py` `presenter()` | f1-downforce-1/2/3 | characters/main-guy |
 | Series runner | Kit wiring: progress bar, mixer, 60 fps H.264 + AAC, no running captions, loop crossfade into frame 0, safecheck / cover CLI | `isof1/series.py` | f1-downforce-1/2/3 | - |
 | Snap sound | Short mechanical snap (wing flap closing) | `../audio/sfx.py` `snap()` | f1-downforce-3 | own work |
+
+## Photo mini-documentary kit (`docstyle.py`)
+
+Real-photo documentary look (no pixel engine), first used by `videos/brand-story-lamborghini`. Text goes through
+`overlays.place`, so `overlays.violations()` checks the safe zone; `ds.STATS['max_up']` reports the largest photo upscale
+(capped at 1.5x: `parallax` shrinks the card rather than upscale further, `kenburns` raises). Example wiring, CLI,
+safe-zone `check` mode and loop-to-frame-0 ending: `videos/brand-story-lamborghini/src/render.py`.
+
+| Asset | What it is | Path | Used by | Credit |
+|---|---|---|---|---|
+| Colour grade | One grade for every photo: contrast, muted colour, teal shadows, warm highlights | `docstyle.py` `graded()` | brand-story-lamborghini | - |
+| Ken Burns | Eased pan-and-zoom of a photo crop, Lanczos, aspect kept (never stretched), upscale cap | `docstyle.py` `kenburns()` | brand-story-lamborghini | - |
+| Parallax over blur | Sharp photo card (shadow, thin border) over a blurred, darkened, drifting copy of the same photo | `docstyle.py` `parallax()`, `background()`, `card()` | brand-story-lamborghini | - |
+| Camera shake | Decaying jitter for cold opens and stamp hits | `docstyle.py` `shake()` | brand-story-lamborghini | - |
+| Split screen | Two photo panels sliding in nose to nose (optional mirror) | `docstyle.py` `split()` | brand-story-lamborghini | - |
+| Kinetic headline | One phrase at a time: white, dark outline, highlight words yellow, words pop in and kick when spoken | `docstyle.py` `headline()` | brand-story-lamborghini | - |
+| Name chip | Plain silhouette icon + name on a dark pill (no likeness) | `docstyle.py` `name_chip()` | brand-story-lamborghini | - |
+| Label pill | Small pill label; `flash=` blinks it (warning labels) | `docstyle.py` `pill()` | brand-story-lamborghini | - |
+| Timeline + year counter | Rail with ticks, fill running to a marker (only the confirmed year labelled); big ticking year | `docstyle.py` `timeline()`, `year_counter()` | brand-story-lamborghini | - |
+| Speech card | White quote bubble with tail; one line on a dark plate in yellow | `docstyle.py` `speech()` | brand-story-lamborghini | - |
+| Segmented progress bar | Series bar across the top, one segment per chapter | `docstyle.py` `progress()` | brand-story-lamborghini | - |
+| Film grain + vignette | Subtle grain (8 patterns, 30 Hz) and soft vignette, applied last | `docstyle.py` `finish()` | brand-story-lamborghini | - |
+| Stamp, poll sticker, tag, credit line | Reused from `overlays.py` (`stamp`, `poll`, `tag`, `credit`) | `overlays.py` | brand-story-lamborghini, speed-limit-deal-2d/3d | - |
+
+Photos for brand-story-lamborghini: `videos/brand-story-lamborghini/assets/credits.json` (Wikimedia Commons, CC BY / CC BY-SA 4.0).
