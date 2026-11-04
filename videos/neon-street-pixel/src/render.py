@@ -7,7 +7,7 @@ Needs: pillow, numpy, ffmpeg. Scenes are procedural and original (no traced art)
 """
 import math, os, random, subprocess, sys, tempfile, wave
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 
 W = H = 180
 SCALE = 4
@@ -97,6 +97,31 @@ def rain(img, t, seed, n, col, speed=70, length=5, slant=1):
         d.line([x, y, x + slant, y + length], fill=col)
 
 
+def bloom(img, thresh=105, radius=2.2, gain=.7):
+    """Neon glow: blur only the bright pixels and add them back."""
+    a = np.asarray(img).astype(np.float32)
+    mask = (a.max(axis=2, keepdims=True) > thresh) * a
+    glow = np.asarray(Image.fromarray(mask.astype(np.uint8)).filter(ImageFilter.GaussianBlur(radius))).astype(np.float32)
+    return Image.fromarray((a + glow * gain).clip(0, 255).astype(np.uint8))
+
+
+def skyline(d, y, x0, x1, col, seed, lights=None, t=0):
+    """Distant silhouette buildings with optional blinking aviation lights."""
+    r = random.Random(seed); x = x0
+    while x < x1:
+        w, h = r.randint(8, 16), r.randint(14, 42)
+        d.rectangle([x, y - h, x + w, y], fill=col)
+        if lights and r.random() < .5 and int(t * 1.5 + x) % 3 == 0:
+            d.point((x + w // 2, y - h - 1), fill=lights)
+        x += w + r.randint(0, 3)
+
+
+def steam(d, x, y, t, col, n=6):
+    for i in range(n):
+        yy = y - i * 4 - (t * 10) % 4
+        d.ellipse([x + math.sin(t * 2 + i) * 2 - 2, yy - 1, x + math.sin(t * 2 + i) * 2 + 2, yy + 1], fill=col)
+
+
 # ---------------------------------------------------------------- scenes
 def scene_roadside(t):
     """0-2.5s: teal dusk, huge tower with a red ring, wires, lit shop, car, wet road."""
@@ -123,6 +148,19 @@ def scene_roadside(t):
     d.rectangle([124, 98, 150, 112], fill=hexc("#0f3445"))
     d.rectangle([8, 104, 34, 112], fill=hexc("#7fa5b5")); d.rectangle([14, 98, 28, 104], fill=hexc("#5d8da0"))  # car
     d.rectangle([12, 110, 16, 113], fill=hexc("#0a1c26")); d.rectangle([26, 110, 30, 113], fill=hexc("#0a1c26"))
+    skyline(d, 98, 130, BIG, hexc("#0c4358"), 21)                                               # far hills of buildings
+    for cx, cy, cw in ((20, 14, 40), (70, 30, 30), (150, 6, 36)):                              # drifting clouds
+        ox = int(t * 3) % 30
+        d.rectangle([cx + ox, cy, cx + cw + ox, cy + 3], fill=hexc("#3aa6b8"))
+    d.rectangle([62, 100, 124, 102], fill=hexc("#2a7a8c"))                                      # awning
+    glyphs(d, 70, 94, 7, mix(hexc("#0b2733"), hexc("#ff7a8a"), flicker(t, .7)), 17, h=3, gap=2, w=4)
+    d.rectangle([128, 100, 138, 112], fill=hexc("#5fd0e0")); d.rectangle([130, 102, 136, 106], fill=hexc("#b8f4ff"))  # vending
+    d.rectangle([10, 100, 32, 104], fill=hexc("#9fc2d0")); d.rectangle([12, 100, 18, 103], fill=hexc("#1a4a62"))   # car roof/glass
+    d.rectangle([20, 100, 28, 103], fill=hexc("#1a4a62")); d.point((9, 107), fill=hexc("#fff2a8"))                   # headlight
+    d.ellipse([11, 109, 17, 115], fill=hexc("#07141c")); d.ellipse([25, 109, 31, 115], fill=hexc("#07141c"))
+    for i in range(4):                                                                          # puddle ripples
+        rr = (t * 6 + i * 5) % 14
+        d.ellipse([90 - rr, 150 - rr / 3, 90 + rr, 150 + rr / 3], outline=hexc("#3a8ea2"))
     img = reflect(img, 112, t)
     rain(img, t, 1, 90, hexc("#5fb3c4"))
     return img
@@ -154,6 +192,18 @@ def scene_izakaya(t):
     d.rectangle([104, 114, 116, 132], fill=hexc("#16130a")); d.ellipse([105, 108, 115, 118], fill=hexc("#16130a"))  # silhouette
     for x in (166, 178):
         d.ellipse([x, 106, x + 7, 114], fill=hexc("#ff2a2a"))                                    # lanterns
+    skyline(d, 140, 0, 40, hexc("#060b1a"), 31); skyline(d, 140, 204, BIG, hexc("#060b1a"), 32)   # side neighbours
+    for x in (48, 190):                                                                         # AC units + vents
+        d.rectangle([x, 86, x + 10, 94], fill=hexc("#141c33")); d.line([x + 2, 88, x + 8, 88], fill=hexc("#243050"))
+    d.line([46, 20, 46, 96], fill=hexc("#1b2440")); d.line([200, 10, 200, 100], fill=hexc("#1b2440"))     # pipes
+    for x in range(44, 168, 24):                                                                # balconies
+        d.rectangle([x, 74, x + 18, 76], fill=hexc("#18213a")); d.rectangle([x + 3, 66, x + 15, 73], fill=hexc("#0c142a"))
+    for x in range(72, 150, 13):                                                                # window mullions
+        d.line([x, 108, x, 132], fill=hexc("#8a7a10"))
+    d.line([72, 120, 150, 120], fill=hexc("#8a7a10"))
+    for i in range(30):                                                                         # hanging cable
+        d.point((100 + i * 3, 98 + int(math.sin(i / 30 * math.pi) * 6)), fill=hexc("#0a1020"))
+    steam(d, 128, 108, t, hexc("#1e2c4c"))
     d.rectangle([0, 140, BIG, H], fill=hexc("#03060f"))
     img = reflect(img, 140, t, .35, (4, 6, 16))
     rain(img, t, 2, 55, hexc("#2c4066"), 80)
@@ -185,6 +235,15 @@ def scene_bridge(t):
         d.rectangle([154 + i * 12, 112, 162 + i * 12, 122], fill=c)                              # cyan stalls
     d.rectangle([150, 106, 206, 112], fill=hexc("#0c2a40"))
     d.rectangle([40, 116, 44, 124], fill=hexc("#3b8fd0"))                                        # lone lamp
+    skyline(d, 124, 0, 86, hexc("#081c3a"), 41, hexc("#ff3a4a"), t)                             # far skyline + red beacons
+    for x in range(150, 200, 8):                                                                 # tower windows twinkle
+        if int(t * 4 + x) % 5 == 0:
+            d.rectangle([x, 40 + (x % 16) * 3, x + 2, 43 + (x % 16) * 3], fill=hexc("#7fd0ff"))
+    d.ellipse([96, 120, 102, 126], fill=hexc("#03091a")); d.ellipse([112, 120, 118, 126], fill=hexc("#03091a"))  # truck wheels
+    d.rectangle([118, 112, 130, 118], fill=hexc("#9fb2c6")); d.rectangle([128, 114, 130, 116], fill=hexc("#fff0a0"))  # cab glass/light
+    d.polygon([(36, 104), (48, 104), (44, 112), (40, 112)], fill=hexc("#1c4f86"))                # lamp cone
+    for k in range(5):
+        d.line([30 + k * 3, 126 - k, 34 + k * 3, 126 - k], fill=hexc("#0b2a52"))
     img = reflect(img, 124, t, .45, (0, 10, 30))
     rain(img, t, 3, 70, hexc("#3f6fa8"), 75)
     return img
@@ -195,7 +254,7 @@ def frame(t):
     t0 = (0, *CUTS)[s]
     img = (scene_roadside, scene_izakaya, scene_bridge)[s](t)
     off = min(START[s] + int((t - t0) * 6), BIG - W)         # slow horizontal camera drift
-    img = img.crop((off, 0, off + W, H))
+    img = bloom(img.crop((off, 0, off + W, H)))
     a = np.asarray(img).astype(np.float32)
     yy, xx = np.mgrid[0:H, 0:W]
     v = 1 - .35 * (((xx - W / 2) / (W / 2)) ** 2 + ((yy - H / 2) / (H / 2)) ** 2) / 2          # vignette
