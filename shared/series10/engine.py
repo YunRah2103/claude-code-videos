@@ -78,7 +78,7 @@ def opening(kind, world, t, focus, z1=1.06):
         return D.camera(img, t, lerp(1.5, z1, e), lerp(fx_ + 260, fx_, e), lerp(fy + 200, fy, e), 3)
     base = D.camera(world(t), t, z1, fx_, fy, 6)
     if kind == 'whip-pan':
-        e = prog(t, -0.16, 0.42)
+        e = prog(t, -0.12, 0.6)
         return base if e >= 1 else T.whip(G.frame(t).convert('RGB'), base, io(e), dx=1)
     if kind == 'wipe':                                                # yellow diagonal bar sweeps the shot on
         e = io(prog(t, -0.25, 0.85))

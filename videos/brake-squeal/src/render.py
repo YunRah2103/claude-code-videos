@@ -24,7 +24,7 @@ KEYCOL = {'squeal': RED, 'warning.': YEL, 'tab.': YEL, 'thin,': RED, 'scrapes': 
 
 
 def shot_open(t):
-    img = garage(t); stop = oc(prog(t, -0.25, 1.15)); x = lerp(-150, 600, stop)
+    img = garage(t); stop = oc(prog(t, -0.25, 1.15)); x = lerp(-450, 600, stop)
     layer(img, (car('red', int(x * 0.9) % 360, brake=True), 9, x, 1560, 'bottom'))
     for k in range(3): fx.ring(img, (t + k * 0.22) % 0.66, 0, x + 212, 1470, (255, 210, 63), life=0.6, r1=230)
     return img
@@ -53,7 +53,7 @@ def shot_key(t):
 
 CUES = [(0.05, 'screech', 0.5), (0.4, 'scrape', 0.5), (sw(1) + 0.3, 'pop', 0.6), (sw(2) + 1.3, 'scrape', 1.0), (sw(2) + 2.0, 'scrape', 0.8), (sw(3), 'ding', 0.5)]
 S.build(HERE, WORDS, HOOK, KEYCOL, 'whip-pan', (560, 1200), (760, 1460), (shot_open, shot_cut, shot_key), 2,
-        ('Have you heard yours?', (('YES', GRN), ('NO', RED)), ov.SAFE_CX + 30, 520, 3), CUES, cut_point=(470, 1050), key_point=(470, 1050))
+        ('Have you heard yours?', (('YES', GRN), ('NO', RED)), ov.SAFE_CX + 10, 520, 3), CUES, cut_point=(470, 1050), key_point=(470, 1050))
 
 if __name__ == '__main__':
     D.cli()
