@@ -7,9 +7,11 @@ it is never printed or written.
 import base64, json, os, re, subprocess, sys, time, urllib.error, urllib.request, wave
 
 MODEL, VOICE = 'gemini-3.1-flash-tts-preview', 'Fenrir'
-STYLE = 'Say the following in a calm, thoughtful, conversational short-form explainer style, with a slight pause before the question:'
-SCRIPT = ("Heavy rain, flooded street. Which car would you save? A small car sits lower in the water. "
-          "An SUV often sits higher. But higher isn't always safer. Would you save the hatchback or the SUV?")
+# v2 (retention): hook first, tense delivery; claims kept to the fact-checked, hedged wording
+STYLE = ("Say the following as a gripping short-form hook: urgent, punchy and fast but clear, building tension, "
+         "with a short dramatic beat before 'But' and a direct, challenging final question:")
+SCRIPT = ("Flash flood. Two cars. You can only save one. The hatchback sits lower in the water. "
+          "The SUV usually sits higher. But moving water can sweep an SUV away too. Hatchback or SUV? Which one are you saving?")
 OUT = sys.argv[1] if len(sys.argv) > 1 else 'out/flood-save'
 API = 'https://generativelanguage.googleapis.com/v1beta/models'
 KEY = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY') or 'proxy-injected'
@@ -35,7 +37,7 @@ def post():
             print(f'429: waiting {w}s', flush=True); time.sleep(w)
 
 
-def cap_pauses(src, dst, db=-40, cap=0.32, ask=0.5):
+def cap_pauses(src, dst, db=-40, cap=0.22, ask=0.38, beat=4):
     """Cut only inside silences: every inner pause > cap is shortened to cap (the pause before the question to `ask`),
     with 10 ms fades at the cut. Words are untouched; the 17.5 s read at 1.0x would not fit the 15 s limit otherwise."""
     import numpy as np
@@ -45,7 +47,7 @@ def cap_pauses(src, dst, db=-40, cap=0.32, ask=0.5):
     inner = [(a, b) for a, b in zip(st, en) if a > 0.05 and b < len(y) / sr - 0.05]
     out, pos, f = [], 0, int(0.01 * sr)
     for i, (a, b) in enumerate(inner):
-        c = ask if i == len(inner) - 2 else cap   # second-to-last inner pause: 'safer.' -> 'Would you save...'
+        c = ask if i == beat else cap   # inner pause #4: 'higher.' -> dramatic beat -> 'But'
         if b - a <= c: continue
         k0, k1 = int((a + c / 2) * sr), int((b - c / 2) * sr)
         seg = y[pos:k0].copy(); seg[-f:] *= np.linspace(1, 0, f); out.append(seg)

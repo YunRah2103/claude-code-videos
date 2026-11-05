@@ -87,6 +87,7 @@ def rain(a, t, seed=1, n=150, col=(150, 205, 210), vy=260.0, vx=-70.0, ln=4, k=0
 def paste(a, spr, x, y, tint=(1, 1, 1), alpha=1.0):
     """Paste an RGBA sprite (h, w, 4 float array) with its top-left at (x, y), multiplied by a tint."""
     h, w = a.shape[:2]; sh, sw = spr.shape[:2]; x, y = int(round(x)), int(round(y))
+    if x + sw <= 0 or y + sh <= 0 or x >= w or y >= h: return       # fully off-canvas
     ys, xs = slice(max(0, y), min(h, y + sh)), slice(max(0, x), min(w, x + sw))
     s = spr[ys.start - y:ys.stop - y, xs.start - x:xs.stop - x]
     if s.size == 0: return
@@ -159,27 +160,32 @@ def suv(col=(108, 126, 140)):
     return s
 
 
-def depth_graphic(t, w=216, h=384, bg=(18, 40, 46)):
+def depth_graphic(t, w=216, h=384, bg=(18, 40, 46), sweep=0.0):
     """Neutral water-depth graphic: a gauge post with ticks, a water line that rises and settles with ripples, a low
-    and a high car outline both reaching it, and a pixel question mark. Returns a native RGB array."""
+    and a high car outline both reaching it, current streaks, and a pixel question mark. Returns a native RGB array.
+    sweep 0..1: the water rises further and the SUV lifts, tilts and is carried off to the right by the current."""
     a = vgrad(h, w, [(0, (14, 30, 36)), (1, bg)])
     for x in range(8, w, 12): a[::12, x] += 6                                  # faint grid
     gy = 246                                                                   # road under the water
-    lvl = gy + 2 - 16 * (1 - math.exp(-t * 2.2)) + 1.0 * math.sin(t * 2.4)   # ends near the small car's roof, half way up the SUV
+    lvl = gy + 2 - 16 * (1 - math.exp(-t * 2.2)) - 6 * sweep + 1.0 * math.sin(t * 2.4)   # ends near the small car's roof, half way up the SUV
     yl = int(lvl)
     px, top = 190, 112
     a[top:gy + 2, px:px + 3] = (200, 206, 196)
     for i, y in enumerate(range(top, gy, 8)): a[y, px - (5 if i % 2 == 0 else 3):px] = (200, 206, 196)
     for spr, x0 in ((hatchback((150, 160, 150)), 34), (suv((150, 160, 150)), 100)):
-        o = spr.copy(); o[..., :3] = o[..., :3] * 0.6 + 40
-        paste(a, o, x0, gy - spr.shape[0])
+        o = spr.copy(); o[..., :3] = o[..., :3] * 0.6 + 40; dy = 0
+        if sweep and o.shape[1] > 45:                                          # the SUV floats off
+            from PIL import Image
+            o = np.asarray(Image.fromarray(o.astype(np.uint8), 'RGBA').rotate(-7 * sweep + 2 * math.sin(t * 4) * sweep, Image.NEAREST, expand=True), np.float32)
+            x0, dy = x0 + 70 * sweep ** 1.6, -5 * min(1, sweep * 3) + math.sin(t * 5) * sweep
+        paste(a, o, x0, gy - o.shape[0] + dy)
     a[gy + 1:gy + 3] = (30, 60, 66)
     water = np.array((46, 120, 140), np.float32)
     a[yl:] = a[yl:] * 0.45 + water * 0.55
     a[gy + 3:] = a[gy + 3:] * 0.7                                             # deeper water below the road line
-    for y in range(gy + 8, h, 6):                                             # slow ripple dashes
+    for y in range(yl + 4, h, 6):                                             # current streaks, faster when it sweeps
         for j in range(3):
-            xx = int((j * 71 + y * 13 + t * 8) % w); a[y, xx:xx + 5] += 22
+            xx = int((j * 71 + y * 13 + t * (14 + 60 * sweep)) % w); a[y, xx:xx + 5 + int(6 * sweep)] += 22 + 20 * sweep
     for x in range(0, w):
         yy = yl + int(round(1.0 * math.sin(x * 0.35 + t * 5)))
         a[yy, x] = (150, 220, 230)

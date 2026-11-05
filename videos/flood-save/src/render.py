@@ -1,13 +1,14 @@
-"""Pixel moment: 'Which car would you save from a flood?' (14.6 s, 9:16, calm ambient look of the pixel-moments preview).
+"""Pixel moment: 'Which car would you save from a flood?' (14.6 s, 9:16, pixel-moments preview look, v2 retention cut).
 
-Shots (timed to words.json, aligned on the shipped voiceover):
-  1 flood    0.00  rainy flooded street at night: lit windows, lamps, the guy under a red umbrella, hatchback + SUV at the
-                   kerb in the water; slow side pan. Headline 'Which car would you SAVE?' until 'A small car'.
-                   5.26 'lower': the hatchback settles lower (thud) -> LOWER pill; 7.76 'sits higher' -> HIGHER pill
-  2 depth    9.00  soft cut to the neutral water-depth graphic; headline 'HIGHER ISN'T ALWAYS SAFER'
-  3 sunrise 11.20  rain clears, dissolve to the calm sunrise pier, both cars parked on it; HATCHBACK / SUV poll ~11.8
+Shots (timed to words.json, aligned on the shipped Fenrir voiceover v2):
+  1 wide     0.00  rainy flooded street at night (lightning on 'flood', hazards blinking, water creeping up, debris
+                   drifting, the guy under his umbrella). Headline 'Which car would you SAVE?', then 'You can only save ONE'
+  2 hatch    3.76  whip into a close-up of the hatchback: it settles lower with a splash + bubbles -> LOWER pill
+  3 suv      5.84  whip across to the SUV close-up -> HIGHER pill on 'higher'
+  4 depth    7.93  whip down to the water-depth graphic: 'HIGHER ISN'T ALWAYS SAFER'; on 'sweep' the current lifts the SUV away
+  5 sunrise 10.40  the rain clears into the sunrise pier; HATCHBACK / SUV poll on 'Hatchback', each car glows with its button
   loop     14.10  rain and the night street return to the exact first frame
-Art is drawn at 216x384 (world 240 wide for the pan) and upscaled 5x nearest; text is sharp on top (safe zone checked).
+Art is drawn at 216x384 (world 240 wide) and upscaled 5x nearest (close-ups 10x, still integer); text is sharp on top.
 """
 import json, math, os, sys, subprocess, wave
 from functools import lru_cache
@@ -19,6 +20,7 @@ sys.path.insert(0, os.path.join(HERE, '..', '..', '..', 'shared'))
 sys.path.insert(0, os.path.join(HERE, '..', '..', '..', 'shared', 'assets'))
 from pixanim.motion import prog, clamp, io, ob
 from pixanim.fx import popin, popout
+from pixanim import transitions as T
 from audio import sfx
 import overlays as ov
 from episode import headline_img, YEL, WHITE
@@ -31,10 +33,13 @@ LOOP = 0.5
 WORDS = json.load(open(os.path.join(HERE, 'words.json')))
 def at(word, n=0): return [w['s'] for w in WORDS if w['w'].strip('.,?!').lower() == word][n]
 
-T_LOWER, T_HIGHER = at('lower'), at('sits', 1)
-T_DEPTH, T_SUN, T_POLL = at('but') - 0.05, at('safer') + 0.75, at('save', 1)
+T_LOWER, T_HIGHER, T_ONE = at('lower'), at('higher'), at('you')
+T_HATCH, T_SUVC, T_DEPTH, T_SWEEP = at('the') , at('the', 2), at('but') - 0.05, at('sweep')
+T_SUN, T_POLL, T_Q = at('too') + 0.4, at('hatchback', 1), at('which')
+T_FLASH = at('flood')
+WHIP = 0.22
 END = DUR - LOOP
-G, WL = 236, 229                                # car ground (under water) and water surface where the cars stand
+G = 236                                         # car ground (under water)
 HX, SX, GUYX = 40, 122, 14                      # world x of hatchback, SUV, guy
 PAL_N = (0.62, 0.74, 0.8)                       # night tint for sprites
 
@@ -94,14 +99,21 @@ def flood(t, pan=None):
         am.glow(a, lx + 1, 205, 26, (255, 210, 120), 0.35, ry=6)
     am.glow(a, 223, 188, 20, (170, 235, 220), 0.25)
     guy_on(a, GUYX, 184, t, PAL_N)
-    # cars: bob gently; the hatchback settles lower on 'lower'
-    sink = 2 * io(prog(t, T_LOWER - 0.1, 0.7)) if t < END else 0
+    L = flash(t)
+    if L > 0.05:                                # lightning: bolt + the whole sky lights up for a few frames
+        r = np.random.default_rng(int(T_FLASH * 10)); x, y = 150.0, 0
+        while y < 120:
+            ny = y + r.integers(6, 12); nx = x + r.uniform(-9, 9)
+            for k in range(int(ny - y)): a[int(y + k), int(x + (nx - x) * k / (ny - y)):int(x + (nx - x) * k / (ny - y)) + 2] = (235, 250, 255)
+            x, y = nx, ny
+        a[:206] += (np.array((190, 225, 235)) - a[:206]) * 0.45 * L
+    wl = wl_at(t)
+    sink = 2 * io(prog(t, T_LOWER - 0.1, 0.7))
     cars = [(am.hatchback(), HX, G + round(sink + 0.5 * math.sin(t * 1.6))), (am.suv(), SX, G + round(0.5 * math.sin(t * 1.4 + 2)))]
     for spr, x, gy in cars: am.paste(a, spr, x, gy - spr.shape[0], PAL_N)
     # water from the kerb down: reflections of the street, wobbling per row
     wat = am.vgrad(NH - 213, WW, [(0, (14, 40, 46)), (1, (6, 18, 24))])
     for i in range(NH - 213):
-        y = 213 + i
         sy = 212 - int(i * 0.9)
         if sy < 60: break
         sh = int(round(1.2 * math.sin(i * 0.9 + t * 4.0)))
@@ -111,28 +123,59 @@ def flood(t, pan=None):
         for y in range(215, 330, 3):
             w = 1 + int(2 * abs(math.sin(y * 0.7 + t * 5 + lx)))
             a[y, max(0, lx - w):lx + w + 2] += (np.array((255, 214, 130)) - a[y, max(0, lx - w):lx + w + 2]) * 0.5 * (1 - (y - 215) / 130)
-    for spr, x, gy in cars:                     # re-draw cars above the waterline, submerged part tinted
+    haz = (t % 0.8) < 0.4                       # hazard lights blink on both cars
+    for (spr, x, gy), lights in zip(cars, (((1, 8), (39, 8)), ((0, 10), (47, 10)))):
         h = spr.shape[0]; top = gy - h
-        am.paste(a, spr[:max(0, WL - top)], x, top, PAL_N)
-        sub = spr[max(0, WL - top):].copy(); sub[..., :3] = sub[..., :3] * 0.25 + np.array((18, 52, 58)) * 0.75
-        am.paste(a, sub, x, max(WL, top), (1, 1, 1), 0.85)
+        am.paste(a, spr[:max(0, wl - top)], x, top, PAL_N)
+        sub = spr[max(0, wl - top):].copy(); sub[..., :3] = sub[..., :3] * 0.25 + np.array((18, 52, 58)) * 0.75
+        am.paste(a, sub, x, max(wl, top), (1, 1, 1), 0.85)
         for xx in range(x - 2, x + spr.shape[1] + 2):
-            if 0 <= xx < WW and int(t * 6 + xx) % 4: a[WL, xx] = (110, 170, 172)
+            if 0 <= xx < WW and int(t * 6 + xx) % 4: a[wl, xx] = (110, 170, 172)
+        if haz:
+            for lx, ly in lights:
+                X, Y = x + lx, top + ly
+                if Y < wl:
+                    a[Y:Y + 2, X:X + 2] = (255, 170, 60); am.glow(a, X + 1, Y + 1, 7, (255, 160, 60), 0.5)
+                    a[wl + 2:wl + 12:2, X:X + 2] += (np.array((255, 170, 60)) - a[wl + 2:wl + 12:2, X:X + 2]) * 0.45   # reflection
     for y in range(218, NH, 9):                 # drifting ripple dashes
         for j in range(3):
             xx = int((j * 83 + y * 7 + t * (10 + y % 7)) % WW)
             a[y, xx:xx + 4] += 18
+    for i, (x0, y0, sp, kind) in enumerate(DEBRIS):   # floating debris drifts with the water
+        x = (x0 + sp * t) % (WW + 20) - 10; y = y0 + round(math.sin(t * 2 + i))
+        am.paste(a, CONE if kind == 'cone' else LEAF, x, y - (CONE.shape[0] - 2 if kind == 'cone' else 0), PAL_N)
+    if t > T_LOWER - 0.1:                       # splash and bubbles from the sinking hatchback
+        r = np.random.default_rng(9)
+        for j in range(12):
+            ph = t - (T_LOWER - 0.05)
+            if ph < 0.6:
+                vx, vy = r.uniform(-26, 26), r.uniform(-48, -26)
+                X, Y = HX + 20 + vx * ph, wl + vy * ph + 120 * ph * ph
+                if Y < wl: a[int(Y), int(X)] = (190, 230, 235)
+        for j in range(5):
+            ph = (t * 0.9 + j / 5) % 1.0
+            X, Y = HX + 8 + j * 6 + round(math.sin(t * 6 + j)), wl + 10 - ph * 10
+            if Y > wl: a[int(Y), int(X)] += (np.array((170, 220, 225)) - a[int(Y), int(X)]) * 0.6
     am.rain(a, t, **RAIN_FAR)                  # heavy two-layer rain: it carries the opening motion (score >= 6)
     am.rain(a, t, **RAIN_NEAR)
-    p = pan_at(t) if pan is None else pan
-    return a, p
+    return a
 
 
+def flash(t):                                   # double lightning flicker on 'flood' (not on frame 0: loop-safe)
+    return max(math.exp(-((t - T_FLASH) / 0.05) ** 2), 0.7 * math.exp(-((t - T_FLASH - 0.2) / 0.04) ** 2)) if 0 < t < 3 else 0.0
+
+
+def wl_at(t): return 229 - round(2 * io(prog(t, 0.6, 7.0)))   # the water creeps up 2 px through the street shots
+
+
+CONE = am._sprite(['..o..', '..w..', '.ooo.', '.www.', 'ooooo'], {'o': (230, 110, 50), 'w': (235, 235, 235)})
+LEAF = am._sprite(['.gg', 'gg.'], {'g': (110, 140, 70)})
+DEBRIS = [(20, 262, 7, 'cone'), (90, 280, 9, 'leaf'), (150, 300, 6, 'leaf'), (200, 250, 8, 'leaf'), (60, 330, 11, 'leaf')]
 RAIN_FAR = dict(seed=1, n=300, vy=240, ln=3, k=0.45, col=(140, 196, 204))
 RAIN_NEAR = dict(seed=2, n=480, vy=340, ln=6, k=0.75, col=(178, 226, 232), water_y=216, splash=40)
 
 
-def pan_at(t): return 0.0 if t < 0 else (WW - NW) * io(clamp(t / T_DEPTH))
+def pan_at(t): return 0.0 if t < 0 else 12 * io(clamp(t / T_HATCH))   # slow drift in the wide shot
 
 
 # ------------------------------------------------------------------ sunrise pier
@@ -192,44 +235,67 @@ def sunrise(t):
         a[deck + 3:deck + 60, px:px + 3] = (66, 40, 54)
         for y in range(deck + 62, deck + 100, 2): a[y, px + int(math.sin(y * 0.8 + t * 3)):px + 3] = (88, 66, 100)
     a[deck:deck + 4, 94:NW] = (92, 58, 66); a[deck, 94:NW] = (150, 100, 98); a[deck + 4, 94:NW] = (52, 34, 46)
-    for spr, x in ((am.hatchback(), 112), (am.suv(), 160)):
+    sel = int((t - T_POLL) * 2.5) % 2 if T_POLL <= t < END else -1      # the car of the lit poll button glows
+    for i, (spr, x, col) in enumerate(((am.hatchback(), 112, (90, 200, 220)), (am.suv(), 160, (255, 217, 59)))):
+        if i == sel: am.glow(a, x + spr.shape[1] / 2, deck - spr.shape[0] / 2, spr.shape[1] * 0.75, col, 0.7, ry=spr.shape[0] * 1.1)
         am.paste(a, spr, x, deck - spr.shape[0], tint)
     am.paste(a, am.mini_guy((t % 4.1) < 0.12), 98, deck - 23, tint)
     return a
 
 
 # ------------------------------------------------------------------ composition
-def to_img(a, pan=0.0, ww=None):
-    ww = ww or a.shape[1]
-    big = am.up(np.clip(a, 0, 255).astype(np.uint8), K)
-    x0 = int(round(pan * K))
-    return big[:, x0:x0 + W]
+def cam(t):
+    """(centre x, centre y, scale) in world px: wide shot at 5x, punch-in close-ups at 10x (integer: pixels stay square)."""
+    if t < T_HATCH or t >= END: return pan_at(t if t < END else -1) + NW / 2, NH / 2, K
+    if t < T_SUVC: return HX + 33 + 5 * io(prog(t, T_HATCH, T_SUVC - T_HATCH)), 212, 10
+    return SX + 22 + 5 * io(prog(t, T_SUVC, T_DEPTH - T_SUVC)), 210, 10
+
+
+def view(a, cx, cy, k):
+    vw, vh = W / k, H / k
+    x0 = min(max(cx - vw / 2, 0), a.shape[1] - vw); y0 = min(max(cy - vh / 2, 0), a.shape[0] - vh)
+    ix, iy = int(x0), int(y0)
+    big = am.up(np.clip(a[iy:iy + math.ceil(vh) + 1, ix:ix + math.ceil(vw) + 1], 0, 255).astype(np.uint8), k)
+    ox, oy = int((x0 - ix) * k), int((y0 - iy) * k)
+    return big[oy:oy + H, ox:ox + W]
+
+
+def to_screen(wx, wy, t):
+    cx, cy, k = cam(t)
+    x0 = min(max(cx - W / k / 2, 0), WW - W / k); y0 = min(max(cy - H / k / 2, 0), NH - H / k)
+    return (wx - x0) * k, (wy - y0) * k
+
+
+def street(t): return view(flood(t), *cam(t))
+def depth_img(t):
+    a = am.depth_graphic(t - T_DEPTH, sweep=io(prog(t, T_SWEEP - 0.1, 1.3)))
+    rk = 1 - clamp((t - T_SUN) / 0.8)           # the rain clears as the sunrise dissolves in
+    if rk > 0: am.rain(a, t, **dict(RAIN_NEAR, n=int(300 * rk), k=0.6 * rk, water_y=None))
+    return view(a, NW / 2, NH / 2, K)
+def sunrise_img(t): return view(sunrise(t), NW / 2, NH / 2, K)
+
+
+def whip(a, b, e, **kw):
+    return np.asarray(T.whip(Image.fromarray(a), Image.fromarray(b), io(e), **kw))
 
 
 def picture(t):
-    def F(tt):
-        a, p = flood(tt); return to_img(a, p).astype(np.float32)
+    f = lambda x: x.astype(np.float32)
     if t >= END:                                # loop: the night street returns to frame 0
-        e = io(prog(t, END, LOOP)); return am.blend(sunrise_img(t), F(t - DUR), e)
-    if t < T_DEPTH: return F(t)
-    if t < T_DEPTH + 0.3: return am.blend(F(t), depth_img(t), io(prog(t, T_DEPTH, 0.3)))
+        return am.blend(f(sunrise_img(t)), f(street(t - DUR)), io(prog(t, END, LOOP)))
+    for t0, a, b, kw in ((T_HATCH, street, street, dict(dx=1)), (T_SUVC, street, street, dict(dx=1)),
+                         (T_DEPTH, street, depth_img, dict(dx=0, dy=1))):
+        if t0 <= t < t0 + WHIP:                 # whip-pan cuts between the shots
+            return whip(a(t0 - 0.01), b(t), prog(t, t0, WHIP), **kw)
+    if t < T_DEPTH: return street(t)
     if t < T_SUN: return depth_img(t)
-    if t < T_SUN + 0.8: return am.blend(depth_img(t), sunrise_img(t), io(prog(t, T_SUN, 0.8)))
+    if t < T_SUN + 0.8: return am.blend(f(depth_img(t)), f(sunrise_img(t)), io(prog(t, T_SUN, 0.8)))
     return sunrise_img(t)
-
-
-def depth_img(t):
-    a = am.depth_graphic(t - T_DEPTH)
-    rk = 1 - clamp((t - T_SUN) / 0.8)           # the rain clears as the sunrise dissolves in
-    if rk > 0: am.rain(a, t, **dict(RAIN_NEAR, n=int(300 * rk), k=0.6 * rk, water_y=None))
-    return to_img(a).astype(np.float32)
-
-
-def sunrise_img(t): return to_img(sunrise(t)).astype(np.float32)
 
 
 # ------------------------------------------------------------------ text (sharp, inside the safe zone)
 HL1 = ((('Which car', None),), (('would you', None), ('SAVE?', YEL)))
+HL_ONE = ((('You can only', None),), (('save', None), ('ONE', YEL)))
 HL2 = ((("HIGHER ISN'T", None),), (('ALWAYS', None), ('SAFER', YEL)))
 
 
@@ -241,24 +307,26 @@ def hl(cv, t, t0, t1, lines, y=440):
 
 
 def pills(cv, t):
-    p = pan_at(t)
-    ov.chip(cv, t, T_LOWER, T_DEPTH - 0.1, 'LOWER', (HX + 20 - p) * K, 1050, col=(110, 200, 230), sz=58)
-    ov.chip(cv, t, T_HIGHER, T_DEPTH - 0.1, 'HIGHER', (SX + 24 - p) * K, 1010, col=YEL, sz=58)
+    if T_HATCH + WHIP <= t < T_SUVC:
+        x, y = to_screen(HX + 20, G - 22, t); ov.chip(cv, t, T_LOWER + 0.1, T_SUVC - 0.12, 'LOWER', x, y, col=(110, 200, 230), sz=64)
+    if T_SUVC + WHIP <= t < T_DEPTH:
+        x, y = to_screen(SX + 24, G - 28, t); ov.chip(cv, t, T_HIGHER, T_DEPTH - 0.12, 'HIGHER', x, y, col=YEL, sz=64)
 
 
 def poll(cv, t):
     if not (T_POLL <= t < END + 0.2): return
-    grow = 0.78 + 0.2 * io(prog(t, T_POLL + 0.3, 1.6))
-    ov.poll(cv, t, T_POLL, END, 'Which would you save?', ov.SAFE_CX, 760, grow,
+    grow = 0.76 + 0.17 * io(prog(t, T_POLL + 0.3, 1.2)) + (0.06 * math.exp(-(t - T_Q) * 5) if t > T_Q else 0)
+    ov.poll(cv, t, T_POLL, END, 'Which one are you saving?', ov.SAFE_CX, 760, grow,
             opts=(('HATCHBACK', (90, 200, 220)), ('SUV', YEL)), rot=-2.0)
 
 
 def overlay(cv, t):
     ov.reset()
-    hl(cv, t, -0.45, T_LOWER - 1.2, HL1)       # on screen from frame 0 (pops in during the loop tail)
+    hl(cv, t, -0.45, T_ONE - 0.25, HL1)        # on screen from frame 0 (pops in during the loop tail)
     if t >= END: hl(cv, t - DUR, -0.45, 99, HL1)
+    hl(cv, t, T_ONE, T_HATCH - 0.12, HL_ONE)
     pills(cv, t)
-    hl(cv, t, T_DEPTH + 0.1, T_SUN + 0.1, HL2)
+    hl(cv, t, T_DEPTH + WHIP, T_SUN + 0.1, HL2)
     poll(cv, t)
 
 
@@ -266,7 +334,7 @@ def frame(n, check=True):
     t = n / FPS
     cv = Image.fromarray(np.clip(picture(t), 0, 255).astype(np.uint8)).convert('RGBA')
     overlay(cv, t)
-    if check and ov.violations(): raise SystemExit(f'safe zone violation at {t:.2f}: {ov.violations()}')
+    if check and ov.violations(): raise RuntimeError(f'safe zone violation at {t:.2f}: {ov.violations()}')
     return cv.convert('RGB').tobytes()
 
 
@@ -287,6 +355,7 @@ def ambience(n):
     for i in idx: drops[i:i + 400] += r.uniform(0.2, 0.6) * np.exp(-np.arange(400) / 60) * np.sin(np.arange(400) * r.uniform(0.3, 0.6))
     lap = _bp(r.normal(0, 1, n), 60, 420); lap /= np.abs(lap).max(); lap *= 0.6 + 0.4 * np.sin(tt * 1.3) ** 2
     rk = np.interp(tt, [0, T_SUN, T_SUN + 1.0, END, DUR], [1, 1, 0.08, 0.08, 1])
+    lap *= np.interp(tt, [0, T_SWEEP, T_SWEEP + 0.4, T_SUN, T_SUN + 0.8], [1, 1, 2.2, 2.2, 1])   # the current surges
     return rk * (0.8 * rain + 0.5 * drops) + 0.55 * lap
 
 
@@ -296,7 +365,11 @@ def build_audio(vo_path, out_wav):
     n = int(SR * DUR); mix = np.zeros(n); m = min(n, len(vo)); mix[:m] = vo[:m]
     rms = lambda x: np.sqrt(np.mean(x[np.abs(x) > 1e-4] ** 2))
     amb = ambience(n); amb *= rms(vo) * 10 ** (-20 / 20) / rms(amb)     # ambience ~20 dB under the voice
-    fx = sfx.render([(T_LOWER - 0.05, 'thump', 1.0), (T_LOWER, 'poof', 0.3), (T_DEPTH, 'whoosh', 0.25)], DUR)
+    fx = sfx.render([(T_FLASH, 'boom', 1.0), (T_FLASH + 0.02, 'crash', 0.25), (T_ONE + 0.7, 'thump', 0.5),
+                     (T_HATCH, 'whoosh', 0.5), (T_SUVC, 'whoosh', 0.5), (T_DEPTH, 'whoosh', 0.6),
+                     (T_LOWER - 0.05, 'thump', 1.0), (T_LOWER, 'poof', 0.45), (T_LOWER + 0.1, 'pop', 0.5), (T_HIGHER, 'pop', 0.5),
+                     (T_SWEEP, 'slide_down', 0.5), (T_SWEEP + 0.1, 'creak', 0.4), (T_SUN + 0.4, 'sparkle', 0.6),
+                     (T_POLL, 'pop', 0.7), (at('suv', 2), 'pop', 0.5), (T_Q, 'ding', 0.5)], DUR)
     fx *= rms(vo) * 10 ** (-9 / 20) / rms(fx)
     mix += amb + fx
     mix /= max(1.0, np.max(np.abs(mix)) / 0.97)

@@ -26,7 +26,7 @@ sharp on top with `overlays.py`. Render: `node shared/assets/pix3d/render3d.mjs 
 | 2D palette | `palette.js` as RGB tuples | `pix2d.py` `PAL` | speed-limit-deal-2d | - |
 | Rain layer | Two-layer diagonal pixel rain + splash rings on water, any t (also negative, for loops) | `ambient.py` `rain()` | flood-save | - |
 | Night-to-sunrise dissolve | `blend()` (eased linear mix, rain fades out with it) and dithered `dissolve()`; Bayer-dithered `glow()` and `vgrad()` skies | `ambient.py` | flood-save | - |
-| Water-depth graphic | Neutral gauge post, rising rippling water line, low + high car outlines, pixel '?' | `ambient.py` `depth_graphic()` | flood-save | - |
+| Water-depth graphic | Neutral gauge post, rising rippling water line, low + high car outlines, current streaks, pixel '?'; `sweep=0..1` lifts and carries the SUV away | `ambient.py` `depth_graphic()` | flood-save | - |
 | Mini main guy + umbrella | The main guy (characters/main-guy palette) as a small 9x23 outline-free figure for ambient scenes; red umbrella | `ambient.py` `mini_guy()`, `umbrella()` | flood-save | - |
 | Generic cars | Side-view hatchback and SUV, no logos or badges, any colour | `ambient.py` `hatchback()`, `suv()` | flood-save | - |
 | Motion score | Mean frame-to-frame grey diff at 108x192, 10 fps (cold-open check, target >= 12; calm ambient style >= 6) | `../motion_score.py` | speed-limit-deal-2d, speed-limit-deal-3d, flood-save | - |
