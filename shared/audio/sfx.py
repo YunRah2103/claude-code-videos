@@ -162,9 +162,24 @@ def snap(d=0.12):
     return fade(0.6 * s + 0.7 * k, 0.001, 0.01)
 
 
+def beep(d=0.32):
+    """Dashboard warning beep: two short square-ish tones (lowpassed so it is not harsh)."""
+    t = T(d); on = ((t % 0.16) < 0.11).astype(float)
+    return fade(lp(np.sign(np.sin(2*np.pi*1320*t)), 4) * on * 0.35, 0.002, 0.02)
+
+def glass_crack(d=0.4):
+    """Soft glass crack: a bright tick, then a short crackle of thin ticks running outwards."""
+    n = T(d); rr = np.random.default_rng(11); x = np.zeros(len(n))
+    for k, at in enumerate(np.sort(rr.uniform(0, d * 0.6, 14))):
+        i = int(at * SR); m = min(len(n) - i, int(0.012 * SR))
+        x[i:i + m] += rr.standard_normal(m) * np.exp(-np.arange(m) / (0.0025 * SR)) * (1 - k / 16)
+    x = x - lp(x, 6)                                   # crude highpass: keeps it glassy, not thuddy
+    return fade(x * 0.35 + np.sin(2*np.pi*3100*n) * dec(d, 30) * 0.12, 0.001, 0.05)
+
+
 LIB = dict(snap=snap, click=click, creak=creak, pop=pop, whoosh=whoosh, sparkle=sparkle, ding=ding, thump=thump, boom=boom, stamp=stamp,
            confetti=confetti, vroom=vroom, screech=screech, slide_down=slide_down, poof=poof, buzzer=buzzer,
-           fall=fall, crash=crash, coin=coin_clink, cha_ching=cha_ching, hum=hum, boing=boing)
+           fall=fall, crash=crash, coin=coin_clink, cha_ching=cha_ching, hum=hum, boing=boing, beep=beep, glass_crack=glass_crack)
 
 def render(cues, duration):
     out = np.zeros(int(SR*duration) + SR)

@@ -709,8 +709,9 @@ def main():
         ff = subprocess.Popen(['ffmpeg', '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{W}x{H}', '-r', str(FPS),
                                '-i', '-', '-ss', str(t0), '-t', str(t1 - t0), '-i', mix, '-c:v', 'libx264', '-preset', 'slow', '-crf', '17',
                                '-maxrate', '16M', '-bufsize', '24M', '-pix_fmt', 'yuv420p', '-aspect', '9:16',
-                               *(['-af', 'loudnorm=I=-14:TP=-1.5:LRA=11', '-ar', '48000'] if E.get('loud') else []),   # short-form loudness
-                               '-ac', '2', '-c:a', 'aac', '-b:a', '256k', '-movflags', '+faststart', '-shortest', out], stdin=subprocess.PIPE)
+                               *(['-af', f"loudnorm=I={-14 if E['loud'] is True else E['loud']}:TP=-1.5:LRA=11", '-ar', '48000'] if E.get('loud') else []),   # short-form loudness (loud=True: -14 LUFS, or a number)
+                               '-ac', '2', '-c:a', 'aac', '-b:a', '320k', '-aac_ms', '0', '-aac_is', '0', '-aac_pns', '0', '-cutoff', '20000',   # native AAC undershoots on mono-sourced mixes; keeps it >= 192k
+                               '-movflags', '+faststart', '-shortest', out], stdin=subprocess.PIPE)
         with Pool(os.cpu_count() or 4) as pool:
             for i, b in enumerate(pool.imap(frame, range(F0, N), chunksize=6)):
                 ff.stdin.write(b)

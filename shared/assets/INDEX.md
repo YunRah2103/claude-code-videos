@@ -88,3 +88,24 @@ Photos for brand-story-lamborghini: `videos/brand-story-lamborghini/assets/credi
 
 Ambient pixel-moment look (`ambient.py`, first used by `videos/flood-save`): art at 216x384 upscaled 5x nearest, calm
 teal-rain night and pink-orange sunrise palettes taken from the pixel-moments preview; text stays sharp via `overlays.py`.
+
+## Dashboard explainer kit (`carbits.py`, `dashep.py`)
+
+2D pixel props and wiring for the looping 'car stuff, explained' dashboard shorts, first used by the red-zone /
+fuel-cap-light / windscreen-glass series. Sprites are small RGBA grids, scaled with `pixanim.grid.up` (nearest). All text
+goes through `overlays.py`, so `render.py safecheck` checks the safe zone (pills register their boxes too).
+Example wiring: `videos/red-zone/src/render.py`.
+
+| Asset | What it is | Path | Used by | Credit |
+|---|---|---|---|---|
+| RPM gauge with red zone | Rev counter (same dial as `pixanim/dash.py`), needle, pulsing red glow over the red section; `rpm_deg(frac)` | `carbits.py` `rpm_gauge()` | red-zone | own work |
+| Engine warning light | Amber engine lamp (on / off) for the dashboard ENG slot or as a prop | `carbits.py` `warn_lamp()` | fuel-cap-light | own work |
+| Fuel cap | Car rear quarter (window, trim, crease, wheel arch), filler flap open, cap that turns (`CAP_XY` = cap centre) | `carbits.py` `fuel_cap()` | fuel-cap-light | own work |
+| Three-layer glass cutaway | Laminated glass side view: glass / plastic / glass, a crack that runs through the top glass and stops at the plastic | `carbits.py` `glass_layers()` | windscreen-glass | own work |
+| Windscreen | Windscreen front view with stone chip and a star crack that spreads | `carbits.py` `windscreen()` | windscreen-glass | own work |
+| Fuel-cut icon, drive tick | Fuel pump with red slash; green tick box | `carbits.py` `fuel_cut()`, `tick()` | red-zone, fuel-cap-light | own work |
+| Callout pill | Pixel badge with a growing leader line (`pixanim/diagram.label`), box recorded for the safe-zone check | `carbits.py` `pill()` | red-zone, fuel-cap-light, windscreen-glass | own work |
+| Poll sticker | Reused `overlays.poll()` (YES / NO), kept inside the safe zone | `overlays.py` `poll()` | red-zone, fuel-cap-light, windscreen-glass | - |
+| Episode wiring | `wire()` (kit + safe-zone captions with mute windows + corner tag, -16 LUFS), `sequence()` (whips between shots), `camera()` (push-in + slow drift, nearest), loop back to frame 0, `cli()` (still / safecheck / safestill / cover / video) | `dashep.py` | red-zone, fuel-cap-light, windscreen-glass | - |
+| Warning beep, glass crack | Synthesised sound effects | `../audio/sfx.py` `beep()`, `glass_crack()` | red-zone, windscreen-glass | own work |
+| Word timings | faster-whisper word timings mapped onto the exact script (`est=1` marks interpolated words) | `../align_fw.py` | red-zone, fuel-cap-light, windscreen-glass | - |

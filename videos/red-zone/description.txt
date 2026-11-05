@@ -1,0 +1,3 @@
+That red zone on your rev counter isn't decoration: it marks the engine's maximum safe speed, and many modern cars use a rev limiter to cut power before you go too far.
+Terms: rev counter (tachometer), red zone (redline), rev limiter.
+#carstuffexplained #carfacts #redline
