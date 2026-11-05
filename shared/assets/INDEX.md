@@ -105,8 +105,25 @@ Example wiring: `videos/red-zone/src/render.py`.
 | Three-layer glass cutaway | Laminated glass side view: glass / plastic / glass, a crack that runs through the top glass and stops at the plastic | `carbits.py` `glass_layers()` | windscreen-glass | own work |
 | Windscreen | Windscreen front view with stone chip and a star crack that spreads | `carbits.py` `windscreen()` | windscreen-glass | own work |
 | Fuel-cut icon, drive tick | Fuel pump with red slash; green tick box | `carbits.py` `fuel_cut()`, `tick()` | red-zone, fuel-cap-light | own work |
-| Callout pill | Pixel badge with a growing leader line (`pixanim/diagram.label`), box recorded for the safe-zone check | `carbits.py` `pill()` | red-zone, fuel-cap-light, windscreen-glass | own work |
-| Poll sticker | Reused `overlays.poll()` (YES / NO), kept inside the safe zone | `overlays.py` `poll()` | red-zone, fuel-cap-light, windscreen-glass | - |
+| Callout pill | Pixel badge with a growing leader line (`pixanim/diagram.label`), box recorded for the safe-zone check | `carbits.py` `pill()` | red-zone, fuel-cap-light, windscreen-glass, oil-dipstick, cold-battery, hot-radiator | own work |
+| Poll sticker | Reused `overlays.poll()` (YES / NO), kept inside the safe zone | `overlays.py` `poll()` | red-zone, fuel-cap-light, windscreen-glass, oil-dipstick, cold-battery, hot-radiator | - |
 | Episode wiring | `wire()` (kit + safe-zone captions with mute windows + corner tag, -16 LUFS), `sequence()` (whips between shots), `camera()` (push-in + slow drift, nearest), loop back to frame 0, `cli()` (still / safecheck / safestill / cover / video) | `dashep.py` | red-zone, fuel-cap-light, windscreen-glass | - |
 | Warning beep, glass crack | Synthesised sound effects | `../audio/sfx.py` `beep()`, `glass_crack()` | red-zone, windscreen-glass | own work |
 | Word timings | faster-whisper word timings mapped onto the exact script (`est=1` marks interpolated words) | `../align_fw.py` | red-zone, fuel-cap-light, windscreen-glass | - |
+
+## Under-the-bonnet kit (`garagebits.py`)
+
+Pixel props for the oil-dipstick / cold-battery / hot-radiator episodes, same conventions as `carbits.py` (small RGBA
+grids, scale with `pixanim.grid.up`, nearest). Wiring is `dashep.py`; callout pills and the poll sticker are the ones above.
+Example: `videos/oil-dipstick/src/render.py`.
+
+| Asset | What it is | Path | Used by | Credit |
+|---|---|---|---|---|
+| Dipstick | Yellow loop handle, rod, blade with MIN (green) / MAX (red) notches, oil film at any level (overfill past MAX), mark glow; `DIP_MIN`, `DIP_MAX` rows for anchors | `garagebits.py` `dipstick()` | oil-dipstick | own work |
+| Snowflake overlay | Pixel snowflake icon, falling screen-space snow (seamless for any t), frosted corners | `garagebits.py` `snowflake()`, `snow()`, `frost()` | cold-battery, hot-radiator (icon) | own work |
+| Battery cutaway | 12 V lead-acid battery cut open: six cells, plates, electrolyte, drifting ions (pass integrated time to slow them), frost tint, charge bar | `garagebits.py` `battery_cutaway()` | cold-battery | own work |
+| Pressure gauge | Round gauge, green / amber / red arc, needle 0..1, red-zone glow | `garagebits.py` `pressure_gauge()` | hot-radiator | own work |
+| Radiator + cap | Radiator front view with filler neck and a cap that turns (`CAP_XY`), heat tint | `garagebits.py` `radiator()` | hot-radiator | own work |
+| Coolant spray, steam | Looping droplet fan under gravity (`t1` stops it); blocky rising steam column | `garagebits.py` `spray()`, `steam()` | hot-radiator | own work |
+| Ring gear | Flywheel ring gear / pinion at any angle (starter scene, with `pixanim/autos.motor()`) | `garagebits.py` `gear()` | cold-battery | own work |
+| Whirr, hiss | Slow struggling starter whirr; steam / pressure hiss | `../audio/sfx.py` `whirr()`, `hiss()` | cold-battery, hot-radiator | own work |

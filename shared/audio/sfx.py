@@ -177,9 +177,24 @@ def glass_crack(d=0.4):
     return fade(x * 0.35 + np.sin(2*np.pi*3100*n) * dec(d, 30) * 0.12, 0.001, 0.05)
 
 
+def whirr(d=1.1):
+    """Slow, struggling starter-motor whirr: a low buzzy tone that wobbles with each laboured turn."""
+    t = T(d); f = 70 + 18*np.sin(2*np.pi*2.6*t)
+    x = np.sign(np.sin(2*np.pi*np.cumsum(f)/SR)) * (0.55 + 0.45*np.abs(np.sin(2*np.pi*2.6*t)))
+    x = lp(x, 10) + 0.15*rng.standard_normal(len(t))*np.abs(np.sin(2*np.pi*2.6*t))
+    return fade(lp(x, 4) * 0.45, 0.03, 0.15)
+
+def hiss(d=0.9):
+    """Steam / pressure hiss: bright filtered noise with a sharp start and a long tail."""
+    t = T(d); n = np.random.default_rng(13).standard_normal(len(t))
+    n = n - lp(n, 3)
+    return fade(n * (0.35*np.minimum(1, t/0.02)) * np.exp(-t*2.2), 0.002, 0.2)
+
+
 LIB = dict(snap=snap, click=click, creak=creak, pop=pop, whoosh=whoosh, sparkle=sparkle, ding=ding, thump=thump, boom=boom, stamp=stamp,
            confetti=confetti, vroom=vroom, screech=screech, slide_down=slide_down, poof=poof, buzzer=buzzer,
-           fall=fall, crash=crash, coin=coin_clink, cha_ching=cha_ching, hum=hum, boing=boing, beep=beep, glass_crack=glass_crack)
+           fall=fall, crash=crash, coin=coin_clink, cha_ching=cha_ching, hum=hum, boing=boing, beep=beep, glass_crack=glass_crack,
+           whirr=whirr, hiss=hiss)
 
 def render(cues, duration):
     out = np.zeros(int(SR*duration) + SR)
