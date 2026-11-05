@@ -20,7 +20,8 @@ sharp on top with `overlays.py`. Render: `node shared/assets/pix3d/render3d.mjs 
 | Stamp | Rubber stamp (e.g. SECRET DEAL) that slams in | `overlays.py` `stamp()` | speed-limit-deal-3d, speed-limit-deal-2d | - |
 | Poll sticker | The 2D poll sticker (white card, any two options, e.g. HATCHBACK / SUV) at any scale; flood-save grows it with `scale` | `overlays.py` `poll()` | speed-limit-deal-3d, speed-limit-deal-2d, flood-save | - |
 | Text chips, headline, captions, tag, credit | Sharp full-res text placed inside the TikTok safe zone (12-62 % height, left 85 % width) with a per-frame violation check | `overlays.py` | speed-limit-deal-3d, speed-limit-deal-2d, flood-save | - |
-| LOWER / HIGHER pills | Label pills over moving subjects (`chip(..., col=)`, auto-clamped into the safe zone) | `overlays.py` `chip()` | flood-save | - |
+| LOWER / HIGHER pills | Clean label pill (dark plate, coloured rim, soft shadow; no offset copy), auto-clamped into the safe zone | `overlays.py` `pill()` | flood-save | - |
+| Kinetic headline | Clean headline (single outline, soft shadow, one yellow word), each word pops in on its spoken time, fixed layout on one baseline | `overlays.py` `kinetic()`, `word_img()` | flood-save | - |
 | 2D gauge | Small pixel speedometer (70x66 grid, ~30 % of the width at 4x): lit segments, red limit line, needle, glowing limit digits only | `pix2d.py` `gauge()` | speed-limit-deal-2d (3D uses `pix3d/speedo.js` at r=9) | - |
 | 2D props | Handshake, key, padlock (same pixel maps as `pix3d/props.js`), glowing force-field wall | `pix2d.py` | speed-limit-deal-2d | - |
 | 2D palette | `palette.js` as RGB tuples | `pix2d.py` `PAL` | speed-limit-deal-2d | - |

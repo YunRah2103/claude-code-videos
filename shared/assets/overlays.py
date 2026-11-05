@@ -166,3 +166,55 @@ def credit_img(text, maxw=820):
 
 def credit(cv, text, y, x=SAFE_CX):
     img = credit_img(text); place(cv, img, x, y, 1.0, 0, 'credit')
+
+
+# ------------------------------------------------------------------ clean kinetic text (no offset copy behind it)
+@lru_cache(None)
+def word_img(txt, col=WHITE, sz=100):
+    """One word: fill colour, a single dark outline and a soft blurred drop shadow (no hard offset duplicate)."""
+    f = font(sz); d0 = ImageDraw.Draw(Image.new('RGB', (1, 1))); st = max(6, sz // 12)
+    l, _, r, _ = d0.textbbox((0, 0), txt, font=f, stroke_width=st); _, tp, _, b = d0.textbbox((0, 0), 'ÁHgy', font=f, stroke_width=st)
+    pad = 34                                                    # shared vertical metrics: every word sits on one baseline
+    img = Image.new('RGBA', (r - l + 2 * pad, b - tp + 2 * pad), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img); d.text((pad - l, pad - tp), txt, font=f, fill=col, stroke_width=st, stroke_fill=INK)
+    sh = Image.new('RGBA', img.size, (0, 0, 0, 0)); a = img.getchannel('A').filter(ImageFilter.GaussianBlur(12))
+    sh.putalpha(a.point(lambda v: int(v * 0.6)))
+    out = Image.new('RGBA', img.size, (0, 0, 0, 0)); out.alpha_composite(sh, (0, 10)); out.alpha_composite(img)
+    return out
+
+
+def kinetic(cv, t, lines, times, y, t1=99.0, sz=100, x=SAFE_CX, maxw=770, label='headline'):
+    """Headline built word by word: lines = [[(word, colour or None), ...], ...]; times = one appear time per word
+    (flat). Each word pops in with a small overshoot at its time; the layout is fixed, so nothing jumps."""
+    if t >= t1 + 0.2: return
+    d0 = ImageDraw.Draw(Image.new('RGB', (1, 1))); f = font(sz); sp = d0.textlength(' ', font=f)
+    widths = [[d0.textlength(w, font=f) for w, _ in ln] for ln in lines]
+    k0 = min(1.0, maxw / max(sum(ws) + sp * (len(ws) - 1) for ws in widths)); lh = sz * 1.12 * k0
+    i = 0
+    for li, (ln, ws) in enumerate(zip(lines, widths)):
+        cx = x - (sum(ws) + sp * (len(ws) - 1)) * k0 / 2; cy = y + (li - (len(lines) - 1) / 2) * lh
+        for (w, col), wd in zip(ln, ws):
+            ti = times[i]; i += 1
+            k = (popin(t, ti, 0.24) if ti is not None else 1.0) * popout(t, t1, 0.18)
+            if k > 0.02: place(cv, word_img(w, col or WHITE, sz), cx + wd * k0 / 2, cy, k * k0, 0.0, label)
+            cx += (wd + sp) * k0
+
+
+@lru_cache(None)
+def pill_img(txt, col=YEL, sz=60):
+    """Label pill: dark rounded plate, coloured rim, coloured text, soft shadow."""
+    f = font(sz); d0 = ImageDraw.Draw(Image.new('RGB', (1, 1))); l, _, r, _ = d0.textbbox((0, 0), txt, font=f)
+    _, tp, _, b = d0.textbbox((0, 0), 'HG', font=f)
+    w, h, pad = r - l + 70, b - tp + 44, 26
+    img = Image.new('RGBA', (w + 2 * pad, h + 2 * pad), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
+    d.rounded_rectangle((pad, pad, pad + w, pad + h), h // 2, fill=(12, 16, 22, 235), outline=col, width=6)
+    d.text((pad + 35 - l, pad + 22 - tp), txt, font=f, fill=col)
+    sh = Image.new('RGBA', img.size, (0, 0, 0, 0)); sh.putalpha(img.getchannel('A').filter(ImageFilter.GaussianBlur(10)).point(lambda v: int(v * 0.5)))
+    out = Image.new('RGBA', img.size, (0, 0, 0, 0)); out.alpha_composite(sh, (0, 8)); out.alpha_composite(img)
+    return out
+
+
+def pill(cv, t, t0, t1, txt, x, y, col=YEL, sz=60):
+    if not (t0 <= t < t1 + 0.2): return
+    img = pill_img(txt, col, sz); x, y = clamp_to_safe(x, y, img.width - 40, img.height - 40)
+    place(cv, img, x, y, popin(t, t0, 0.24) * popout(t, t1, 0.18), 0.0, 'pill ' + txt)

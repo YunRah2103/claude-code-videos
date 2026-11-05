@@ -156,8 +156,6 @@ def flood(t, pan=None):
             ph = (t * 0.9 + j / 5) % 1.0
             X, Y = HX + 8 + j * 6 + round(math.sin(t * 6 + j)), wl + 10 - ph * 10
             if Y > wl: a[int(Y), int(X)] += (np.array((170, 220, 225)) - a[int(Y), int(X)]) * 0.6
-    am.rain(a, t, **RAIN_FAR)                  # heavy two-layer rain: it carries the opening motion (score >= 6)
-    am.rain(a, t, **RAIN_NEAR)
     return a
 
 
@@ -266,17 +264,35 @@ def to_screen(wx, wy, t):
     return (wx - x0) * k, (wy - y0) * k
 
 
-def street(t): return view(flood(t), *cam(t))
+RAIN_COL = np.array((172, 220, 228), np.float32)
+
+
+def with_rain(img, t, water_y=None, k=1.0):
+    """Rain in screen space at the wide-shot pixel size (5 px), so close-ups never get chunky drops. Heavy two-layer
+    rain carries the opening motion (first-second score >= 6)."""
+    r = np.zeros((NH, NW, 3), np.float32)
+    am.rain(r, t, **dict(RAIN_FAR, col=(255, 255, 255)))
+    am.rain(r, t, **dict(RAIN_NEAR, col=(255, 255, 255), water_y=water_y))
+    al = am.up(r[..., :1] / 255 * k, K)
+    return img.astype(np.float32) * (1 - al) + RAIN_COL * al
+
+
+def street(t):
+    tt = t if t < END else -1
+    return with_rain(view(flood(t), *cam(t)), t, water_y=min(NH - 8, to_screen(0, 216, tt)[1] / K))
+
+
 def depth_img(t):
     a = am.depth_graphic(t - T_DEPTH, sweep=io(prog(t, T_SWEEP - 0.1, 1.3)))
     rk = 1 - clamp((t - T_SUN) / 0.8)           # the rain clears as the sunrise dissolves in
-    if rk > 0: am.rain(a, t, **dict(RAIN_NEAR, n=int(300 * rk), k=0.6 * rk, water_y=None))
-    return view(a, NW / 2, NH / 2, K)
+    img = view(a, 112, 215, 6)                # tighter 6x framing: cars, gauge and the sweep fill the frame
+    return with_rain(img, t, k=0.75 * rk) if rk > 0 else img
 def sunrise_img(t): return view(sunrise(t), NW / 2, NH / 2, K)
 
 
 def whip(a, b, e, **kw):
-    return np.asarray(T.whip(Image.fromarray(a), Image.fromarray(b), io(e), **kw))
+    u8 = lambda x: Image.fromarray(np.clip(x, 0, 255).astype(np.uint8))
+    return np.asarray(T.whip(u8(a), u8(b), io(e), **kw))
 
 
 def picture(t):
@@ -294,23 +310,20 @@ def picture(t):
 
 
 # ------------------------------------------------------------------ text (sharp, inside the safe zone)
-HL1 = ((('Which car', None),), (('would you', None), ('SAVE?', YEL)))
-HL_ONE = ((('You can only', None),), (('save', None), ('ONE', YEL)))
-HL2 = ((("HIGHER ISN'T", None),), (('ALWAYS', None), ('SAFER', YEL)))
-
-
-def hl(cv, t, t0, t1, lines, y=440):
-    if not (t0 <= t < t1 + 0.2): return
-    img = headline_img(lines, 100)
-    k = popin(t, t0, 0.3) * popout(t, t1, 0.2) * min(1, 820 / img.width)
-    ov.place(cv, img, ov.SAFE_CX, y, k, -2.0, 'headline')
+# Clean kinetic headlines (overlays.kinetic): single outline + soft shadow, each word pops in on its spoken word.
+HL1 = [[('Which', None), ('car', None)], [('would', None), ('you', None), ('SAVE?', YEL)]]
+HL_ONE = [[('You', None), ('can', None), ('only', None)], [('save', None), ('ONE', YEL)]]
+HL2 = [[('Moving', None), ('water', None), ('can', None)], [('SWEEP', YEL)], [('an', None), ('SUV', None), ('away', None)]]
+T_ONE_W = [at('you'), at('can'), at('only'), at('save'), at('one')]
+T_HL2_W = [at('moving'), at('water', 1), at('can', 1), at('sweep'), at('an'), at('suv', 1), at('away')]
+LOOP_IN = [-0.5, -0.46, -0.42, -0.38, -0.3]     # HL1 builds again in the loop tail and is complete on the last frame
 
 
 def pills(cv, t):
     if T_HATCH + WHIP <= t < T_SUVC:
-        x, y = to_screen(HX + 20, G - 22, t); ov.chip(cv, t, T_LOWER + 0.1, T_SUVC - 0.12, 'LOWER', x, y, col=(110, 200, 230), sz=64)
+        x, y = to_screen(HX + 20, G - 24, t); ov.pill(cv, t, T_LOWER + 0.1, T_SUVC - 0.12, 'LOWER', x, y, col=(110, 200, 230), sz=64)
     if T_SUVC + WHIP <= t < T_DEPTH:
-        x, y = to_screen(SX + 24, G - 28, t); ov.chip(cv, t, T_HIGHER, T_DEPTH - 0.12, 'HIGHER', x, y, col=YEL, sz=64)
+        x, y = to_screen(SX + 24, G - 30, t); ov.pill(cv, t, T_HIGHER, T_DEPTH - 0.12, 'HIGHER', x, y, col=YEL, sz=64)
 
 
 def poll(cv, t):
@@ -322,17 +335,23 @@ def poll(cv, t):
 
 def overlay(cv, t):
     ov.reset()
-    hl(cv, t, -0.45, T_ONE - 0.25, HL1)        # on screen from frame 0 (pops in during the loop tail)
-    if t >= END: hl(cv, t - DUR, -0.45, 99, HL1)
-    hl(cv, t, T_ONE, T_HATCH - 0.12, HL_ONE)
+    ov.kinetic(cv, t, HL1, [None] * 5, 430, t1=T_ONE - 0.25)
+    if t >= END: ov.kinetic(cv, t - DUR, HL1, LOOP_IN, 430)
+    ov.kinetic(cv, t, HL_ONE, T_ONE_W, 430, t1=T_HATCH - 0.12) if t >= T_ONE_W[0] else None
     pills(cv, t)
-    hl(cv, t, T_DEPTH + WHIP, T_SUN + 0.1, HL2)
+    if t >= T_HL2_W[0]: ov.kinetic(cv, t, HL2, T_HL2_W, 440, t1=T_SUN + 0.1)
     poll(cv, t)
+
+
+@lru_cache(None)
+def vignette():
+    yy, xx = np.mgrid[0:H, 0:W]; r = np.sqrt(((xx - W / 2) / (W / 2)) ** 2 + ((yy - H / 2) / (H / 2)) ** 2)
+    return (1 - 0.38 * np.clip((r - 0.6) / 0.8, 0, 1) ** 1.4)[..., None].astype(np.float32)
 
 
 def frame(n, check=True):
     t = n / FPS
-    cv = Image.fromarray(np.clip(picture(t), 0, 255).astype(np.uint8)).convert('RGBA')
+    cv = Image.fromarray(np.clip(picture(t).astype(np.float32) * vignette(), 0, 255).astype(np.uint8)).convert('RGBA')
     overlay(cv, t)
     if check and ov.violations(): raise RuntimeError(f'safe zone violation at {t:.2f}: {ov.violations()}')
     return cv.convert('RGB').tobytes()

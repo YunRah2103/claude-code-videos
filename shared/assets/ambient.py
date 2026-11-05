@@ -177,7 +177,7 @@ def depth_graphic(t, w=216, h=384, bg=(18, 40, 46), sweep=0.0):
         if sweep and o.shape[1] > 45:                                          # the SUV floats off
             from PIL import Image
             o = np.asarray(Image.fromarray(o.astype(np.uint8), 'RGBA').rotate(-7 * sweep + 2 * math.sin(t * 4) * sweep, Image.NEAREST, expand=True), np.float32)
-            x0, dy = x0 + 70 * sweep ** 1.6, -5 * min(1, sweep * 3) + math.sin(t * 5) * sweep
+            x0, dy = x0 + 130 * sweep ** 1.8, -5 * min(1, sweep * 3) + math.sin(t * 5) * sweep
         paste(a, o, x0, gy - o.shape[0] + dy)
     a[gy + 1:gy + 3] = (30, 60, 66)
     water = np.array((46, 120, 140), np.float32)
@@ -189,10 +189,21 @@ def depth_graphic(t, w=216, h=384, bg=(18, 40, 46), sweep=0.0):
     for x in range(0, w):
         yy = yl + int(round(1.0 * math.sin(x * 0.35 + t * 5)))
         a[yy, x] = (150, 220, 230)
+    for row in range(3):                                                       # current chevrons race right
+        yy = yl + 14 + row * 22
+        for j in range(4):
+            cx = int((j * 60 + row * 23 + t * (20 + 90 * sweep)) % (w + 20)) - 10
+            for d in range(4):
+                for xx, y2 in ((cx + d, yy - 3 + d), (cx + d, yy + 3 - d)):
+                    if 0 <= xx < w and 0 <= y2 < h: a[y2, xx] += (np.array((190, 240, 245)) - a[y2, xx]) * (0.25 + 0.55 * sweep)
     q = ['.qqqq.', 'qq..qq', '....qq', '...qq.', '..qq..', '..qq..', '......', '..qq..']
+    qk = max(0.0, 1 - sweep * 3)                                               # the '?' gives way to the answer
     bob = int(round(1.5 * math.sin(t * 3)))
-    for y, row in enumerate(q):
-        for x, c in enumerate(row):
-            if c == 'q': a[150 + y * 5 + bob:155 + y * 5 + bob, 90 + x * 5:95 + x * 5] = (255, 217, 59)
-    glow(a, 105, 170, 34, (255, 217, 59), 0.22)
+    if qk > 0:
+        for y, row in enumerate(q):
+            for x, c in enumerate(row):
+                if c == 'q':
+                    sl = (slice(150 + y * 5 + bob, 155 + y * 5 + bob), slice(90 + x * 5, 95 + x * 5))
+                    a[sl] = a[sl] * (1 - qk) + np.array((255, 217, 59)) * qk
+        glow(a, 105, 170, 34, (255, 217, 59), 0.22 * qk)
     return a
