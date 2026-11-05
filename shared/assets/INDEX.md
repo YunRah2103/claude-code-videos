@@ -18,12 +18,18 @@ sharp on top with `overlays.py`. Render: `node shared/assets/pix3d/render3d.mjs 
 | Key unlock | Voxel key + padlock with pop-open shackle | `pix3d/props.js` `key()`, `padlock()` | speed-limit-deal-3d | - |
 | Renderer | Playwright frame renderer (PNG frames + anchors.json) | `pix3d/render3d.mjs`, `pix3d/page.html` | speed-limit-deal-3d | - |
 | Stamp | Rubber stamp (e.g. SECRET DEAL) that slams in | `overlays.py` `stamp()` | speed-limit-deal-3d, speed-limit-deal-2d | - |
-| Poll sticker | The 2D poll sticker (white card, YES / NO) at any scale | `overlays.py` `poll()` | speed-limit-deal-3d, speed-limit-deal-2d | - |
-| Text chips, headline, captions, tag, credit | Sharp full-res text placed inside the TikTok safe zone (12-62 % height, left 85 % width) with a per-frame violation check | `overlays.py` | speed-limit-deal-3d, speed-limit-deal-2d | - |
+| Poll sticker | The 2D poll sticker (white card, any two options, e.g. HATCHBACK / SUV) at any scale; flood-save grows it with `scale` | `overlays.py` `poll()` | speed-limit-deal-3d, speed-limit-deal-2d, flood-save | - |
+| Text chips, headline, captions, tag, credit | Sharp full-res text placed inside the TikTok safe zone (12-62 % height, left 85 % width) with a per-frame violation check | `overlays.py` | speed-limit-deal-3d, speed-limit-deal-2d, flood-save | - |
+| LOWER / HIGHER pills | Label pills over moving subjects (`chip(..., col=)`, auto-clamped into the safe zone) | `overlays.py` `chip()` | flood-save | - |
 | 2D gauge | Small pixel speedometer (70x66 grid, ~30 % of the width at 4x): lit segments, red limit line, needle, glowing limit digits only | `pix2d.py` `gauge()` | speed-limit-deal-2d (3D uses `pix3d/speedo.js` at r=9) | - |
 | 2D props | Handshake, key, padlock (same pixel maps as `pix3d/props.js`), glowing force-field wall | `pix2d.py` | speed-limit-deal-2d | - |
 | 2D palette | `palette.js` as RGB tuples | `pix2d.py` `PAL` | speed-limit-deal-2d | - |
-| Motion score | Mean frame-to-frame grey diff at 108x192, 10 fps (cold-open check, target >= 12) | `../motion_score.py` | speed-limit-deal-2d, speed-limit-deal-3d | - |
+| Rain layer | Two-layer diagonal pixel rain + splash rings on water, any t (also negative, for loops) | `ambient.py` `rain()` | flood-save | - |
+| Night-to-sunrise dissolve | `blend()` (eased linear mix, rain fades out with it) and dithered `dissolve()`; Bayer-dithered `glow()` and `vgrad()` skies | `ambient.py` | flood-save | - |
+| Water-depth graphic | Neutral gauge post, rising rippling water line, low + high car outlines, pixel '?' | `ambient.py` `depth_graphic()` | flood-save | - |
+| Mini main guy + umbrella | The main guy (characters/main-guy palette) as a small 9x23 outline-free figure for ambient scenes; red umbrella | `ambient.py` `mini_guy()`, `umbrella()` | flood-save | - |
+| Generic cars | Side-view hatchback and SUV, no logos or badges, any colour | `ambient.py` `hatchback()`, `suv()` | flood-save | - |
+| Motion score | Mean frame-to-frame grey diff at 108x192, 10 fps (cold-open check, target >= 12; calm ambient style >= 6) | `../motion_score.py` | speed-limit-deal-2d, speed-limit-deal-3d, flood-save | - |
 
 Two versions of one episode: `videos/speed-limit-deal-3d/src/beats.py` holds the shared timings, text, poll, photo and
 sound cues; each version's `render.py` only supplies the world (`shot(t)`) and screen anchors. Photo credit:
@@ -79,3 +85,6 @@ safe-zone `check` mode and loop-to-frame-0 ending: `videos/brand-story-lamborghi
 | Stamp, poll sticker, tag, credit line | Reused from `overlays.py` (`stamp`, `poll`, `tag`, `credit`) | `overlays.py` | brand-story-lamborghini, speed-limit-deal-2d/3d | - |
 
 Photos for brand-story-lamborghini: `videos/brand-story-lamborghini/assets/credits.json` (Wikimedia Commons, CC BY / CC BY-SA 4.0).
+
+Ambient pixel-moment look (`ambient.py`, first used by `videos/flood-save`): art at 216x384 upscaled 5x nearest, calm
+teal-rain night and pink-orange sunrise palettes taken from the pixel-moments preview; text stays sharp via `overlays.py`.
