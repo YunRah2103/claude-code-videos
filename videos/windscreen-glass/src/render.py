@@ -52,9 +52,12 @@ def shot_screen(t):
     img = G.frame(t).convert('RGBA'); fg = Image.new('RGBA', (W, H), (0, 0, 0, 0))
     fx.blit(fg, up(cb.windscreen(crack1(t), t=t), WS_S), WS_C[0], WS_C[1], anchor='center')
     for t0 in (-0.6, 0.0, 0.6, 1.2):                                   # the crack creeps out in small jumps
-        fx.ring(fg, t, t0, *CHIP, (236, 244, 252), life=0.4, r1=160)
+        fx.ring(fg, t, t0, *CHIP, (236, 244, 252), life=0.4, r1=260)
+    gx = lerp(-300, 1400, prog(t, -0.5, 1.4))                          # sunlight glare sweeping across the glass
+    if -300 < gx < 1400:
+        ImageDraw.Draw(fg).polygon([(gx, 560), (gx + 140, 560), (gx - 60, 1120), (gx - 200, 1120)], fill=(255, 255, 255, 70))
     img.alpha_composite(G.rim(fg)); P1.draw(img, t)
-    z = lerp(1.45, 1.1, oc(prog(t, -0.6, 1.6))); sh = 8 + 12 * math.exp(-max(0, t) * 2)
+    z = lerp(1.7, 1.1, oc(prog(t, -0.4, 1.4))); sh = 10 + 16 * math.exp(-max(0, t) * 2)
     return D.camera(img.convert('RGB'), t, z, CHIP[0] - 60, CHIP[1], sh)
 
 
