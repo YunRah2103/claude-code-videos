@@ -149,3 +149,27 @@ small RGBA grids, scaled with `pixanim.grid.up` (nearest). Example wiring: `vide
 | Poll sticker | Reused `overlays.poll()` (YES / NO) | `overlays.py` `poll()` | all three | - |
 | Soft metal clink | Synthesised low metal clink | `../audio/sfx.py` `clink()` | catalytic-theft | own work |
 | Voiceover script | One Gemini TTS request per episode (Fenrir), resumable, 0.95x / 1.0x tempo, pause cap if still over 15 s | `videos/tyres-black/src/make_voiceover.py` | all three | - |
+
+## Ten-episode dashboard series (abs-pumping ... warm-up-myth)
+
+One shared render (`shared/series10/engine.py`), called once per episode from `videos/<ep>/src/render.py`. Sprites are
+pixel grids scaled nearest with `pixanim.grid.up`. Voiceover: `shared/series10/make_voiceover.py` (Gemini TTS, Fenrir).
+
+| Asset | What it is | Path | Used by | Credit |
+|---|---|---|---|---|
+| Callout pills | Pixel pill with leader line, safe-zone registered | `carbits.py` `pill()` | all ten | own work |
+| Presenter placement | `SPOT`: open (200,1600) size 6, mid (175,1640) size 5, ask (300,1600) size 9 | `explainbits.py` `SPOT`, `series10/engine.py` `presenter()` | all ten | own work |
+| RPM gauge | Rev counter with red zone (ask shot, every episode) + full dashboard with AC button | `carbits.py` `rpm_gauge()`, `../pixanim/dash.py` | all ten; dashboard: abs-pumping, stop-start, flashing-check-engine | own work |
+| Car and wheel parts | Side-view car, top-down car with steered wheels, tyre, wheel hub with nuts | `../pixanim/car.py` `car()`, `explainbits.py` `car_top()`, `wheel_hub()`, `seriesbits.py` `tyre()` | abs-pumping, brake-squeal, wheel-nut-order, hill-wheels, ev-one-gear, warm-up-myth | own work |
+| Brake disc and pad | Face-on disc + caliper (clamp pulse); pad cutaway with steel wear tab | `explainbits.py` `disc_caliper()`, `pad_section()`, `PAD_TAB()` | abs-pumping, brake-squeal | own work |
+| Brake pedal | Pedal + shoe pressed by `press` | `explainbits.py` `pedal()` | abs-pumping | own work |
+| Star-pattern diagram | Numbered nuts joined in star order (and the wrong round-the-circle route) | `explainbits.py` `star_lines()`, `circle_lines()` | wheel-nut-order | own work |
+| Headlight cutaway | Headlight front view yellowing with `haze`; lens cutaway with eroding UV coat | `explainbits.py` `headlight()`, `lens_layers()` | headlight-yellow | own work |
+| Coolant bottle | Expansion tank with MIN/MAX, coolant colour, sludge; coolant hose that blocks | `explainbits.py` `coolant_bottle()`, `hose()` | coolant-mixing | own work |
+| Warning-light icon | Engine warning lamp (amber / flashing) | `carbits.py` `warn_lamp()` | flashing-check-engine | own work |
+| Stop-start bits | Traffic light, stop-start 'A' icon | `explainbits.py` `traffic_light()`, `ss_icon()` | stop-start | own work |
+| EV drive | Motor pinion + reduction gear; torque-vs-rpm chart | `explainbits.py` `gear_pair()`, `torque_graph()` | ev-one-gear | own work |
+| Thermometer | Fills to `k` | `explainbits.py` `thermo()` | warm-up-myth | own work |
+| Poll sticker | YES / NO or two-option sticker, position varies per episode | `overlays.py` `poll()` | all ten | own work |
+| Opening moves | push-in, whip-pan, pull-back, wipe, zoom-out, tilt, slow-motion, cut-in, drop-in, glitch-in | `../series10/engine.py` `opening()` | one per episode | own work |
+| ABS pulse, metal scrape | Synthesised sound effects | `../audio/sfx.py` `pulse()`, `scrape()` | abs-pumping, brake-squeal | own work |

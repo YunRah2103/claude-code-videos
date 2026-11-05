@@ -197,7 +197,22 @@ def clink(d=0.45):
     x = sum(a * np.sin(2*np.pi*f*t) * dec(d, k) for f, a, k in ((1480, 1.0, 11), (2390, 0.55, 16), (3710, 0.25, 24)))
     return fade(lp(x, 3)) * 0.28
 
-LIB = dict(clink=clink, snap=snap, click=click, creak=creak, pop=pop, whoosh=whoosh, sparkle=sparkle, ding=ding, thump=thump, boom=boom, stamp=stamp,
+def pulse(d=0.6):
+    """ABS judder: a fast train of soft low thumps (about 14 per second)."""
+    t = T(d); x = np.zeros(len(t))
+    for k in range(int(d * 14)):
+        i = int(k / 14 * SR); m = min(len(t) - i, int(0.05 * SR)); tt = np.arange(m) / SR
+        x[i:i + m] += np.sin(2*np.pi*70*tt) * np.exp(-tt * 70) + 0.25 * rng.standard_normal(m) * np.exp(-tt * 200)
+    return fade(lp(x, 6) * 0.5)
+
+def scrape(d=0.7):
+    """Metal-on-metal wear-tab scrape: a thin, wavering high squeal over gritty noise."""
+    t = T(d); f = 3200 + 260*np.sin(2*np.pi*7*t) + 120*np.sin(2*np.pi*31*t)
+    s = np.sin(2*np.pi*np.cumsum(f)/SR) * (0.6 + 0.4*np.sin(2*np.pi*11*t))
+    n = rng.standard_normal(len(t)); n = n - lp(n, 4)
+    return fade((0.4*s + 0.25*n) * np.minimum(1, t/0.05), 0.01, 0.12) * 0.32
+
+LIB = dict(pulse=pulse, scrape=scrape, clink=clink, snap=snap, click=click, creak=creak, pop=pop, whoosh=whoosh, sparkle=sparkle, ding=ding, thump=thump, boom=boom, stamp=stamp,
            confetti=confetti, vroom=vroom, screech=screech, slide_down=slide_down, poof=poof, buzzer=buzzer,
            fall=fall, crash=crash, coin=coin_clink, cha_ching=cha_ching, hum=hum, boing=boing, beep=beep, glass_crack=glass_crack,
            whirr=whirr, hiss=hiss)
