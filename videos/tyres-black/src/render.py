@@ -184,7 +184,7 @@ SCENE = D.sequence([(-9, shot_spin), (T2, shot_filler), (T3, shot_sun), (T4, sho
 
 def overlay(cv, t):
     ov.headline(cv, t, T2 - 0.2, HOOK, y=440)
-    if t >= END_T: ov.headline(cv, max(-0.35, t - DUR), T2 - 0.2, HOOK, y=440)
+    if t >= END_T: ov.headline(cv, max(-0.35, t - DUR + 1 / 60), T2 - 0.2, HOOK, y=440)
     ov.poll(cv, t, T5 + 0.1, END_T - 0.1, 'Would you have guessed that?', ov.SAFE_CX, 640, 0.9)
 
 
@@ -194,7 +194,7 @@ CUES = [(0.02, 'screech', 1.0), (0.05, 'whoosh', 0.5), (ws(3), 'pop', 0.6), (ws(
         (T4 + 0.1, 'screech', 0.7), (WEAR, 'buzzer', 0.5), (WEAR + 0.05, 'pop', 0.7),
         (T5 + 0.1, 'pop', 0.8), (ASK, 'sparkle', 0.5), (END_T, 'whoosh', 0.6)]
 
-D.wire(HERE, WORDS, DUR, END_T, SCENE, [T2, T3, T4, T5], CUES, KEYCOL, overlay, cap=(T2, 1100, ((ASK - 0.05, 99),)))
+D.wire(HERE, WORDS, DUR, END_T, SCENE, [T2, T3, T4, T5], CUES, KEYCOL, overlay, lead=1 / 60, cap=(T2, 1100, ((ASK - 0.05, 99),)))
 
 if __name__ == '__main__':
     D.cli()

@@ -18,18 +18,19 @@ from assets import overlays as ov
 CFG = {}
 
 
-def loop_shot(scene, dur, end_t):
+def loop_shot(scene, dur, end_t, lead=0.0):
+    """lead: shift the loop so the last frame shows scene(0) exactly (lead = 1 / FPS); 0 keeps the old timing."""
     def shot(t):
         ov.reset()
         if t >= end_t:
             e = io(prog(t, end_t, 0.26))
-            return scene(t - dur) if e >= 1 else T.whip(scene(end_t - 0.01), scene(t - dur), e, dx=-1)
+            return scene(t - dur + lead) if e >= 1 else T.whip(scene(end_t - 0.01), scene(t - dur + lead), e, dx=-1)
         return scene(t)
     return shot
 
 
-def wire(here, words, dur, end_t, scene, marks, cues, keycol, overlay, cap=(0.0, 1075), gap=None, bar_car='red', lufs=-16):
-    shot = loop_shot(scene, dur, end_t)
+def wire(here, words, dur, end_t, scene, marks, cues, keycol, overlay, cap=(0.0, 1075), gap=None, bar_car='red', lufs=-16, lead=0.0):
+    shot = loop_shot(scene, dur, end_t, lead)
     CFG.update(dur=dur, end_t=end_t, cap=cap)
     kit.setup(here, words, dur, end_t, [(-3.0, shot)] + [(m, shot) for m in marks], {}, cues, keycol, overlay=overlay,
               bar_car=bar_car, gauge=False, loud=lufs, gap=gap, crisp=True, end=False, flash=False, tag='corner')
