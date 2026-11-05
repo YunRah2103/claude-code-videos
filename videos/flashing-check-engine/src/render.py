@@ -37,11 +37,11 @@ def shot_open(t):
 
 
 def shot_cut(t):
-    img = layer(garage(t), (cb.warn_lamp(True), 14, 300, 800), (cb.warn_lamp(flash(t)), 14, 780, 800))
+    img = layer(garage(t), (cb.warn_lamp(True), 14, 300, 700), (cb.warn_lamp(flash(t)), 14, 780, 700))
     d = ImageDraw.Draw(img)
     for x, lab in ((300, 'STEADY'), (780, 'FLASHING')):
-        d.text((x, 1010), lab, font=X._font(56), fill=(240, 242, 248), anchor='mm', stroke_width=6, stroke_fill=(26, 26, 46))
-    cb.pill(img, t, sw(1) + 0.2, 99, 'CHECK SOON', (300, 700), (420, 420), *PY)
+        d.text((x, 900), lab, font=X._font(56), fill=(240, 242, 248), anchor='mm', stroke_width=6, stroke_fill=(26, 26, 46))
+    cb.pill(img, t, sw(1) + 0.2, 99, 'CHECK SOON', (300, 600), (420, 420), *PY)
     return img
 
 
@@ -63,7 +63,7 @@ def shot_key(t):
 CUES = [(0.05, 'thump', 0.8), (0.1, 'beep', 0.7), (0.43, 'beep', 0.6), (sw(1) + 0.2, 'pop', 0.6), (sw(2), 'beep', 0.8),
         (sw(2) + 0.3, 'buzzer', 0.5), (sw(3) + 0.2, 'hiss', 0.6), (sw(4), 'ding', 0.5)]
 S.build(HERE, WORDS, HOOK, KEYCOL, 'drop-in', (540, 1000), (540, 1000), (shot_open, shot_cut, shot_key), 2,
-        ('Would you know the difference?', (('YES', GRN), ('NO', RED)), ov.SAFE_CX + 20, 420, -2), CUES, cut_point=(780, 800), key_point=Engine.BLOCK)
+        ('Would you know the difference?', (('YES', GRN), ('NO', RED)), ov.SAFE_CX + 20, 420, -2), CUES, cut_point=(780, 700), key_point=Engine.BLOCK)
 
 if __name__ == '__main__':
     D.cli()

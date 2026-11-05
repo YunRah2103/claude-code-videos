@@ -51,11 +51,11 @@ def shot_key(t):
         cb.pill(img, t, sw(2) + 0.2, 99, 'LONG IDLE = FUEL', (560, 820), (470, 420), *PR)
         return img
     k1 = oc(prog(t, sw(3) + 0.2, 2.5)); k2 = 0.35 * k1
-    layer(img, (X.thermo(k2), 9, 320, 840), (X.thermo(k1), 9, 760, 840))
+    layer(img, (X.thermo(k2), 9, 320, 700), (X.thermo(k1), 9, 760, 700))
     d = ImageDraw.Draw(img)
     for x, lab in ((320, 'IDLING'), (760, 'DRIVING')):
-        d.text((x, 1110), lab, font=X._font(56), fill=(240, 242, 248), anchor='mm', stroke_width=6, stroke_fill=(26, 26, 46))
-    cb.pill(img, t, sw(3) + 0.3, 99, 'WARMS UP FASTER', (760, 700), (470, 420), *PY)
+        d.text((x, 960), lab, font=X._font(56), fill=(240, 242, 248), anchor='mm', stroke_width=6, stroke_fill=(26, 26, 46))
+    cb.pill(img, t, sw(3) + 0.3, 99, 'WARMS UP FASTER', (760, 560), (470, 420), *PY)
     return img
 
 

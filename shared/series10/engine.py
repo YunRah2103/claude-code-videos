@@ -132,12 +132,12 @@ def build(here, words, hook, keycol, opening_kind, focus, point, shots, key_sent
 
     CFG['starts'] = {s_cut: T2, s_key: T3}
     scene = D.sequence([(-9, shot1), (T2, mid(s_cut, P2, cut_z)), (T3, mid(s_key, P3, 1.04)), (T4, ask)])
-    q, opts, px, py, rot = poll
+    q, opts, px, py, rot = poll[:5]; pscale = poll[5] if len(poll) > 5 else 0.9
 
     def overlay(cv, t):
         ov.headline(cv, t, T2 - 0.25, hook, y=headline_y)
         if t >= END_T: ov.headline(cv, max(-0.35, t - DUR), T2 - 0.25, hook, y=headline_y)
-        ov.poll(cv, t, ws(st[-1]) - 0.1, END_T - 0.1, q, px, py, 0.9, opts, rot)
+        ov.poll(cv, t, ws(st[-1]) - 0.1, END_T - 0.1, q, px, py, pscale, opts, rot)
 
     allcues = [(0.0, 'whoosh', 0.6), (T4 + 0.25, 'pop', 0.8), (ws(st[-1]) + 0.1, 'sparkle', 0.5), (END_T, 'whoosh', 0.6)] + list(cues)
     D.wire(here, words, DUR, END_T, scene, [T2, T3, T4], allcues, keycol, overlay, cap=(T2 - 0.05, 1075), lead=1 / FPS)

@@ -69,7 +69,7 @@ def shot_key(t):
 
 CUES = [(0.0, 'creak', 0.6), (sw(1) + 1.2, 'click', 0.8), (sw(1) + 2.5, 'click', 0.8), (sw(2), 'pop', 0.6), (sw(2) + 0.15, 'pop', 0.6), (sw(2) + 0.3, 'pop', 0.6)]
 S.build(HERE, WORDS, HOOK, KEYCOL, 'slow-motion', (560, 1250), (560, 1380), (shot_open, shot_cut, shot_key), 2,
-        ('Which way do you turn yours?', (('TOWARDS', GRN), ('AWAY', RED)), ov.SAFE_CX - 20, 680, -4), CUES, cut_point=(300, 880), key_point=(540, 900))
+        ('Which way do you turn yours?', (('TOWARDS', GRN), ('AWAY', RED)), ov.SAFE_CX - 20, 680, -4, 0.8), CUES, cut_point=(300, 880), key_point=(540, 900))
 
 if __name__ == '__main__':
     D.cli()

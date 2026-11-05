@@ -24,11 +24,12 @@ HUB = (560, 820); SC = 12
 
 
 def hub(img, t, done=0, hi=-1, rot=0):
-    layer(img, (X.wheel_hub(done, hi), SC, HUB[0], HUB[1]))
+    fg = Image.new('RGBA', (W, H), (0, 0, 0, 0)); fx.blit(fg, up(X.wheel_hub(done, hi), SC), HUB[0], HUB[1], rot=rot, anchor='center')
+    img.alpha_composite(G.rim(fg))
 
 
 def shot_open(t):
-    img = garage(t); hub(img, t, hi=X.STAR[5][int(t * 5) % 5])
+    img = garage(t); hub(img, t, hi=X.STAR[5][int(t * 5) % 5], rot=150 * (1 - oc(prog(t, -0.4, 1.4))))
     return img
 
 
