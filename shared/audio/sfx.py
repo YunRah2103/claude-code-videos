@@ -191,7 +191,13 @@ def hiss(d=0.9):
     return fade(n * (0.35*np.minimum(1, t/0.02)) * np.exp(-t*2.2), 0.002, 0.2)
 
 
-LIB = dict(snap=snap, click=click, creak=creak, pop=pop, whoosh=whoosh, sparkle=sparkle, ding=ding, thump=thump, boom=boom, stamp=stamp,
+def clink(d=0.45):
+    """Soft metal clink (a converter part / metal tile set down): low inharmonic partials, gentle decay."""
+    t = T(d)
+    x = sum(a * np.sin(2*np.pi*f*t) * dec(d, k) for f, a, k in ((1480, 1.0, 11), (2390, 0.55, 16), (3710, 0.25, 24)))
+    return fade(lp(x, 3)) * 0.28
+
+LIB = dict(clink=clink, snap=snap, click=click, creak=creak, pop=pop, whoosh=whoosh, sparkle=sparkle, ding=ding, thump=thump, boom=boom, stamp=stamp,
            confetti=confetti, vroom=vroom, screech=screech, slide_down=slide_down, poof=poof, buzzer=buzzer,
            fall=fall, crash=crash, coin=coin_clink, cha_ching=cha_ching, hum=hum, boing=boing, beep=beep, glass_crack=glass_crack,
            whirr=whirr, hiss=hiss)

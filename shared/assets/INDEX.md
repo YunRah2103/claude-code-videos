@@ -127,3 +127,25 @@ Example: `videos/oil-dipstick/src/render.py`.
 | Coolant spray, steam | Looping droplet fan under gravity (`t1` stops it); blocky rising steam column | `garagebits.py` `spray()`, `steam()` | hot-radiator | own work |
 | Ring gear | Flywheel ring gear / pinion at any angle (starter scene, with `pixanim/autos.motor()`) | `garagebits.py` `gear()` | cold-battery | own work |
 | Whirr, hiss | Slow struggling starter whirr; steam / pressure hiss | `../audio/sfx.py` `whirr()`, `hiss()` | cold-battery, hot-radiator | own work |
+
+## Explainer series kit (`seriesbits.py`)
+
+Pixel props for the tyres-black / seatbelt-pretensioner / catalytic-theft 'car stuff, explained' series (same wiring as the
+dashboard kit: `dashep.py`, text through `overlays.py`, recurring dashboard with the A/C button in the ask shot). Sprites are
+small RGBA grids, scaled with `pixanim.grid.up` (nearest). Example wiring: `videos/tyres-black/src/render.py`.
+
+| Asset | What it is | Path | Used by | Credit |
+|---|---|---|---|---|
+| Tyre | Side-on tyre: tread blocks + 5-spoke rim turning; `light` = pale unfilled rubber, `wear` flattens the tread | `seriesbits.py` `tyre()` | tyres-black | own work |
+| Tyre cutaway | Cut-open tread rubber that fills with jiggling carbon-black particles (and darkens) | `seriesbits.py` `rubber_block()` | tyres-black | own work |
+| Sun-protection shield | Pixel sun with turning rays; blue shield whose tick draws on | `seriesbits.py` `sun()`, `shield()` | tyres-black | own work |
+| Wear bar | Horizontal tread-life bar (any colour) | `seriesbits.py` `wear_bar()` | tyres-black | own work |
+| Seatbelt buckle | Buckle + pretensioner tube cut open: the charge flashes, gas drives the piston, the buckle is pulled down | `seriesbits.py` `buckle()` | seatbelt-pretensioner | own work |
+| Car seat, belt motor | Seat side view (`RETRACTOR` belt exit); electric belt motor with a spinning gear | `seriesbits.py` `seat()`, `motor()` | seatbelt-pretensioner | own work |
+| Exhaust + catalytic converter | Exhaust line: pipe, converter cut open (honeycomb glows with `glow`), silencer; `EXH_CAT` anchor; crop `(62, 4, 122, 36)` for the converter alone | `seriesbits.py` `exhaust()` | catalytic-theft | own work |
+| Precious-metal tiles | Ingot tiles for platinum / palladium / rhodium with a sweeping shine | `seriesbits.py` `metal_tile()` | catalytic-theft | own work |
+| Thief silhouette | Flat dark crouching figure with a saw (no features); scenes blur it | `seriesbits.py` `thief()` | catalytic-theft | own work |
+| Callout pills | Reused `carbits.pill()` (CARBON BLACK, SUN PROTECTION, WEARS FASTER, CHARGE, MOTOR, SNUG, PRETENSIONER, BEFORE IMPACT, CLEANS THE FUMES, PLATINUM, PALLADIUM, RHODIUM) | `carbits.py` `pill()` | all three | own work |
+| Poll sticker | Reused `overlays.poll()` (YES / NO) | `overlays.py` `poll()` | all three | - |
+| Soft metal clink | Synthesised low metal clink | `../audio/sfx.py` `clink()` | catalytic-theft | own work |
+| Voiceover script | One Gemini TTS request per episode (Fenrir), resumable, 0.95x / 1.0x tempo, pause cap if still over 15 s | `videos/tyres-black/src/make_voiceover.py` | all three | - |
