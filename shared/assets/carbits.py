@@ -4,8 +4,8 @@ Every sprite is drawn on a small pixel grid and returned as RGBA; scale it with 
     rpm_gauge(deg, ring)        rev counter with a red zone; ring 0..1 lights a red glow over the red section
     warn_lamp(on)               engine warning light (amber when on)
     fuel_cap(rot, door)         car rear quarter, fuel flap open, cap face-on (CAP_XY), turned by rot degrees
-    glass_layers(crack, stop)   three-layer windscreen cutaway (glass / plastic / glass) with a crack that stops at the plastic
-    windscreen(crack)           a windscreen seen from the front with a stone chip and spreading crack
+    glass_layers(crack, stop, shards)  glass / plastic / glass cutaway; crack stops at the plastic, pieces stay stuck
+    windscreen(crack, clear, wiper)  windscreen front view: stone chip, star crack -> spiderweb, see-through glass, wipers
     fuel_cut()                  fuel pump icon with a red slash
     tick(on)                    small green tick in a box ('drive' marks)
     pill(cv, t, t0, t1, ...)    pixel callout pill with a leader line (pixanim.diagram.label), registered for the safe-zone check
@@ -114,7 +114,7 @@ def _crack_path(seed, x0, y0, y1, jag=3):
     return pts
 
 
-def glass_layers(crack=0.0, stop=0.0, t=0.0, w=140, layer_h=(16, 8, 16)):
+def glass_layers(crack=0.0, stop=0.0, t=0.0, w=140, layer_h=(16, 8, 16), shards=0.0):
     """Side cutaway of laminated glass. crack 0..1 runs a crack down through the top glass; stop 0..1 flashes the
     plastic where the crack is caught and fans the crack out sideways (it spreads, it does not go through)."""
     g1, p, g2 = layer_h; h = g1 + p + g2 + 4
@@ -141,33 +141,63 @@ def glass_layers(crack=0.0, stop=0.0, t=0.0, w=140, layer_h=(16, 8, 16)):
         if stop > 0.01:                                                                # spreads along the plastic boundary
             sp = int(22 * min(1, stop)); yb = 2 + g1 - 1
             d.line((cx - sp, yb, cx + sp, yb), fill=(30, 40, 52))
+    if shards > 0.01:                                       # top glass broken into pieces that rattle but stay stuck to the plastic
+        cx = w // 2; xs = [2, cx - 34, cx - 17, cx, cx + 15, cx + 33, w + 2]
+        for i, (xa, xb) in enumerate(zip(xs, xs[1:])):
+            dy = -round(shards * max(0, math.sin(t * 24 + i * 2.1)))
+            if dy:
+                piece = img.crop((xa, 2, xb, 2 + g1)); img.paste((0, 0, 0, 0), (xa, 2, xb, 2 + g1)); img.alpha_composite(piece, (xa, 2 + dy))
+        d = ImageDraw.Draw(img)
+        for i, x in enumerate(xs[1:-1]):
+            if abs(x - cx) > 2: d.line(_crack_path(30 + i, x, 2, 2 + g1 - 1), fill=(30, 40, 52))
     return img
 
 
-def windscreen(crack=0.0, chip=True, t=0.0):
-    """Front view through a windscreen (sky + horizon) with a stone chip low on the passenger side and a growing crack."""
+@lru_cache(4)
+def _spokes(n=9, steps=46, seed=5):
+    """Fixed star-crack spoke paths (so a growing crack keeps its shape frame to frame)."""
+    rnd = random.Random(seed); out = []
+    for k in range(n):
+        a = k * 2 * math.pi / n + rnd.uniform(-0.3, 0.3); x = y = 0.0; pts = [(0.0, 0.0)]
+        reach = rnd.uniform(0.55, 1.0)
+        for _ in range(steps):
+            a += rnd.uniform(-0.12, 0.12); x += math.cos(a); y += math.sin(a) * 0.8; pts.append((x, y))
+        out.append((reach, pts))
+    return out
+
+
+def windscreen(crack=0.0, chip=True, t=0.0, clear=False, wiper=0.0):
+    """Front view through a windscreen with a stone chip on the passenger side and a growing star crack.
+    crack 0..1 grows the star, 1..2 spreads it into a long spiderweb (still in one piece); clear=True leaves the glass
+    see-through (lightly tinted) so a world drawn behind shows; wiper 0..1 sweeps both wiper arms up."""
     W_, H_ = 120, 76
     img = Image.new('RGBA', (W_, H_), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
-    poly = [(14, 6), (106, 6), (118, 70), (2, 70)]
-    d.polygon(poly, fill=(40, 42, 50))                                                 # frame
+    d.polygon([(14, 6), (106, 6), (118, 70), (2, 70)], fill=(40, 42, 50))                 # frame
     inner = [(18, 10), (102, 10), (112, 66), (8, 66)]
-    d.polygon(inner, fill=(92, 140, 176))
-    for yy in range(10, 40): d.line((18 - (yy - 10) * 10 // 56, yy, 102 + (yy - 10) * 10 // 56, yy), fill=(92 + yy, 140 + yy // 2, 176))
-    d.polygon([(8, 52), (40, 44), (70, 48), (112, 46), (112, 66), (8, 66)], fill=(54, 66, 80))  # horizon hills
+    if clear:
+        d.polygon(inner, fill=(0, 0, 0, 0)); d.polygon(inner, fill=(120, 170, 210, 46))
+        d.line((18, 10, 102, 10), fill=(150, 156, 168)); d.line((8, 66, 112, 66), fill=(20, 21, 26))
+    else:
+        d.polygon(inner, fill=(92, 140, 176))
+        for yy in range(10, 40): d.line((18 - (yy - 10) * 10 // 56, yy, 102 + (yy - 10) * 10 // 56, yy), fill=(92 + yy, 140 + yy // 2, 176))
+        d.polygon([(8, 52), (40, 44), (70, 48), (112, 46), (112, 66), (8, 66)], fill=(54, 66, 80))  # horizon hills
     for gx in (30, 64):                                                                 # glare stripes
         d.line((gx, 12, gx - 12, 64), fill=(220, 236, 248, 90)); d.line((gx + 3, 12, gx - 9, 64), fill=(220, 236, 248, 50))
-    d.line((24, 64, 56, 58), fill=(26, 26, 32), width=2); d.line((66, 64, 98, 58), fill=(26, 26, 32), width=2)  # wipers
+    for px, ln in ((24, 32), (66, 32)):                                                 # wiper arms, pivot at the bottom
+        a = math.radians(170 - 9 - 115 * wiper)
+        d.line((px, 64, px - ln * math.cos(a), 64 - ln * math.sin(a) * 0.9), fill=(26, 26, 32), width=2)
     cx, cy = 76, 40
     if chip:
         d.point((cx, cy), fill=(250, 252, 255)); d.point((cx + 1, cy), fill=(200, 210, 220)); d.point((cx, cy + 1), fill=(200, 210, 220))
     if crack > 0.01:
-        rnd = random.Random(5)
-        for k in range(7):                                                              # star crack, spreads in steps
-            a = k * 2 * math.pi / 7 + rnd.uniform(-0.3, 0.3); L = (6 + rnd.uniform(0, 12)) * min(1, crack)
-            x, y = cx, cy; pts = [(x, y)]
-            for s in range(int(L)):
-                x += math.cos(a) + rnd.uniform(-0.5, 0.5); y += math.sin(a) + rnd.uniform(-0.5, 0.5); pts.append((x, y))
-            if len(pts) > 1: d.line(pts, fill=(236, 244, 252))
+        for reach, pts in _spokes():
+            n = int(len(pts) * reach * (0.45 * min(1, crack) + 0.55 * min(1, max(0, crack - 1))))   # star by 1, web by 2
+            seg = [(cx + x, cy + y) for x, y in pts[:max(2, n)]]
+            d.line(seg, fill=(236, 244, 252))
+        if crack > 1.05:                                                                # spiderweb rings between spokes
+            for rr in (7, 13, 20):
+                k = min(1, (crack - 1) * 2 - rr / 40)
+                if k > 0: d.arc((cx - rr, cy - rr * 0.8, cx + rr, cy + rr * 0.8), 200, 200 + 300 * k, fill=(214, 228, 240))
         rr = 4 * min(1, crack)
         if rr > 1: d.ellipse((cx - rr, cy - rr, cx + rr, cy + rr), outline=(210, 226, 240))
     return img
