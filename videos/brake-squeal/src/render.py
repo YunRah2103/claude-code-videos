@@ -24,7 +24,7 @@ KEYCOL = {'squeal': RED, 'warning.': YEL, 'tab.': YEL, 'thin,': RED, 'scrapes': 
 
 
 def shot_open(t):
-    img = garage(t); stop = oc(prog(t, -0.6, 1.4)); x = lerp(300, 600, stop)
+    img = garage(t); stop = oc(prog(t, -0.25, 1.15)); x = lerp(-150, 600, stop)
     layer(img, (car('red', int(x * 0.9) % 360, brake=True), 9, x, 1560, 'bottom'))
     for k in range(3): fx.ring(img, (t + k * 0.22) % 0.66, 0, x + 212, 1470, (255, 210, 63), life=0.6, r1=230)
     return img
