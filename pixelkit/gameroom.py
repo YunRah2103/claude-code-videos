@@ -9,7 +9,7 @@ import math
 
 import numpy as np
 
-from .core import (T, Canvas, StepClock, blob_mask, cable, cycle, outline, pattern,
+from .core import (T, Canvas, StepClock, blob_mask, cable, cycle, nick_edges, outline, pattern,
                    render, rotate_nn, shade, sprite, texture, wobble_mask)
 from .cozyroom import (PAL, PGLOW, WARM, _grow, _lut,
                        AMBER, BLUE, BROWN, CREAM, CYAN, DKBROWN, DKGREEN, DKSLATE, FOREST,
@@ -120,8 +120,8 @@ def pink_plush():
 # --------------------------------------------------------------------- set ---
 def _seams(c, x0, y0, x1, y1, col, step=9, gap=16, vertical=True, phase=0):
     """Structural lines (planks, panels, quilt seams) every `step` px with a
-    1 px gap every `gap` px. They break flat areas and long edges while
-    reading as calm construction detail rather than noise."""
+    1 px gap every `gap` px: calm construction detail that also breaks flat
+    areas and long straight edges."""
     if vertical:
         for k, x in enumerate(range(x0 + step - 1, x1, step)):
             for y in range(y0, y1):
@@ -134,133 +134,190 @@ def _seams(c, x0, y0, x1, y1, col, step=9, gap=16, vertical=True, phase=0):
                     c.px(x, y, col)
 
 
-def _solid(mask, ramp):
-    """Shaded prop with a selective outline in its own darkest tone."""
-    return shade(mask, ramp, line=ramp[0])
+def tex(w, h, base, seam=None, step=9, vertical=True, gap=16, rim=None):
+    """Face texture: base colour, optional seams, optional dashed rim row 0."""
+    c = Canvas(w, h, base)
+    if seam is not None:
+        _seams(c, 0, 0, w, h, seam, step, gap, vertical)
+    if rim is not None:
+        for x in range(w):
+            c.px(x, 0, rim if x % 7 else base)
+    return c
+
+
+# ------------------------------------------------------------------ 3D set ---
+from .persp import Persp                                    # noqa: E402
+
+CAM = Persp(W, H, 67, 122, 150)
+FX0, FY0, FX1, FY1, HW = 20, 40, 114, 206, 40               # floor rect, wall height
+
+
+def _hull(pts):
+    pts = sorted(set((round(x, 2), round(y, 2)) for x, y in pts))
+
+    def cross(o, a, b):
+        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+    lo, up = [], []
+    for p_ in pts:
+        while len(lo) >= 2 and cross(lo[-2], lo[-1], p_) <= 0:
+            lo.pop()
+        lo.append(p_)
+    for p_ in reversed(pts):
+        while len(up) >= 2 and cross(up[-2], up[-1], p_) <= 0:
+            up.pop()
+        up.append(p_)
+    return lo[:-1] + up[:-1]
+
+
+WIN = (88, 148, 8, 32)                                       # window on the left wall: y0, y1, z0, z1
+PATCH = [(21, 98), (21, 150), (64, 202), (84, 176)]          # where the window light lands
 
 
 def build(seed=7):
     r = np.random.default_rng(seed)
+    cam = CAM
     c = Canvas(W, H, INK)
-    # --- back wall: dark teal panels, shelf, four plain consoles
-    c.rect(4, 4, W - 8, 30, TEAL)
-    _seams(c, 4, 4, W - 4, 22, INK, step=10)
-    c.blit(shade(wobble_mask(W - 6, 3, r, 1, (8, 15), (1, 1), "b"), GREYR), 3, 21)
-    for (x, y, w, h, ramp) in ((22, 12, 18, 10, LIGHTR), (45, 11, 18, 11, LIGHTR),
-                               (70, 11, 16, 11, GREYR), (94, 12, 18, 10, GREYR)):
-        c.blit(_solid(wobble_mask(w, h, r, 1, (4, 8), (1, 2)), ramp), x, y)
-        c.rect(x + 3, y + h - 3, w - 6, 1, ramp[1])
-    c.px(27, 16, RED); c.px(30, 16, BLUE)
-    c.rect(49, 15, 10, 1, SLATE); c.rect(49, 17, 10, 1, SLATE)
-    c.rect(74, 14, 8, 2, INK)
-    c.ellipse(99, 13, 7, 7, line=FOREST)
-    # vent band: short slats either side of a backlit strip
-    c.rect(4, 25, W - 8, 9, NAVY)
-    for x0 in (8, 94):
-        for y in (27, 29, 31):
-            for xs in range(x0, x0 + 30, 8):
-                c.rect(xs, y, 6, 1, INK)
-    c.rect(40, 26, 52, 7, BLUE)
-    _seams(c, 40, 26, 92, 33, NAVY, step=9, gap=5)
-    # --- desk (plum, plank seams), drawers, monitors, a few props
-    c.blit(_solid(wobble_mask(104, 26, r, 1, (8, 15), (2, 3)), [INK, DKBROWN, PLUM, MAUVE]), 15, 34)
-    _seams(c, 17, 37, 117, 58, DKBROWN, step=8, vertical=False)
-    c.blit(_solid(wobble_mask(20, 11, r, 1, (5, 9), (1, 1)), [DKBROWN, DKBROWN, PLUM, MAUVE]), 22, 47)
-    c.rect(30, 52, 4, 1, SALMON)
-    c.blit(rotate_nn(shade(wobble_mask(24, 14, r, 1, (4, 7), (1, 1)), [INK, INK, INK, NAVY]), -6), 20, 35)
-    c.blit(shade(wobble_mask(32, 11, r, 1, (4, 7), (1, 1)), [INK, INK, INK, NAVY]), 45, 35)
-    c.blit(rotate_nn(shade(wobble_mask(14, 12, r, 1, (4, 7), (1, 1)), [INK, INK, INK, NAVY]), 28), 79, 39)
-    c.blit(shade(wobble_mask(20, 4, r, 1, (4, 7), (1, 1)), [INK, NAVY, DKSLATE, SLATE], line=INK), 52, 49)
-    c.blit(sprite(".ooo.\noWWWo\noWWWo\n.ooo.", {"o": INK, "W": LTGREY}), 99, 47)        # mug
-    c.blit(_solid(wobble_mask(7, 10, r, 1, (2, 4), (1, 1)), LIGHTR), 108, 44)              # handheld
-    c.rect(110, 46, 3, 3, DKSLATE)
-    # chair
-    c.blit(_solid(blob_mask(20, 14, r, 1), [INK, NAVY, DKSLATE, SLATE]), 50, 60)
-    # --- floor: dark boards (vertical planks) across the room
-    c.rect(4, 58, W - 8, 168, DKBROWN)
-    _seams(c, 4, 58, W - 4, 226, INK, step=9)
-    # right floor half catches more light (the beam does the rest)
-    # --- left wall with window (blinds), right wall with three posters
-    c.blit(_solid(wobble_mask(14, 194, r, 1, (8, 15), (0, 0), "r"), [INK, INK, NAVY, DKSLATE]), -4, 34)
-    c.blit(shade(wobble_mask(17, 62, r, 1, (8, 14), (1, 2)), GREYR, line=NAVY), 2, 86)
-    c.rect(4, 89, 13, 56, INK)
-    c.blit(_solid(wobble_mask(16, 194, r, 1, (8, 15), (0, 0), "l"), [INK, INK, NAVY, DKSLATE]), 123, 34)
-    for (x, y, w, h, ramp, ang) in ((114, 62, 12, 22, [BROWN, WOOD, TAN, CREAM], 5),
-                                    (115, 96, 11, 20, [DKBROWN, MAROON, RED, SALMON], -4),
-                                    (114, 128, 12, 18, [NAVY, DKSLATE, SLATE, GREY], 3)):
-        pc = _solid(wobble_mask(w, h, r, 1, (4, 8), (1, 1)), ramp)
-        pc[h // 2:h // 2 + 2, 2:w - 2] = np.where(pc[h // 2:h // 2 + 2, 2:w - 2] != T, ramp[1], T)
-        pc[3, 2:w - 3] = np.where(pc[3, 2:w - 3] != T, ramp[3], T)
-        c.blit(rotate_nn(pc, ang), x, y)
-    # --- beanbag (green), rug (plum with banded stripes), bed (quilted indigo)
-    c.blit(_solid(blob_mask(30, 22, r, 2), BEAN), 78, 62)
-    c.blit(bear(), 82, 52)
-    rug = _solid(wobble_mask(36, 84, r, 1, (8, 15), (2, 3)), RUG)
+    fw, fd = FX1 - FX0, FY1 - FY0
+    # --- walls (textured faces in perspective)
+    back = tex(fw, HW, TEAL, INK, step=10, gap=7, rim=NAVY)
+    back.rect(0, 24, 22, 9, NAVY); back.rect(72, 24, 22, 9, NAVY)
+    for y in (25, 27, 29, 31):
+        for x0 in (1, 73):
+            for xs in range(x0, x0 + 20, 7):
+                back.rect(xs, y, 5, 1, INK)
+    back.rect(22, 24, 50, 9, BLUE)
+    _seams(back, 22, 24, 72, 33, NAVY, step=9, gap=5)
+    back.rect(0, 36, fw, 4, NAVY)
+    for x in range(0, fw, 6):
+        back.px(x, 36, DKSLATE)
+    cam.warp(c, back.a, "y", FY0, FX0, FX1, 0, HW)
+    left = tex(fd, HW, NAVY, INK, step=12, gap=7, rim=DKSLATE)
+    wy0, wy1, wz0, wz1 = WIN
+    left.rect(wy0 - FY0 - 1, HW - wz1 - 1, wy1 - wy0 + 2, wz1 - wz0 + 2, GREY)
+    left.rect(wy0 - FY0, HW - wz1, wy1 - wy0, wz1 - wz0, INK)
+    cam.warp(c, left.a, "x", FX0, FY0, FY1, 0, HW)
+    right = tex(fd, HW, DKSLATE, NAVY, step=12, gap=7, rim=SLATE)
+    for (u0, u1, ramp) in ((14, 34, [BROWN, WOOD, TAN, CREAM]), (50, 72, [DKBROWN, MAROON, RED, SALMON]),
+                           (90, 108, [NAVY, SLATE, GREY, LTGREY])):
+        right.rect(u0, 7, u1 - u0, 22, ramp[0])
+        right.rect(u0 + 1, 8, u1 - u0 - 2, 20, ramp[2])
+        right.rect(u0 + 2, 10, u1 - u0 - 4, 2, ramp[3])
+        right.rect(u0 + 2, 15, u1 - u0 - 4, 7, ramp[1])
+        right.rect(u0 + 4, 17, 4, 3, ramp[3])
+        for v in (7, 28):
+            for u in range(u0 + 3, u1 - 2, 6):
+                right.px(u, v, ramp[1])                      # tape notches break the frame
+        for u in (u0, u1 - 1):
+            for v in range(9, 28, 6):
+                right.px(u, v, ramp[1])
+    cam.warp(c, right.a, "x", FX1, FY0, FY1, 0, HW)
+    front = tex(fw, HW, INK, NAVY, step=10, gap=7, rim=NAVY)
+    cam.warp(c, front.a, "y", FY1, FX0, FX1, 0, HW)
+    # --- floor: dark planks with contact shadow along the walls
+    fl = tex(fw, fd, DKBROWN, INK, step=9, gap=16)
+    for k, x in enumerate(range(0, fw, 9)):
+        for y in range(18 + k * 13 % 40, fd, 40):
+            fl.rect(x, y, 8, 1, INK)
+    for x in range(fw):
+        if x % 6:
+            fl.px(x, 0, INK); fl.px(x, 1, INK if x % 3 else DKBROWN); fl.px(x, fd - 1, INK)
+    for y in range(fd):
+        if y % 6:
+            fl.px(0, y, INK); fl.px(fw - 1, y, INK); fl.px(1, y, INK if y % 3 else DKBROWN)
+    c.blit(fl.a, FX0, FY0)
+    # --- shelf + four consoles on the back wall
+    cam.box(c, 28, 40, 106, 44, 25, 27, SLATE, DKSLATE, NAVY, hi=GREY, line=NAVY)
+    for i, (x0, ramp) in enumerate(((31, LIGHTR), (50, LIGHTR), (69, GREYR), (88, GREYR))):
+        face = tex(14, 6, ramp[2], rim=ramp[3])
+        face.rect(2, 3, 10, 1, ramp[0])
+        face.px(3, 1, (RED, GREEN, RED, DKGREEN)[i]); face.px(5, 1, (BLUE, GREEN, RED, DKGREEN)[i])
+        cam.box(c, x0, 40, x0 + 14, 43, 27, 33, tex(14, 3, ramp[3]).a, face.a, ramp[0], hi=ramp[3])
+    # --- desk with drawers, monitors, keyboard, mug, lamp, handheld
+    top = tex(86, 15, PLUM, DKBROWN, step=5, vertical=False, gap=13)
+    front = tex(86, 13, DKBROWN, INK, step=11, gap=6, rim=PLUM)
+    front.rect(3, 3, 22, 1, INK); front.rect(3, 8, 22, 1, INK)
+    front.rect(12, 5, 4, 1, MAUVE); front.rect(12, 10, 4, 1, MAUVE)
+    cam.box(c, 24, 40, 110, 55, 0, 13, top.a, front.a, INK, hi=MAUVE, line=DKBROWN, ao=INK)
+    for (x0, x1, y0, z1) in ((28, 50, 41, 26), (54, 84, 41, 25), (88, 100, 42, 23)):
+        cam.box(c, x0, y0, x1, y0 + 2, 13, z1, INK, INK, INK, hi=NAVY)
+    kb = tex(20, 3, DKSLATE, NAVY, step=3, gap=40)
+    cam.box(c, 56, 47, 76, 50, 13, 14, kb.a, NAVY, NAVY, hi=SLATE)
+    cam.box(c, 36, 48, 40, 52, 13, 18, MAROON, LTGREY, GREY, hi=WHITE)
+    cam.box(c, 100, 44, 104, 48, 13, 21, AMBER, WOOD, BROWN)
+    cam.box(c, 104, 49, 110, 53, 13, 14, DKSLATE, SLATE, SLATE, hi=GREY)
+    # --- chair (seat + backrest); the player is drawn per frame between them
+    cam.box(c, 56, 58, 76, 70, 0, 8, tex(20, 12, DKSLATE, NAVY, step=5, gap=40).a, NAVY, INK, hi=SLATE,
+            line=NAVY, ao=INK)
+    # --- rug (flat, banded) and two small things by the bed
+    rug = shade(wobble_mask(36, 84, r, 1, (8, 15), (2, 3)), RUG, line=RUG[0])
     for y in range(6, 80, 10):
-        rug[y, 3:33] = np.where(rug[y, 3:33] != T, DKBROWN, T)
-    for y in range(2, 82):                                  # tasselled border, broken every 10 px
+        for x in range(3, 33):
+            if (x + y) % 11 and rug[y, x] != T:
+                rug[y, x] = DKBROWN
+    for y in range(2, 82):
         if y % 10 != 1 and rug[y, 3] != T:
             rug[y, 3] = MAUVE
-    rug[2:82, 32] = np.where(rug[2:82, 32] != T, DKBROWN, T)
-    c.blit(rotate_nn(rug, -3), 34, 90)
-    c.blit(_solid(wobble_mask(42, 52, r, 1, (8, 15), (2, 3)), [INK, DKBROWN, BROWN, WOOD]), 76, 82)
-    bl = shade(wobble_mask(40, 44, r, 1, (8, 14), (2, 3), "tlbr"), INDIGO, line=INK)
-    for y in range(9, 44, 10):
-        bl[y, 2:38] = np.where(bl[y, 2:38] == INDIGO[2], NAVY, bl[y, 2:38])
-    for x in range(9, 40, 10):
-        bl[2:42, x] = np.where(bl[2:42, x] == INDIGO[2], NAVY, bl[2:42, x])
-    c.blit(bl, 76, 92)
-    c.blit(_solid(blob_mask(28, 10, r, 1), LIGHTR), 82, 84)
-    c.blit(rotate_nn(_solid(wobble_mask(14, 6, r, 1, (3, 5), (1, 1)), [INK, NAVY, DKSLATE, SLATE]), -8), 86, 104)
-    c.blit(pink_plush(), 62, 82)
-    # --- bottom: game box, pizza box, two crates, front ledge
-    gb = _solid(wobble_mask(22, 26, r, 1, (5, 9), (1, 2)), [INK, INK, DKBROWN, MAROON])
-    gb[11:13, 2:20] = np.where(gb[11:13, 2:20] != T, CREAM, T)
-    c.blit(rotate_nn(gb, -4), 26, 192)
-    c.blit(rotate_nn(sprite("..c..\n.ccc.\nccccc", {"c": CREAM}), -4), 33, 198)
-    pz = _solid(wobble_mask(40, 24, r, 1, (8, 14), (2, 3)), GREYR)
-    pz[8, 2:38] = np.where(pz[8, 2:38] != T, DKSLATE, T)
-    pz[9:22, 19] = np.where(pz[9:22, 19] != T, DKSLATE, T)
-    c.blit(rotate_nn(pz, -6), 74, 180)
-    c.ellipse(83, 192, 9, 7, line=MAROON)
-    c.blit(_solid(wobble_mask(24, 16, r, 1, (6, 11), (1, 2)), [INK, INK, DKBROWN, MAROON]), 58, 212)
-    _seams(c, 60, 214, 80, 226, DKBROWN, step=4, vertical=False, gap=9)
-    c.blit(_solid(wobble_mask(26, 20, r, 1, (6, 11), (1, 2)), [INK, TEAL, FOREST, DKGREEN]), 100, 208)
-    _seams(c, 102, 210, 124, 226, TEAL, step=6, gap=9)
-    c.blit(shade(wobble_mask(W + 6, 14, r, 1, (8, 15), (0, 0), "t"), [INK, INK, TEAL, FOREST]), -3, 228)
-    # two small things only, by the bed (lived-in, not cluttered)
-    c.blit(rotate_nn(sprite("KKKKK\nKrKbK\nKKKKK", {"K": NAVY, "r": RED, "b": BLUE}), 25), 92, 142)
-    c.blit(rotate_nn(sprite("sss\nsSs\n.ss", {"s": SLATE, "S": DKSLATE}), -40), 70, 150)
+    c.blit(rug, 34, 94)
+    c.blit(rotate_nn(sprite("KKKKK\nKrKbK\nKKKKK", {"K": NAVY, "r": RED, "b": BLUE}), 25), 72, 150)
+    c.blit(rotate_nn(sprite("sss\nsSs\n.ss", {"s": SLATE, "S": DKSLATE}), -40), 64, 182)
+    # --- beanbag with the bear on top
+    bag = blob_mask(28, 20, r, 2)
+    bx, by = cam.extrude(c, bag, 80, 58, 0, 7, TEAL, shade(bag, BEAN))
+    c.blit(bear(), bx + 4, by - 9)
+    # --- bed: frame, quilted mattress, pillow, handheld
+    cam.box(c, 76, 84, 112, 136, 0, 6, BROWN, BROWN, DKBROWN, hi=WOOD, line=DKBROWN, ao=INK)
+    quilt = tex(34, 48, DKSLATE, NAVY, step=10, gap=40)
+    _seams(quilt, 0, 0, 34, 48, NAVY, step=10, vertical=False, gap=40)
+    for y in range(48):
+        quilt.px(0, y, BLUE if y % 6 else DKSLATE)
+    cam.box(c, 77, 86, 111, 134, 6, 12, quilt.a, NAVY, NAVY, hi=BLUE, line=INK)
+    cam.box(c, 82, 87, 106, 95, 12, 15, tex(24, 8, GREY, SLATE, step=6, gap=40).a, SLATE, SLATE, hi=LTGREY)
+    cam.box(c, 86, 104, 98, 108, 12, 13, DKSLATE, SLATE, SLATE, hi=GREY)
+    # --- front: game box, pizza box, two crates (north faces show: they are below centre)
+    cover = tex(22, 20, MAROON, rim=RED)
+    cover.rect(0, 9, 22, 2, CREAM)
+    cover.poly([(6, 7), (11, 2), (16, 7), (13, 7), (11, 5), (9, 7)], fill=CREAM)
+    cam.box(c, 26, 178, 48, 198, 0, 2, cover.a, DKBROWN, INK, line=DKBROWN, ao=INK)
+    pz = tex(40, 20, GREY, SLATE, step=20, gap=40, rim=LTGREY)
+    pz.ellipse(10, 6, 10, 8, line=MAROON)
+    cam.box(c, 72, 176, 112, 196, 0, 3, pz.a, SLATE, DKSLATE, hi=LTGREY, line=SLATE, ao=INK)
+    crate_top = tex(24, 14, MAROON, DKBROWN, step=4, vertical=False, gap=9)
+    crate_side = tex(24, 12, DKBROWN, MAROON, step=3, vertical=False, gap=9, rim=RED)
+    cam.box(c, 52, 192, 76, 206, 0, 12, crate_top.a, crate_side.a, INK, hi=RED, line=DKBROWN, ao=INK)
+    g_top = tex(24, 16, FOREST, TEAL, step=6, gap=9)
+    g_side = tex(24, 16, TEAL, INK, step=6, gap=9, rim=FOREST)
+    cam.box(c, 88, 190, 112, 206, 0, 16, g_top.a, g_side.a, INK, hi=DKGREEN, line=TEAL, ao=INK)
     return c
 
 
 # ------------------------------------------------------------------- scene ---
 GAMERS = {p: gamer(p) for p in ("down", "up", "up2")}
 DOGS = {(t, b): dog(t, b) for t in (0, 1) for b in (0, 1)}
-BEAM_POLY = [(0, 66), (18, 66), (98, 192), (68, 206), (0, 124)]
 
 
 class GameRoom:
-    """10 s seamless loop. Every cycle length divides 10 s."""
+    """10 s seamless loop in true top-down perspective. Every cycle divides 10 s."""
 
     def __init__(self, duration=10.0, holds=(3, 3, 2, 4, 3, 3, 2, 4, 3, 3)):
         self.room = build()
         self.clock = StepClock(duration, 30, holds)
         self.dur = duration
-        beam = self._mask(BEAM_POLY)
-        desk = self._mask([(14, 32), (120, 32), (118, 58), (16, 58)])
-        lamp = self._circle(80, 29, 5)
-        check = (np.add.outer(np.arange(H), np.arange(W)) % 2) == 0
-        sparse = (np.arange(H)[:, None] % 2 == 0) & (np.arange(W)[None, :] % 2 == 0)
-        # translucent light = dither: 50% inside, 25% in a 4 px falloff ring
-        # light in two clean cel bands: a soft outer band, then the core
-        streak = ~_grow(~beam, 7)                      # brighter streak inside the beam
-        self.pools = [(beam, BEAM_SOFT), (streak, BEAM), (lamp, WARM)]
-        self.rings = []
+        cam = CAM
+        wy0, wy1, wz0, wz1 = WIN
+        win = [cam.P(FX0, wy0, wz1), cam.P(FX0, wy1, wz1), cam.P(FX0, wy1, wz0), cam.P(FX0, wy0, wz0)]
+        self.shaft = self._mask(_hull(win + PATCH))          # light volume in the air
+        self.patch = self._mask(PATCH)                         # where it lands
+        self.lamp = self._circle(*cam.P(102, 46, 21), 6)
+        dt = [cam.P(24, 44, 13), cam.P(110, 44, 13), cam.P(110, 55, 13), cam.P(24, 55, 13)]
+        self.deskglow = self._mask(dt)
         rng = np.random.default_rng(3)
-        self.motes = [(int(rng.integers(20, 90)), int(rng.integers(70, 190)), int(rng.integers(1, 3)))
+        self.motes = [(int(rng.integers(10, 80)), int(rng.integers(70, 190)), int(rng.integers(1, 3)))
                       for _ in range(12)]
-        self.city = [(6 + int(rng.integers(0, 13)), 92 + int(rng.integers(0, 54))) for _ in range(14)]
+        self.city = [(wy0 + 2 + int(rng.integers(0, wy1 - wy0 - 4)), wz0 + 2 + int(rng.integers(0, wz1 - wz0 - 4)))
+                     for _ in range(16)]
+        # backrest drawn per frame on top of the player
+        self.backrest = Canvas(W, H, T)
+        CAM.box(self.backrest, 56, 68, 76, 71, 8, 20, DKSLATE, NAVY, INK, hi=SLATE)
 
     @staticmethod
     def _mask(pts):
@@ -275,62 +332,71 @@ class GameRoom:
 
     def frame(self, step, t):
         c = self.room.copy()
-        # characters (stepped poses, loop-safe cycles)
         pose = ("down", "up", "up2", "up", "up2")[cycle(t, (3.2, 0.6, 0.3, 0.6, 0.3))]
-        c.blit(GAMERS[pose], 47, 42)
-        c.blit(DOGS[(cycle(t, (0.6, 0.4)), cycle(t, (1.2, 0.8)))], 38, 82)
-        # lighting: hard palette-swap pools with dithered falloff
+        c.blit(self.backrest.a, 0, 0)
+        c.blit(GAMERS[pose], 52, 33)
+        c.blit(DOGS[(cycle(t, (0.6, 0.4)), cycle(t, (1.2, 0.8)))], 36, 92)
+        c.blit(PINK_PLUSH, 60, 88)
+        # light: shaft through the air (soft), patch on the floor (bright), lamp, desk glow
         base = c.a.copy()
-        a = base
-        for m, lut in self.rings + self.pools:
-            a = np.where(m, lut[base], a)
+        a = np.where(self.shaft, BEAM_SOFT[base], base)
+        a = np.where(self.patch, BEAM[base], a)
+        a = np.where(self.deskglow, PGLOW[base], a)
+        a = np.where(self.lamp, WARM[base], a)
         c.a = a
         self._emissive(c, step, t)
+        nick_edges(c.a, PAL.lut)            # chip any ruler-straight perspective edge
         return c
 
+    def _screen(self, c, img, x0, x1, y, z0, z1):
+        CAM.warp(c, img, "y", y, x0, x1, z0, z1)
+
     def _emissive(self, c, step, t):
-        # left monitor: hills with clouds drifting (period 10 s)
-        scr = Canvas(20, 9, SKY)
-        scr.rect(0, 5, 20, 4, DKGREEN)
-        scr.poly([(0, 6), (5, 3), (10, 6), (14, 4), (19, 6), (19, 8), (0, 8)], fill=GREEN)
+        # left monitor: hills, clouds drifting (period 10 s)
+        scr = Canvas(20, 11, SKY)
+        scr.rect(0, 7, 20, 4, DKGREEN)
+        scr.poly([(0, 8), (5, 5), (10, 8), (14, 6), (19, 8), (19, 10), (0, 10)], fill=GREEN)
         off = int(t * 2) % 20
         for cx in (off, (off + 11) % 20):
-            scr.rect(cx, 1, 4, 1, WHITE); scr.rect(cx + 1, 0, 2, 1, WHITE)
-        c.blit(rotate_nn(scr.a, -6), 22, 37)
-        # centre monitor: bright game screen, 4 scenes x 2.5 s
+            scr.rect(cx, 2, 4, 1, WHITE); scr.rect(cx + 1, 1, 2, 1, WHITE)
+        self._screen(c, scr.a, 29, 49, 43, 14, 25)
+        # centre monitor: game screen, 4 scenes x 2.5 s
         k = cycle(t, (2.5, 2.5, 2.5, 2.5))
-        c.rect(47, 37, 28, 7, LTGREY)
+        g = Canvas(28, 10, LTGREY)
         for i in range(4):
-            c.rect(49 + i * 6 + k, 39 + (i + k) % 2, 4, 2, (WHITE, GREY, SLATE, WHITE)[i])
-        c.rect(48 + 6 * k, 42, 10, 1, DKSLATE)
-        for x in range(49, 75, 8):                           # UI ticks break the screen edges
-            c.px(x, 43, GREY); c.px(x + 3, 37, WHITE)
+            g.rect(2 + i * 6 + k, 2 + (i + k) % 2, 4, 3, (WHITE, GREY, SLATE, WHITE)[i])
+        g.rect(1 + 6 * k, 7, 10, 1, DKSLATE)
+        for x in range(1, 28, 5):
+            g.px(x, 0, WHITE); g.px(x + 2, 9, GREY)
+        self._screen(c, g.a, 55, 83, 43, 14, 24)
         # right monitor: purple UI
         side = Canvas(10, 8, PLUM)
         side.rect(1, 1, 8, 2, MAUVE); side.rect(1, 4 + (step // 6) % 3, 5, 1, SALMON)
-        c.blit(rotate_nn(side.a, 28), 81, 41)
-        # magenta LED strip along the desk back (segments, steady)
-        for x in range(17, 116):
-            if x % 9:
-                c.px(x, 34, MAUVE)
-        # handheld screen on the bed + desk lamp + console LEDs
-        c.rect(88, 102, 5, 2, SKY if (step // 8) % 2 else CYAN)
-        c.ellipse(78, 27, 5, 5, fill=AMBER); c.px(79, 28, GOLD)
-        c.px(34, 21, GREEN); c.px(57, 21, GREEN); c.px(103, 17, GREEN)
-        # window: blinds + city lights (one blinks every 2.5 s)
-        for (x, y) in self.city:
-            c.px(x, y, GOLD if (x * 3 + y) % 5 else CREAM)
+        self._screen(c, side.a, 89, 99, 44, 14, 22)
+        # handheld screen on the bed, lamp bulb, console LEDs
+        hx, hy = CAM.P(92, 106, 13)
+        c.rect(int(hx) - 2, int(hy) - 1, 4, 2, SKY if (step // 8) % 2 else CYAN)
+        lx, ly = CAM.P(102, 46, 21)
+        c.px(int(lx), int(ly), GOLD)
+        # window: city lights through the blinds (one blinks every 2.5 s)
         bl = cycle(t, (2.5, 2.5, 2.5, 2.5))
-        x, y = self.city[bl * 3]
-        c.px(x, y, NAVY)
-        for y in range(90, 148, 3):
-            c.rect(5, y, 15, 1, DKSLATE if y % 9 else SLATE)
-        # dust motes drifting down the beam; 60 px per 10 s so the loop is seamless
+        for i, (y, z) in enumerate(self.city):
+            if i == bl * 3:
+                continue
+            px, py = CAM.P(FX0, y, z)
+            c.px(int(px), int(py), GOLD if (y + z) % 3 else CREAM)
+        wy0, wy1, wz0, wz1 = WIN
+        for z in range(wz0 + 2, wz1, 3):
+            CAM.dashed(c, CAM.P(FX0, wy0, z), CAM.P(FX0, wy1, z), DKSLATE, on=9, off=1)
+        # dust motes drifting down the light shaft; 60 px per 10 s keeps the loop seamless
         for i, (x0, y0, spd) in enumerate(self.motes):
-            k = (int(t * 6) * spd) % 60
-            x, y = x0 + k // 4, y0 + k
-            if self.pools[0][0][min(H - 1, y), min(W - 1, x)]:
+            kk = (int(t * 6) * spd) % 60
+            x, y = x0 + kk // 3, y0 + kk
+            if 0 <= y < H and 0 <= x < W and self.shaft[y, x]:
                 c.px(x, y, CREAM if i % 3 else TAN)
 
     def render(self, out, master=None, native_dir=None):
         return render(self.frame, self.clock, PAL, out, SCALE, master, native_dir)
+
+
+PINK_PLUSH = pink_plush()

@@ -730,3 +730,33 @@ def pattern(a, ramp, kind="dots", mask=None, ox=0, oy=0, delta=-1):
         lut[c_] = ramp[max(0, min(len(ramp) - 1, i + delta))]
     a[m] = lut[a[m]]
     return a
+
+
+def nick_edges(a, rgb, max_run=14, every=12, edge_t=24, same_t=10):
+    """Hand-made irregularity for long straight edges. Finds runs where the
+    same two colours meet along one row/column boundary for more than
+    `max_run` px and chips one pixel every `every` px (alternating which side
+    gives way), like an artist nicking a ruler-straight line. In place."""
+    for _ in range(2):
+        changed = False
+        for axis in (0, 1):
+            arr = a if axis == 0 else a.T
+            n = rgb[arr].astype(int)
+            e = np.abs(n[1:] - n[:-1]).max(axis=2) > edge_t
+            su = np.abs(n[:-1, 1:] - n[:-1, :-1]).max(axis=2) <= same_t
+            sd = np.abs(n[1:, 1:] - n[1:, :-1]).max(axis=2) <= same_t
+            link = e[:, 1:] & e[:, :-1] & su & sd
+            for i, row in enumerate(link):
+                p = np.concatenate([[0], row.astype(np.int8), [0]])
+                d = np.diff(p)
+                for s0, s1 in zip(np.flatnonzero(d == 1), np.flatnonzero(d == -1)):
+                    if s1 - s0 + 1 > max_run:
+                        for k, x in enumerate(range(s0 + every // 2, s1 + 1, every)):
+                            if k % 2:
+                                arr[i, x] = arr[i + 1, x]
+                            else:
+                                arr[i + 1, x] = arr[i, x]
+                            changed = True
+        if not changed:
+            break
+    return a

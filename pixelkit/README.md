@@ -78,6 +78,25 @@ pass `car_art`/`car_key` for a different car (16 angles are baked automatically)
 * Large-area shapes that run off-frame (walls, front wall) extend 3 px past it,
   so their straight outer shading band is never visible.
 
+## Perspective (`pixelkit/persp.py`): real top-down 3D, still pixel-perfect
+
+The camera sits above the room centre and looks straight down. World x/y are
+floor pixels and z is height. A point at height z moves away from the centre
+by f/(f-z), so walls become slanted faces and tall props lean outward.
+
+* `Persp.P(x, y, z)` projects a world point to the screen.
+* `Persp.warp(c, img, plane, k, a0, a1, b0, b1)` paints a flat pixel-art
+  texture onto a floor, wall or box face. Each covered screen pixel is
+  inverse-mapped to the nearest texture pixel (no blending), so edges come
+  out as staircases.
+* `Persp.box(...)` draws the faces turned toward the camera plus the top,
+  with dashed lit edges, rims and floor contact shadows.
+* `Persp.extrude(...)` handles blob footprints such as beanbags.
+* `core.nick_edges` is a final pass that chips one pixel every 12 px along
+  any edge running straight for more than 14 px. Perspective keeps
+  axis-aligned box edges ruler-straight, and this adds the irregularity an
+  artist would add by hand.
+
 ## Gamer-room wallpaper (`pixelkit/gameroom.py`)
 
 A 10 s seamless loop (no captions) that follows the composition and mood of
