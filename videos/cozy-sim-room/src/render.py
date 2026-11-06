@@ -1,7 +1,8 @@
-"""cozy-sim-room: 15 s seamless ambient loop, no voice, no captions.
+"""cozy-sim-room: 15 s seamless ambient loop, no voice, no captions (v2: reference-style soft light, big furniture).
 
 Oblique top-down bedroom at night: sim-racing desk with three screens, gamer in a red hoodie on a wheel,
-sleeping cat, bed with a plush, window with the city. 270x480 native -> 4x nearest -> 1080x1920, 60 fps.
+sleeping cat, bed with a plush, window with the city. 180x320 native -> 6x nearest -> 1080x1920, 60 fps,
+light drawn as smooth full-res falloff over the crisp pixels.
 Every motion uses an integer number of cycles per 15 s, so frame 900 == frame 0.
 Usage: python render.py still OUTDIR T... | video OUT.mp4 | loopcheck OUT.mp4
 """
@@ -14,15 +15,14 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, '..', '..', '..', 'shared'))
 sys.path.insert(0, os.path.join(HERE, '..', '..', '..', 'shared', 'assets'))
 from audio import sfx                                             # noqa: E402
-from ambient import glow, bayer, paste, vgrad, up                 # noqa: E402
+from ambient import paste, vgrad, up                 # noqa: E402
 import cozyroom as cr                                             # noqa: E402
 
-W0, H0, K = 270, 480, 4
+W0, H0, K = 180, 320, 6          # 6x: finer than the reference's ~8x pixels, objects large like the reference
 W, H = W0 * K, H0 * K
 FPS = 60
 DUR = 15.0
 P = cr.PAL
-BAY = bayer(H0, W0)
 
 
 def cyc(t, k): return (t * k / DUR) % 1.0
@@ -34,21 +34,22 @@ def R(a, x0, y0, x1, y1, c): a[y0:y1 + 1, x0:x1 + 1] = P[c]
 
 
 def dith(a, x0, y0, x1, y1, c, lvl=.5):
-    """Bayer-dithered fill: lvl of the pixels take colour c (classic pixel-art soft gradient)."""
-    m = BAY[y0:y1 + 1, x0:x1 + 1] < lvl
-    a[y0:y1 + 1, x0:x1 + 1][m] = P[c]
+    """Flat tonal mix toward colour c (soft painterly shading, no checkerboard)."""
+    a[y0:y1 + 1, x0:x1 + 1] = a[y0:y1 + 1, x0:x1 + 1] * (1 - lvl) + col(c) * lvl
 
 
 def shade(a, spr, x, y, dx=2, dy=2, k=.55):
-    """Soft drop shadow from a sprite's alpha: full at (dx,dy), dithered half at (dx+1,dy+1)."""
+    """Soft drop shadow from a sprite's alpha: full at (dx,dy), lighter at (dx+1,dy+1)."""
     m = spr[..., 3] > 0
-    for ox, oy, kk, lv in ((dx, dy, k, 1.0), (dx + 1, dy + 1, k, .5)):
+    for ox, oy, kk in ((dx, dy, k), (dx + 1, dy + 1, k ** .5)):
         ys, xs = np.nonzero(m)
         ys, xs = ys + y + oy, xs + x + ox
         ok = (ys >= 0) & (ys < H0) & (xs >= 0) & (xs < W0)
         ys, xs = ys[ok], xs[ok]
-        sel = BAY[ys, xs] < lv
-        a[ys[sel], xs[sel]] *= kk
+        a[ys, xs] *= kk
+
+
+def prop(name): return cr.prop(name, outline=None)
 
 
 def place(a, spr, x, y, shadow=True):
@@ -92,160 +93,129 @@ def track(a, x0, y0, w, h):
 
 
 # ------------------------------------------------------------------ static room
-FLOOR = (24, 75, 246, 466)
-WIN = (8, 162, 19, 248)          # window glass on the left wall face
-SCR = {'chart': (54, 50, 44, 22), 'race': (106, 44, 58, 28), 'garage': (170, 50, 44, 22)}   # x, y, w, h
+FLOOR = (14, 52, 164, 306)
+WIN = (5, 114, 12, 194)          # window glass on the left wall face
+SCR = {'chart': (30, 33, 30, 14), 'race': (70, 30, 40, 18), 'garage': (120, 33, 30, 14)}   # x, y, w, h
 
 
 def build_static():
-    a = np.zeros((H0, W0, 3), np.float32); a[:] = P['0']
+    a = np.zeros((H0, W0, 3), np.float32); a[:] = P['1']
     em = np.zeros((H0, W0), np.float32)
+    dith(a, 0, 0, W0 - 1, H0 - 1, 'z', .35)                           # dark teal-green surroundings
     # walls: caps, back wall face, side wall faces
-    R(a, 2, 6, 267, 13, '1'); R(a, 2, 13, 267, 13, '3')
-    R(a, 24, 14, 246, 74, '3')
-    for x in range(28, 246, 8): R(a, x, 16, x, 70, '2')
-    dith(a, 24, 14, 246, 24, '2', .5)
-    R(a, 24, 14, 246, 14, '4'); R(a, 24, 71, 246, 74, '2'); R(a, 24, 71, 246, 71, '4')
-    for (x0, x1) in ((4, 23), (247, 266)):
-        R(a, x0, 14, x1, 470, '2'); dith(a, x0, 14, x1, 470, '1', .25)
-        R(a, x0, 14, x1, 14, '3')
-    R(a, 0, 6, 3, 479, '1'); R(a, 267, 6, 269, 479, '1')
-    R(a, 23, 14, 23, 470, '1'); R(a, 247, 14, 247, 470, '1')
-    R(a, 22, 75, 22, 466, '3'); R(a, 248, 75, 248, 466, '3')         # wall-floor rim light
-    # floor planks running toward the viewer
+    R(a, 2, 2, 177, 7, '2'); R(a, 2, 7, 177, 7, '4')
+    R(a, 14, 8, 164, 51, '3')
+    for x in range(17, 164, 7): R(a, x, 10, x, 47, '2')
+    dith(a, 14, 8, 164, 16, '2', .5)
+    R(a, 14, 8, 164, 8, '4'); R(a, 14, 48, 164, 51, '2'); R(a, 14, 48, 164, 48, '4')
+    for (x0, x1) in ((3, 13), (165, 177)):
+        R(a, x0, 8, x1, 312, '2'); dith(a, x0, 8, x1, 312, '1', .3); R(a, x0, 8, x1, 8, '3')
+    R(a, 13, 8, 13, 312, '1'); R(a, 165, 8, 165, 312, '1')
+    R(a, 12, 52, 12, 306, '3'); R(a, 166, 52, 166, 306, '3')
+    # floor planks
     x0, y0, x1, y1 = FLOOR
     R(a, x0, y0, x1, y1, '4')
     rng = np.random.default_rng(4)
-    for i, x in enumerate(range(x0, x1 + 1, 10)):
+    for i, x in enumerate(range(x0, x1 + 1, 8)):
         R(a, x, y0, x, y1, '3')
-        if i % 3 == 1: dith(a, x + 1, y0, min(x + 9, x1), y1, '3', .5)
-        elif i % 3 == 2: dith(a, x + 1, y0, min(x + 9, x1), y1, '5', .25)
-        for yy in range(y0 + int(rng.integers(10, 60)), y1, int(rng.integers(50, 90))):
-            R(a, x + 1, yy, min(x + 9, x1), yy, '3')
-        for _ in range(6):
-            gx, gy = x + int(rng.integers(2, 8)), int(rng.integers(y0, y1))
-            R(a, gx, gy, gx, min(gy + 2, y1), '5')
-    for d, lv in ((0, .75), (1, .5), (2, .25), (3, .12)):                 # ambient occlusion along walls
-        dith(a, x0 + d, y0, x0 + d, y1, '2', lv); dith(a, x1 - d, y0, x1 - d, y1, '2', lv)
-        dith(a, x0, y0 + d, x1, y0 + d, '2', lv)
-    R(a, 2, 467, 267, 479, '1'); R(a, 2, 467, 267, 467, '3')
-    R(a, 44, 465, 104, 469, '5'); R(a, 44, 465, 104, 465, '6')       # door threshold
-    # rug
-    R(a, 30, 192, 122, 264, 'b'); R(a, 32, 194, 120, 262, 'c'); R(a, 35, 197, 117, 259, 'b')
-    for yy in range(201, 256, 9):
-        for xx in range(40, 114, 9):
-            for k in range(3):
-                R(a, xx + k, yy - k, xx + k, yy + k, 'L'); R(a, xx + 6 - k, yy - k, xx + 6 - k, yy + k, 'L')
-            a[yy, xx + 3] = P['M']
-    dith(a, 35, 197, 117, 259, 'a', .2)
-    for yy in range(193, 264, 2): a[yy, 28] = P['G']; a[yy, 124] = P['G']
+        if i % 3 == 1: dith(a, x + 1, y0, min(x + 7, x1), y1, '3', .45)
+        elif i % 3 == 2: dith(a, x + 1, y0, min(x + 7, x1), y1, '5', .2)
+        for yy in range(y0 + int(rng.integers(8, 40)), y1, int(rng.integers(36, 60))):
+            R(a, x + 1, yy, min(x + 7, x1), yy, '3')
+    dith(a, x0, y0, x1, y1, 'z', .22)                                 # green cast of the reference floor
+    for d, lv in ((0, .7), (1, .45), (2, .25), (3, .1)):
+        dith(a, x0 + d, y0, x0 + d, y1, '2', lv); dith(a, x1 - d, y0, x1 - d, y1, '2', lv); dith(a, x0, y0 + d, x1, y0 + d, '2', lv)
+    R(a, 2, 307, 177, 319, '1'); R(a, 2, 307, 177, 307, '3')
+    R(a, 22, 305, 62, 309, '5'); R(a, 22, 305, 62, 305, '6')
+    # rug (big, under the cat)
+    R(a, 18, 126, 100, 202, 'b'); R(a, 20, 128, 98, 200, 'c'); R(a, 23, 131, 95, 197, 'b')
+    R(a, 23, 131, 95, 197, 'L'); dith(a, 23, 131, 95, 197, 'b', .45)
+    for xx in range(24, 95, 4): a[133, xx] = P['L']; a[195, xx] = P['L']
+    for yy in range(127, 202, 2): a[yy, 16] = P['F']; a[yy, 102] = P['F']
     # doormat with an original wave pattern
-    R(a, 46, 438, 102, 460, 'l'); R(a, 48, 440, 100, 458, 'm')
-    for xx in range(50, 99):
-        a[444 + int(round(2 * math.sin(xx * .5))), xx] = P['o']; a[453 + int(round(2 * math.sin(xx * .5 + 3))), xx] = P['o']
-    dith(a, 48, 440, 100, 458, 'n', .12)
-    # back wall: photo frame, vents, console shelf
-    R(a, 28, 22, 37, 31, 'G'); R(a, 29, 23, 36, 30, 'h'); R(a, 30, 27, 35, 30, 'A'); a[25, 33] = P['q']
-    for vx in (26, 232):
-        R(a, vx, 44, vx + 12, 66, '1')
-        for yy in range(46, 65, 2): R(a, vx + 1, yy, vx + 11, yy, '2')
-    shelf, _ = cr.console_shelf(190)
-    shade(a, shelf, 40, 18, 0, 3, .6); paste(a, shelf, 40, 18)
+    R(a, 22, 280, 62, 298, 'l'); R(a, 24, 282, 60, 296, 'm')
+    for xx in range(26, 59):
+        a[285 + int(round(1.5 * math.sin(xx * .6))), xx] = P['o']; a[292 + int(round(1.5 * math.sin(xx * .6 + 3))), xx] = P['o']
+    # back wall: photo, console shelf with LED
+    R(a, 158, 10, 162, 18, 'G'); R(a, 159, 11, 164, 17, 'h'); R(a, 159, 15, 164, 17, 'A'); a[12, 162] = P['q']
+    shelf, _ = cr.console_shelf(140)
+    shade(a, shelf, 16, 6, 0, 3, .6); paste(a, shelf, 16, 6)
     # monitors
     for name, (sx, sy, sw, sh) in SCR.items():
         m = cr.monitor(sw, sh); shade(a, m, sx - 3, sy - 3, 1, 3, .5); paste(a, m, sx - 3, sy - 3)
         em[sy:sy + sh, sx:sx + sw] = 1
     # desk (top + front face, purple rim on the lip)
-    R(a, 30, 76, 240, 106, '3'); dith(a, 30, 76, 240, 106, '4', .18)
-    for yy in (82, 91, 99): dith(a, 30, yy, 240, yy, '2', .5)
-    R(a, 30, 107, 240, 107, 'd'); R(a, 30, 108, 240, 112, '2'); R(a, 30, 112, 240, 112, '1')
-    R(a, 30, 76, 240, 76, '2')
-    for d, lv in ((0, .8), (1, .5), (2, .25)): dith(a, 30, 113 + d, 240, 113 + d, '1', lv)
+    R(a, 16, 52, 162, 72, 'b'); dith(a, 16, 52, 162, 72, '3', .45)
+    for yy in (58, 66): dith(a, 16, yy, 162, yy, '2', .4)
+    R(a, 16, 73, 162, 73, 'd'); R(a, 16, 74, 162, 78, '2'); R(a, 16, 78, 162, 78, '1'); R(a, 16, 52, 162, 52, '2')
+    for d, lv in ((0, .7), (1, .45), (2, .2)): dith(a, 16, 79 + d, 162, 79 + d, '1', lv)
     # under-desk fronts: drawer unit, PC tower
-    R(a, 32, 113, 60, 130, '3'); R(a, 32, 113, 60, 113, '5'); R(a, 32, 121, 60, 121, '2'); R(a, 44, 116, 48, 117, 'F'); R(a, 44, 125, 48, 126, 'F')
-    R(a, 212, 113, 236, 142, '1'); R(a, 213, 114, 235, 141, '2'); R(a, 212, 113, 236, 113, '4')
-    shade(a, np.ones((30, 25, 4), np.float32), 212, 113, 2, 3, .6)
+    R(a, 18, 79, 38, 94, '3'); R(a, 18, 79, 38, 79, '5'); R(a, 18, 86, 38, 86, '2'); R(a, 26, 82, 30, 83, 'F'); R(a, 26, 89, 30, 90, 'F')
+    shade(a, np.ones((22, 19, 4), np.float32), 144, 79, 2, 3, .6)
+    R(a, 144, 79, 162, 100, '1'); R(a, 145, 80, 161, 99, '2'); R(a, 144, 79, 162, 79, '4')
     # desk items
-    for name, x, y in (('lamp', 34, 79), ('keyboard', 54, 92), ('mouse', 78, 93), ('notes', 92, 80), ('figure', 102, 81),
-                       ('phone', 176, 93), ('headphones', 209, 91), ('can', 226, 80), ('cases', 66, 80), ('books', 42, 94),
-                       ('remote', 160, 93), ('drink', 220, 98)):
-        place(a, cr.prop(name), x, y)
-    R(a, 125, 92, 145, 96, '2'); R(a, 125, 92, 145, 92, '5')          # wheel base clamp
-    place(a, cr.mug(), 192, 82)
-    # left wall: plate, key hook; window frame
-    R(a, 8, 96, 19, 103, 'G'); R(a, 9, 97, 18, 102, 'k'); R(a, 10, 99, 17, 100, 'i')
-    R(a, 10, 420, 17, 421, 'E'); a[422, 11] = P['p']; a[423, 11] = P['p']; a[422, 15] = P['F']
-    R(a, 6, 158, 21, 252, '5'); R(a, 6, 158, 21, 158, '7'); R(a, 7, 159, 20, 251, '4')
+    for name, x, y in (('lamp', 18, 53), ('keyboard', 28, 61), ('mouse', 49, 62), ('notes', 54, 54), ('figure', 62, 54),
+                       ('cases', 44, 53), ('phone', 113, 62), ('headphones', 138, 60), ('can', 154, 54), ('remote', 104, 63),
+                       ('drink', 150, 64), ('books', 20, 64)):
+        place(a, prop(name), x, y)
+    R(a, 80, 59, 100, 63, '2'); R(a, 80, 59, 100, 59, '5')            # wheel base clamp
+    place(a, cr.mug(), 126, 53)
+    # left wall: plate, key hook; window frame + sill
+    R(a, 5, 60, 12, 65, 'G'); R(a, 6, 61, 11, 64, 'k'); R(a, 7, 62, 10, 63, 'i')
+    R(a, 5, 262, 11, 263, 'E'); a[264, 6] = P['p']; a[265, 6] = P['p']
+    R(a, 3, 110, 13, 198, '5'); R(a, 3, 110, 13, 110, '7'); R(a, 4, 111, 13, 197, '4')
     em[WIN[1]:WIN[3] + 1, WIN[0]:WIN[2] + 1] = 1
-    R(a, 5, 253, 22, 255, '6')                                       # sill
+    R(a, 3, 198, 14, 200, '6')
     # right wall: posters
-    for kind, y in (('track', 92), ('sunset', 190), ('blue', 320)):
-        p = cr.poster(kind); shade(a, p, 249, y, 1, 2, .6); paste(a, p, 249, y)
-    # bed (head at the top, against the right wall)
-    R(a, 168, 148, 245, 302, 'm'); R(a, 168, 148, 245, 151, 'n'); R(a, 168, 148, 245, 148, 'o')
-    R(a, 171, 152, 244, 299, 'G'); dith(a, 171, 152, 244, 299, 'F', .2)
-    shade(a, np.ones((155, 78, 4), np.float32), 168, 148, 3, 4, .55)
-    R(a, 168, 148, 245, 302, 'm'); R(a, 168, 148, 245, 151, 'n'); R(a, 168, 148, 245, 148, 'o')
-    R(a, 171, 152, 244, 299, 'G'); dith(a, 171, 152, 244, 299, 'F', .2)
-    for (px, pw) in ((176, 30), (210, 30)):                          # pillows
-        R(a, px, 156, px + pw, 174, 'H'); R(a, px, 172, px + pw, 174, 'G'); R(a, px, 156, px + pw, 156, 'G')
-        dith(a, px + 2, 165, px + pw - 2, 171, 'G', .3)
-    # messy blanket: wavy top edge, folds, a corner flipped over
-    for xx in range(171, 245):
-        top = 196 + int(round(4 * math.sin(xx * .17) + 2 * math.sin(xx * .53)))
-        R(a, xx, top, xx, 298, 'h'); a[top, xx] = P['j']; a[top + 1, xx] = P['i']
-    for fx in (184, 199, 221, 236):
-        for yy in range(205, 296):
-            xx = fx + int(round(2 * math.sin(yy * .09 + fx)))
-            if 171 <= xx < 245: a[yy, xx] = P['g']; a[yy, xx - 1] = P['i'] if yy % 3 else P['h']
-    dith(a, 171, 260, 244, 298, 'g', .25)
-    for k in range(14):                                             # flipped corner showing the sheet
-        R(a, 171, 286 - k, 171 + 13 - k, 286 - k, 'G')
-    R(a, 168, 302, 245, 305, 'l')
-    place(a, cr.plush(), 190, 170)
-    place(a, cr.prop('cap'), 226, 238); place(a, cr.prop('remote'), 200, 262); place(a, cr.prop('phone'), 214, 214)
-    # furniture: dresser, low bookshelf, shoe rack, beanbag, toy race track
-    box(a, 24, 300, 54, 330, 8, '5', '3', '7')
-    for yy in (333, 336): R(a, 26, yy, 52, yy, '2')
-    R(a, 37, 332, 41, 332, 'F'); R(a, 37, 335, 41, 335, 'F')
-    box(a, 222, 344, 245, 414, 7, 'n', 'm', 'o')
-    for yy in range(348, 410, 12):
+    for kind, y in (('track', 58), ('sunset', 132), ('blue', 222)):
+        pst = cr.poster(kind); shade(a, pst, 166, y, 1, 2, .6); paste(a, pst, 166, y)
+    # bed (big, head at the top, against the right wall)
+    shade(a, np.ones((112, 60, 4), np.float32), 106, 104, 3, 4, .5)
+    R(a, 106, 104, 163, 216, 'm'); R(a, 106, 104, 163, 107, 'n'); R(a, 106, 104, 163, 104, 'o')
+    R(a, 108, 108, 162, 213, 'G'); dith(a, 108, 108, 162, 213, 'F', .25)
+    for (px, pw) in ((111, 25), (139, 24)):                          # pillows
+        R(a, px, 111, px + pw, 128, 'H'); R(a, px, 126, px + pw, 128, 'G'); R(a, px, 111, px + pw, 111, 'G')
+        dith(a, px + 2, 119, px + pw - 2, 125, 'G', .35)
+    for xx in range(108, 163):                                       # messy blanket
+        top = 146 + int(round(4 * math.sin(xx * .19) + 2 * math.sin(xx * .57)))
+        R(a, xx, top, xx, 212, 'g'); a[top, xx] = P['i']; a[top + 1, xx] = P['h']; a[top + 2, xx] = P['h']
+    for fx in (118, 131, 147, 159):
+        for yy in range(154, 211):
+            xx = fx + int(round(2 * math.sin(yy * .1 + fx)))
+            if 108 <= xx < 163: a[yy, xx] = P['a']; a[yy, xx - 1] = P['h']
+    dith(a, 108, 140, 162, 212, 'b', .3)
+    for k in range(12): R(a, 108, 204 - k, 108 + 11 - k, 204 - k, 'G')
+    R(a, 106, 216, 163, 219, 'l')
+    place(a, cr.plush(), 114, 112)
+    place(a, prop('cap'), 150, 165); place(a, prop('remote'), 128, 186); place(a, prop('phone'), 146, 152)
+    # furniture: dresser, low bookshelf, shoe rack, beanbag, toy race track, cushion, open box
+    box(a, 14, 218, 36, 240, 6, '5', '3', '7')
+    R(a, 16, 243, 34, 243, '2'); R(a, 23, 242, 27, 242, 'F')
+    box(a, 148, 232, 163, 282, 6, 'n', 'm', 'o')
+    for yy in range(235, 280, 11):
         for k, c in enumerate('vjqAiwMp'):
-            if 224 + k * 2 < 244: R(a, 224 + k * 2, yy, 225 + k * 2, yy + 8, c)
-        R(a, 223, yy + 10, 244, yy + 10, 'l')
-    box(a, 112, 448, 156, 456, 4, '6', '4', '7')
-    place(a, blob(34, 24, 'cdef'), 64, 298)
-    track(a, 96, 330, 74, 40)
-    place(a, blob(26, 16, 'ghij'), 134, 386)
-    place(a, cr.prop('box'), 100, 384); R(a, 102, 385, 112, 387, 'l'); place(a, cr.prop('tyre'), 104, 380, shadow=False)
+            if 149 + k * 2 < 162: R(a, 149 + k * 2, yy, 150 + k * 2, yy + 7, c)
+        R(a, 149, yy + 9, 162, yy + 9, 'l')
+    box(a, 70, 296, 104, 301, 3, '6', '4', '7')
+    place(a, blob(30, 22, 'cdef'), 40, 210)
+    track(a, 62, 240, 54, 26)
+    place(a, blob(22, 14, 'ghij'), 96, 272)
+    place(a, prop('box'), 120, 252); R(a, 122, 253, 132, 255, 'l'); place(a, prop('tyre'), 124, 248, shadow=False)
     for name, x, y in (
-        # around the chair: bin + misses, cans, plant, speaker
-        ('bin', 70, 130), ('paper', 82, 140), ('paper', 64, 146), ('paper', 88, 152), ('cable', 96, 126), ('speaker', 58, 118),
-        ('can', 152, 148), ('chips', 158, 160), ('plant', 160, 128),
-        # rug: controller, yarn, model cars; bowls by the rug
-        ('controller', 92, 202), ('yarn', 110, 246), ('car_red', 100, 226), ('car_blue', 40, 244), ('bowl', 34, 270), ('bowl2', 44, 272),
-        # snack spot between rug and bed
-        ('snack', 136, 228), ('chips', 150, 240), ('drink', 150, 220), ('cases', 138, 260),
-        # dresser top + beanbag with the hoodie
-        ('lamp', 28, 298), ('plant', 42, 296), ('hoodie', 70, 296), ('tee', 100, 304), ('sock', 58, 328),
-        # garage corner: tyre, toolbox, cone, helmet, flag
-        ('tyre', 30, 352), ('toolbox', 44, 356), ('cone', 62, 362), ('helmet', 32, 372), ('flag', 50, 376),
-        # by the toy track
-        ('car_yel', 118, 342), ('car_red', 150, 360), ('books', 176, 338), ('bottle', 172, 352), ('remote', 180, 374),
-        # laundry at the foot of the bed
-        ('basket', 186, 310), ('jeans', 200, 318), ('sock', 178, 324), ('tee', 206, 330),
-        # bookshelf top
-        ('car_blue', 226, 338), ('figure', 238, 340),
-        # door: trainers, slippers, umbrella, backpack, skateboard
-        ('trainer', 116, 438), ('trainer', 126, 440), ('trainer', 140, 437), ('slipper', 146, 440), ('umbrella', 28, 430),
-        ('backpack', 30, 408), ('skate', 162, 404), ('bottle', 104, 420),
-        # clothes pile + open box of car parts in the middle of the floor
-        ('hoodie', 70, 392), ('jeans', 84, 398), ('tee', 64, 404), ('sock', 92, 410), ('cases', 128, 404)):
-        place(a, cr.prop(name), x, y)
-    # stack of boxes (bottom right) with a pizza box on top
-    for bx, by in ((182, 446), (200, 446), (218, 446), (190, 436), (208, 436), (199, 426)):
-        place(a, cr.prop('box'), bx, by)
-    place(a, cr.prop('pizza'), 203, 420)
+        ('bin', 42, 86), ('paper', 50, 92), ('paper', 38, 98), ('paper', 56, 100), ('can', 114, 94), ('plant', 124, 86),
+        ('controller', 66, 184), ('yarn', 86, 176), ('car_red', 78, 140), ('car_blue', 24, 184), ('bowl', 20, 206), ('bowl2', 28, 207),
+        ('snack', 86, 204), ('drink', 102, 210), ('chips', 98, 222),
+        ('lamp', 16, 211), ('plant', 27, 210), ('hoodie', 46, 208), ('tee', 72, 216), ('sock', 60, 230),
+        ('tyre', 15, 250), ('toolbox', 24, 256), ('cone', 40, 254), ('helmet', 14, 268), ('flag', 30, 270),
+        ('car_yel', 66, 244), ('car_red', 104, 254),
+        ('basket', 120, 222), ('jeans', 134, 226), ('sock', 112, 232),
+        ('car_blue', 150, 224), ('figure', 160, 226),
+        ('trainer', 72, 288), ('trainer', 82, 289), ('trainer', 92, 287), ('slipper', 108, 292), ('umbrella', 5, 282),
+        ('backpack', 42, 268), ('skate', 116, 266), ('bottle', 58, 272), ('hoodie', 74, 268), ('cases', 54, 252)):
+        place(a, prop(name), x, y)
+    for bx, by in ((120, 290), (135, 290), (150, 290), (127, 281), (142, 281)):
+        place(a, prop('box'), bx, by)
+    place(a, prop('pizza'), 135, 275)
     return a, em
 
 
@@ -318,14 +288,14 @@ def gamer(t):
         g.rect(int(round(hxp)) - 1, int(round(hyp)) - 1, int(round(hxp)) + 1, int(round(hyp)) + 1, 'y')
         g.put(hxp - 1, hyp - 1, 'x')
     g.stamp(HEAD, 128 + hx, 111)
-    return cr.S([''.join(r) for r in g.g], outline='0')
+    return cr.S([''.join(r) for r in g.g], outline='1')
 
 
 # ------------------------------------------------------------------ screens
 def race(t, w, h):
     """Pixel racing game: road scrolls toward the viewer, kerbs, curve sway, player car."""
     s = np.zeros((h, w, 3), np.float32)
-    hz = 9
+    hz = h // 3
     s[:hz] = vgrad(hz, w, [(0, P['g']), (1, P['M'])])
     for x in range(w): s[hz - 1 - int(2 + 2 * math.sin(x * .3) + math.sin(x * .9)):hz, x] = P['b']
     ph = cyc(t, 45)
@@ -378,15 +348,16 @@ GCAR_RGBA = cr.S(GCAR, outline=None)
 def garage(t, w, h):
     s = np.zeros((h, w, 3), np.float32); s[:] = P['E']
     s[:6] = P['D']; s[0, 4:w - 4:6] = P['H']
-    for y in range(6, h):
+    s[:4] = P['D']; s[4:] = P['E']
+    for y in range(4, h):
         for x in range(w):
-            if ((x - w / 2) / 19) ** 2 + ((y - 14) / 7.5) ** 2 <= 1: s[y, x] = P['F']
+            if ((x - w / 2) / (w * .43)) ** 2 + ((y - h * .62) / (h * .34)) ** 2 <= 1: s[y, x] = P['F']
     th = 2 * math.pi * cyc(t, 1)
     c, sn_ = math.cos(th), math.sin(th)
     ch, cw = GCAR_RGBA.shape[:2]
     for y in range(h):
         for x in range(w):
-            u, v = (x - w / 2) * 1.0, (y - 14) * 2.0                 # ellipse floor: squash y by 2
+            u, v = (x - w / 2) * 1.5, (y - h * .62) * 3.0            # ellipse floor: squash y by 2
             sx, sy = c * u + sn_ * v + cw / 2, -sn_ * u + c * v + ch / 2
             ix, iy = int(math.floor(sx)), int(math.floor(sy))
             if 0 <= ix < cw and 0 <= iy < ch and GCAR_RGBA[iy, ix, 3] > 0: s[y, x] = GCAR_RGBA[iy, ix, :3]
@@ -403,7 +374,7 @@ x = 0
 while x < WW:
     bw, top = int(SKYR.integers(3, 6)), int(SKYR.integers(20, 60))
     BLDG.append((x, bw, top)); x += bw
-LIGHTS = [(int(SKYR.integers(top + 2, WH - 2)), int(SKYR.integers(bx, bx + bw)), str(SKYR.choice(list('qpjr'))), int(SKYR.integers(1, 9)))
+LIGHTS = [(int(SKYR.integers(top + 2, WH - 2)), int(SKYR.integers(bx, min(WW, bx + bw))), str(SKYR.choice(list('qpjr'))), int(SKYR.integers(1, 9)))
           for bx, bw, top in BLDG for _ in range(4)]
 DROPS = [(int(SKYR.integers(0, WW)), SKYR.random(), int(SKYR.integers(4, 7))) for _ in range(14)]
 MOTES = [(SKYR.random(), SKYR.random(), int(SKYR.integers(1, 4)), SKYR.random() * 6.28) for _ in range(22)]
@@ -431,23 +402,43 @@ def window(t):
 
 
 def curtain(a, t):
-    for y in range(152, 160): R(a, 4, y, 23, y, 'c' if y % 3 else 'b')
-    for y in range(160, 262):
-        sway = 1.6 * sn(t, 2) * (y - 160) / 100 + .6 * sn(t, 5, y * .05)
-        x0 = 15 + int(round(sway))
-        for x in range(x0, min(29, x0 + 8 + (y - 160) // 30)):
+    for y in range(104, 111): R(a, 2, y, 14, y, 'c' if y % 3 else 'b')
+    for y in range(111, 206):
+        sway = 1.4 * sn(t, 2) * (y - 111) / 95 + .5 * sn(t, 5, y * .05)
+        x0 = 9 + int(round(sway))
+        for x in range(x0, min(22, x0 + 5 + (y - 111) // 24)):
             a[y, x] = P['d' if (x - x0) % 3 == 0 else ('c' if (x - x0) % 3 == 1 else 'b')]
         a[y, x0] = P['e']                                             # rim light from the window
 
 
 BEAM = np.zeros((H0, W0), np.float32)
 for y in range(H0):
-    for x in range(24, W0):
-        u = (x - 24) / 130                                             # along the shaft, down-right
+    for x in range(14, 165):
+        u = (x - 14) / 105                                             # along the shaft, down-right
         if u > 1: continue
-        yc0, yc1 = 165 + u * 70, 245 + u * 95
-        if yc0 <= y <= yc1 and x <= 246: BEAM[y, x] = (1 - u) ** 1.3 * (1 - .4 * abs((y - (yc0 + yc1) / 2) / ((yc1 - yc0) / 2)))
-BEAM = np.floor(BEAM * 4 + BAY) / 4
+        yc0, yc1 = 112 + u * 60, 198 + u * 90
+        if yc0 <= y <= yc1: BEAM[y, x] = (1 - u) ** 1.3 * (1 - .4 * abs((y - (yc0 + yc1) / 2) / ((yc1 - yc0) / 2)))
+
+def blur(x, r):
+    """Separable box blur (edge-clamped), run twice for a near-gaussian falloff."""
+    for _ in range(2):
+        for ax in (0, 1):
+            pad = [(0, 0)] * x.ndim; pad[ax] = (r + 1, r)
+            c = np.cumsum(np.pad(x, pad, mode='edge'), axis=ax)
+            x = (np.take(c, range(2 * r + 1, c.shape[ax]), axis=ax) - np.take(c, range(0, c.shape[ax] - 2 * r - 1), axis=ax)) / (2 * r + 1)
+    return x
+
+
+def smooth_up(x):
+    """Bilinear upscale of a light map to full res, so light falls off smoothly over crisp pixels."""
+    return np.stack([np.asarray(Image.fromarray(np.ascontiguousarray(x[..., i]), 'F').resize((W, H), Image.BILINEAR))
+                     for i in range(x.shape[2])], -1)
+
+
+BEAM = blur(BEAM, 4)
+YY, XX = np.mgrid[0:H0, 0:W0].astype(np.float32)
+VIG = smooth_up(np.repeat((1 - .45 * np.clip((np.hypot((XX - W0 / 2) / W0, (YY - H0 / 2) / H0 * .8) - .25) / .4, 0, 1)
+                           ** 1.5)[..., None], 1, 2))
 
 
 # ------------------------------------------------------------------ frame
@@ -461,73 +452,74 @@ def frame(n, raw=True):
     # LED strip under the console shelf
     led = .5 + .5 * sn(t, 4)
     lc = col('e') * (1 - led) + col('j') * led
-    a[38:40, 42:228] = lc; em[38:40, 42:228] = 1
+    a[26:28, 18:156] = lc; em[26:28, 18:156] = 1
     # window + curtain
     a[WIN[1]:WIN[3] + 1, WIN[0]:WIN[2] + 1] = window(t)
     curtain(a, t)
     # lamp bulb, PC fans, phone, fairy lights
-    a[81:83, 36:39] = P['r']; em[81:83, 36:39] = 1
+    a[55, 20:23] = P['r']; a[54, 21] = P['r']; em[54:56, 20:23] = 1
     hue = [col('M'), col('e'), col('j'), col('J')]
-    for i, fy in enumerate((120, 132)):
+    for i, fy in enumerate((85, 94)):
         c = hue[int(cyc(t, 3) * 4 + i) % 4]
-        for k in range(12):
-            th = 2 * math.pi * k / 12 + 2 * math.pi * cyc(t, 30)
-            xx, yy = int(round(224 + 4 * math.cos(th))), int(round(fy + 4 * math.sin(th)))
+        for k in range(10):
+            th = 2 * math.pi * k / 10 + 2 * math.pi * cyc(t, 30)
+            xx, yy = int(round(153 + 3 * math.cos(th))), int(round(fy + 3 * math.sin(th)))
             a[yy, xx] = c if k % 3 else col('H'); em[yy, xx] = 1
-    if 5.0 <= t < 6.5: a[94:98, 177:180] = P['k']; em[94:98, 177:180] = 1
+    if 5.0 <= t < 6.5: a[64:67, 115:118] = P['k']; em[64:67, 115:118] = 1
     for i in range(12):
-        fx = 250 + int(round(12 * i / 11)); fy = 150 + i * 13 + int(3 * math.sin(i * 1.3))
+        fx = 170 + int(round(6 * i / 11)); fy = 92 + i * 9 + int(2 * math.sin(i * 1.3))
         on = sn(t, (i % 4) + 2, i) > -.3
         a[fy, fx] = P[('q', 'N', 'K')[i % 3]] if on else P['D']; em[fy, fx] = on
     # mug steam
     for i in range(5):
         p = cyc(t + i * DUR / 30, 6)
-        sx = 196 + int(round(1.5 * math.sin(p * 8 + i)))
-        sy = 81 - int(p * 16)
+        sx = 129 + int(round(1.5 * math.sin(p * 8 + i)))
+        sy = 52 - int(p * 14)
         if p < .85: a[sy, sx] = a[sy, sx] * (.35 + .5 * p) + col('G') * (.65 - .5 * p)
     # cat (breathing every 2.5 s, tail flicks twice per loop)
     flick = 1 if 3.0 <= t < 3.35 else (-1 if 9.2 <= t < 9.55 else 0)
     c = cr.cat(breath=cyc(t, 6), flick=flick)
-    place(a, c, 62, 216)
+    place(a, c, 46, 152)
     # gamer
     gm = gamer(t)
-    shade(a, gm, GX, GY, 2, 3, .6); paste(a, gm, GX, GY)
+    shade(a, gm, GX - 45, GY - 33, 2, 3, .6); paste(a, gm, GX - 45, GY - 33)
 
-    # ---- light: mood grade, dithered glows, window shaft, emissive restore
-    amb = np.array([.58, .64, .9], np.float32) * (1 - e) + np.array([.82, .66, .6], np.float32) * e
-    lit = a * amb
-    flick_s = 1 + .06 * sn(t, 30)
-    glow(lit, 135, 60, 110, (150, 110, 255), .38 * flick_s, ry=80)
-    glow(lit, 135, 39, 120, tuple(lc), .3 + .1 * led, ry=30)
-    glow(lit, 135, 118, 34, (90, 150, 255), .12 * flick_s, ry=24)                # screen spill on the gamer
-    wc = np.array([110, 150, 235]) * (1 - e) + np.array([255, 185, 110]) * e
-    glow(lit, 14, 205, 70, tuple(wc), .3 + .25 * e, ry=90)
-    lit += (BEAM * (.18 + .22 * e))[..., None] * (wc - lit * .3)
-    glow(lit, 37, 82, 34, (255, 200, 120), .45)
-    glow(lit, 224, 126, 26, tuple(hue[int(cyc(t, 3) * 4) % 4]), .35)
-    glow(lit, 196, 86, 12, (255, 220, 160), .2)
+    # ---- light (reference look): muted teal grade, smooth full-res light falloff, bloom on light sources
     m = em > 0
-    lit[m] = a[m] * (.92 + .08 * flick_s)
-    for (u0, v0, k, ph) in MOTES:                                    # dust in the window shaft
+    lum = a.mean(-1, keepdims=True)
+    base = a * .6 + lum * np.array([.30, .42, .40], np.float32)
+    base[m] = a[m]
+    amb = np.array([.5, .6, .72], np.float32) * (1 - e) + np.array([.66, .58, .54], np.float32) * e
+    Lm = np.empty((H0, W0, 3), np.float32); Lm[:] = amb
+    add = np.empty((H0, W0, 3), np.float32); add[:] = (16, 26, 24)       # room haze
+    flick_s = 1 + .05 * sn(t, 30)
+    wc = np.array([110, 150, 235], np.float32) * (1 - e) + np.array([255, 185, 110], np.float32) * e
+
+    def light(cx, cy, r, c, k, ry=None, haze=10):
+        d = np.sqrt(((XX - cx) / r) ** 2 + ((YY - cy) / (ry or r)) ** 2)
+        v = (np.clip(1 - d, 0, 1) ** 2 * k)[..., None] * (np.asarray(c, np.float32) / 255)
+        Lm[...] += v; add[...] += v * haze
+    light(90, 48, 110, (200, 95, 255), 1.45 * flick_s, ry=70, haze=30)             # desk + screens, purple neon wash
+    light(90, 27, 105, lc, .5 + .15 * led, ry=26)                                    # LED strip
+    light(90, 82, 34, (110, 165, 255), .4 * flick_s, ry=24)                          # screen spill on the gamer
+    light(8, 155, 72, wc, .5 + .3 * e, ry=90)                                        # window
+    light(22, 56, 30, (255, 190, 110), .85, haze=18)                                 # desk lamp
+    light(153, 90, 22, hue[int(cyc(t, 3) * 4) % 4], .6)                              # PC fans
+    light(130, 56, 12, (255, 210, 150), .25)                                         # mug
+    bc = wc * .6 + np.array([150, 200, 170], np.float32) * .4                     # greenish shaft like the reference
+    Lm += BEAM[..., None] * (.45 + .35 * e) * bc / 255
+    add += BEAM[..., None] * (26 + 14 * e) * bc / 255
+    for (u0, v0, k, ph) in MOTES:                                                    # dust in the window shaft
         u = (u0 + cyc(t, k)) % 1
-        x = int(24 + u * 120); yc0, yc1 = 165 + u * 65, 245 + u * 88
+        x = int(14 + u * 90); yc0, yc1 = 116 + u * 43, 194 + u * 62
         y = int(yc0 + (yc1 - yc0) * (.5 + .45 * math.sin(2 * math.pi * v0 + ph + 2 * math.pi * cyc(t, 1))))
-        if 0 <= y < H0 and 24 <= x < 246 and BEAM[y, x] > 0:
-            lit[y, x] = lit[y, x] * .4 + np.array([255, 235, 200]) * .6 * (.6 + .4 * e)
-    lit = quantise(lit)
-    big = up(lit, K)
+        if 0 <= y < H0 and 14 <= x < 164 and BEAM[y, x] > .05:
+            add[y, x] += np.array([255, 235, 200]) * (.5 + .3 * e)
+    Lm[m] = .95 + .05 * flick_s; add[m] = 0
+    bloom = blur(base * m[..., None] * (.85 + .15 * flick_s), 3)
+    out = up(base, K) * smooth_up(Lm) + smooth_up(add + bloom * .9)
+    big = np.clip(out * VIG, 0, 255).astype(np.uint8)
     return big.tobytes() if raw else Image.fromarray(big)
-
-
-PAL_N = cr.PAL_ARR
-PAL_SQ = (PAL_N ** 2).sum(1)
-
-
-def quantise(lit):
-    """Ordered-dither the lit frame onto the 48-colour master palette."""
-    x = np.clip(lit + (BAY[..., None] - .5) * 9, 0, 255).reshape(-1, 3)
-    d = PAL_SQ[None] - 2 * x @ PAL_N.T
-    return PAL_N[d.argmin(1)].reshape(H0, W0, 3).astype(np.uint8)
 
 
 # ------------------------------------------------------------------ audio (all periodic: FFT-filtered noise, integer cycles)

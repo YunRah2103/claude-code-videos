@@ -195,7 +195,7 @@ Shared render: `../series10/engine.py` `build()` (called once per episode from `
 
 ## Cozy top-down room kit (`cozyroom.py`)
 
-Oblique top-down room look from `videos/cozy-sim-room`: 270x480 native, 4x nearest, 48-colour master palette
+Oblique top-down room look from `videos/cozy-sim-room` (180x320 native, 6x nearest, smooth full-res light over the pixels), 48-colour master palette
 (`PAL`, one char per colour; quantise frames onto `PAL_ARR` with a Bayer dither). Sprites are hand-authored pixel maps
 returned as float RGBA for `ambient.paste`; `S(rows, outline=, sub=)` builds any map with a 1px outline and recolours.
 
