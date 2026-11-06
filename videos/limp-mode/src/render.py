@@ -52,13 +52,13 @@ def shot_cut(t):
 def shot_key(t):
     img = S.stage(t); k = 1 - 0.7 * io(prog(t, CUT, 0.9))
     fg = Image.new('RGBA', (W, H), (0, 0, 0, 0))
-    fx.blit(fg, up(B.power_meter(k, k < 0.5, t), 9), 760, 1760, anchor='bottom')
+    fx.blit(fg, up(B.power_meter(k, k < 0.5, t), 7), 800, 1720, anchor='bottom')
     rpm = lerp(0.85, 0.42, io(prog(t, CUT, 0.9))) + 0.03 * math.sin(t * 9)
-    fx.blit(fg, up(cb.rpm_gauge(cb.rpm_deg(rpm), 1.0 if t < CUT + 0.9 else 0.0), 4), 450, 1220, anchor='center')
+    fx.blit(fg, up(cb.rpm_gauge(cb.rpm_deg(rpm), 1.0 if t < CUT + 0.9 else 0.0), 4), 440, 1390, anchor='center')
     img.alpha_composite(G.rim(fg))
-    if CUT <= t < CUT + 0.5: fx.ring(img, t, CUT, 760, 1450, (232, 52, 63), life=0.5, r1=260)
-    cb.pill(img, t, CUT, sw(3) - 0.1, 'POWER CUT', (760, 1300), (470, 560), '#e8343f', '#ffffff', '#a01c26')
-    cb.pill(img, t, sw(3), 99, 'PROTECTION', (450, 1220), (470, 560), '#ffffff', '#1a1a2e', '#d6d9e2')
+    if CUT <= t < CUT + 0.5: fx.ring(img, t, CUT, 800, 1480, (232, 52, 63), life=0.5, r1=260)
+    cb.pill(img, t, CUT, sw(3) - 0.1, 'POWER CUT', (800, 1400), (470, 560), '#e8343f', '#ffffff', '#a01c26')
+    cb.pill(img, t, sw(3), 99, 'PROTECTION', (440, 1390), (470, 560), '#ffffff', '#1a1a2e', '#d6d9e2')
     return img
 
 
@@ -66,7 +66,7 @@ CUES = [(0.3, 'alert', 0.6), (0.9, 'power_down', 0.5), (sw(1) + 0.3, 'pop', 0.6)
         (CUT + 0.05, 'thump', 0.6), (sw(3), 'click', 0.7)]
 S.build(HERE, WORDS, HOOK, KEYCOL, 'whip-pan', (540, 960), LAMP, (shot_open, shot_cut, shot_key), 2,
         ('Ever had that happen?', (('YES', S.ov.GRN), ('NO', S.ov.RED)), 470, 640, -3), CUES, cut_point=(660, 1360),
-        key_point=(760, 1300), ask_prop=lambda t: (B.power_meter(0.3 + 0.2 * math.sin(t * 2) ** 2, True, t), 5))
+        key_point=(800, 1400), lufs=-15.1, ask_prop=lambda t: (B.power_meter(0.3 + 0.2 * math.sin(t * 2) ** 2, True, t), 5))
 
 if __name__ == '__main__':
     D.cli()

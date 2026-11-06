@@ -15,11 +15,11 @@ KEYCOL = {'blind': kit.RED, 'spot': kit.RED, 'mirrors': kit.YEL, 'whole': kit.YE
           'gap': kit.RED, 'warnings': kit.YEL}
 RX, RY, RS = 560, 1900, 6                                  # road sprite: bottom-centre anchor and scale
 def g(x, y): return RX - 70 * RS + x * RS, RY - 200 * RS + y * RS   # road grid -> frame
-MIRROR, OTHER, DRIVER = g(54, 84), g(108, 132), g(28, 88)
+MIRROR, OTHER, DRIVER = g(57, 81), g(108, 132), g(30, 92)
 
 
-def road(img, t, k, other=True):
-    fg = Image.new('RGBA', (W, H), (0, 0, 0, 0)); fx.blit(fg, up(B.blind_road(k, t, other), RS), RX, RY); img.alpha_composite(G.rim(fg))
+def road(img, t, k, other=True, look=0.0, warn=False):
+    fg = Image.new('RGBA', (W, H), (0, 0, 0, 0)); fx.blit(fg, up(B.blind_road(k, t, other, look, warn), RS), RX, RY); img.alpha_composite(G.rim(fg))
 
 
 def shot_open(t):
@@ -36,15 +36,10 @@ def shot_cut(t):
 
 
 def shot_key(t):
-    img = S.stage(t); road(img, t, oc(prog(t, sw(2), 0.6)))
-    fg = Image.new('RGBA', (W, H), (0, 0, 0, 0))
-    fx.blit(fg, up(B.head_check(io(prog(t, sw(2) + 0.3, 0.5)) - io(prog(t, sw(3) - 0.3, 0.4)) * 0.6), 5), *DRIVER, anchor='center')
-    if t >= sw(3) and int(t * 4) % 2 == 0:                          # amber blind-spot warning in the mirror
-        d = ImageDraw.Draw(fg); x, y = MIRROR
-        d.polygon([(x - 26, y + 22), (x + 26, y + 22), (x, y - 24)], fill=(255, 150, 30, 255), outline=(26, 26, 46, 255))
-        d.rectangle((x - 3, y - 8, x + 3, y + 8), fill=(26, 26, 46, 255))
-    img.alpha_composite(fg)
-    cb.pill(img, t, sw(2) + 0.2, sw(3) - 0.1, 'HEAD CHECK', DRIVER, (470, 600), '#46d26e', '#1a1a2e', '#2f9a4e')
+    look = io(prog(t, sw(2) + 0.3, 0.5)) * (1 - io(prog(t, sw(3) - 0.3, 0.4)))      # head turns over the shoulder, then back
+    img = S.stage(t); road(img, t, oc(prog(t, sw(2), 0.6)), look=look, warn=t >= sw(3))
+    if t >= sw(3) and int(t * 4) % 2 == 0: fx.ring(img, (t * 4 % 1) / 4, 0, *MIRROR, (255, 150, 30), life=0.2, r1=80)
+    cb.pill(img, t, sw(2) + 0.2, sw(3) - 0.1, 'HEAD CHECK', g(70, 120), (470, 600), '#46d26e', '#1a1a2e', '#2f9a4e')
     cb.pill(img, t, sw(3), 99, 'BLIND SPOT WARNING', MIRROR, (480, 600), '#ffd23f', '#1a1a2e', '#c9a21c')
     return img
 
@@ -53,7 +48,7 @@ CUES = [(0.25, 'alert', 0.5), (sw(1) + 0.3, 'pop', 0.6), (sw(2) + 0.3, 'whoosh',
         (sw(3), 'alert', 0.9), (sw(3) + 0.5, 'beep', 0.4)]
 S.build(HERE, WORDS, HOOK, KEYCOL, 'slow-motion', (620, 1300), OTHER, (shot_open, shot_cut, shot_key), 2,
         ('Do you check every time?', (('ALWAYS', S.ov.GRN), ('NOT ALWAYS', S.ov.RED)), 470, 700, -2), CUES,
-        cut_point=g(66, 170), key_point=DRIVER, ask_prop=lambda t: (B.blind_road(0.5 + 0.5 * math.sin(t * 3) ** 2, t), 2))
+        cut_point=g(66, 170), key_point=DRIVER, ask_prop=lambda t: (B.blind_road(0.5 + 0.5 * math.sin(t * 3) ** 2, t), 2), lufs=-15.5)
 
 if __name__ == '__main__':
     D.cli()

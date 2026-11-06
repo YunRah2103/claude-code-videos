@@ -61,7 +61,7 @@ def cli():
     a = sys.argv[1:]
     if a[0] == 'safecheck': raise SystemExit(0 if safecheck() else 1)
     if a[0] == 'cover':
-        Image.frombytes('RGB', (W, H), kit.frame(0)).save(a[1]); return
+        Image.frombytes('RGB', (W, H), kit.frame(round(CFG.get('cover_t', 0.0) * FPS))).save(a[1]); return
     if a[0] == 'safestill':
         os.makedirs(a[1], exist_ok=True)
         for ts in a[2:]:

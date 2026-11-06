@@ -40,11 +40,11 @@ def shot_cut(t):
 
 def shot_key(t):
     img = S.stage(t); k = io(prog(t, FILL, 1.0))
-    layer(img, B.fuel_compare(k, t), 5, 620, 1420)
-    if t >= sw(3): layer(img, car('yellow', wheel_deg=-t * 500), 5, lerp(1300, 700, oc(prog(t, sw(3), 0.6))), 1900, 'bottom')
-    cb.pill(img, t, sw(2) + 0.1, wt('regular') - 0.1, 'CHECK YOUR MANUAL', (620, 1240), (480, 600), '#ffd23f', '#1a1a2e', '#c9a21c')
-    cb.pill(img, t, wt('regular'), sw(3) - 0.1, 'REGULAR IS FINE', (445, 1610), (480, 600), '#46d26e', '#1a1a2e', '#2f9a4e')
-    cb.pill(img, t, sw(3) + 0.5, 99, 'SOME ENGINES BENEFIT', (700, 1760), (480, 600), '#ffffff', '#1a1a2e', '#d6d9e2')
+    layer(img, B.fuel_compare(k, t), 5, 620, 1370)
+    if t >= sw(3): layer(img, car('yellow', wheel_deg=-t * 500), 4, lerp(1300, 700, oc(prog(t, sw(3), 0.6))), 1770, 'bottom')
+    cb.pill(img, t, sw(2) + 0.1, wt('regular') - 0.1, 'CHECK YOUR MANUAL', (620, 1190), (480, 600), '#ffd23f', '#1a1a2e', '#c9a21c')
+    cb.pill(img, t, wt('regular'), sw(3) - 0.1, 'REGULAR IS FINE', (445, 1560), (480, 600), '#46d26e', '#1a1a2e', '#2f9a4e')
+    cb.pill(img, t, sw(3) + 0.5, 99, 'SOME ENGINES BENEFIT', (700, 1660), (480, 600), '#ffffff', '#1a1a2e', '#d6d9e2')
     return img
 
 
@@ -52,7 +52,7 @@ CUES = [(0.45, 'thump', 0.6), (0.6, 'coin', 0.5), (sw(1) + 0.1, 'buzzer', 0.5), 
         (FILL + 1.0, 'coin', 0.9), (FILL + 1.08, 'clink', 0.6), (sw(3), 'vroom', 0.4), (sw(3) + 0.2, 'pop', 0.5)]
 S.build(HERE, WORDS, HOOK, KEYCOL, 'drop-in', (600, 1250), (700, 1000), (shot_open, shot_cut, shot_key), 2,
         ('Did you think it was faster?', (('YES', S.ov.GRN), ('NO', S.ov.RED)), 470, 600, 2), CUES, cut_point=(640, 1500),
-        key_point=(600, 1400), ask_prop=lambda t: (B.fuel_gauge(0.6 + 0.2 * math.sin(t * 2), B.YEL), 4))
+        key_point=(600, 1400), ask_prop=lambda t: (B.fuel_gauge(0.6 + 0.2 * math.sin(t * 2), B.YEL), 4), lufs=-15.2)
 
 if __name__ == '__main__':
     D.cli()

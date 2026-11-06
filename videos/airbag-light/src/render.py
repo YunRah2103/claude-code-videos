@@ -38,9 +38,8 @@ def shot_cut(t):
     img = S.stage(t)
     layer(img, B.airbag_icon(blink(t)), 18, 620, 1440)
     if t >= sw(1) + 0.4:                                     # a crossed-out bulb: it's not just a bulb
-        d = ImageDraw.Draw(img); x, y = 800, 780; k = oc(prog(t, sw(1) + 0.4, 0.3))
-        d.ellipse((x - 40, y - 50, x + 40, y + 30), fill=(255, 236, 140)); d.rectangle((x - 20, y + 30, x + 20, y + 60), fill=(150, 156, 168))
-        d.line((x - 70, y - 70, x - 70 + 140 * k, y - 70 + 140 * k), fill=(232, 52, 63), width=18)
+        k = fx.popin(t, sw(1) + 0.3, 0.3)
+        layer(img, B.bulb(oc(prog(t, sw(1) + 0.6, 0.3))), max(1, round(6 * k)), 800, 780)
     cb.pill(img, t, sw(1) + 0.3, sw(2) - 0.1, 'NOT JUST A BULB', (800, 760), (440, 520), '#ffffff', '#1a1a2e', '#d6d9e2')
     cb.pill(img, t, sw(2), 99, 'SYSTEM FAULT', (620, 1340), (440, 520), '#e8343f', '#ffffff', '#a01c26')
     return img
@@ -58,7 +57,7 @@ CUES = [(0.3, 'alert', 0.7), (0.9, 'alert', 0.5), (sw(1) + 0.4, 'snap', 0.6), (s
         (sw(3) + 0.7, 'click', 0.8), (sw(4), 'alert', 0.8)]
 S.build(HERE, WORDS, HOOK, KEYCOL, 'tilt', (560, 980), LAMP, (shot_open, shot_cut, shot_key), 3,
         ('Know what it meant?', (('YES', S.ov.GRN), ('NO', S.ov.RED)), 466, 900, 3), CUES, cut_point=(620, 1340),
-        key_point=m(55, 50), ask_prop=lambda t: (B.airbag_icon(blink(t)), 6))
+        key_point=m(55, 50), lufs=-15.5, ask_prop=lambda t: (B.airbag_icon(blink(t)), 6))
 
 if __name__ == '__main__':
     D.cli()

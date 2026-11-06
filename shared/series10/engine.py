@@ -129,7 +129,7 @@ def opening(kind, world, t, focus, z1=1.06):
 
 
 def build(here, words, hook, keycol, opening_kind, focus, point, shots, key_sentence, poll, cues, cut_point=None,
-          key_point=None, ask_prop=None, dur=None, open_keys=(), mid_keys=(), headline_y=430, cut_z=1.06):
+          key_point=None, ask_prop=None, dur=None, open_keys=(), mid_keys=(), headline_y=430, cut_z=1.06, lufs=-16):
     st = sentences(words); ws = lambda i: words[i]['s']
     hx = next(c for line in hook for _, c in line if c).lstrip('#')
     CFG['accent'] = tuple(int(hx[i:i + 2], 16) for i in (0, 2, 4))
@@ -208,6 +208,7 @@ def build(here, words, hook, keycol, opening_kind, focus, point, shots, key_sent
         return img
 
     allcues = [(0.0, 'whoosh', 0.6), (T4 + 0.25, 'pop', 0.8), (ws(st[-1]) + 0.1, 'sparkle', 0.5), (END_T, 'whoosh', 0.6)] + list(cues)
-    D.wire(here, words, DUR, END_T, polished, [T2, T3, T4], allcues, keycol, overlay, cap=(T2 - 0.05, 1075), lead=1 / FPS)
+    D.wire(here, words, DUR, END_T, polished, [T2, T3, T4], allcues, keycol, overlay, cap=(T2 - 0.05, 1075), lead=1 / FPS, lufs=lufs)
+    D.CFG['cover_t'] = max(0.0, min(1.7, T2 - 0.6))           # cover: opening move settled, headline still up
     CFG.update(T2=T2, T3=T3, T4=T4, DUR=DUR, END_T=END_T, st=st)
     return CFG

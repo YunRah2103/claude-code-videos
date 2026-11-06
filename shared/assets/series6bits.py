@@ -6,9 +6,9 @@ RPM gauge: carbits.rpm_gauge(); poll sticker: overlays.poll(); presenter spot: e
     speedo(shown, true, band)     speedometer dial: dashed amber tolerance band, green true-speed tick, red shown needle
     belt_drive(t, snap)           toothed timing belt over cam + crank pulleys (teeth move); snap 0..1 breaks and flaps it
     valve_piston(gap, hit)        one-cylinder cutaway: valve down, piston up; gap 0..1 clearance, hit flashes the contact
-    blind_road(k, t)              top-down two-lane road: our car, blue mirror cones, red blind-spot cone (alpha k), car in it
-    head_check(k)                 driver head seen from above turning 0..1 towards the blind spot (green sight cone)
-    airbag_icon(on)               seated passenger + circle airbag symbol lamp (red when on)
+    blind_road(k, t, other, look, warn)  top-down road: our car, blue mirror cones, red blind-spot cone (alpha k), car in it;
+                                  look 0..1 head check (green sight cone), warn blinks the amber lamp in the right mirror
+    airbag_icon(on)               seated passenger + circle airbag symbol lamp (red when on); bulb(strike) crossed-out bulb
     airbag_module(t, fault)       control box with sensor + connector wires; fault blinks the broken connector
     fuel_gauge(level, col)        E..F fuel gauge with coloured pump badge
     fuel_compare(k, t)            REGULAR vs PREMIUM: two gauges + two equal power bars filling to k, '=' between
@@ -124,7 +124,7 @@ def valve_piston(gap=1.0, hit=0.0):
 
 
 # ------------------------------------------------------------------ blind spot
-def blind_road(k=1.0, t=0.0, other=True):
+def blind_road(k=1.0, t=0.0, other=True, look=0.0, warn=False):
     """Top-down road, 140x200 grid. Our car centre-left lane heading up; the blind-spot cone sits behind its right mirror."""
     img = _img(140, 200); d = ImageDraw.Draw(img)
     d.rectangle((0, 0, 139, 199), fill=(44, 46, 54))
@@ -140,17 +140,18 @@ def blind_road(k=1.0, t=0.0, other=True):
     img.alpha_composite(over)
     if other: img.alpha_composite(car_top(0, (60, 120, 220)), (88, 100 + int(3 * math.sin(t * 2))))
     img.alpha_composite(car_top(0, (196, 40, 50)), (16, 60))
+    hx, hy = 30, 92                                                                  # driver's head (left-hand seat)
+    if look > 0.01:                                                                  # head check: green sight cone sweeps over the gap
+        a = math.radians(-90 + 118 * look); sc = _img(140, 200); o = ImageDraw.Draw(sc)
+        o.polygon([(hx, hy), (hx + 110 * math.cos(a - 0.28), hy + 110 * math.sin(a - 0.28)),
+                   (hx + 110 * math.cos(a + 0.28), hy + 110 * math.sin(a + 0.28))], fill=GRN + (120,))
+        img.alpha_composite(sc)
+    d = ImageDraw.Draw(img); a = math.radians(-90 + 118 * look)
+    d.ellipse((hx - 5, hy - 5, hx + 5, hy + 5), fill=(60, 40, 30), outline=INK)
+    d.ellipse((hx + 4 * math.cos(a) - 2, hy + 4 * math.sin(a) - 2, hx + 4 * math.cos(a) + 2, hy + 4 * math.sin(a) + 2), fill=(214, 160, 120))
+    d.rounded_rectangle((52, 76, 62, 86), 2, fill=(150, 156, 168), outline=INK)              # right door mirror
+    if warn and int(t * 4) % 2 == 0: d.polygon([(54, 85), (60, 85), (57, 78)], fill=AMB)
     return img
-
-
-def head_check(k=0.0):
-    img = _img(40, 40); d = ImageDraw.Draw(img)
-    over = _img(40, 40); o = ImageDraw.Draw(over); a = math.radians(-90 + 120 * k)
-    o.polygon([(20, 20), (20 + 30 * math.cos(a - 0.4), 20 + 30 * math.sin(a - 0.4)), (20 + 30 * math.cos(a + 0.4), 20 + 30 * math.sin(a + 0.4))], fill=GRN + (110,))
-    img.alpha_composite(over)
-    d.ellipse((12, 12, 28, 28), fill=(60, 40, 30)); nx, ny = 20 + 8 * math.cos(a), 20 + 8 * math.sin(a)
-    d.ellipse((nx - 3, ny - 3, nx + 3, ny + 3), fill=(214, 160, 120))
-    return outline(img)
 
 
 # ------------------------------------------------------------------ airbag
@@ -162,6 +163,17 @@ def airbag_icon(on=True):
     d.line((13, 13, 13, 17), fill=col, width=2); d.line((7, 10, 11, 10), fill=col); d.line((4, 9, 6, 16), fill=col)
     d.ellipse((12, 2, 20, 10), outline=col, width=2)
     if on: d.point((13, 3), fill=(255, 200, 200))
+    return img
+
+
+def bulb(strike=0.0):
+    """Pixel light bulb; strike 0..1 draws the red diagonal 'not just a bulb' line."""
+    img = _img(30, 34); d = ImageDraw.Draw(img)
+    d.ellipse((5, 1, 25, 21), fill=(255, 236, 140)); d.ellipse((9, 4, 15, 10), fill=(255, 250, 220))
+    d.rectangle((10, 20, 20, 23), fill=(255, 236, 140)); d.rectangle((10, 24, 20, 30), fill=STEEL[1])
+    for y in (25, 27, 29): d.line((10, y, 20, y), fill=STEEL[0])
+    img = outline(img)
+    if strike > 0: ImageDraw.Draw(img).line((2, 2, 2 + 26 * strike, 2 + 30 * strike), fill=RED, width=3)
     return img
 
 

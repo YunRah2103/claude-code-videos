@@ -187,8 +187,8 @@ Shared render: `../series10/engine.py` `build()` (called once per episode from `
 | Power meter | Segmented POWER bar meter that drops and blinks when power is cut | `series6bits.py` `power_meter()` | limp-mode | own work |
 | Timing belt + pulleys | Toothed belt over two cam pulleys and the crank pulley; teeth move; `snap` breaks it | `series6bits.py` `belt_drive()` | timing-belt | own work |
 | Valve / piston gap | One-cylinder cutaway, valve down / piston up, contact flash | `series6bits.py` `valve_piston()` | timing-belt | own work |
-| Blind-spot cone | Top-down road: mirror-view cones (blue), blind-spot cone (red), car hidden in it | `series6bits.py` `blind_road()`, `head_check()` | blind-spot | own work |
-| Airbag warning icon | Generic seated-passenger + bag symbol lamp; SRS control unit with sensor / connector wires | `series6bits.py` `airbag_icon()`, `airbag_module()` | airbag-light | own work |
+| Blind-spot cone | Top-down road: mirror-view cones (blue), blind-spot cone (red), car hidden in it, head-check sight cone, mirror warning lamp | `series6bits.py` `blind_road(look=, warn=)` | blind-spot | own work |
+| Airbag warning icon | Generic seated-passenger + bag symbol lamp; SRS control unit with sensor / connector wires | `series6bits.py` `airbag_icon()`, `bulb()`, `airbag_module()` | airbag-light | own work |
 | Fuel gauge comparison | E..F fuel gauge; REGULAR vs PREMIUM gauges with equal power bars | `series6bits.py` `fuel_gauge()`, `fuel_compare()` | premium-fuel | own work |
 | Poll sticker | Two-option sticker, position / tilt varies per episode | `overlays.py` `poll()` | all six | own work |
 | Sound effects | power-down whine, metal clack, soft alert chime, needle tick (alias of click) | `../audio/sfx.py` `power_down()`, `clack()`, `alert()`, `tick` | limp-mode, timing-belt, blind-spot, airbag-light, speedometer-high | own work |

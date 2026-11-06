@@ -37,16 +37,16 @@ def shot_open(t):
 
 def shot_cut(t):
     img = S.stage(t); k = oc(prog(t, sw(1) + 0.4, 0.8))
-    layer(img, B.speedo(shown(t), TRUE, (BAND[0], lerp(BAND[0] + 0.001, BAND[1], k)), t=t), 7, 600, 1520)
-    cb.pill(img, t, sw(1) + 0.4, 99, 'OVER-READ ALLOWED', at(0.53, 30, 7, 600, 1520), (470, 560), '#ffd23f', '#1a1a2e', '#c9a21c')
+    layer(img, B.speedo(shown(t), TRUE, (BAND[0], lerp(BAND[0] + 0.001, BAND[1], k)), t=t), 6, 600, 1440)
+    cb.pill(img, t, sw(1) + 0.4, 99, 'OVER-READ ALLOWED', at(0.53, 30, 6, 600, 1440), (470, 560), '#ffd23f', '#1a1a2e', '#c9a21c')
     return img
 
 
 def shot_key(t):
     img = S.stage(t)
-    layer(img, B.speedo(shown(t), TRUE, BAND, t=t), 8, 620, 1530)
-    cb.pill(img, t, sw(2) + 0.2, 99, 'SAFETY MARGIN', at(0.53, 30, 8, 620, 1530), (480, 560), '#ffd23f', '#1a1a2e', '#c9a21c')
-    cb.pill(img, t, sw(2) + 0.9, 99, 'TRUE SPEED', at(TRUE, 40, 8, 620, 1530), (380, 800), '#46d26e', '#1a1a2e', '#2f9a4e')
+    layer(img, B.speedo(shown(t), TRUE, BAND, t=t), 6, 620, 1440)
+    cb.pill(img, t, sw(2) + 0.2, 99, 'SAFETY MARGIN', at(0.53, 30, 6, 620, 1440), (480, 560), '#ffd23f', '#1a1a2e', '#c9a21c')
+    cb.pill(img, t, sw(2) + 0.9, 99, 'TRUE SPEED', at(TRUE, 40, 6, 620, 1440), (380, 800), '#46d26e', '#1a1a2e', '#2f9a4e')
     return img
 
 
@@ -54,7 +54,7 @@ CUES = [(0.35, 'tick', 0.8), (0.6, 'tick', 0.6), (sw(1) + 0.4, 'pop', 0.6)] + \
        [(sw(2) + 0.2 + 0.5 * i, 'tick', 0.7) for i in range(4)] + [(sw(2) + 0.9, 'ding', 0.4)]
 S.build(HERE, WORDS, HOOK, KEYCOL, 'glitch-in', (760, 860), (790, 800), (shot_open, shot_cut, shot_key), 2,
         ('Does yours read high?', (('YES', S.ov.GRN), ('NO', S.ov.RED)), 450, 560, -5), CUES, cut_point=(600, 1300),
-        key_point=(620, 1250), ask_prop=lambda t: (B.speedo(shown(t), TRUE, BAND, t=t), 3))
+        key_point=(620, 1250), lufs=-15.3, ask_prop=lambda t: (B.speedo(shown(t), TRUE, BAND, t=t), 3))
 
 if __name__ == '__main__':
     D.cli()
