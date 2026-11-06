@@ -16,6 +16,8 @@ from episode import W, H, RED, YEL, GRN, WHITE
 from assets import overlays as ov
 from audio import sfx
 from pixpost import post, up
+from pixanim.presenter import Presenter, Fn
+from PIL import Image
 
 OUT = os.path.join(ROOT, 'out', 'rear-engine-3d')
 F3D = os.path.join(OUT, 'frames3d')                  # scratch PNG tiles (out/ is git-ignored)
@@ -44,10 +46,24 @@ def anc(t, name):
     a = anchors(t)[name]; return (a[0], a[1]) if a[2] else None
 
 
+# The signature main guy (shared/pixanim sprite rig), 1 sprite pixel = 1 scene pixel (8x8 on screen). Drawn at size 2
+# on a 270x480 layer, then halved with nearest (exact, everything sits on even pixels) and pasted into the 135x240 art.
+def _aim(t):
+    p = anchors(t).get('_pt'); return (round(p[0] / 4), round(p[1] / 4)) if p else None
+GUY = Presenter([
+    (-9, dict(path=(50, 478), size=2, legs='stand', arms='point', point=_aim, expr='smile', ground=None, hover=0, trail=False, face=1)),
+    (14.05, dict(arms='shrug', point=None, look_camera=True, expr='grin')),
+    (15.75, dict(arms='point', point=_aim, look_camera=False, expr='smile')),
+])
+
+
 def shot(t):
     ov.reset()
     n = min(max(int(t * FPS3 + 1e-6), 0), round(DUR * FPS3) - 1)
-    return up(post(os.path.join(F3D, f'f_{n}.png'), anchors(t)['_x']))
+    art = post(os.path.join(F3D, f'f_{n}.png'), anchors(t)['_x']).convert('RGBA')
+    lay = Image.new('RGBA', (270, 480), (0, 0, 0, 0)); GUY.draw(lay, n / FPS3, layer=None)
+    lay = lay.resize((135, 240), Image.NEAREST); art.alpha_composite(lay)
+    return up(art.convert('RGB'))
 
 
 def overlay(cv, t):
@@ -59,8 +75,8 @@ def overlay(cv, t):
     ov.pin(cv, t, 2.45, 4.8, 'ENGINE', anc(t, 'engine'), follow('engine', 300, 0.6), 760, ORG, grid=8)
     ov.pin(cv, t, 2.85, 4.8, 'REAR AXLE', anc(t, 'rear_axle'), follow('rear_axle', 640, 0.6), 940, TEAL, grid=8)
     ov.pin(cv, t, 8.45, 10.8, 'OVERSTEER', anc(t, 'tail'), follow('tail', 600, 0.4), 800, RED, grid=8)
-    ov.pin(cv, t, 11.3, 13.8, 'WIDER REAR TYRES', anc(t, 'rear_tyre'), 480, 780, YEL, grid=8)
-    ov.pin(cv, t, 12.7, 13.8, 'ELECTRONICS', None, 690, 960, TEAL, sz=54, icon='chip', grid=8)
+    ov.pin(cv, t, 11.3, 13.8, 'WIDER REAR TYRES', anc(t, 'rear_tyre') if t < 12.5 else anc(t, 'rear_tyre_l'), 480, 810, YEL, grid=8)
+    ov.pin(cv, t, 12.7, 13.8, 'ELECTRONICS', None, 640, 660, TEAL, sz=54, icon='chip', grid=8)
     ov.poll(cv, t, 14.05, 15.5, 'Front engine or rear engine?', ov.SAFE_CX, 760, 0.9,
             opts=(('FRONT', GRN), ('REAR', YEL)))
 

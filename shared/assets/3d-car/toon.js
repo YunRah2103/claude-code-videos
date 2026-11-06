@@ -6,8 +6,7 @@
 import * as THREE from 'three';
 
 export const ID = { BODY: 1, GLASS: 2, TYRE: 3, RIM: 4, DARK: 5, HEAD: 6, TAIL: 7, METAL: 8, GLOW: 9, SAND: 10,
-  BACK: 11, ARROW: 12, HOT: 13, SKIN: 14, HAIR: 15, SHIRT: 16, JEANS: 17, SAND_LINE: 18, SKID: 19, BACK_LAMP: 20,
-  SPECS: 21, EYE: 22 };   // face details: never outlined (they are 1-2 px at 135x240)
+  BACK: 11, ARROW: 12, HOT: 13, SKIN: 14, HAIR: 15, SHIRT: 16, JEANS: 17, SAND_LINE: 18, SKID: 19, BACK_LAMP: 20 };
 
 export const U = {                                   // shared uniforms (one object: set once per frame)
   uMode: { value: 0 }, uNear: { value: 0.1 }, uFar: { value: 60 },
@@ -32,7 +31,7 @@ void main(){
 }`;
 
 const FRAG = `
-uniform float uMode, uNear, uFar, uId, uKind, uSpec, uGlow, uTime, uLevel;
+uniform float uMode, uNear, uFar, uId, uKind, uSpec, uGlow, uTime, uLevel, uEnv, uGlare;
 uniform vec3 uKey, uRim, uPool; uniform vec2 uFloorOff; uniform vec4 uShadow;
 varying vec3 vN; varying vec3 vW; varying float vD;
 void main(){
@@ -48,6 +47,15 @@ void main(){
     float sky = 0.5 + 0.5 * N.y;
     lit = 0.07 + 0.2 * sky + 0.74 * k + uSpec * pow(max(dot(N, normalize(uKey + V)), 0.0), 36.0);
     rim = pow(1.0 - max(dot(N, V), 0.0), 2.5) * smoothstep(-0.1, 0.6, dot(N, uRim) + 0.3);
+    if (uEnv > 0.0) {                                  // painted-metal look: sky above the horizon, dark band, ground below
+      vec3 Rf = reflect(-V, N);
+      float env = Rf.y > 0.12 ? 1.05 : (Rf.y > -0.08 ? 0.18 : 0.5);
+      lit = mix(lit, env * (0.55 + 0.45 * max(dot(N, uKey), 0.0)) + 0.25 * k, uEnv);
+    }
+    if (uGlare > 0.0) {                                // glass: dark, with two diagonal glare streaks
+      float g = fract((vW.x * 0.9 + vW.y * 1.4 + vW.z * 0.3) * 0.9);
+      lit = 0.18 + 0.25 * k + ((g < 0.09 || (g > 0.16 && g < 0.2)) ? 0.9 : 0.0);
+    }
     lit = lit * uLevel + uGlow;
   } else if (uKind < 1.5) {                            // sand floor: light pool, joints, contact shadow
     vec2 p = vW.xz - uPool.xz; float r = length(p);
@@ -72,10 +80,10 @@ void main(){
 }`;
 
 // kind: 0 lit, 1 floor, 2 backdrop, 3 flat. spec: glossiness (body ~0.5). glow: added light (engine pulse).
-export function mat(id, { kind = 0, spec = 0.0, glow = 0, level = 1, side = THREE.FrontSide } = {}) {
+export function mat(id, { kind = 0, spec = 0.0, glow = 0, level = 1, side = THREE.FrontSide, env = 0, glare = 0 } = {}) {
   return new THREE.ShaderMaterial({
     vertexShader: VERT, fragmentShader: FRAG, side,
-    uniforms: { ...U, uId: { value: id }, uKind: { value: kind }, uSpec: { value: spec }, uGlow: { value: glow }, uLevel: { value: level } },
+    uniforms: { ...U, uId: { value: id }, uKind: { value: kind }, uSpec: { value: spec }, uGlow: { value: glow }, uLevel: { value: level }, uEnv: { value: env }, uGlare: { value: glare } },
   });
 }
 

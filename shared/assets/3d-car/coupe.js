@@ -150,7 +150,7 @@ export function buildCoupe(THREE, mat) {
   const group = new THREE.Group(), sprung = new THREE.Group(), shell = new THREE.Group(), inner = new THREE.Group();
   group.add(sprung); sprung.add(shell, inner);
   const { g, ids } = bodyGeometry(THREE);
-  const body = new THREE.Mesh(g, ids.map(id => mat(id, { spec: id === ID.GLASS ? 0.9 : id === ID.BODY ? 0.45 : 0 }))); shell.add(body);
+  const body = new THREE.Mesh(g, ids.map(id => mat(id, id === ID.GLASS ? { glare: 1 } : id === ID.BODY ? { spec: 0.5, env: 0.7 } : {}))); shell.add(body);
 
   const ray = new THREE.Raycaster(), hit = (o, d) => { ray.set(new THREE.Vector3(...o), new THREE.Vector3(...d).normalize()); return ray.intersectObject(body)[0]; };
   body.updateMatrixWorld(true);
@@ -178,7 +178,11 @@ export function buildCoupe(THREE, mat) {
   // taillight bar: tube through surface points across the tail
   const tp = [];
   for (let i = 0; i <= 12; i++) { const z = -0.74 + 1.48 * i / 12, h = hit([-3, 0.69, z], [1, 0, 0]); if (h) tp.push(h.point.clone().add(new THREE.Vector3(-0.012, 0, 0))); }
-  if (tp.length > 3) shell.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(tp), 40, 0.028, 6), mat(ID.TAIL, { spec: 0.6, glow: 0.1 })));
+  if (tp.length > 3) {                                // light bar on a black tail panel
+    const cr = new THREE.CatmullRomCurve3(tp);
+    shell.add(new THREE.Mesh(new THREE.TubeGeometry(cr, 40, 0.045, 8), mat(ID.TAIL, { kind: 3, level: 1.0 })));
+    const pan = new THREE.Mesh(new THREE.TubeGeometry(cr, 40, 0.07, 8), mat(ID.DARK)); pan.position.x = 0.045; shell.add(pan);
+  }
   // rear diffuser + twin exhaust tips
   const diff = new THREE.Mesh(new RoundedBoxGeometry(0.12, 0.12, 1.2, 2, 0.03), mat(ID.DARK)); diff.position.set(-2.1, 0.3, 0); shell.add(diff);
   for (const s of [1, -1]) {
@@ -196,7 +200,7 @@ export function buildCoupe(THREE, mat) {
     sa.setY(i, sa.getY(i) * (0.25 + 0.75 * f) - (1 - f) * 0.07);
   }
   sg.computeVertexNormals();
-  const sp = new THREE.Mesh(sg, mat(ID.BODY, { spec: 0.45 }));
+  const sp = new THREE.Mesh(sg, mat(ID.BODY, { spec: 0.5, env: 0.7 }));
   sp.position.set(-1.74, TOP(-1.85) - 0.07, 0); shell.add(sp);
   // engine-lid louvres (between rear glass and spoiler)
   for (let i = 0; i < 6; i++) {

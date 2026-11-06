@@ -6,15 +6,14 @@ import * as THREE from 'three';
 import { stage } from '../../../shared/assets/3d-car/stage.js';
 import { ID, U, mat } from '../../../shared/assets/3d-car/toon.js';
 import { buildCoupe, DIM } from '../../../shared/assets/3d-car/coupe.js';
-import { buildGuy } from '../../../shared/assets/3d-car/presenter3d.js';
 
 export const DUR = 16;
 const ss = (a, b, x) => { const u = Math.min(1, Math.max(0, (x - a) / (b - a))); return u * u * (3 - 2 * u); };
 const lerp = (a, b, u) => a + (b - a) * u;
 
 export function build(canvas) {
-  const S = stage(canvas), car = buildCoupe(THREE, mat), guy = buildGuy(THREE, mat);
-  S.scene.add(car.group); S.camera.add(guy.group);
+  const S = stage(canvas), car = buildCoupe(THREE, mat);
+  S.scene.add(car.group);
   // weight arrow (points down at the rear axle)
   const arrow = new THREE.Group(), am = mat(ID.ARROW, { spec: 0.4 });
   const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.5, 12), am); shaft.position.y = 0.45; arrow.add(shaft);
@@ -36,16 +35,16 @@ export function build(canvas) {
   const rearPts = (c) => { const side = new THREE.Vector3(-c.d.z, 0, c.d.x); return [1, -1].map(s => c.pos.clone().addScaledVector(c.d, DIM.xR).addScaledVector(side, s * DIM.zR)); };
 
   function frame(t) {
-    let rig, xray = 0, pose = { spin: 0 }, point = 'engine', carPos = new THREE.Vector3(), carYaw = 0, guyAt = [0.15, 0.985], shrug = 0;
+    let rig, xray = 0, pose = { spin: 0 }, point = 'engine', carPos = new THREE.Vector3(), carYaw = 0;
     let floorOff = 0, backRot = 0, arrowOn = 0, skidOn = false;
     U.uTime.value = t;
     if (t < 1 || t >= 14) {                                      // fast orbit (loops: 16 s == 0 s)
       const tau = t < 1 ? t : t - 16;
-      rig = { target: [-0.15, 0.5, 0], yaw: 35 - 82 * tau, pitch: 11 + 2 * tau, dist: 11.4 + 0.5 * tau, fov: 34, shiftX: 0.16 };
-      point = t >= 14 ? null : 'engine'; shrug = ss(14.1, 14.4, t) * (1 - ss(15.6, 15.9, t));
+      rig = { target: [-0.15, 0.5, 0], yaw: 35 - 82 * tau, pitch: 11 + 2 * tau, dist: 12.2 + 0.5 * tau, fov: 34, shiftX: 0.24 };
+      point = t >= 14 ? null : 'engine';
     } else if (t < 2) {                                          // rear 3/4, low: tail, duck tail, exhausts
       const tau = t - 1; rig = { target: [-1.45, 0.6, 0], yaw: -132 + 30 * tau, pitch: 14, dist: 7.4 - 0.7 * tau, fov: 34 };
-      point = 'tail'; guyAt = [0.14, 0.985];
+      point = 'tail';
     } else if (t < 3.5) {                                        // body turns x-ray, push in on the rear
       const tau = t - 2; xray = 0.6 * ss(0.05, 0.45, tau);
       rig = { target: [-1.0, 0.45, 0], yaw: -60 + 8 * tau, pitch: 32 - 4 * tau, dist: lerp(10, 7.2, ss(0, 1.5, tau)), fov: 34 };
@@ -58,7 +57,7 @@ export function build(canvas) {
       const tau = t - 5, s = 1.5 * tau + 3.2 * tau * tau;
       floorOff = s; backRot = -s / 15; pose = { spin: s / DIM.rR, squat: 0.032 * ss(0, 0.5, tau) * (1 - 0.3 * ss(2.2, 3, tau)), hot: tau > 0.55 ? 1 : 0 };
       arrowOn = ss(0.15, 0.45, tau);
-      if (t < 6.5) { rig = { target: [0, 0.55, 0], yaw: 180 + 4 * tau, pitch: 5, dist: 13.6, fov: 34, shiftX: 0.12 }; point = 'rear_tyre_l'; guyAt = [0.13, 0.985]; }
+      if (t < 6.5) { rig = { target: [0, 0.55, 0], yaw: 180 + 4 * tau, pitch: 5, dist: 14.2, fov: 34, shiftX: 0.2 }; point = 'rear_tyre_l'; }
       else { const u = t - 6.5; rig = { target: [-1.25, 0.6, -0.55], yaw: -150 + 10 * u, pitch: 11, dist: 3.9 - 0.35 * u, fov: 34 }; point = 'rear_tyre_l'; }
     } else if (t < 11) {                                         // top-down corner, tail swings out
       const tau = t - 8, c = corner(tau);
@@ -69,7 +68,7 @@ export function build(canvas) {
       const tau = t - 11; pose = { spin: 0.6 * tau };
       rig = { target: [-1.18, 0.38, 0.82], yaw: -24 + 9 * tau, pitch: 7, dist: 2.6 - 0.25 * tau, fov: 34, shift: 0.38 }; point = 'rear_tyre';
     } else {                                                     // low rear: wide rear stance + electronics chip
-      const tau = t - 12.5; rig = { target: [-1.4, 0.5, 0], yaw: -100 + 14 * tau, pitch: 9, dist: 7.0 - 0.5 * tau, fov: 34, shiftX: 0.14 }; point = 'rear_tyre';
+      const tau = t - 12.5; rig = { target: [-1.2, 0.42, -0.75], yaw: -138 + 12 * tau, pitch: 8, dist: 5.6 - 0.4 * tau, fov: 34, shiftX: 0.22 }; point = 'rear_tyre';
     }
     car.group.position.copy(carPos); car.group.rotation.y = carYaw;
     car.pose({ ...pose, xray: xray > 0, glowPulse: 0.12 + 0.1 * Math.sin(t * 9) });
@@ -91,12 +90,8 @@ export function build(canvas) {
       }
     }
     skid.count = n; skid.instanceMatrix.needsUpdate = true; skid.visible = n > 0;
-    // presenter: lower-left, pointing at the part being discussed (screen space)
-    guy.place(S.camera, guyAt[0], guyAt[1], 0.19);
-    const pt = point ? S.project(car.anchor(point)) : null;
-    guy.pose({ t, cam: S.camera, point: pt ? [pt[0] / 1080, pt[1] / 1920] : null, shrug, talk: 0 });
     S.render(car.shell, xray > 0);
-    const out = { _x: xray };
+    const out = { _x: xray, _pt: point ? S.project(car.anchor(point)) : null };   // _pt: what the presenter points at
     for (const nm of Object.keys(car.ANCHORS)) out[nm] = S.project(car.anchor(nm));
     out.arrow = S.project(arrow.position.clone().add(new THREE.Vector3(0, 0.8 * arrowOn, 0)));
     return out;
