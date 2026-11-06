@@ -523,9 +523,26 @@ def showcase_frame(t, titles=True):
     return np.clip(f, 0, 255).astype(np.uint8)
 
 
+DAYNIGHT = ((0.0, 'day'), (8.0, 'day'), (16.0, 'golden'), (23.0, 'golden'), (32.0, 'night'))   # time -> mood keys
+
+
+def daynight_frame(t):
+    """Sunny day slowly sinking into golden hour, then night (no text)."""
+    for (t0, m0), (t1, m1) in zip(DAYNIGHT, DAYNIGHT[1:]):
+        if t < t1:
+            if m0 == m1:
+                return frame(t, m0)
+            w = (t - t0) / (t1 - t0)
+            w = w * w * (3 - 2 * w)
+            return np.clip(frame(t, m0) * (1 - w) + frame(t, m1).astype(np.float32) * w, 0, 255).astype(np.uint8)
+    return frame(t, DAYNIGHT[-1][1])
+
+
 def _work(args):
     kind, i = args
     t = i / FPS
+    if kind == 'daynight':
+        return daynight_frame(t).tobytes()
     return (frame(t, kind) if kind in MOODS else showcase_frame(t, kind != 'showcase_clean')).tobytes()
 
 
@@ -549,7 +566,8 @@ def video(path, audio=None, secs=DUR, kind='day'):
 if __name__ == '__main__':
     if sys.argv[1] == 'still':
         mood = sys.argv[4] if len(sys.argv) > 4 else 'day'
-        f = showcase_frame(float(sys.argv[2])) if mood == 'showcase' else frame(float(sys.argv[2]), mood)
+        t = float(sys.argv[2])
+        f = showcase_frame(t) if mood == 'showcase' else daynight_frame(t) if mood == 'daynight' else frame(t, mood)
         Image.fromarray(f).save(sys.argv[3])
     elif sys.argv[1] == 'video':
         kind = sys.argv[5] if len(sys.argv) > 5 else 'day'
