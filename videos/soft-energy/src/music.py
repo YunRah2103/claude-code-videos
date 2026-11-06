@@ -12,7 +12,7 @@ rng = np.random.default_rng(8)
 
 
 def f(m):  # midi -> Hz, tuned slightly sharp for a warm detuned-tape feel
-    return 440 * 2 ** ((m - 69 + 0.35) / 12)
+    return 440 * 2 ** ((m - 69 + 0.4) / 12)
 
 
 def env(n, a, d, s=0.0, r=None):
@@ -122,14 +122,23 @@ def build():
         arp = [ch[1], ch[2], ch[3], ch[4], ch[3], ch[2], ch[4] + 0, ch[3]]
         for k, m in enumerate(arp):
             place(keys, rhodes(m + 12, 0.9, 0.22 + 0.06 * (k % 2 == 0)), t0 + k * BEAT / 4 + 0.01 * rng.random(), pan=0.3 * np.sin(k))
-    # music-box melody enters at ~2.1s, call-and-answer phrase
-    mel = [(2.10, 80), (2.40, 78), (2.48, 76), (2.70, 73), (2.95, 76), (3.40, 81), (3.55, 80), (3.85, 76),
-           (4.18, 78), (4.48, 76), (4.70, 73), (4.88, 71), (5.33, 73), (5.50, 76), (5.85, 78), (6.45, 73),
-           (6.62, 71), (7.02, 85), (7.20, 83), (7.38, 80), (7.55, 78), (7.78, 80), (7.90, 83), (8.08, 85)]
+    # soft sustained drone on F#4 (+ octave) under everything, like the source bed
+    n = N
+    tt0 = np.arange(n) / SR
+    drone = (np.sin(2 * np.pi * f(66) * tt0) + 0.35 * np.sin(2 * np.pi * f(78) * tt0 + 1.0)
+             + 0.45 * np.sin(2 * np.pi * f(54) * tt0) + 0.25 * np.sin(2 * np.pi * f(42) * tt0)) * (1 + 0.08 * np.sin(2 * np.pi * 0.3 * tt0))
+    place(pads, drone * 0.15, 0.0)
+    # music-box melody (original line, F# minor pentatonic, register A5-F#6)
+    mel = [(0.45, 81), (0.95, 78), (1.45, 85), (1.95, 83), (2.10, 81), (2.40, 85), (2.70, 88), (2.95, 86),
+           (3.40, 85), (3.70, 83), (3.95, 81), (4.18, 83), (4.48, 85), (4.80, 78), (5.10, 81), (5.33, 83),
+           (5.60, 88), (5.90, 85), (6.20, 83), (6.45, 81), (6.75, 78), (7.02, 90), (7.20, 88), (7.38, 85),
+           (7.55, 83), (7.78, 85), (7.90, 88), (8.08, 90)]
     for (t0, m) in mel:
         v = 0.30 if t0 < 7 else 0.42
-        place(lead, musicbox(m, 1.4, v), t0, pan=-0.2)
-        place(lead, musicbox(m - 12, 0.9, v * 0.35), t0, pan=0.2)
+        if t0 < 2.0:
+            v *= 0.7
+        place(lead, musicbox(m, 1.4, v), t0)
+        place(lead, musicbox(m - 12, 1.2, v * 0.3), t0)
     # soft drums from bar 2, fuller after 7s
     t = 2 * BEAT * 2 - BEAT
     while t < DUR:
@@ -145,7 +154,8 @@ def build():
     place(drums, kick(0.35), 7.0)
     # rain + vinyl crackle bed
     nz = rng.normal(0, 1, (2, N))
-    rain = np.stack([highpass(onepole(nz[i], 6000), 90) for i in range(2)]) * 0.03
+    mono = highpass(onepole(nz[0], 6000), 90)
+    rain = np.stack([mono * 0.9 + 0.1 * highpass(onepole(nz[i + 0], 6000), 90) for i in range(2)]) * 0.03
     crack = np.zeros((2, N))
     for _ in range(int(DUR * 25)):
         i = int(rng.integers(0, N - 50)); crack[:, i:i + 3] += rng.normal(0, 0.25, 3)
@@ -155,10 +165,13 @@ def build():
     wob = (0.0018 * np.sin(2 * np.pi * 0.6 * tt) + 0.0006 * np.sin(2 * np.pi * 5.1 * tt)) * SR
     idx = np.clip(np.arange(N) - 120 - wob, 0, N - 1)
     mix = np.stack([np.interp(idx, np.arange(N), mix[i]) for i in range(2)])
-    mix = np.stack([reverb(highpass(onepole(mix[i], 7000), 140), 1.8, 0.3) for i in range(2)])
+    mix = np.stack([reverb(highpass(onepole(mix[i], 7000), 70), 1.8, 0.3) for i in range(2)])
     out = mix + rain + crack * 0.6
+    mid, side = (out[0] + out[1]) / 2, (out[0] - out[1]) / 2
+    side *= 0.18   # the source is nearly mono
+    out = np.stack([mid + side, mid - side])
     # energy curve: quiet fade-in, steady, lift at 7s (like the reference)
-    g = np.interp(tt, [0, 0.4, 2.0, 6.9, 7.0, DUR], [0.07, 0.12, 0.45, 0.55, 1.25, 1.2])
+    g = np.interp(tt, [0, 0.4, 1.0, 1.5, 3.0, 3.5, 4.5, 5.5, 6.3, 6.9, 7.0, DUR], [0.17, 0.17, 0.3, 0.36, 0.48, 0.52, 0.44, 0.5, 0.4, 0.3, 1.7, 1.55])
     out *= g
     out[:, :int(0.02 * SR)] *= np.linspace(0, 1, int(0.02 * SR))
     out[:, -int(0.08 * SR):] *= np.linspace(1, 0, int(0.08 * SR))
