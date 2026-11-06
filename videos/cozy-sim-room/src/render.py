@@ -15,9 +15,6 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, '..', '..', '..', 'shared'))
 sys.path.insert(0, os.path.join(HERE, '..', '..', '..', 'shared', 'assets'))
 from audio import sfx                                             # noqa: E402
-from pixanim import guy as pg                                     # noqa: E402
-from pixanim.grid import Grid                                     # noqa: E402
-from functools import lru_cache
 from ambient import paste, vgrad, up                 # noqa: E402
 import cozyroom as cr                                             # noqa: E402
 
@@ -256,74 +253,189 @@ def build_band():
 BAND, BAND_EM = build_band()
 
 
-# ------------------------------------------------------------------ gamer: the approved main-guy rig (shared/pixanim/guy.py)
-# Driving: his back view (the real sprite with the face painted over as the back of his head), hands raised to the
-# wheel beside his head like the reference. At 6 s he swivels round, grins and waves with the rig's own wave poses.
-pg.ARMS.update({'drv0': (((4, -5), (7, -12)), ((4, -5), (7, -12))),
-                'drvL': (((4, -6), (7, -13)), ((4, -4), (7, -11))),
-                'drvR': (((4, -4), (7, -11)), ((4, -6), (7, -13)))})
-SX, SY = 66, 64                  # sprite top-left while driving (hands land at the wheel, y 83)
-WHEEL = (SX + 23.5, SY + 17)    # upright wheel facing him: its sides show beside his head
-TURN = (6.0, 9.6)                # swivels round at 6.0 s, waves, back on the wheel by 9.6 s
+# ------------------------------------------------------------------ gamer: the main guy redrawn in the room's style
+# Same identity as characters/main-guy (brown skin, dark messy hair with two cowlicks, silver square glasses, white tee,
+# black jeans, white sneakers) but painted like the room: room palette, soft form shading, no outline, reference-like
+# proportions. Built from parts with continuous joints so it moves smoothly: the head is a sphere whose face, glasses
+# and ears rotate with the chair (a real swivel), arms are two-bone IK with fixed lengths (never stretch).
+DARK = {'H': 'G', 'G': 'F', 'F': 'E', 'y': 'x', 'x': 'm', 'D': '2', 'E': 'D', 'l': '0', 'm': 'l', 'd': 'c', 'c': 'b', 'b': 'a'}
+WHEEL_C, WHEEL_R = (90.0, 80.0), (9.0, 6.6)
 
 
-@lru_cache(None)
-def back_view(arms):
-    g0 = pg._body(arms, 'sit')
-    g = Grid(pg.W, pg.H); g.g = [row[:] for row in g0.g]
-    O, C = pg.OX, pg.GP
-    def r(x0, y0, x1, y1, c): g.rect(x0 + O, y0, x1 + O, y1, C[c])
-    r(9, 9, 26, 25, 'hair')                                              # back of the head, hair wraps the nape
-    r(14, 22, 21, 25, 'skin'); r(14, 22, 21, 22, 'skinsh'); r(14, 23, 14, 25, 'skinsh'); r(21, 23, 21, 25, 'skinsh')
-    r(10, 22, 13, 24, 'hairhi'); r(22, 22, 25, 24, 'hairhi')
-    g.px(9 + O, 25, None); g.px(26 + O, 25, None)
-    for (x, y) in ((12, 11), (13, 12), (20, 10), (21, 11), (15, 15), (16, 16), (22, 17), (11, 18), (17, 6), (18, 7), (16, 8)):
-        g.px(x + O, y, C['hairhi'])
-    r(9, 14, 9, 15, 'frame'); r(26, 14, 26, 15, 'frame')                 # glasses arms over the ears
-    r(15, 26, 20, 27, 'skinsh'); r(14, 28, 21, 31, 'tee')               # back neckline
-    for y in range(44, pg.H):                                            # legs go under the desk, out of view
-        g.g[y] = [None] * pg.W
-    return g.image()
+def ease(x):
+    x = min(1.0, max(0.0, x)); return x * x * (3 - 2 * x)
 
 
-def rgba(img): return np.asarray(img, np.float32)
-
-
-def squash(img, k=.5):
-    w, h = img.size; n = max(1, int(w * k))
-    out = Image.new('RGBA', (w, h)); out.paste(img.resize((n, h), Image.NEAREST), ((w - n) // 2, 0)); return out
-
-
-def wheel(a, ang):
-    cx, cy = WHEEL
-    for k in range(64):
-        th = 2 * math.pi * k / 64
-        for rr, c0 in ((16, 'G'), (15, 'E')):
-            x, y = int(round(cx + rr * math.cos(th))), int(round(cy + rr * .62 * math.sin(th)))
-            a[y, x] = P[c0 if math.cos(th) * math.sin(ang + .6) < .3 else 'F']
-    a[int(cy - 9.5 * math.cos(ang)), int(cx + 15.5 * math.sin(ang))] = P['v']        # top marker turns with the steering
-
-
-def gamer(t):
-    """-> list of (rgba float sprite, x, y), back to front."""
+def timeline(t):
+    """-> yaw (0 = back to us, pi = facing us), drive (hands on wheel 0..1), wave 0..1, steer."""
+    yaw = math.pi * (ease((t - 5.8) / .8) - ease((t - 9.0) / .8))
+    drive = 1 - ease((t - 5.55) / .35) + ease((t - 9.65) / .35)
+    wave = ease((t - 6.7) / .25) - ease((t - 8.75) / .25)
     steer = .55 * sn(t, 6) + .25 * sn(t, 15, 1.0)
-    hx = int(round(.8 * sn(t, 4) + steer))
-    chair = rgba(cr.chair())
-    turning = TURN[0] <= t < TURN[1]
-    swivel = turning and not (TURN[0] + .2 <= t < TURN[1] - .2)
-    if turning and not swivel:
-        waving = 6.55 <= t < 8.95
-        arms = ('wave1' if int((t - 6.55) / .2) % 2 == 0 else 'wave2') if waving else 'down'
-        expr = 'blink' if 8.2 <= t < 8.3 else ('grin' if waving else 'smile')
-        img = pg.guy(expr, arms, 'sit', (0, 0))
-        return [(chair[:16], SX + 13, SY + 6), (rgba(img), SX, SY - 4)]
-    arms = 'drvL' if steer < -.3 else ('drvR' if steer > .3 else 'drv0')
-    img = back_view(arms)
-    if swivel:                                                           # quick swivel: squash through side-on
-        front = 6.1 <= t < 6.2 or 9.4 <= t < 9.5
-        img = squash(pg.guy('smile', 'down', 'sit', (0, 0)) if front else img)
-        return [(rgba(img), SX, SY - (4 if front else 0)), (chair, SX + 13, SY + 35)]
-    return [(rgba(img), SX + hx, SY), (chair, SX + 13, SY + 35)]
+    return yaw, drive, wave, steer
+
+
+def wrap(a): return (a + math.pi) % (2 * math.pi) - math.pi
+
+
+def ik(S, T, L1=8.5, L2=8.0, out=1):
+    dx, dy = T[0] - S[0], T[1] - S[1]
+    d = min(max(math.hypot(dx, dy), .5), L1 + L2 - .05)
+    a0 = math.atan2(dy, dx)
+    A = math.acos(max(-1, min(1, (L1 * L1 + d * d - L2 * L2) / (2 * L1 * d))))
+    cands = [(S[0] + L1 * math.cos(a0 + s_ * A), S[1] + L1 * math.sin(a0 + s_ * A)) for s_ in (1, -1)]
+    E = max(cands, key=lambda e: out * (e[0] - S[0]) + .6 * (e[1] - S[1]))      # elbow outward and down
+    return E, (S[0] + d * math.cos(a0), S[1] + d * math.sin(a0))
+
+
+class Cv:
+    def __init__(self): self.c = {}
+    def put(self, x, y, ch): self.c[(int(round(x)), int(round(y)))] = ch
+    def disc(self, cx, cy, r, ch):
+        for y in range(int(cy - r) - 1, int(cy + r) + 2):
+            for x in range(int(cx - r) - 1, int(cx + r) + 2):
+                if (x - cx) ** 2 + (y - cy) ** 2 <= r * r + .25: self.c[(x, y)] = ch
+    def seg(self, p0, p1, r, ch, sleeve=0.0, sch='H'):
+        n = int(math.hypot(p1[0] - p0[0], p1[1] - p0[1]) * 2) + 1
+        for k in range(n + 1):
+            f = k / max(1, n); x, y = p0[0] + (p1[0] - p0[0]) * f, p0[1] + (p1[1] - p0[1]) * f
+            self.disc(x, y, r, sch if f * math.hypot(p1[0] - p0[0], p1[1] - p0[1]) < sleeve else ch)
+    def rgba(self):
+        xs = [k[0] for k in self.c]; ys = [k[1] for k in self.c]
+        x0, y0 = min(xs), min(ys)
+        rows = [['.'] * (max(xs) - x0 + 1) for _ in range(max(ys) - y0 + 1)]
+        for (x, y), ch in self.c.items():
+            below, right = (x, y + 1) in self.c, (x + 1, y) in self.c
+            rows[y - y0][x - x0] = DARK.get(ch, ch) if not below or not right else ch    # form shading on lower/right edges
+        return cr.S([''.join(r) for r in rows], outline=None), x0, y0
+
+
+FACE_MAP = {                     # glasses (two square silver lenses), eyes, blush, mouth; 9 px wide
+    'smile': ["GGGG.GGGG", "G00GGG00G", "FFFF.FFFF", "w.......w", "..t...t..", "...ttt..."],
+    'grin':  ["GGGG.GGGG", "G00GGG00G", "FFFF.FFFF", "w.......w", "..ttttt..", "...sss..."],
+    'blink': ["GGGG.GGGG", "GxxGGGxxG", "FFFF.FFFF", "w.......w", "..t...t..", "...ttt..."],
+}
+
+
+def head(cv, cx, cy, yaw, expr):
+    """Sphere-mapped head: lon 0 = back of the head, pi = face. Features follow the yaw."""
+    for y in range(int(cy - 9), int(cy + 8)):
+        for x in range(int(cx - 8), int(cx + 9)):
+            xs, ys = (x - cx) / 6.2, (y - cy + .4) / 6.6
+            if xs * xs + ys * ys > 1: continue
+            row = math.sqrt(max(1e-6, 1 - ys * ys))
+            lon = math.asin(max(-1, min(1, xs / row))) + yaw
+            sf = wrap(lon - math.pi)                                          # 0 at the middle of the face
+            ch = 'l'
+            face = abs(sf) < 1.3 and ys > -.32 + .09 * math.sin(lon * 6) and xs * xs + ys * ys < .9
+            if face:
+                ch = 'x' if ys > .62 or abs(sf) > 1.12 else 'y'
+            else:
+                if ys < -.45 and xs < .1 and (x + y) % 3 == 0: ch = 'm'           # hair highlight strands
+                if abs(abs(sf) - math.pi / 2) < .28 and -.05 < ys < .38: ch = 'x'  # ears
+                if abs(ys - .03) < .07 and .95 < abs(sf) < 1.75: ch = 'F'       # glasses arms
+            cv.put(x, y, ch)
+    comp = -math.cos(yaw)                                                     # how much of the face turns toward us
+    if comp > .2:
+        xf = cx + 6.2 * math.sin(yaw)
+        rows = FACE_MAP[expr]
+        for j, row in enumerate(rows):
+            for i, ch in enumerate(row):
+                if ch != '.': cv.put(xf + (i - 4) * comp, cy - 1 + j, ch)
+    for dx in (-1.5, 1.8):                                                    # two cowlicks
+        cv.put(cx + dx, cy - 7, 'l'); cv.put(cx + dx + .6, cy - 8, 'l')
+
+
+def chair_back(cv, cx, cy, yaw):
+    w = 9.5 * (.35 + .65 * abs(math.cos(yaw)))
+    for y in range(int(cy - 9), int(cy + 9)):
+        for x in range(int(cx - w), int(cx + w) + 1):
+            e = abs(x - cx) / w
+            if e > .97 and abs(y - cy) > 7: continue
+            cv.put(x, y, 'c' if e > .72 else ('d' if y < cy - 7 else 'a'))
+
+
+def chair_base(cv, cx, cy, yaw):
+    cv.seg((cx, cy - 4), (cx, cy), .8, '2')
+    for k in range(5):
+        th = yaw + 2 * math.pi * k / 5 + .3
+        ex, ey = cx + 7 * math.cos(th), cy + 3 * math.sin(th)
+        cv.seg((cx, cy), (ex, ey), .6, '2'); cv.put(ex, ey + 1, 'D')
+
+
+def wheel(cv, ang):
+    (cx, cy), (rx, ry) = WHEEL_C, WHEEL_R
+    for k in range(72):
+        th = 2 * math.pi * k / 72
+        for dr, ch in ((0, 'F'), (-.9, 'E')):
+            cv.put(cx + (rx + dr) * math.cos(th), cy - (ry + dr) * math.sin(th), ch if math.sin(th) > -.2 else 'D')
+    for k in range(3):
+        th = ang + math.pi / 2 + 2 * math.pi * k / 3 + math.pi / 3
+        cv.seg((cx, cy), (cx + rx * .9 * math.cos(th), cy - ry * .9 * math.sin(th)), .4, 'D')
+    cv.disc(cx, cy, 1.2, '2'); cv.put(cx + rx * math.cos(ang + math.pi / 2), cy - ry * math.sin(ang + math.pi / 2), 'v')
+
+
+def character(t):
+    yaw, drive, wave, steer = timeline(t)
+    cyw, syw = math.cos(yaw), math.sin(yaw)
+    steer *= drive
+    breath = .45 * sn(t, 6)
+    N = (90 + 1.4 * steer, 93 + breath * .4)                                 # neck base
+    Hc = (N[0] + 1.3 * steer + .9 * wave * math.sin(2 * math.pi * 1.1 * (t - 6.7)), N[1] - 7.6)
+    cv = Cv()
+    ang = steer * 1.1
+    wheel(cv, ang)
+    chair_base(cv, 90, N[1] + 25, yaw * .5)
+    if cyw < 0: chair_back(cv, N[0] - 5 * syw, N[1] + 8 + 6 * cyw, yaw)        # behind him once he faces us
+    # legs: forward under the desk (hidden) when driving, toward us once turned
+    legs = []
+    for side in (-1, 1):
+        hip = (N[0] + side * 3.6 * cyw, N[1] + 12)
+        knee = (hip[0] + 6 * syw * .6, hip[1] - 6 * cyw)
+        legs.append((hip, knee))
+    def draw_legs():
+        for hip, knee in legs:
+            cv.seg(hip, knee, 1.7, 'D'); cv.seg(knee, (knee[0], knee[1] + 4), 1.5, 'D'); cv.put(knee[0] - 1, knee[1], 'E')
+            cv.disc(knee[0], knee[1] + 5.5, 1.6, 'H'); cv.put(knee[0], knee[1] + 7, 'G')
+    if -.2 <= cyw < .2: draw_legs()                                           # side-on: legs beside the chair
+    # arms: shoulders turn with the body, hands go wheel -> lap -> wave
+    hw = 9.5
+    S = [(N[0] - hw * cyw, N[1] + 2.2), (N[0] + hw * cyw, N[1] + 2.2)]
+    rim = [(WHEEL_C[0] + WHEEL_R[0] * math.cos(math.pi - .2 + ang), WHEEL_C[1] - WHEEL_R[1] * math.sin(math.pi - .2 + ang)),
+           (WHEEL_C[0] + WHEEL_R[0] * math.cos(.2 + ang), WHEEL_C[1] - WHEEL_R[1] * math.sin(.2 + ang))]
+    lap = [(N[0] - 4 * cyw, N[1] + 14 - 4 * cyw), (N[0] + 4 * cyw, N[1] + 14 - 4 * cyw)]
+    ph = 2 * math.pi * 2.0 * (t - 6.7)
+    wav = (S[0][0] + 6 * (-cyw) + 2.6 * math.sin(ph), S[0][1] - 13.5 + 1.3 * math.cos(2 * ph))
+    targets = []
+    for i in range(2):
+        tx = rim[i][0] * drive + lap[i][0] * (1 - drive); ty = rim[i][1] * drive + lap[i][1] * (1 - drive)
+        if i == 0: tx, ty = tx * (1 - wave) + wav[0] * wave, ty * (1 - wave) + wav[1] * wave
+        targets.append((tx, ty))
+    depth = [-syw, syw]                                                       # the far arm is drawn behind the body
+    def arm(i):
+        out = -1 if S[i][0] < N[0] else 1
+        E, T = ik(S[i], targets[i], out=out)
+        cv.seg(S[i], E, 1.35, 'y', sleeve=3.2); cv.seg(E, T, 1.15, 'y'); cv.disc(T[0], T[1], 1.5, 'y')
+    for i in range(2):
+        if depth[i] > .35: arm(i)
+    # torso: white tee, shoulders, neck
+    sw = 10.5 * (.55 + .45 * abs(cyw))
+    for y in range(int(N[1]), int(N[1] + 13)):
+        for x in range(int(N[0] - sw - 1), int(N[0] + sw + 2)):
+            yy = y - N[1]
+            half = sw * min(1, .55 + yy / 6) if yy < 6 else sw * .82
+            if abs(x - N[0]) <= half: cv.put(x, y, 'H' if yy < 3 and abs(x - N[0]) < half - 1 else 'G')
+    if cyw < -.2:                                                             # front: collar, waist, lap
+        cv.put(N[0] - 1, N[1] + 1, 'x'); cv.put(N[0], N[1] + 2, 'x'); cv.put(N[0] + 1, N[1] + 1, 'x')
+        for x in range(int(N[0] - 7), int(N[0] + 8)): cv.put(x, N[1] + 12, 'D'); cv.put(x, N[1] + 13, 'D')
+        draw_legs()
+    cv.seg((N[0], N[1] - 2), (N[0], N[1] + .5), 1.6, 'x')
+    if cyw >= 0: chair_back(cv, N[0] - 5 * syw, N[1] + 8 + 6 * cyw, yaw)       # over his back while driving
+    for i in range(2):
+        if depth[i] <= .35: arm(i)
+    expr = 'blink' if 7.95 <= t < 8.05 else ('grin' if wave > .3 else 'smile')
+    head(cv, Hc[0], Hc[1], yaw, expr)
+    return cv.rgba()
 
 
 # ------------------------------------------------------------------ screens
@@ -501,26 +613,30 @@ def frame(n, raw=True):
             th = 2 * math.pi * k / 10 + 2 * math.pi * cyc(t, 30)
             xx, yy = int(round(153 + 3 * math.cos(th))), int(round(fy + 3 * math.sin(th)))
             a[yy, xx] = c if k % 3 else col('H'); em[yy, xx] = 1
-    if 5.0 <= t < 6.5: a[64:67, 115:118] = P['k']; em[64:67, 115:118] = 1
+    if 4.6 <= t < 6.2:                                                   # phone lights up and buzzes
+        jx = (1 if int(t * 30) % 2 else 0) if t < 5.0 else 0
+        a[64:67, 115 + jx:118 + jx] = P['k']; em[64:67, 115 + jx:118 + jx] = 1
     for i in range(12):
         fx = 170 + int(round(6 * i / 11)); fy = 92 + i * 9 + int(2 * math.sin(i * 1.3))
-        on = sn(t, (i % 4) + 2, i) > -.3
-        a[fy, fx] = P[('q', 'N', 'K')[i % 3]] if on else P['D']; em[fy, fx] = on
+        b = .25 + .75 * (.5 + .5 * sn(t, (i % 4) + 2, i)) ** 2               # soft twinkle
+        a[fy, fx] = col(('q', 'N', 'K')[i % 3]) * b + col('D') * (1 - b); em[fy, fx] = b
     # mug steam
-    for i in range(5):
-        p = cyc(t + i * DUR / 30, 6)
-        sx = 129 + int(round(1.5 * math.sin(p * 8 + i)))
-        sy = 52 - int(p * 14)
-        if p < .85: a[sy, sx] = a[sy, sx] * (.35 + .5 * p) + col('G') * (.65 - .5 * p)
+    for i in range(10):                                                  # curling wisps, fade as they rise
+        p = cyc(t + i * DUR / 60, 4)
+        sx = 129 + int(round((1 + 2.5 * p) * math.sin(p * 9 + i * 1.7)))
+        sy = 52 - int(p * 16)
+        k = .55 * math.sin(math.pi * min(1, p * 1.15)) ** 1.5
+        for dy in (0, 1):
+            a[sy + dy, sx] = a[sy + dy, sx] * (1 - k) + col('G') * k
     # cat (breathing every 2.5 s, tail flicks twice per loop)
-    flick = 1 if 3.0 <= t < 3.35 else (-1 if 9.2 <= t < 9.55 else 0)
+    flick = 0
+    for t0 in (3.0, 11.0):                                               # tail swish: left, right, left, settle
+        if t0 <= t < t0 + .6: flick = (-1, 1, -1, 1, 0)[int((t - t0) / .12)]
     c = cr.cat(breath=cyc(t, 6), flick=flick)
     place(a, c, 46, 152)
     # gamer
-    if not (TURN[0] + .2 <= t < TURN[1] - .2):
-        wheel(a, (.55 * sn(t, 6) + .25 * sn(t, 15, 1.0)) * .9)
-    for spr, x, y in gamer(t):
-        shade(a, spr, x, y, 2, 3, .6); paste(a, spr, x, y)
+    spr, gx, gy = character(t)
+    shade(a, spr, gx, gy, 2, 3, .6); paste(a, spr, gx, gy)
 
     a = np.concatenate([a[:SIGN_Y], BAND, a[SIGN_Y:H0 - SH]]); em = np.concatenate([em[:SIGN_Y], BAND_EM, em[SIGN_Y:H0 - SH]])
     a[H0 - 3:] = P['1']; em[H0 - 3:] = 0                                            # bottom wall cap
@@ -599,7 +715,7 @@ def build_audio(path):
     clicks = np.zeros(n)
     for at in (1.25, 3.75, 11.25, 13.75):                            # paddle shifts
         add(clicks, sfx.click(), at, .10)
-    for at in (6.0, 9.4):                                            # chair swivel
+    for at in (5.8, 9.0):                                            # chair swivel
         add(clicks, sfx.creak(), at, .12)
     mid = room + eng + tyre + clicks + purr
     L, Rr = mid + rain * 1.4 + tap * 1.3, mid + rain * .7 + tap * .6  # window is on the left
