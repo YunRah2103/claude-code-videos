@@ -1,0 +1,424 @@
+"""Scene 3: rainy cyber-industrial depot, tower '05', green neon, truck and kiosk."""
+import math
+import numpy as np
+from PIL import Image, ImageDraw, ImageFilter
+from lib import Canvas, hx, mix, glyph, vgrad, Rain
+
+W, H = 360, 341
+LINE = '#0e3c74'
+LINE2 = '#1c5c98'
+GRN = '#a8f010'
+
+
+def _grid(c, x0, y0, x1, y1, step=3, col='#06163a'):
+    for x in range(x0, x1 + 1, step):
+        c.rect(x, y0, x, y1, col)
+    for y in range(y0, y1 + 1, step):
+        c.rect(x0, y, x1, y, col)
+
+
+def _slat_panel(c, x0, y0, x1, y1):
+    c.d.rounded_rectangle([x0, y0, x1, y1], radius=5, fill=hx('#020818'), outline=hx(LINE))
+    c.d.rounded_rectangle([x0 + 2, y0 + 2, x1 - 2, y1 - 2], radius=4, outline=hx('#0a2a58'))
+
+
+def slats(c, x0, y0, x1, y1, t, seed):
+    rr = np.random.default_rng(seed + int(t * 6))
+    for y in range(y0 + 5, y1 - 4, 4):
+        on = rr.random() < 0.82
+        c.rect(x0 + 4, y, x1 - 4, y + 1, '#16437e' if on else '#0a2450')
+        c.px(x1 - 4, y, '#06183c')
+
+
+def _tower(c):
+    # main tower body with chamfered top-left corner
+    c.poly([(138, 20), (156, 3), (276, 3), (276, 88), (266, 100), (266, 180), (138, 180)], '#020c22')
+    _grid(c, 140, 5, 275, 178, 3, '#04102e')
+    r = np.random.default_rng(9)
+    for _ in range(160):  # weathering blotches
+        x, y = int(r.integers(140, 270)), int(r.integers(6, 175))
+        c.rect(x, y, x + 2, y + 2, '#082050' if r.random() < .5 else '#010818')
+    c.line(138, 20, 156, 3, LINE)
+    c.rect(156, 3, 276, 3, LINE)
+    c.rect(276, 3, 276, 88, LINE)
+    c.line(276, 88, 266, 100, LINE)
+    c.rect(138, 20, 138, 180, LINE)
+    c.rect(140, 5, 182, 7, '#04102c')
+    for (x, y) in [(141, 24), (172, 24)]:
+        c.box(x, y, x + 7, y + 7, '#0d3466')
+    c.box(267, 7, 273, 13, LINE2)
+    # vertical slatted panel
+    _slat_panel(c, 145, 56, 176, 168)
+    glyph(c, 151, 48, ['#.#.###.#.#.#', '##..#.#.##..#', '#.#.###.#.#.#'], '#0f3a70')
+    c.rect(140, 37, 276, 38, '#0d2c5c')
+    # hexagon logo
+    hexp = [(205 + 16 * math.cos(math.radians(a + 90)), 39 + 16 * math.sin(math.radians(a + 90))) for a in range(0, 360, 60)]
+    c.poly(hexp, '#020c22', LINE2)
+    hexp2 = [(205 + 14 * math.cos(math.radians(a + 90)), 39 + 14 * math.sin(math.radians(a + 90))) for a in range(0, 360, 60)]
+    c.poly(hexp2, None, LINE2)
+    for (cx, cy) in [(201, 35), (209, 35), (205, 42)]:
+        c.circle(cx, cy, 4, None, '#16508a')
+    c.rect(180, 38, 189, 39, LINE2)
+    c.rect(221, 37, 276, 38, LINE2)
+    c.rect(221, 41, 276, 43, '#16508a')
+    glyph(c, 218, 29, ['###.#.#.###.###.#.#', '#.#.###.#...#.#..#.', '###.#.#.###.###.###'], '#1a5a96', 1)
+    c.rect(258, 29, 275, 34, '#1a5a96')
+    # big "-05-"
+    O = ['.#####.', '##...##', '#.....#', '#.....#', '#.....#', '#.....#', '#.....#', '#.....#', '#.....#', '#.....#', '##...##', '.#####.']
+    S = ['.######', '##.....', '#......', '#......', '##.....', '.#####.', '.....##', '......#', '......#', '......#', '.....##', '######.']
+    glyph(c, 218, 49, O, '#1b6aa6', 3) if False else None
+    for (pat, x0) in [(O, 220), (S, 243)]:
+        for j, row in enumerate(pat):
+            for i, ch in enumerate(row):
+                if ch == '#':
+                    c.rect(x0 + i * 2 + 1, 49 + j * 2 + 1, x0 + i * 2 + 2, 49 + j * 2 + 2, '#1e74b4')
+    c.rect(210, 61, 218, 62, '#1e74b4'); c.rect(210, 65, 218, 66, '#1e74b4')
+    c.rect(262, 61, 271, 62, '#1e74b4'); c.rect(262, 65, 271, 66, '#1e74b4')
+    c.box(262, 88, 266, 92, LINE2)
+    # stepped diagonal structure with green lights
+    left, right = [], []
+    for i in range(9):
+        y0, y1 = 100 + i * 10, 110 + i * 10
+        xl = 248 - i * 9
+        left += [(xl, y0), (xl - 9, y1)] if i % 2 else [(xl, y0), (xl, y1)]
+        right += [(xl + 20, y0), (xl + 20, y1)]
+    c.poly(left + right[::-1], '#01050c', LINE)
+    for i in range(1, 9, 2):
+        c.box(248 - i * 9 - 8, 104 + i * 10, 248 - i * 9 - 5, 107 + i * 10, '#0a2a58')
+    for (cx, cy, rad) in [(270, 140, 12), (250, 166, 17)]:
+        c.circle(cx, cy, rad, '#020a1e', LINE2)
+        for y in range(cy - rad + 3, cy + rad - 2, 3):
+            dx = int(math.sqrt(max(0, rad * rad - (y - cy) ** 2))) - 2
+            c.rect(cx - dx, y, cx + dx, y, '#0a2a58')
+    c.circle(240, 192, 20, '#020a1e', LINE)
+
+
+def green_dots(c, t):
+    rr = np.random.default_rng(31)
+    k = 0
+    for j in range(40):
+        q = rr.uniform(0, 1)
+        y = int(102 + q * 86)
+        xc = 256 - q * 78
+        x = int(xc + rr.uniform(-6, 8))
+        if True:
+            wide = rr.random() < 0.3
+            ph = rr.uniform(0, 6.28)
+            on = math.sin(t * 3 + ph) > -0.6
+            col = '#3af04a' if on else '#0c4a16'
+            c.rect(x, y, x + (2 if wide else 0), y, col)
+            k += 1
+
+
+def _right_tower(c):
+    c.poly([(318, 82), (334, 66), (360, 66), (360, 210), (318, 210)], '#03102a')
+    _grid(c, 320, 70, 359, 208, 3, '#05122e')
+    c.line(318, 82, 334, 66, LINE)
+    c.rect(334, 66, 359, 66, LINE)
+    c.rect(318, 82, 318, 210, LINE)
+    c.rect(340, 80, 340, 210, '#0a2a58')
+    _slat_panel(c, 324, 104, 344, 196)
+    c.rect(351, 48, 352, 66, '#020818')
+    c.rect(347, 56, 349, 66, '#020818')
+    c.circle(358, 96, 8, None, LINE2)
+
+
+def _far(c):
+    # hazy distant structures on the left
+    c.poly([(28, 140), (64, 138), (72, 148), (72, 175), (22, 175)], '#05163c')
+    c.rect(30, 136, 60, 140, '#0a1f4c')
+    c.rect(36, 132, 37, 138, '#05163c'); c.rect(46, 133, 47, 138, '#05163c')
+    c.rect(84, 150, 118, 162, '#04122e')
+    c.rect(104, 130, 105, 150, '#04122e'); c.rect(109, 138, 110, 150, '#04122e')
+    c.poly([(98, 148), (104, 142), (112, 142), (116, 148)], '#04122e')
+    c.rect(118, 150, 136, 152, '#08204a')
+    for x in range(120, 137, 3):
+        c.rect(x, 150, x, 175, '#06183c')
+    # tall pylon
+    for x in (86, 100):
+        c.rect(x, 190, x, 285, '#04102a')
+    for y in range(195, 285, 10):
+        c.line(86, y, 100, y + 10, '#04102a')
+        c.line(100, y, 86, y + 10, '#04102a')
+    c.rect(80, 190, 106, 192, '#04102a')
+    c.rect(76, 210, 110, 211, '#04102a')
+    # water tower right-middle
+    c.poly([(290, 175), (296, 168), (310, 168), (316, 175)], '#06183c')
+    c.rect(290, 175, 316, 186, '#06183c')
+    c.rect(292, 177, 314, 178, '#12807a')
+    for x in (294, 312):
+        c.rect(x, 186, x, 210, '#06183c')
+    c.line(294, 190, 312, 205, '#06183c'); c.line(312, 190, 294, 205, '#06183c')
+    c.rect(302, 160, 303, 168, '#06183c')
+    # small cyan-lettered building
+    c.rect(86, 150, 118, 162, '#041430')
+    glyph(c, 93, 151, ['###.###.###', '#.#..#..#.#'], '#30c8a8')
+    glyph(c, 88, 155, ['#.###.###.###', '.##.#.#.#.#.#'], '#30c8a8')
+    # lattice behind (center)
+    for x in range(204, 232, 6):
+        c.rect(x, 190, x, 270, '#040e28')
+    c.rect(200, 200, 270, 201, '#040e28')
+    c.rect(200, 230, 270, 231, '#040e28')
+    for x in (215, 230):
+        for y in range(195, 285, 9):
+            pass
+    for y in range(190, 280, 10):
+        c.line(108, y, 122, y + 10, '#040e28')
+    for x in range(250, 290, 8):
+        c.rect(x, 205, x, 270, '#040e28')
+
+
+def _bridge(c):
+    # long diagonal conveyor bridge seen from below-left: top deck + dark side + green-lit underside
+    top = lambda x: 146 + x * 0.25
+    for (xa, ya, xb, yb, w) in [(16, 168, 12, 322, 7), (54, 172, 30, 300, 5), (146, 192, 142, 292, 6),
+                                 (236, 206, 200, 262, 5), (108, 184, 128, 272, 4), (300, 230, 318, 262, 4)]:
+        for k in range(w):
+            c.line(xa + k, ya, xb + k, yb, '#010510')
+    c.poly([(0, 145), (360, 235), (360, 262), (0, 172)], '#01050f')
+    for x in range(0, 360):
+        y = int(top(x))
+        c.px(x, y - 1, '#1a3c7c')
+        c.rect(x, y, x, y + 5, '#05122e' if x % 3 else '#081a40')
+        c.px(x, y + 6, '#12306a')
+        if x % 5 == 0:
+            c.rect(x, y + 7, x, y + 14, '#06132e')
+    # green-tinted underside fading toward the sign
+    for x in range(4, 352):
+        y = int(top(x)) + 15
+        f = max(0, 1 - abs(x - 250) / 190)
+        for k in range(8):
+            if (x + k) % 2 == 0:
+                c.px(x, y + k, mix('#030c1a', '#24480c', f * (1 - k / 10)))
+    glyph(c, 156, 179, ['###.###.###.###.#.#.#.#.#.#.#.#', '#...#...#.#.#.#.#.#.#.#.##..#.#', '###.##..###.###.#.#.##..##..#.#',
+                        '..#.#...#...#...#.#.#.#.#.#.#.#', '###.###.#...#...###.#.#.#.#.###'], '#1e528e')
+    glyph(c, 189, 186, ['###.###.###.###', '#.#.#.#.#...#..', '#.#.#.#.#.#.##.', '###.###.###.###'], '#1e528e')
+
+
+def _hills(c):
+    r = np.random.default_rng(4)
+    for x in range(0, W):
+        h = 252 + int(6 * math.sin(x * 0.05) + 4 * math.sin(x * 0.13 + 1)) + int(r.integers(-2, 3))
+        c.rect(x, h, x, 300, '#01060f')
+        if r.random() < 0.3:
+            c.rect(x, h - int(r.integers(1, 6)), x, h, '#01060f')
+    for x in range(0, W, 2):
+        y = 258 + int(5 * math.sin(x * 0.07)) + int(r.integers(0, 6))
+        c.px(x, y, '#061a36')
+
+
+def _lamp_posts(c):
+    for (x0, y0, x1, y1) in [(22, 226, 36, 233), (82, 224, 64, 233), (166, 224, 182, 232), (348, 226, 360, 232)]:
+        c.line(x0, y0 - 1, x1, y1 - 1, '#04122e')
+    c.rect(40, 230, 41, 300, '#030c22')
+    c.circle(41, 232, 3, None, '#0a2048')
+
+
+def lamps(c, t):
+    for i, (x0, y0, x1, y1) in enumerate([(22, 226, 36, 233), (82, 224, 64, 233), (166, 224, 182, 232), (348, 226, 360, 232)]):
+        f = 1.0 if int(t * 30 + i * 7) % 41 else 0.5
+        c.line(x0, y0, x1, y1, mix('#1a4a7a', '#d8f4ff', f))
+        c.line(x0, y0 + 1, x1, y1 + 1, mix('#123a6a', '#6ac8f0', f))
+
+
+def _truck(c):
+    # box trailer (left) + cab-over truck facing the viewer
+    c.rect(72, 280, 150, 326, '#101e48')
+    c.box(72, 280, 150, 326, '#2e5a96')
+    for x in range(76, 150, 5):
+        c.rect(x, 282, x, 324, '#16306a')
+    c.rect(72, 300, 150, 300, '#16386a')
+    c.circle(108, 302, 16, '#0c1a40', '#3a70b0')
+    c.circle(108, 302, 13, None, '#1a4478')
+    c.line(98, 302, 118, 302, '#3a70b0'); c.rect(107, 292, 108, 313, '#3a70b0')
+    c.line(100, 294, 116, 310, '#1a4478'); c.line(116, 294, 100, 310, '#1a4478')
+    # roof sign over cab
+    c.rect(132, 282, 172, 297, '#5a6a8a')
+    c.rect(134, 284, 170, 295, '#8a9ab8')
+    glyph(c, 137, 286, ['###.#.#.###.###.###', '#...###..#..#...#.#', '###.#.#..#..###.###'], '#2a5aa0')
+    c.rect(150, 290, 166, 293, '#3a8ad8')
+    # cab
+    c.rect(140, 298, 186, 330, '#0a0a1a')
+    c.rect(144, 301, 182, 312, '#16203e')
+    c.rect(146, 303, 180, 310, '#24365e')
+    c.line(146, 303, 156, 310, '#3a5080')
+    c.rect(140, 314, 186, 316, '#7a1414')
+    c.rect(140, 317, 186, 326, '#101024')
+    for x in range(146, 182, 4):
+        c.rect(x, 319, x + 1, 324, '#1a1a34')
+    for x in (86, 126, 150, 178):
+        c.circle(x, 329, 5, '#01030a', '#0a1630')
+
+
+def truck_lights(c, t):
+    on = (t % 0.9) < 0.6
+    col = '#ffb030' if on else '#7a4a10'
+    c.rect(142, 319, 147, 323, col)
+    c.rect(179, 319, 184, 323, col)
+    c.rect(143, 320, 145, 321, '#fff0c0' if on else col)
+    c.rect(181, 320, 183, 321, '#fff0c0' if on else col)
+
+
+def _kiosk(c):
+    c.rect(200, 262, 346, 330, '#04102a')
+    c.rect(198, 260, 348, 268, '#0c2c58')
+    c.rect(198, 260, 348, 260, '#1a4a86')
+    c.rect(294, 268, 296, 330, '#0a2a58')
+    # signs
+    c.rect(212, 276, 240, 290, '#06142e')
+    c.box(212, 276, 240, 290, '#0e2c5c')
+    c.circle(233, 283, 4, None, '#0e2c5c')
+    c.rect(246, 276, 288, 290, '#163e86')
+    c.rect(247, 277, 287, 282, '#2a6ad0')
+    glyph(c, 249, 278, ['#.#.###.#.#.###.#.#.###.###', '#.#.#...###.#.#.#.#..#..#..'], '#0a1a40')
+    for x in range(247, 288, 2):
+        c.px(x, 286, '#5a9af0')
+    c.rect(292, 277, 304, 290, '#0e3a3a')
+    c.box(292, 277, 304, 290, '#1a6a5a')
+    c.circle(298, 283, 3, None, '#2a8a6a')
+    # lit windows
+    W1 = '#44d0b8'
+    for (x0, y0, x1, y1) in [(210, 294, 226, 310), (232, 294, 248, 310), (271, 294, 289, 310)]:
+        c.rect(x0 - 1, y0 - 1, x1 + 1, y1 + 1, '#0a2a3a')
+        c.rect(x0, y0, x1, y1, W1)
+    c.rect(212, 296, 218, 300, '#2a8a9a'); c.rect(220, 304, 224, 308, '#1a5a6a')
+    c.rect(236, 298, 246, 302, '#1a3a7a'); c.line(232, 294, 240, 302, '#e0fff8')
+    glyph(c, 273, 296, ['#.#.#.#.#', '#########', '.#.#.#.#.', '#########', '..#...#..'], '#0a2a3a')
+    c.rect(252, 294, 264, 322, '#0a2a3a')
+    c.rect(253, 295, 263, 306, '#3ad0c0')
+    c.rect(253, 300, 263, 302, '#1a4ab0')
+    c.rect(253, 308, 263, 321, '#3ac8b4')
+    for k in range(0, 14, 4):
+        c.line(253 + k, 321, 263, 311 + k, '#c0fff4')
+    # graffiti panel with cat
+    c.rect(298, 270, 344, 326, '#050c22')
+    r = np.random.default_rng(12)
+    for _ in range(40):
+        x, y = int(r.integers(300, 330)), int(r.integers(286, 322))
+        c.rect(x, y, x + int(r.integers(0, 3)), y, ['#1a3a7a', '#2a5a9a', '#1a5a5a'][int(r.integers(0, 3))])
+    c.box(332, 280, 344, 296, '#1a3a6a')
+    c.poly([(332, 280), (334, 274), (337, 280)], None, '#1a3a6a')
+    c.poly([(339, 280), (342, 274), (344, 280)], None, '#1a3a6a')
+    c.rect(315, 302, 317, 310, '#2a7ad0')
+    c.rect(320, 302, 322, 312, '#4a9a5a')
+    c.rect(328, 300, 338, 326, '#0a1a3a')
+    c.box(328, 300, 338, 326, '#123264')
+    # small box on roof
+    c.rect(318, 250, 332, 260, '#0a2a1a')
+    c.box(318, 250, 332, 260, '#2a6a3a')
+    c.rect(220, 248, 250, 260, '#06142c')
+    c.rect(252, 252, 300, 260, '#06142c')
+
+
+def kiosk_light(c, t):
+    on = (t % 1.6) < 1.3
+    c.rect(324, 252, 328, 257, '#f0fff0' if on else '#4a6a4a')
+
+
+def _person(c):
+    c.rect(34, 300, 40, 322, '#04122e')
+    c.rect(35, 296, 39, 300, '#06183c')
+    c.rect(34, 306, 44, 309, '#1a3a7a')
+    c.rect(35, 322, 36, 326, '#020a1c'); c.rect(38, 322, 39, 326, '#020a1c')
+    c.rect(29, 300, 33, 318, '#062018')
+
+
+def phone(c, t):
+    c.rect(37, 291, 44, 298, '#4ac0f0')
+    c.rect(38, 292, 43, 297, '#c0f0ff')
+    c.rect(39, 294, 42, 294, '#2a6a9a')
+
+
+def neon(c, t):
+    u = t % 2.7
+    f = 1.0
+    if 0.9 < u < 0.97 or 1.02 < u < 1.06:
+        f = 0.35
+    col = mix('#2a3a08', GRN, f)
+    col2 = mix('#1a2a06', '#70b000', f)
+    # board behind
+    c.poly([(212, 190), (314, 206), (314, 236), (214, 222)], '#0f0d05')
+    c.poly([(212, 190), (314, 206), (314, 208), (212, 192)], '#2a3a0a')
+    # circle emblem
+    for rr, cc in [(17, col), (16, col), (14, col2)]:
+        c.circle(232, 212, rr, None, cc)
+    c.circle(232, 212, 13, '#2a2008', None)
+    # drop / leaf mark
+    c.poly([(232, 199), (238, 207), (238, 216), (232, 220), (226, 216), (226, 207)], None, col)
+    for y in range(202, 219, 2):
+        c.rect(233, y, 237, y, col2 if y % 4 else col)
+    c.rect(231, 205, 232, 218, col)
+    c.circle(229, 225, 2, None, col)
+    # lettering: three hollow glyphs at 2x
+    L1 = ['#######.', '#.....#.', '###.#.#.', '..#.#.#.', '###.#.##', '#...#..#', '#.###..#', '#.....##', '#######.']
+    L2 = ['########', '#......#', '#.#..#.#', '#.#..#.#', '#.#..#.#', '#.#..#.#', '#.####.#', '#......#', '########']
+    L3 = ['########', '#......#', '#.####.#', '#.#..#.#', '#.####.#', '#......#', '#.##.###', '#.##....', '####....']
+    for g, x in [(L1, 251), (L2, 269), (L3, 287)]:
+        glyph(c, x, 199, g, col, 2)
+        glyph(c, x + 1, 200, [r.replace('#', '.') for r in g], col)
+    glyph(c, 252, 222, ['##.#.#.###.#.#.#.#.#.#..#.#.#.#', '#..##..#.#.##..#.#.#.#..#.#.###'], col2)
+    c.circle(309, 201, 2, None, col)
+
+
+class Scene3:
+    def __init__(s):
+        c = Canvas(W, H, '#001437')
+        vgrad(c, 0, 0, W - 1, 170, '#000c30', '#011a48')
+        vgrad(c, 0, 171, W - 1, 300, '#011a48', '#03245a')
+        _far(c)
+        _right_tower(c)
+        _tower(c)
+        _hills(c)
+        _bridge(c)
+        _lamp_posts(c)
+        _truck(c)
+        _kiosk(c)
+        _person(c)
+        # wet street
+        c.rect(0, 326, W - 1, H - 1, '#020a1c')
+        for x in range(0, W, 3):
+            c.rect(x, 326, x + 1, 326, '#0a2450')
+        c.rect(0, 312, 74, 326, '#03102a')
+        for x in range(0, 74, 4):
+            c.rect(x, 312, x, 326, '#0a2450')
+        c.rect(0, 312, 74, 312, '#123a7a')
+        for x in range(0, 200, 6):
+            c.rect(x, 304, x, 326, '#06183c')
+        c.rect(0, 304, 200, 305, '#0c2a5a')
+        c.rect(0, 316, 200, 316, '#0a2250')
+        s.base = c
+        s.rain = Rain(W, H, 55, 21, 3, 9, (260, 340))
+        r = np.random.default_rng(3)
+        s.fog = r.uniform(0, 1, (6, 4))
+
+    def frame(s, t):
+        c = s.base.copy()
+        green_dots(c, t)
+        slats(c, 145, 56, 176, 168, t, 1)
+        slats(c, 324, 104, 344, 196, t, 2)
+        lamps(c, t)
+        truck_lights(c, t)
+        kiosk_light(c, t)
+        phone(c, t)
+        neon(c, t)
+        # blinking aviation lights
+        for i, (x, y) in enumerate([(185, 2), (203, 2), (220, 2), (243, 2), (257, 2), (337, 65), (346, 65), (355, 65)]):
+            on = math.sin(t * 2.5 + i * 0.9) > 0
+            c.rect(x, y, x + 1, y + 1, '#ff2a2a' if on else '#4a0a10')
+        a = c.arr()
+        # reflections on the wet street (mirror of lit kiosk/truck, rippled)
+        for y in range(327, H):
+            sy = 2 * 326 - y
+            off = int(round(1.5 * math.sin(t * 3 + y * 1.3)))
+            row = np.roll(a[sy], off, axis=0)
+            f = 0.35 * (1 - (y - 327) / (H - 327))
+            a[y] = a[y] * (1 - f) + row * f
+        # drifting fog banks
+        yy, xx = np.mgrid[0:H, 0:W]
+        fog = np.zeros((H, W), np.float32)
+        for (cx, cy, rx, ry, sp) in [(275, 150, 40, 16, 6), (200, 120, 40, 12, 3)]:
+            x = (cx + sp * t) % (W + 120) - 60
+            fog += np.exp(-(((xx - x) / rx) ** 2 + ((yy - cy) / ry) ** 2))
+        a += fog[..., None] * np.array([8, 22, 50], np.float32) * 0.35
+        s.rain.draw(a, t, '#3a78c0', 0.45)
+        return a
