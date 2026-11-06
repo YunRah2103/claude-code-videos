@@ -61,8 +61,10 @@ _CAT = [
 ]
 
 
-def cat(breath=0.0, flick=0):
-    """breath 0..1 swells the body 1px; flick -1/0/1 bends the tail tip."""
+def cat(breath=0.0, flick=0, mood='sleep'):
+    """breath 0..1 swells the body 1px; flick -1/0/1 bends the tail tip.
+    mood: 'sleep' (default), 'awake' (head up 1px, green eyes open), 'yawn' (head up, eyes shut, mouth open).
+    Awake/yawn maps are one row taller: paste them 1px higher than the sleeping cat."""
     rows = [list(r) for r in _CAT]
     if breath > .5:                                   # inhale: back rises 1px (extra row of fur on top)
         for x in range(10, 16): rows[0][x] = 'm'
@@ -72,6 +74,13 @@ def cat(breath=0.0, flick=0):
         rows[13][2:6] = list('....'); rows[14][2:5] = list('...')
         if flick > 0: rows[12][0:3] = list('mnn'); rows[11][0:2] = list('mn')
         else: rows[13][3:6] = list('mnm'); rows[14][4:7] = list('mnm')
+    if mood != 'sleep':
+        if mood == 'awake':
+            rows[4][2] = rows[4][4] = 'C'; rows[5][2] = rows[5][4] = '0'          # eyes open
+        else:
+            rows[7][2:5] = list('sws'); rows[8][3:5] = list('ss')                 # yawn
+        old = [''.join(r) for r in rows]
+        rows = [old[0][:8] + '.' * 12] + [old[i][:8] + old[i - 1][8:] for i in range(1, 10)] + [old[9]] + old[10:]
     return S([''.join(r) for r in rows], outline='0')
 
 

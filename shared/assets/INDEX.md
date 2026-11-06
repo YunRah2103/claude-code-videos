@@ -202,7 +202,7 @@ returned as float RGBA for `ambient.paste`; `S(rows, outline=, sub=)` builds any
 | Asset | What it is | Path | Used by | Credit |
 |---|---|---|---|---|
 | Palette | 48 hand-picked colours: teal-blue darks, purple + blue neon, warm window, reds, skin, greens, greys, mint, pink | `cozyroom.py` `PAL`, `PAL_ARR` | cozy-sim-room | own work |
-| Cat | Curled sleeping orange tabby from above; `cat(breath=0..1, flick=-1/0/1)` | `cozyroom.py` `cat()` | cozy-sim-room | own work |
+| Cat | Curled orange tabby from above; `cat(breath=0..1, flick=-1/0/1, mood=sleep|awake|yawn)` (awake/yawn maps are 1 row taller: paste 1px higher) | `cozyroom.py` `cat()` | cozy-sim-room | own work |
 | Mug | White mug with a heart, coffee inside (pair with a steam loop) | `cozyroom.py` `mug()` | cozy-sim-room | own work |
 | Console shelf | Wall shelf front with eight generic retro consoles (no logos); returns (sprite, LED row y) | `cozyroom.py` `console_shelf()`, `console(kind)` | cozy-sim-room | own work |
 | Monitor | Bezel + stand for any w x h screen (draw content at [2:2+h, 2:2+w]) | `cozyroom.py` `monitor()` | cozy-sim-room | own work |

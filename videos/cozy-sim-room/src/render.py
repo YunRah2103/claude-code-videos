@@ -1,9 +1,9 @@
-"""cozy-sim-room: 15 s seamless ambient loop, no voice, no captions (v2: reference-style soft light, big furniture).
+"""cozy-sim-room: 18 s seamless story loop with a synthesised lo-fi soundtrack (6 bars at 80 BPM).
 
-Oblique top-down bedroom at night: sim-racing desk with three screens, gamer in a red hoodie on a wheel,
-sleeping cat, bed with a plush, window with the city. 180x320 native -> 6x nearest -> 1080x1920, 60 fps,
-light drawn as smooth full-res falloff over the crisp pixels.
-Every motion uses an integer number of cycles per 15 s, so frame 900 == frame 0.
+Oblique top-down bedroom at night. The main guy finishes a sim race (P1, confetti, fist pump), the cat wakes and
+yawns, he swivels round, waves and points at the @yub_cars neon, turns back for a countdown, GO, lightning outside.
+180x320 native -> 6x nearest -> 1080x1920, 60 fps, light drawn as smooth full-res falloff over the crisp pixels.
+Every motion uses an integer number of cycles per loop and every event sits inside it, so frame 1080 == frame 0.
 Usage: python render.py still OUTDIR T... | video OUT.mp4 | loopcheck OUT.mp4
 """
 import math, os, subprocess, sys, json
@@ -21,7 +21,10 @@ import cozyroom as cr                                             # noqa: E402
 W0, H0, K = 180, 320, 6          # 6x: finer than the reference's ~8x pixels, objects large like the reference
 W, H = W0 * K, H0 * K
 FPS = 60
-DUR = 15.0
+DUR = 18.0
+BEAT, BAR = .75, 3.0                       # 80 BPM; the loop is exactly 6 bars
+T_FINISH, T_GO, T_BOLT = 3.0, 12.0, 15.0   # crossing the line, countdown GO (bar 5 downbeat), lightning
+T_LIGHTS = (9.75, 10.5, 11.25)             # red lights on beats 2-4 of bar 4
 P = cr.PAL
 
 
@@ -186,7 +189,6 @@ def build_static():
     dith(a, 108, 140, 162, 212, 'b', .3)
     for k in range(12): R(a, 108, 204 - k, 108 + 11 - k, 204 - k, 'G')
     R(a, 106, 216, 163, 219, 'l')
-    place(a, cr.plush(), 114, 112)
     place(a, prop('cap'), 150, 165); place(a, prop('remote'), 128, 186); place(a, prop('phone'), 146, 152)
     # furniture: dresser, low bookshelf, shoe rack, beanbag, toy race track, cushion, open box
     box(a, 14, 218, 36, 240, 6, '5', '3', '7')
@@ -255,11 +257,12 @@ BAND, BAND_EM = build_band()
 
 # ------------------------------------------------------------------ gamer: the main guy redrawn in the room's style
 # Same identity as characters/main-guy (brown skin, dark messy hair with two cowlicks, silver square glasses, white tee,
-# black jeans, white sneakers) but painted like the room: room palette, soft form shading, no outline, reference-like
-# proportions. Built from parts with continuous joints so it moves smoothly: the head is a sphere whose face, glasses
-# and ears rotate with the chair (a real swivel), arms are two-bone IK with fixed lengths (never stretch).
+# black jeans, white sneakers) painted like the room: room palette, soft form shading, no outline. Built from parts with
+# continuous joints: a sphere head whose hair, ears and glasses arms turn with the chair plus a hand-drawn face that
+# slides through 3/4 view; two-bone IK arms with fixed lengths (they never stretch).
+Z = 1.2                                    # character scale
 DARK = {'H': 'G', 'G': 'F', 'F': 'E', 'y': 'x', 'x': 'm', 'D': '2', 'E': 'D', 'l': '0', 'm': 'l', 'd': 'c', 'c': 'b', 'b': 'a'}
-WHEEL_C, WHEEL_R = (90.0, 80.0), (9.0, 6.6)
+WHEEL_C, WHEEL_R = (90.0, 79.0), (9.0 * Z, 6.6 * Z)
 
 
 def ease(x):
@@ -267,18 +270,21 @@ def ease(x):
 
 
 def timeline(t):
-    """-> yaw (0 = back to us, pi = facing us), drive (hands on wheel 0..1), wave 0..1, steer."""
-    yaw = math.pi * (ease((t - 5.8) / .8) - ease((t - 9.0) / .8))
-    drive = 1 - ease((t - 5.55) / .35) + ease((t - 9.65) / .35)
-    wave = ease((t - 6.7) / .25) - ease((t - 8.75) / .25)
-    steer = .55 * sn(t, 6) + .25 * sn(t, 15, 1.0)
-    return yaw, drive, wave, steer
+    """Story weights, all 0..1 except yaw (0 = back to us, pi = facing us) and steer."""
+    yaw = math.pi * (ease((t - 5.4) / .8) - ease((t - 9.0) / .8))
+    drive = 1 - ease((t - T_FINISH) / .15) + ease((t - 9.6) / .35)          # hands on the wheel
+    cheer = ease((t - 3.05) / .18) - ease((t - 4.6) / .35)                   # fist pumps
+    wave = ease((t - 6.3) / .25) - ease((t - 7.55) / .25)
+    point = ease((t - 7.6) / .3) - ease((t - 8.7) / .3)                      # at the @yub_cars neon
+    amp = 1 - ease((t - 2.9) / .2) + ease((t - T_GO) / .6)                   # steering only while racing
+    steer = (.55 * sn(t, 6) + .25 * sn(t, 15, 1.0)) * amp
+    return yaw, drive, cheer, wave, point, steer
 
 
 def wrap(a): return (a + math.pi) % (2 * math.pi) - math.pi
 
 
-def ik(S, T, L1=8.5, L2=8.0, out=1):
+def ik(S, T, L1=8.5 * Z, L2=8.0 * Z, out=1):
     dx, dy = T[0] - S[0], T[1] - S[1]
     d = min(max(math.hypot(dx, dy), .5), L1 + L2 - .05)
     a0 = math.atan2(dy, dx)
@@ -310,18 +316,20 @@ class Cv:
         return cr.S([''.join(r) for r in rows], outline=None), x0, y0
 
 
-FACE_MAP = {                     # glasses (two square silver lenses), eyes, blush, mouth; 9 px wide
-    'smile': ["GGGG.GGGG", "G00GGG00G", "FFFF.FFFF", "w.......w", "..t...t..", "...ttt..."],
-    'grin':  ["GGGG.GGGG", "G00GGG00G", "FFFF.FFFF", "w.......w", "..ttttt..", "...sss..."],
-    'blink': ["GGGG.GGGG", "GxxGGGxxG", "FFFF.FFFF", "w.......w", "..t...t..", "...ttt..."],
+FACE_MAP = {                     # two square silver lenses with eyes and a glint, blush, mouth; 11 px wide
+    'smile': ["GGGGG.GGGGG", "G00HGGG00HG", "G00yG.G00yG", "FFFFF.FFFFF", "w.........w", "...t...t...", "....ttt...."],
+    'grin':  ["GGGGG.GGGGG", "G00HGGG00HG", "G00yG.G00yG", "FFFFF.FFFFF", "w.........w", "...ttttt...", "....sss...."],
+    'blink': ["GGGGG.GGGGG", "GyyyGGGyyyG", "GxxxG.GxxxG", "FFFFF.FFFFF", "w.........w", "...t...t...", "....ttt...."],
+    'up':    ["GGGGG.GGGGG", "G0HyGGG0HyG", "GyyyG.GyyyG", "FFFFF.FFFFF", "w.........w", "...ttttt...", "....sss...."],
 }
 
 
 def head(cv, cx, cy, yaw, expr):
     """Sphere-mapped head: lon 0 = back of the head, pi = face. Features follow the yaw."""
-    for y in range(int(cy - 9), int(cy + 8)):
-        for x in range(int(cx - 8), int(cx + 9)):
-            xs, ys = (x - cx) / 6.2, (y - cy + .4) / 6.6
+    rx, ry = 6.2 * Z, 6.6 * Z
+    for y in range(int(cy - ry - 2), int(cy + ry + 2)):
+        for x in range(int(cx - rx - 2), int(cx + rx + 2)):
+            xs, ys = (x - cx) / rx, (y - cy + .4) / ry
             if xs * xs + ys * ys > 1: continue
             row = math.sqrt(max(1e-6, 1 - ys * ys))
             lon = math.asin(max(-1, min(1, xs / row))) + yaw
@@ -337,132 +345,174 @@ def head(cv, cx, cy, yaw, expr):
             cv.put(x, y, ch)
     comp = -math.cos(yaw)                                                     # how much of the face turns toward us
     if comp > .2:
-        xf = cx + 6.2 * math.sin(yaw)
-        rows = FACE_MAP[expr]
-        for j, row in enumerate(rows):
+        xf = cx + rx * math.sin(yaw)
+        for j, row in enumerate(FACE_MAP[expr]):
             for i, ch in enumerate(row):
-                if ch != '.': cv.put(xf + (i - 4) * comp, cy - 1 + j, ch)
-    for dx in (-1.5, 1.8):                                                    # two cowlicks
-        cv.put(cx + dx, cy - 7, 'l'); cv.put(cx + dx + .6, cy - 8, 'l')
+                if ch != '.': cv.put(xf + (i - 5) * comp, cy - 2 + j, ch)
+    for dx in (-1.8, 2.1):                                                    # two cowlicks
+        cv.put(cx + dx, cy - ry - .6, 'l'); cv.put(cx + dx + .7, cy - ry - 1.6, 'l')
 
 
 def chair_back(cv, cx, cy, yaw):
-    w = 9.5 * (.35 + .65 * abs(math.cos(yaw)))
-    for y in range(int(cy - 9), int(cy + 9)):
+    w = 9.5 * Z * (.35 + .65 * abs(math.cos(yaw)))
+    for y in range(int(cy - 9 * Z), int(cy + 9 * Z)):
         for x in range(int(cx - w), int(cx + w) + 1):
             e = abs(x - cx) / w
-            if e > .97 and abs(y - cy) > 7: continue
-            cv.put(x, y, 'c' if e > .72 else ('d' if y < cy - 7 else 'a'))
+            if e > .97 and abs(y - cy) > 7 * Z: continue
+            cv.put(x, y, 'c' if e > .72 else ('d' if y < cy - 7 * Z else 'a'))
 
 
 def chair_base(cv, cx, cy, yaw):
     cv.seg((cx, cy - 4), (cx, cy), .8, '2')
     for k in range(5):
         th = yaw + 2 * math.pi * k / 5 + .3
-        ex, ey = cx + 7 * math.cos(th), cy + 3 * math.sin(th)
+        ex, ey = cx + 7 * Z * math.cos(th), cy + 3 * Z * math.sin(th)
         cv.seg((cx, cy), (ex, ey), .6, '2'); cv.put(ex, ey + 1, 'D')
 
 
 def wheel(cv, ang):
     (cx, cy), (rx, ry) = WHEEL_C, WHEEL_R
-    for k in range(72):
-        th = 2 * math.pi * k / 72
+    for k in range(96):
+        th = 2 * math.pi * k / 96
         for dr, ch in ((0, 'F'), (-.9, 'E')):
             cv.put(cx + (rx + dr) * math.cos(th), cy - (ry + dr) * math.sin(th), ch if math.sin(th) > -.2 else 'D')
     for k in range(3):
         th = ang + math.pi / 2 + 2 * math.pi * k / 3 + math.pi / 3
-        cv.seg((cx, cy), (cx + rx * .9 * math.cos(th), cy - ry * .9 * math.sin(th)), .4, 'D')
-    cv.disc(cx, cy, 1.2, '2'); cv.put(cx + rx * math.cos(ang + math.pi / 2), cy - ry * math.sin(ang + math.pi / 2), 'v')
+        cv.seg((cx, cy), (cx + rx * .9 * math.cos(th), cy - ry * .9 * math.sin(th)), .45, 'D')
+    cv.disc(cx, cy, 1.4, '2'); cv.put(cx + rx * math.cos(ang + math.pi / 2), cy - ry * math.sin(ang + math.pi / 2), 'v')
 
 
 def character(t):
-    yaw, drive, wave, steer = timeline(t)
+    yaw, drive, cheer, wave, point, steer = timeline(t)
     cyw, syw = math.cos(yaw), math.sin(yaw)
-    steer *= drive
     breath = .45 * sn(t, 6)
-    N = (90 + 1.4 * steer, 93 + breath * .4)                                 # neck base
-    Hc = (N[0] + 1.3 * steer + .9 * wave * math.sin(2 * math.pi * 1.1 * (t - 6.7)), N[1] - 7.6)
+    pump = abs(math.sin(2 * math.pi * 2 * (t - 3.05))) * cheer                # fist pumps on the beat
+    N = (90 + 1.4 * steer, 92 + breath * .4 + .6 * pump)                     # neck base
+    Hc = (N[0] + 1.3 * steer + .9 * wave * math.sin(2 * math.pi * 1.1 * (t - 6.3)), N[1] - 7.6 * Z - .8 * pump)
     cv = Cv()
     ang = steer * 1.1
     wheel(cv, ang)
-    chair_base(cv, 90, N[1] + 25, yaw * .5)
-    if cyw < 0: chair_back(cv, N[0] - 5 * syw, N[1] + 8 + 6 * cyw, yaw)        # behind him once he faces us
-    # legs: forward under the desk (hidden) when driving, toward us once turned
-    legs = []
+    chair_base(cv, 90, N[1] + 25 * Z, yaw * .5)
+    if cyw < 0: chair_back(cv, N[0] - 5 * syw, N[1] + 8 * Z + 6 * Z * cyw, yaw)        # behind him once he faces us
+    legs = []                                                                 # under the desk while driving, toward us once turned
     for side in (-1, 1):
-        hip = (N[0] + side * 3.6 * cyw, N[1] + 12)
-        knee = (hip[0] + 6 * syw * .6, hip[1] - 6 * cyw)
-        legs.append((hip, knee))
+        hip = (N[0] + side * 3.6 * Z * cyw, N[1] + 12 * Z)
+        legs.append((hip, (hip[0] + 6 * Z * syw * .6, hip[1] - 6 * Z * cyw)))
     def draw_legs():
         for hip, knee in legs:
-            cv.seg(hip, knee, 1.7, 'D'); cv.seg(knee, (knee[0], knee[1] + 4), 1.5, 'D'); cv.put(knee[0] - 1, knee[1], 'E')
-            cv.disc(knee[0], knee[1] + 5.5, 1.6, 'H'); cv.put(knee[0], knee[1] + 7, 'G')
-    if -.2 <= cyw < .2: draw_legs()                                           # side-on: legs beside the chair
-    # arms: shoulders turn with the body, hands go wheel -> lap -> wave
-    hw = 9.5
-    S = [(N[0] - hw * cyw, N[1] + 2.2), (N[0] + hw * cyw, N[1] + 2.2)]
+            cv.seg(hip, knee, 1.7 * Z, 'D'); cv.seg(knee, (knee[0], knee[1] + 4 * Z), 1.5 * Z, 'D'); cv.put(knee[0] - 1, knee[1], 'E')
+            cv.disc(knee[0], knee[1] + 5.5 * Z, 1.6 * Z, 'H'); cv.put(knee[0], knee[1] + 7 * Z, 'G')
+    if -.2 <= cyw < .2: draw_legs()
+    # arms: shoulders turn with the body; hands go wheel -> fist pumps -> lap -> wave / point -> wheel
+    hw = 9.5 * Z
+    S = [(N[0] - hw * cyw, N[1] + 2.2 * Z), (N[0] + hw * cyw, N[1] + 2.2 * Z)]
     rim = [(WHEEL_C[0] + WHEEL_R[0] * math.cos(math.pi - .2 + ang), WHEEL_C[1] - WHEEL_R[1] * math.sin(math.pi - .2 + ang)),
            (WHEEL_C[0] + WHEEL_R[0] * math.cos(.2 + ang), WHEEL_C[1] - WHEEL_R[1] * math.sin(.2 + ang))]
-    lap = [(N[0] - 4 * cyw, N[1] + 14 - 4 * cyw), (N[0] + 4 * cyw, N[1] + 14 - 4 * cyw)]
-    ph = 2 * math.pi * 2.0 * (t - 6.7)
-    wav = (S[0][0] + 6 * (-cyw) + 2.6 * math.sin(ph), S[0][1] - 13.5 + 1.3 * math.cos(2 * ph))
+    lap = [(N[0] - 4 * Z * cyw, N[1] + 14 * Z - 4 * Z * cyw), (N[0] + 4 * Z * cyw, N[1] + 14 * Z - 4 * Z * cyw)]
+    fists = [(S[i][0] + (-1 if i == 0 else 1) * 3 * cyw, Hc[1] - 6 - 4 * pump) for i in range(2)]
+    ph = 2 * math.pi * 2.0 * (t - 6.3)
+    wav = (S[0][0] + 6 * Z * (-cyw) + 2.6 * Z * math.sin(ph), S[0][1] - 13.5 * Z + 1.3 * Z * math.cos(2 * ph))
+    pnt = (S[0][0] - 3, Hc[1] - 13)
     targets = []
     for i in range(2):
         tx = rim[i][0] * drive + lap[i][0] * (1 - drive); ty = rim[i][1] * drive + lap[i][1] * (1 - drive)
-        if i == 0: tx, ty = tx * (1 - wave) + wav[0] * wave, ty * (1 - wave) + wav[1] * wave
+        tx, ty = tx * (1 - cheer) + fists[i][0] * cheer, ty * (1 - cheer) + fists[i][1] * cheer
+        if i == 0:
+            tx, ty = tx * (1 - wave) + wav[0] * wave, ty * (1 - wave) + wav[1] * wave
+            tx, ty = tx * (1 - point) + pnt[0] * point, ty * (1 - point) + pnt[1] * point
         targets.append((tx, ty))
     depth = [-syw, syw]                                                       # the far arm is drawn behind the body
     def arm(i):
         out = -1 if S[i][0] < N[0] else 1
         E, T = ik(S[i], targets[i], out=out)
-        cv.seg(S[i], E, 1.35, 'y', sleeve=3.2); cv.seg(E, T, 1.15, 'y'); cv.disc(T[0], T[1], 1.5, 'y')
+        cv.seg(S[i], E, 1.35 * Z, 'y', sleeve=3.2 * Z); cv.seg(E, T, 1.15 * Z, 'y'); cv.disc(T[0], T[1], 1.5 * Z, 'y')
+        if i == 0 and point > .5:                                             # index finger up
+            cv.seg((T[0], T[1] - 1), (T[0] - .5, T[1] - 4), .5, 'y')
     for i in range(2):
         if depth[i] > .35: arm(i)
-    # torso: white tee, shoulders, neck
-    sw = 10.5 * (.55 + .45 * abs(cyw))
-    for y in range(int(N[1]), int(N[1] + 13)):
+    sw = 10.5 * Z * (.55 + .45 * abs(cyw))                                    # torso: white tee
+    for y in range(int(N[1]), int(N[1] + 13 * Z)):
         for x in range(int(N[0] - sw - 1), int(N[0] + sw + 2)):
             yy = y - N[1]
-            half = sw * min(1, .55 + yy / 6) if yy < 6 else sw * .82
-            if abs(x - N[0]) <= half: cv.put(x, y, 'H' if yy < 3 and abs(x - N[0]) < half - 1 else 'G')
-    if cyw < -.2:                                                             # front: collar, waist, lap
+            half = sw * min(1, .55 + yy / (6 * Z)) if yy < 6 * Z else sw * .82
+            if abs(x - N[0]) <= half: cv.put(x, y, 'H' if yy < 3 * Z and abs(x - N[0]) < half - 1 else 'G')
+    if cyw < -.2:                                                             # front: collar, lap, legs toward us
         cv.put(N[0] - 1, N[1] + 1, 'x'); cv.put(N[0], N[1] + 2, 'x'); cv.put(N[0] + 1, N[1] + 1, 'x')
-        for x in range(int(N[0] - 7), int(N[0] + 8)): cv.put(x, N[1] + 12, 'D'); cv.put(x, N[1] + 13, 'D')
+        for x in range(int(N[0] - 7 * Z), int(N[0] + 8 * Z)):
+            for yy in (12 * Z, 13 * Z): cv.put(x, N[1] + yy, 'D')
         draw_legs()
-    cv.seg((N[0], N[1] - 2), (N[0], N[1] + .5), 1.6, 'x')
-    if cyw >= 0: chair_back(cv, N[0] - 5 * syw, N[1] + 8 + 6 * cyw, yaw)       # over his back while driving
+    cv.seg((N[0], N[1] - 2 * Z), (N[0], N[1] + .5), 1.6 * Z, 'x')
+    if cyw >= 0: chair_back(cv, N[0] - 5 * syw, N[1] + 8 * Z + 6 * Z * cyw, yaw)       # over his back while driving
     for i in range(2):
         if depth[i] <= .35: arm(i)
-    expr = 'blink' if 7.95 <= t < 8.05 else ('grin' if wave > .3 else 'smile')
+    expr = 'blink' if 6.95 <= t < 7.05 else ('up' if point > .5 else ('grin' if wave > .3 or cheer > .3 else 'smile'))
     head(cv, Hc[0], Hc[1], yaw, expr)
     return cv.rgba()
 
 
 # ------------------------------------------------------------------ screens
+GLYPH3 = {'P': ["##.", "#.#", "##.", "#..", "#.."], '1': [".#.", "##.", ".#.", ".#.", "###"],
+          'G': [".##", "#..", "#.#", "#.#", ".##"], 'O': [".#.", "#.#", "#.#", "#.#", ".#."]}
+TROPHY = cr.S(["q.qqq.q", "qqqrqqq", "q.qqq.q", ".qqqqq.", "..qpq..", "...p...", "..ppp..", ".ooooo."], outline=None)
+RACECAR = cr.S(["..uuuu..", ".uvvvvu.", "uukkkkuu", "vuuuuuuv", "1u1111u1", "11....11"], outline=None)
+
+
+def text3(s_, word, x, y, c, k=2):
+    for n_, chx in enumerate(word):
+        for j_, row in enumerate(GLYPH3[chx]):
+            for i_, b in enumerate(row):
+                if b == '#': s_[y + j_ * k:y + (j_ + 1) * k, x + (n_ * 4 + i_) * k:x + (n_ * 4 + i_ + 1) * k] = P[c]
+
+
 def race(t, w, h):
-    """Pixel racing game: road scrolls toward the viewer, kerbs, curve sway, player car."""
+    """Pixel racing game with states: race, chequered flag, P1 podium, start lights, GO."""
     s = np.zeros((h, w, 3), np.float32)
+    if T_FINISH <= t < 4.0:                                            # chequered flag waving across the screen
+        for y in range(h):
+            for x in range(w):
+                u, v = x + 2 * math.sin(y * .5 + t * 12), y + 1.5 * math.sin(x * .4 + t * 10)
+                s[y, x] = P['H' if (int(u / 3) + int(v / 3)) % 2 else '1']
+        if t < T_FINISH + .1: s[:] = P['H']
+        return s
+    if 4.0 <= t < 9.6:                                                 # podium: rotating gold rays, trophy, P1
+        for y in range(h):
+            for x in range(w):
+                a_ = math.atan2(y - h / 2, x - w / 2) + t * 1.5
+                s[y, x] = P['p' if int(a_ / (math.pi / 6)) % 2 else 'o']
+        paste(s, TROPHY, 6, 5 + int(round(math.sin(t * 6))))
+        text3(s, 'P1', 19, 4, 'H')
+        for k in range(5):
+            if math.sin(t * 9 + k * 2.1) > .6: s[2 + (k * 7) % (h - 4), 3 + (k * 13) % (w - 6)] = P['r']
+        return s
+    s[:h // 3] = vgrad(h // 3, w, [(0, P['g']), (1, P['M'])])
     hz = h // 3
-    s[:hz] = vgrad(hz, w, [(0, P['g']), (1, P['M'])])
     for x in range(w): s[hz - 1 - int(2 + 2 * math.sin(x * .3) + math.sin(x * .9)):hz, x] = P['b']
-    ph = cyc(t, 45)
-    curve = 6 * sn(t, 3)
-    steer = .55 * sn(t, 6) + .25 * sn(t, 15, 1.0)
+    countdown = 9.6 <= t < T_GO
+    ph = 0.0 if countdown else cyc(t, 45)
+    curve = 0.0 if countdown else 6 * sn(t, 3)
+    steer = timeline(t)[5]
     for y in range(hz, h):
         z = 1.0 / (y - hz + 1)
-        band = int((z * 30 + ph * 2) * 2) % 2
+        band_ = int((z * 30 + ph * 2) * 2) % 2
         k = (y - hz) / (h - hz)
         mid = w / 2 + curve * (1 - k) ** 2 - steer * 4 * k
         half = 3 + k * 26
-        s[y, :] = P['A' if band else 'B']
+        s[y, :] = P['A' if band_ else 'B']
         x0, x1 = int(mid - half), int(mid + half)
         s[y, max(0, x0):min(w, x1)] = P['D']
         for xx in (x0 - 1, x0 - 2, x1, x1 + 1):
-            if 0 <= xx < w: s[y, xx] = P['v' if band else 'H']
-        if band and 0 <= int(mid) < w: s[y, int(mid)] = P['H']
-    car = cr.S(["..uuuu..", ".uvvvvu.", "uukkkkuu", "vuuuuuuv", "1u1111u1", "11....11"], outline=None)
-    paste(s, car, w // 2 - 4 + int(round(steer * 2)), h - 7)
-    s[1, 2:12] = P['k']; s[1, 2 + int(cyc(t, 15) * 10)] = P['v']       # lap progress bar
+            if 0 <= xx < w: s[y, xx] = P['v' if band_ else 'H']
+        if band_ and 0 <= int(mid) < w: s[y, int(mid)] = P['H']
+    paste(s, RACECAR, w // 2 - 4 + int(round(steer * 2)), h - 7)
+    if countdown or T_GO <= t < T_GO + .6:                             # start lights, then GO
+        s[0:5, 8:w - 8] = P['1']
+        for i in range(4):
+            on_red = i < 3 and t >= T_LIGHTS[i] and t < T_GO
+            cc = 'B' if t >= T_GO else ('v' if on_red else 'D')
+            s[1:4, 10 + i * 6:13 + i * 6] = P[cc]
+        if t >= T_GO and int((t - T_GO) * 10) % 2 == 0: text3(s, 'GO', w // 2 - 7, 6, 'C')
+    else:
+        s[1, 2:12] = P['k']; s[1, 2 + int(cyc(t, 18) * 10)] = P['v']        # lap progress bar
     return s
 
 
@@ -478,7 +528,7 @@ def chart(t, w, h):
     for i in range(len(pts) - 1):
         for x in (2 * i, 2 * i + 1):
             y0, y1 = sorted((pts[i], pts[i + 1]))
-            s[y0:y1 + 1, x] = P['J']
+            s[y0:y1 + 1, x] = P['q' if T_FINISH <= t < T_GO else 'J']    # gold: new best lap
     s[pts[-1] - 1:pts[-1] + 2, w - 3:w - 1] = P['v' if cyc(t, 30) < .5 else 'w']
     for i in range(6):                                               # sector bars along the bottom
         hh = 2 + (i * 7 + off // 4) % 4
@@ -523,8 +573,22 @@ while x < WW:
     BLDG.append((x, bw, top)); x += bw
 LIGHTS = [(int(SKYR.integers(top + 2, WH - 2)), int(SKYR.integers(bx, min(WW, bx + bw))), str(SKYR.choice(list('qpjr'))), int(SKYR.integers(1, 9)))
           for bx, bw, top in BLDG for _ in range(4)]
-DROPS = [(int(SKYR.integers(0, WW)), SKYR.random(), int(SKYR.integers(4, 7))) for _ in range(14)]
+DROPS = [(int(SKYR.integers(0, WW)), SKYR.random(), int(SKYR.integers(4, 7))) for _ in range(30)]
+BOLT = [(y, 3 + (y // 5) % 3 - (1 if y > 20 else 0)) for y in range(0, 40)]
 MOTES = [(SKYR.random(), SKYR.random(), int(SKYR.integers(1, 4)), SKYR.random() * 6.28) for _ in range(22)]
+
+
+def heavy(t):
+    """Rain gets heavier after the lightning and eases off again by 3 s (continuous over the loop)."""
+    return ease((t - T_BOLT) / 1.2) if t >= T_BOLT else (1 - ease(t / 3) if t < 3 else 0.0)
+
+
+def flash(t):
+    dt = t - T_BOLT
+    if 0 <= dt < .07: return 1.0
+    if .12 <= dt < .2: return .8
+    if .2 <= dt < .7: return .8 * (1 - (dt - .2) / .5) ** 2
+    return 0.0
 
 
 def window(t):
@@ -534,14 +598,19 @@ def window(t):
     for (y, x, c, k) in LIGHTS:
         if sn(t, k, x * 1.7 + y) > -.6: s[y, x] = P[c]
     s[WH - 6, :] = P['D']                                             # street
-    for (ev, cc, dirn) in ((3.0, 'q', 1), (10.5, 'v', -1)):          # car lights streak past twice per loop
+    for (ev, cc, dirn) in ((6.5, 'q', 1), (16.6, 'v', -1)):          # car lights streak past twice per loop
         p = (t - ev) / 1.1
         if 0 <= p < 1:
             yy = int((p if dirn > 0 else 1 - p) * (WH + 10)) - 5
             for k in range(6):
                 y2 = yy - dirn * k
                 if 0 <= y2 < WH: s[y2, WW - 3:WW - 1] = P[cc] if k < 2 else P['p' if cc == 'q' else 'u']
-    for (x, ph, k) in DROPS:                                          # rain on the glass
+    fl = flash(t)
+    if fl > 0:
+        s = s + fl * np.array([170, 175, 200]) * (s.mean(-1, keepdims=True) < 70)
+        if fl > .7:
+            for y, x in BOLT: s[y, x] = (245, 245, 255)
+    for (x, ph, k) in DROPS[:14 + int(16 * heavy(t))]:                # rain on the glass
         y = int(((ph + cyc(t, k * 2)) % 1) * (WH + 6)) - 3
         for d in range(3):
             if 0 <= y + d < WH: s[y + d, x] = s[y + d, x] * .4 + col('k') * .6
@@ -589,6 +658,52 @@ VIG = smooth_up(np.repeat((1 - .45 * np.clip((np.hypot((XX - W0 / 2) / W0, (YY -
                            ** 1.5)[..., None], 1, 2))
 
 
+# ------------------------------------------------------------------ story effects
+CR = np.random.default_rng(31)
+CONF = [(90 + CR.uniform(-14, 14), 43 + CR.uniform(-3, 3), CR.uniform(-48, 48), CR.uniform(-50, -15), str(CR.choice(list('vqjMKCpN'))),
+         CR.uniform(56, 122), CR.uniform(4.8, 6.4), CR.random() * 6.28) for _ in range(120)]
+RAINBOW = [col(c) for c in 'vpqBJidM']
+HEART = cr.S([".M.M.", "MNMMM", ".MMM.", "..M.."], outline=None)
+
+
+def confetti(a, t):
+    dt = t - T_FINISH
+    if not 0 <= dt < 3.5: return
+    g, vmax = 110.0, 26.0
+    for x0, y0, vx, vy, c, land, death, ph in CONF:
+        if t >= death: continue
+        x = x0 + vx * (1 - math.exp(-1.8 * dt)) / 1.8 + 1.4 * math.sin(ph + dt * 9)
+        tc = (vmax - vy) / g
+        y = y0 + vy * dt + .5 * g * dt * dt if dt < tc else y0 + vy * tc + .5 * g * tc * tc + vmax * (dt - tc)
+        y = min(y, land)
+        xi, yi = int(round(x)), int(round(y))
+        if 0 <= xi < W0 - 1 and 0 <= yi < H0:
+            a[yi, xi] = P[c]
+            if y < land and int(dt * 14 + ph) % 2: a[yi, xi + 1] = P[c]       # flutter: flat <-> edge-on
+
+
+def sparkle(a, em, x, y, r, c='r'):
+    for d in range(-r, r + 1):
+        for (xx, yy) in ((x + d, y), (x, y + d)):
+            if 0 <= xx < W0 and 0 <= yy < H0: a[yy, xx] = P[c]; em[yy, xx] = 1
+
+
+def shake(t):
+    """Screen-pixel camera shake on the finish and the thunder."""
+    amp = 0.0
+    if 0 <= t - T_FINISH < .5: amp = 10 * math.exp(-(t - T_FINISH) * 7)
+    if 0 <= t - (T_BOLT + .35) < .6: amp = 5 * math.exp(-(t - T_BOLT - .35) * 5)
+    return int(round(amp * math.sin(t * 91))), int(round(amp * .6 * math.cos(t * 77)))
+
+
+NEON_M = np.zeros((H0, W0), bool); NEON_M[SIGN_Y:SIGN_Y + SH] = BAND_EM > 0
+
+
+def neon_level(t):
+    if 7.6 <= t < 7.9: return (1.0, .15, 1.3, .1, 1.5, .4)[int((t - 7.6) / .05)]   # flickers on brighter
+    return 1 + .6 * (ease((t - 7.9) / .1) - ease((t - 8.85) / .4))
+
+
 # ------------------------------------------------------------------ frame
 def frame(n, raw=True):
     t = n / FPS
@@ -601,6 +716,10 @@ def frame(n, raw=True):
     led = .5 + .5 * sn(t, 4)
     lc = col('e') * (1 - led) + col('j') * led
     a[26:28, 18:156] = lc; em[26:28, 18:156] = 1
+    party = ease((t - T_FINISH) / .1) - ease((t - 5.0) / .4)              # rainbow chase after the win
+    if party > 0:
+        for x in range(18, 156):
+            a[26:28, x] = a[26, x] * (1 - party) + RAINBOW[int((x / 18 - t * 3) % 8)] * party
     # window + curtain
     a[WIN[1]:WIN[3] + 1, WIN[0]:WIN[2] + 1] = window(t)
     curtain(a, t)
@@ -613,12 +732,18 @@ def frame(n, raw=True):
             th = 2 * math.pi * k / 10 + 2 * math.pi * cyc(t, 30)
             xx, yy = int(round(153 + 3 * math.cos(th))), int(round(fy + 3 * math.sin(th)))
             a[yy, xx] = c if k % 3 else col('H'); em[yy, xx] = 1
-    if 4.6 <= t < 6.2:                                                   # phone lights up and buzzes
-        jx = (1 if int(t * 30) % 2 else 0) if t < 5.0 else 0
+    if 7.9 <= t < 9.7:                                                   # phone: notifications buzz, hearts float up
+        jx = (1 if int(t * 30) % 2 else 0) if (t - 7.9) % .6 < .15 else 0
         a[64:67, 115 + jx:118 + jx] = P['k']; em[64:67, 115 + jx:118 + jx] = 1
+    for k in range(7):
+        p_ = (t - 8.0 - k * .22) / 1.3
+        if 0 <= p_ < 1:
+            hx_, hy_ = 114 + 3 * math.sin(p_ * 7 + k) + (k % 3 - 1) * 3, 60 - p_ * 26
+            paste(a, HEART, hx_, hy_, alpha=1 - p_ ** 2); em[int(hy_):int(hy_) + 4, int(hx_):int(hx_) + 5] = .6 * (1 - p_)
     for i in range(12):
         fx = 170 + int(round(6 * i / 11)); fy = 92 + i * 9 + int(2 * math.sin(i * 1.3))
         b = .25 + .75 * (.5 + .5 * sn(t, (i % 4) + 2, i)) ** 2               # soft twinkle
+        if party > 0: b = b * (1 - party) + party * (1.0 if (i - int(t * 16)) % 3 == 0 else .3)   # chase
         a[fy, fx] = col(('q', 'N', 'K')[i % 3]) * b + col('D') * (1 - b); em[fy, fx] = b
     # mug steam
     for i in range(10):                                                  # curling wisps, fade as they rise
@@ -629,17 +754,32 @@ def frame(n, raw=True):
         for dy in (0, 1):
             a[sy + dy, sx] = a[sy + dy, sx] * (1 - k) + col('G') * k
     # cat (breathing every 2.5 s, tail flicks twice per loop)
-    flick = 0
-    for t0 in (3.0, 11.0):                                               # tail swish: left, right, left, settle
+    flick = 0                                                            # cat: wakes at the win, yawns, back to sleep
+    for t0 in (3.4, 3.95, 13.0):
         if t0 <= t < t0 + .6: flick = (-1, 1, -1, 1, 0)[int((t - t0) / .12)]
-    c = cr.cat(breath=cyc(t, 6), flick=flick)
-    place(a, c, 46, 152)
+    mood = 'awake' if 3.25 <= t < 4.4 or 4.95 <= t < 5.35 else ('yawn' if 4.4 <= t < 4.95 else 'sleep')
+    c = cr.cat(breath=cyc(t, 6), flick=flick, mood=mood)
+    place(a, c, 46, 152 - (mood != 'sleep'))
+    if 3.25 <= t < 3.95:                                                 # "!" pops above its head
+        by = 141 - int(round(2 * math.sin(min(1, (t - 3.25) / .15) * math.pi)))
+        R(a, 50, by, 50, by + 3, 'H'); a[by + 5, 50] = P['H']; em[by:by + 6, 50] = .7
+    hop = max(0.0, math.sin(math.pi * (t - 3.1) / .35)) if 3.1 <= t < 3.45 else (
+        .6 * max(0.0, math.sin(math.pi * (t - 3.5) / .3)) if 3.5 <= t < 3.8 else 0.0)
+    place(a, cr.plush(), 114, 112 - int(round(6 * hop)))                 # the plush bounces on the bed
+    confetti(a, t)
     # gamer
     spr, gx, gy = character(t)
     shade(a, spr, gx, gy, 2, 3, .6); paste(a, spr, gx, gy)
 
     a = np.concatenate([a[:SIGN_Y], BAND, a[SIGN_Y:H0 - SH]]); em = np.concatenate([em[:SIGN_Y], BAND_EM, em[SIGN_Y:H0 - SH]])
     a[H0 - 3:] = P['1']; em[H0 - 3:] = 0                                            # bottom wall cap
+    nk = neon_level(t)                                                   # neon flickers on brighter when he points at it
+    a[NEON_M] = np.clip(a[NEON_M] * nk, 0, 255) if nk >= .5 else a[NEON_M] * .25 + col('L') * .2
+    em[NEON_M] = 1 if nk >= .5 else 0
+    if 7.9 <= t < 8.9:
+        for k, (sx_, sy_) in enumerate(((46, 32), (106, 34), (50, 46), (102, 45), (76, 30), (66, 47))):
+            r_ = int(2.5 * max(0.0, math.sin(t * 8 + k * 1.9)))
+            if r_: sparkle(a, em, sx_, sy_, r_)
     # ---- light (reference look): muted teal grade, smooth full-res light falloff, bloom on light sources
     m = em > 0
     lum = a.mean(-1, keepdims=True)
@@ -655,12 +795,21 @@ def frame(n, raw=True):
         d = np.sqrt(((XX - cx) / r) ** 2 + ((YY - cy) / (ry or r)) ** 2)
         v = (np.clip(1 - d, 0, 1) ** 2 * k)[..., None] * (np.asarray(c, np.float32) / 255)
         Lm[...] += v; add[...] += v * haze
-    light(90, 48 + SH, 110, (200, 95, 255), 1.45 * flick_s, ry=70, haze=30)             # desk + screens, purple neon wash
+    gold = ease((t - T_FINISH) / .1) - ease((t - 4.8) / .6)
+    desk_c = np.array([200, 95, 255], np.float32) * (1 - .7 * gold) + np.array([255, 190, 80], np.float32) * .7 * gold
+    light(90, 48 + SH, 110, desk_c, (1.45 + .6 * gold) * flick_s, ry=70, haze=30)       # desk + screens, purple neon wash
+    red = sum(math.exp(-(t - tl) * 4) for tl in T_LIGHTS if tl <= t < T_GO)
+    go = math.exp(-(t - T_GO) * 3) if t >= T_GO else 0.0
+    if red > .02: light(90, 40 + SH, 70, (255, 60, 60), .7 * red, ry=45, haze=20)
+    if go > .02: light(90, 40 + SH, 80, (90, 255, 120), .9 * go, ry=50, haze=24)
+    fl = flash(t)
+    if fl > 0:                                                           # lightning floods in from the window
+        light(8, 155 + SH, 150, (200, 215, 255), 1.6 * fl, ry=170, haze=40); Lm[...] += .25 * fl
     light(90, 27, 105, lc, .5 + .15 * led, ry=26)                                    # LED strip
     light(90, 82 + SH, 34, (110, 165, 255), .4 * flick_s, ry=24)                          # screen spill on the gamer
     light(8, 155 + SH, 72, wc, .5 + .3 * e, ry=90)                                        # window
-    light(22, 56 + SH, 30, (255, 190, 110), .85, haze=18)
-    light(76, 40, 50, (255, 120, 200), .55 * flick_s, ry=22, haze=20)                # @yub_cars neon                                 # desk lamp
+    light(22, 56 + SH, 30, (255, 190, 110), .85, haze=18)                                 # desk lamp
+    light(76, 40, 50, (255, 120, 200), .55 * flick_s * max(nk, .1), ry=22, haze=20)  # @yub_cars neon
     light(153, 90 + SH, 22, hue[int(cyc(t, 3) * 4) % 4], .6)                              # PC fans
     light(130, 56 + SH, 12, (255, 210, 150), .25)                                         # mug
     bc = wc * .6 + np.array([150, 200, 170], np.float32) * .4                     # greenish shaft like the reference
@@ -677,6 +826,8 @@ def frame(n, raw=True):
     bloom = blur(base * m[..., None] * (.85 + .15 * flick_s), 3)
     out = up(base, K) * smooth_up(Lm) + smooth_up(add + bloom * .9)
     big = np.clip(out * VIG, 0, 255).astype(np.uint8)
+    dx, dy = shake(t)
+    if dx or dy: big = np.roll(big, (dy, dx), (0, 1))
     return big.tobytes() if raw else Image.fromarray(big)
 
 
@@ -687,51 +838,167 @@ def band(x, lo, hi):
     return np.fft.irfft(f, len(x))
 
 
-def build_audio(path):
-    SR = sfx.SR; n = int(SR * DUR); t = np.arange(n) / SR
+def build_audio(path, lufs=-13.4):      # lands at about -14 LUFS after AAC
+    """Full soundtrack: 6-bar lo-fi track (80 BPM) + game, room and story foley. Everything is placed with wrap-around
+    and the noise beds / reverb are FFT-circular, so the 18 s mix loops without a click."""
+    SR = sfx.SR; n = int(SR * DUR); tt = np.arange(n) / SR
     rng = np.random.default_rng(21)
+    T = sfx.T
     def unit(x): return x / (np.abs(x).max() + 1e-9)
-    def add(buf, sig, at, vol):
-        i = int(at * SR) % n; idx = (np.arange(len(sig)) + i) % n
-        np.add.at(buf, idx, sig * vol)
-    L = np.zeros(n); Rr = np.zeros(n)
-    room = unit(band(rng.standard_normal(n), 25, 260)) * .10 + unit(band(rng.standard_normal(n), 260, 1500)) * .02
-    steer = .55 * np.sin(2 * np.pi * 6 * t / DUR) + .25 * np.sin(2 * np.pi * 15 * t / DUR + 1)
-    f0 = 64 + 10 * np.sin(2 * np.pi * 6 * t / DUR) + 4 * np.sin(2 * np.pi * 15 * t / DUR)   # mean 64 Hz * 15 s = whole cycles
-    ph = 2 * np.pi * np.cumsum(f0) / SR
-    eng = sum(np.sin(h * ph) / h for h in range(1, 7))
-    eng = unit(band(eng, 40, 900)) * .07
-    tyre = unit(band(rng.standard_normal(n), 120, 520)) * (.035 + .015 * np.abs(steer))
-    rain = unit(band(rng.standard_normal(n), 2500, 9000)) * .012
+    def rms_to(x, r): return x * (r / (np.sqrt((x ** 2).mean()) + 1e-9))
+    def add(buf, sig, at, vol, pan=0.0):
+        i0 = int(round(at * SR)) % n; idx = (np.arange(len(sig)) + i0) % n
+        np.add.at(buf[:, 0], idx, sig * vol * min(1, 1 - pan)); np.add.at(buf[:, 1], idx, sig * vol * min(1, 1 + pan))
+    def env_ad(d, a=.005, rel=.05):
+        t = T(d); return np.minimum(1, t / a) * np.minimum(1, (d - t) / rel)
+    mf = lambda m: 440 * 2 ** ((m - 69) / 12)
+    def b2t(bar, beat): return bar * BAR + beat * BEAT
+    # ---- instruments
+    def ep(f, d, vel=1.0):
+        t = T(d)
+        tine = (np.sin(2 * np.pi * f * t) + .45 * np.sin(4 * np.pi * f * t) * np.exp(-t * 5) + .18 * np.sin(6 * np.pi * f * t) * np.exp(-t * 9)
+                + .08 * np.sin(2 * np.pi * 7.01 * f * t) * np.exp(-t * 30) + .35 * np.sin(2 * np.pi * f * 1.004 * t))
+        return tine * np.minimum(1, t / .006) * np.exp(-t * 1.3) * (1 + .14 * np.sin(2 * np.pi * 4.6 * t)) * env_ad(d, .006, .08) * vel
+    def bell(f, d):
+        t = T(d)
+        return ((np.sin(2 * np.pi * f * t) + .3 * np.sin(2 * np.pi * 2.76 * f * t) * np.exp(-t * 6) + .15 * np.sin(2 * np.pi * 5.4 * f * t) * np.exp(-t * 12))
+                * np.minimum(1, t / .003) * np.exp(-t * 2.2) * env_ad(d, .003, .1))
+    def bass(f, d):
+        t = T(d); return (np.sin(2 * np.pi * f * t) + .25 * np.sin(4 * np.pi * f * t)) * np.exp(-t * 1.1) * env_ad(d, .012, .06)
+    def pad(fs, d):
+        t = T(d); x = sum(np.sin(2 * np.pi * f * dt * h * t) / h for f in fs for dt in (1, 1.006) for h in range(1, 6))
+        return sfx.lp(x, 24) * env_ad(d, .7, .9)
+    def kick():
+        t = T(.45); f = 46 + 95 * np.exp(-t * 26)
+        return np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-t * 6.5) + .3 * rng.standard_normal(len(t)) * np.exp(-t * 300)
+    def snare():
+        t = T(.3); nz = rng.standard_normal(len(t))
+        return (nz - sfx.lp(nz, 3)) * np.exp(-t * 15) * .8 + .5 * np.sin(2 * np.pi * 190 * t) * np.exp(-t * 28)
+    def hat(open_=False):
+        d = .3 if open_ else .05; t = T(d); nz = rng.standard_normal(len(t))
+        return (nz - sfx.lp(nz, 2)) * np.exp(-t * (11 if open_ else 85))
+    def crash():
+        t = T(2.0); nz = rng.standard_normal(len(t)); return (nz - sfx.lp(nz, 2)) * np.exp(-t * 2.0)
+    def square(f, d):
+        t = T(d); return sfx.lp(np.sign(np.sin(2 * np.pi * f * t)), 5) * env_ad(d, .004, .03)
+    # ---- music: Fmaj9 | Em7 | Am9 | Dm9 | Gsus | Cmaj9 ; bars 3-4 (wave, point, countdown) are a drum breakdown
+    keys, low, mel, drm = (np.zeros((n, 2)) for _ in range(4))
+    CH = [(41, [57, 60, 64, 67]), (40, [55, 59, 62, 64]), (45, [60, 64, 67, 71]), (38, [53, 57, 60, 64]), (43, [53, 57, 60, 62]), (36, [55, 59, 62, 64])]
+    breakdown = (2, 3)
+    kicks = []
+    for b, (root, notes) in enumerate(CH):
+        for k_, m in enumerate(notes): add(keys, ep(mf(m), 3.4), b2t(b, 0) + k_ * .018, .22, pan=(k_ - 1.5) * .25)
+        if b not in breakdown:
+            for beat, vel in ((1.5, .11), (2.75, .08)):
+                for k_, m in enumerate(notes[1:]): add(keys, ep(mf(m), 1.2), b2t(b, beat) + k_ * .012, vel, pan=(k_ - 1) * .3)
+            for beat, m, d in ((0, root, 1.3), (2.5, root + 7, .8), (3.5, root + 12, .4)): add(low, bass(mf(m), d * BEAT * 1.6), b2t(b, beat), .55)
+            for beat in (0, 1.75, 2.5): add(drm, kick(), b2t(b, beat), .9); kicks.append(b2t(b, beat))
+            for beat in (1, 3): add(drm, snare(), b2t(b, beat), .42, pan=.05)
+            for h8 in range(8):
+                add(drm, hat(open_=(h8 == 7 and b % 2)), b2t(b, h8 * .5 + (.09 if h8 % 2 else 0)), .16 if h8 % 2 else .22, pan=.25)
+        else:
+            add(low, bass(mf(root), BAR * .95), b2t(b, 0), .35)
+            add(keys, pad([mf(m) for m in notes], BAR + .4), b2t(b, 0), .05)
+            for h8 in range(8): add(drm, hat(), b2t(b, h8 * .5 + (.09 if h8 % 2 else 0)), .07, pan=.25)
+    for k_, beat in enumerate((3, 3.25, 3.5, 3.75)): add(drm, snare(), b2t(3, beat), .2 + .08 * k_)      # roll into GO
+    nz = rng.standard_normal(int(SR * 1.5)); riser = (nz - sfx.lp(nz, 3)) * np.linspace(0, 1, len(nz)) ** 2
+    add(drm, riser, T_GO - 1.5, .12)
+    for at in (T_FINISH, T_GO): add(drm, crash(), at, .3, pan=-.2)
+    for bar_, beat, m in ((0, .5, 76), (0, 1.5, 79), (0, 2.5, 81), (0, 3.25, 79), (1, .5, 76), (1, 1.5, 74), (1, 2.75, 72),
+                          (2, 1, 81), (2, 2.5, 79), (3, .5, 76), (3, 2, 74), (4, .5, 79), (4, 1.5, 81), (4, 2.5, 84), (4, 3.25, 81),
+                          (5, .5, 79), (5, 1.5, 76), (5, 2.5, 74), (5, 3, 72)):
+        add(mel, bell(mf(m), 1.6), b2t(bar_, beat), .14, pan=-.3)
+    duck = np.ones(n)                                                           # sidechain pump from the kick
+    for tk in kicks:
+        i0 = int(tk * SR); d = np.arange(int(.4 * SR)); idx = (i0 + d) % n
+        duck[idx] = np.minimum(duck[idx], 1 - .32 * np.exp(-d / SR * 9))
+    def circ_band(x, lo, hi): return np.stack([band(x[:, c], lo, hi) for c in range(2)], 1)
+    def reverb(x, dec=.5, wet=.3):
+        out = np.empty_like(x)
+        for c in range(2):
+            ir = np.random.default_rng(40 + c).standard_normal(n) * np.exp(-tt / dec); ir[:int(.012 * SR)] = 0
+            ir = band(ir, 200, 6000); ir /= np.sqrt((ir ** 2).sum())
+            out[:, c] = x[:, c] + wet * np.fft.irfft(np.fft.rfft(x[:, c]) * np.fft.rfft(ir), n)
+        return out
+    music = reverb(circ_band(keys + mel, 40, 7000), .6, .35) * duck[:, None] + circ_band(low, 30, 1500) * duck[:, None] + reverb(drm, .35, .15)
+    crackle = np.zeros(n); ii = rng.integers(0, n, int(DUR * 9)); crackle[ii] = rng.standard_normal(len(ii))
+    music += (band(crackle, 800, 9000) * .25 + band(rng.standard_normal(n), 3000, 12000) * .004)[:, None]
+    music = rms_to(music, .11)
+    # ---- game: engine with gear shifts, tyres, paddles, start beeps, win jingle + crowd
+    racing = np.array([1.0 if (t_ < T_FINISH or t_ >= T_GO) else 0.0 for t_ in tt[::480]])
+    racing = np.repeat(racing, 480)[:n]; racing = sfx.lp(np.pad(racing, (2400, 2400), mode='wrap'), 4800)[2400:2400 + n]
+    gear = ((tt - T_GO) / 1.5) % 1
+    f = 52 + 46 * gear ** .8
+    idle = np.zeros(n)
+    for tl in T_LIGHTS: idle += np.where(tt >= tl, np.exp(-(tt - tl) * 3), 0)
+    f = np.where(racing > .5, f, 34 + 30 * np.minimum(1, idle))
+    cyc_total = f.sum() / SR; f *= round(cyc_total) / cyc_total                 # whole number of cycles -> seamless
+    ph = 2 * np.pi * np.cumsum(f) / SR
+    eng = band(sum(np.sin(h * ph) * (1.2 if h % 2 else .7) / h for h in range(1, 11)), 35, 2600)
+    gate = np.maximum(racing, np.where((tt >= 9.6) & (tt < T_GO), .45, 0))
+    game = np.zeros((n, 2))
+    game += rms_to(eng * gate, .05)[:, None] * np.array([1, 1])
+    game += rms_to(band(rng.standard_normal(n), 250, 1400) * racing * (.6 + .4 * gear), .018)[:, None]
+    for k_ in range(12):                                                       # paddle up-shifts every 2 beats
+        at = T_GO + 1.5 * k_
+        if (at % DUR) < T_FINISH or (at % DUR) >= T_GO: add(game, sfx.click(), at % DUR, .12, pan=.1)
+    for tl in T_LIGHTS: add(game, square(440, .2), tl, .12)
+    add(game, square(880, .55), T_GO, .14)
+    for k_, m in enumerate((72, 76, 79, 84)): add(game, square(mf(m), .14 if k_ < 3 else .5), T_FINISH + .02 + k_ * .09, .1)
+    for m in (72, 76, 79): add(game, square(mf(m), .7), T_FINISH + .4, .05)
+    cd = 2.2; tcv = T(cd)
+    crowd = band(rng.standard_normal(len(tcv)), 350, 3500) * np.minimum(1, tcv / .25) * np.exp(-tcv * 1.4) * (1 + .3 * np.sin(2 * np.pi * 3.1 * tcv))
+    add(game, crowd, T_FINISH + .05, .09, pan=-.4); add(game, np.roll(crowd, 4000), T_FINISH + .05, .09, pan=.4)
+    # ---- room + story foley
+    fol = np.zeros((n, 2))
+    for k_ in range(9): add(fol, sfx.pop(), T_FINISH + .03 + rng.random() * .6, .09, pan=rng.uniform(-.6, .6))   # confetti
+    add(fol, sfx.sparkle(), T_FINISH + .05, .16, pan=.1)
+    add(fol, sfx.boing(), 3.1, .08, pan=.5); add(fol, sfx.boing(), 3.5, .05, pan=.5)                     # plush hops
+    add(fol, sfx.pop(), 3.25, .1, pan=-.3)                                                                # cat "!"
+    tm = T(.55); f0 = 480 + 300 * np.sin(np.pi * tm / .55) ** 1.5 - 80 * tm / .55
+    mew = sum(np.sin(2 * np.pi * np.cumsum(f0 * h) / SR) * w for h, w in ((1, .6), (2, 1), (3, .5), (4, .25)))
+    add(fol, sfx.lp(mew, 6) * np.sin(np.pi * tm / .55) * (1 + .1 * np.sin(2 * np.pi * 6 * tm)), 4.42, .05, pan=-.35)  # yawn
+    purr = band(rng.standard_normal(n), 40, 260) * (.5 + .5 * np.sin(2 * np.pi * 26 * tt)) ** 2
+    asleep = np.where((tt < 3.25) | (tt >= 5.4), 1.0, 0.0); asleep = sfx.lp(np.pad(asleep, (4800, 4800), mode='wrap'), 9600)[4800:4800 + n]
+    fol += rms_to(purr * asleep, .012)[:, None] * np.array([1.2, .8])
+    for at in (5.4, 9.0):
+        add(fol, sfx.whoosh(.5), at + .1, .12); add(fol, sfx.creak(), at, .1)                           # swivel
+    for k_ in range(6):                                                                                   # neon flicker buzz
+        tt0 = 7.6 + k_ * .05
+        if neon_level(tt0 + .01) > .5: add(fol, np.sign(np.sin(2 * np.pi * 120 * T(.05))) * .5, tt0, .05, pan=-.2)
+    add(fol, sfx.sparkle(), 7.9, .2, pan=-.2)
+    for at in (7.9, 8.5, 9.1):                                                                            # phone buzz
+        tb = T(.18); add(fol, np.sign(np.sin(2 * np.pi * 150 * tb)) * (np.sin(2 * np.pi * 30 * tb) > 0) * .4, at, .09, pan=.35)
+    for k_ in range(7): add(fol, sfx.pop(), 8.0 + k_ * .22, .05, pan=.35)                                 # hearts
+    nz = rng.standard_normal(int(SR * .35)); add(fol, (nz - sfx.lp(nz, 2)) * np.exp(-T(.35) * 9), T_BOLT, .5, pan=-.6)
+    td = 3.4; tth = T(td); nz = rng.standard_normal(len(tth))
+    thunder = sfx.lp(sfx.lp(nz, 200), 200) * 200 ** .5 * np.minimum(1, tth / .1) * np.exp(-tth * 1.1) * (.6 + .4 * np.sin(tth * 9) ** 2)
+    add(fol, thunder, T_BOLT + .35, .55, pan=-.4)
+    hv = np.array([heavy(t_) for t_ in tt[::480]]); hv = np.repeat(hv, 480)[:n]
+    rain = band(rng.standard_normal(n), 1500, 9000) * (.5 + .7 * hv)
     tap = np.zeros(n)
-    for _ in range(int(DUR * 9)):
-        d = int(SR * .012); s = rng.standard_normal(d) * np.exp(-np.arange(d) / SR * 400)
-        add(tap, s, rng.random() * DUR, .08 + .1 * rng.random())
-    tap = band(tap, 1500, 9000)
-    purr = np.zeros(n)
-    pd = 3.2; tp = np.arange(int(SR * pd)) / SR
-    pr = unit(band(np.random.default_rng(5).standard_normal(len(tp)), 40, 220)) * (.5 + .5 * np.sin(2 * np.pi * 26 * tp)) ** 2
-    add(purr, pr * np.sin(np.pi * tp / pd) ** 2, 5.2, .22)
-    clicks = np.zeros(n)
-    for at in (1.25, 3.75, 11.25, 13.75):                            # paddle shifts
-        add(clicks, sfx.click(), at, .10)
-    for at in (5.8, 9.0):                                            # chair swivel
-        add(clicks, sfx.creak(), at, .12)
-    mid = room + eng + tyre + clicks + purr
-    L, Rr = mid + rain * 1.4 + tap * 1.3, mid + rain * .7 + tap * .6  # window is on the left
-    st = np.stack([L, Rr], 1)
-    st = st / np.abs(st).max() * .5
+    for _ in range(int(DUR * 14)):
+        d = int(SR * .012); at = rng.random() * DUR
+        add_t = rng.standard_normal(d) * np.exp(-np.arange(d) / SR * 400) * (.3 + heavy(at))
+        i0 = int(at * SR); tap[(np.arange(d) + i0) % n] += add_t
+    rain = rms_to(rain, .02) + rms_to(band(tap, 1500, 9000), .012)
+    fol += rain[:, None] * np.array([1.35, .65])                                                          # window is on the left
+    fol += rms_to(band(rng.standard_normal(n), 25, 250), .02)[:, None]                                    # room tone
+    mix = music + game + fol
     import wave
     def write(x):
         with wave.open(path, 'wb') as w:
             w.setnchannels(2); w.setsampwidth(2); w.setframerate(SR)
             w.writeframes((np.clip(x, -1, 1) * 32767).astype('<i2').tobytes())
-    write(st)
-    for _ in range(2):                                               # normalise to -20 LUFS
+    mix = mix / np.abs(mix).max() * .5
+    for _ in range(3):                                                       # master to target LUFS with a soft limiter
+        write(mix)
         r = subprocess.run(['ffmpeg', '-hide_banner', '-i', path, '-af', 'loudnorm=print_format=json', '-f', 'null', '-'],
                            capture_output=True, text=True).stderr
         I = float(json.loads(r[r.rindex('{'):r.rindex('}') + 1])['input_i'])
-        st = st * 10 ** ((-20 - I) / 20); write(st)
+        mix = mix * 10 ** ((lufs - I) / 20)
+        mix = np.tanh(mix / .85) * .85
+    write(mix)
     return I
 
 
@@ -745,7 +1012,7 @@ def loopcheck(mp4):
     def small(img): return np.asarray(Image.fromarray(np.asarray(img)).convert('L').resize((108, 192), Image.BOX), np.float32)
     seam = np.abs(small(frame(nf, raw=False)) - small(frame(0, raw=False))).mean()
     print(f'last-vs-first (mp4, 108x192 grey): {np.abs(last - first).mean():.3f}')
-    print(f'frame at t=15.000 (1/60 s after the last) vs frame 0: {seam:.3f}')
+    print(f'frame at t={DUR:.3f} (1/60 s after the last) vs frame 0: {seam:.3f}')
 
 
 if __name__ == '__main__':
@@ -755,7 +1022,7 @@ if __name__ == '__main__':
             frame(int(round(float(ts) * FPS)), raw=False).save(f'{sys.argv[2]}/f_{ts}.png')
     elif mode == 'video':
         out = sys.argv[2]
-        print('audio -20 LUFS, measured before last gain:', build_audio('mix.wav'))
+        print('audio LUFS before last gain step:', build_audio('mix.wav'))
         nf = int(DUR * FPS)
         ff = subprocess.Popen(['ffmpeg', '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{W}x{H}', '-r', str(FPS),
                                '-i', '-', '-i', 'mix.wav', '-map', '0:v', '-map', '1:a', '-c:v', 'libx264', '-preset', 'slow',
