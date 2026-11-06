@@ -218,3 +218,46 @@ def pill(cv, t, t0, t1, txt, x, y, col=YEL, sz=60):
     if not (t0 <= t < t1 + 0.2): return
     img = pill_img(txt, col, sz); x, y = clamp_to_safe(x, y, img.width - 40, img.height - 40)
     place(cv, img, x, y, popin(t, t0, 0.24) * popout(t, t1, 0.18), 0.0, 'pill ' + txt)
+
+
+# ------------------------------------------------------------------ pills pinned to 3D anchors (rear-engine-3d)
+@lru_cache(None)
+def chip_icon(sz=44, col=YEL):
+    """Small microchip glyph (square die, pins on every side) for 'ELECTRONICS'-style pills."""
+    img = Image.new('RGBA', (sz, sz), (0, 0, 0, 0)); d = ImageDraw.Draw(img); p = sz // 5; w = max(2, sz // 14)
+    for k in range(4):
+        o = p + 4 + k * (sz - 2 * p - 8) // 3
+        for a in ((o, 0, o + w, p), (o, sz - p, o + w, sz), (0, o, p, o + w), (sz - p, o, sz, o + w)): d.rectangle(a, fill=col)
+    d.rounded_rectangle((p, p, sz - p, sz - p), 4, fill=(12, 16, 22, 255), outline=col, width=w)
+    d.rectangle((sz // 2 - w * 2, sz // 2 - w * 2, sz // 2 + w * 2, sz // 2 + w * 2), fill=col)
+    return img
+
+
+@lru_cache(None)
+def icon_pill_img(txt, col=YEL, sz=60, icon='chip'):
+    """pill_img with a small chip glyph in front of the text (same plate, rim and shadow)."""
+    f = font(sz); d0 = ImageDraw.Draw(Image.new('RGB', (1, 1))); l, _, r, _ = d0.textbbox((0, 0), txt, font=f)
+    _, tp, _, b = d0.textbbox((0, 0), 'HG', font=f); ic = chip_icon(int(sz * 0.85), col)
+    w, h, pad = r - l + 70 + ic.width + 14, b - tp + 44, 26
+    img = Image.new('RGBA', (w + 2 * pad, h + 2 * pad), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
+    d.rounded_rectangle((pad, pad, pad + w, pad + h), h // 2, fill=(12, 16, 22, 235), outline=col, width=6)
+    img.alpha_composite(ic, (pad + 30, pad + (h - ic.height) // 2))
+    d.text((pad + 44 + ic.width - l, pad + 22 - tp), txt, font=f, fill=col)
+    sh = Image.new('RGBA', img.size, (0, 0, 0, 0)); sh.putalpha(img.getchannel('A').filter(ImageFilter.GaussianBlur(10)).point(lambda v: int(v * 0.5)))
+    out = Image.new('RGBA', img.size, (0, 0, 0, 0)); out.alpha_composite(sh, (0, 8)); out.alpha_composite(img)
+    return out
+
+
+def pin(cv, t, t0, t1, txt, target, x, y, col=YEL, sz=58, icon=None):
+    """Pill inside the safe zone with a leader line + dot to a moving screen point (e.g. a projected 3D anchor).
+    target: (x, y) in 1080x1920 px or None. The leader is art (not text), so it may run into the bottom 38 %."""
+    if not (t0 <= t < t1 + 0.2): return
+    img = icon_pill_img(txt, col, sz, icon) if icon else pill_img(txt, col, sz)
+    x, y = clamp_to_safe(x, y, img.width * 1.15, img.height * 1.15)     # room for the pop-in overshoot
+    k = popin(t, t0, 0.24) * popout(t, t1, 0.18)
+    if target and k > 0.3:
+        tx, ty = target; d = ImageDraw.Draw(cv); y0 = y + (img.height / 2 - 30) * k * (1 if ty > y else -1)
+        e = min(1.0, (t - t0) / 0.25); ex, ey = x + (tx - x) * e, y0 + (ty - y0) * e
+        d.line((x, y0, ex, ey), fill=INK, width=12); d.line((x, y0, ex, ey), fill=col, width=5)
+        if e >= 1: d.ellipse((tx - 13, ty - 13, tx + 13, ty + 13), fill=INK); d.ellipse((tx - 8, ty - 8, tx + 8, ty + 8), fill=col)
+    place(cv, img, x, y, k, 0.0, 'pill ' + txt)

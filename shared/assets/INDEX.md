@@ -210,3 +210,22 @@ returned as float RGBA for `ambient.paste`; `S(rows, outline=, sub=)` builds any
 | Plush creature | Original round mint dumpling with a sprout, dot eyes and blush | `cozyroom.py` `plush()` | cozy-sim-room | own work |
 | Car posters | 14x30 wall posters, no text or badges: `sunset`, `track` (top-down race car), `blue` (blueprint) | `cozyroom.py` `poster(kind)` | cozy-sim-room | own work |
 | Room props | 46 small pixel maps: model cars, controller, snack, trainers, clothes, helmet, cone, tyre, toolbox, books, boxes, pizza, lamp, plant, bin, bowls, yarn, skateboard ... | `cozyroom.py` `PROPS`, `prop(name)` | cozy-sim-room | own work |
+
+## 3D pixel car kit (`3d-car/`)
+
+Pixel-art look from a real 3D model, first used by `videos/rear-engine-3d`. Three.js (vendored r160, Chromium via Playwright)
+renders ID / light / depth tiles at 360x640 (no colour in WebGL); `pixpost.py` reduces them to a 180x320 grid (front-most
+sample wins), maps every pixel to one fixed 32-colour palette with Bayer-dithered ramp edges, adds navy outlines (depth
+jumps + part boundaries, 2 px on the silhouette) and an optional dithered x-ray shell, then scales 6x nearest. Frames are
+stepped deterministically with `pix3d/render3d.mjs`. Text goes on top through `overlays.py` (safe zone checked).
+
+| Asset | What it is | Path | Used by | Credit |
+|---|---|---|---|---|
+| Coupe builder | Original rear-engine sports coupe (no brand/badge/plate): 150-section lofted body with wheel-arch cut-outs, glass/liner material groups, round headlights, taillight bar, tapered duck-tail, louvres, mirrors, twin exhausts, 5-split-spoke wheels (wider rears); x-ray internals (flat engine behind the rear axle, gearbox, axles); `pose()` spin/squat/steer/hot tyres; anchors `engine`, `rear_axle`, `front_axle`, `rear_tyre(_l)`, `front_tyre`, `headlight`, `tail`, `roof` | `3d-car/coupe.js` | rear-engine-3d | own work |
+| Coupe glTF | Static export of the coupe + internals (standard materials), 1.9 MB; regenerate with `node shared/assets/3d-car/export_gltf.mjs <out.gltf>` | `3d-car/coupe.gltf`, `3d-car/export_gltf.mjs`, `3d-car/gltf_scene.js` | rear-engine-3d | own work; GLTFExporter (three.js, MIT) |
+| Toon ID materials | One shader for every part: info pass (id, light, cool rim) and 16-bit depth pass; warm key + cool rim follow the camera; sand floor (light pool, joints, contact shadow), slatted roller-door backdrop with lamps; `stdMat()` stand-ins | `3d-car/toon.js` | rear-engine-3d | - |
+| Stage | 4-tile renderer, orbit rig with lens shift (keeps the car in the bottom of a 9:16 frame), `project()` anchors in 1080x1920 px | `3d-car/stage.js` | rear-engine-3d | - |
+| Palette + post-process | `RAMPS` per material id (cream/tan body, navy, sand, teal glass, orange glow, ...), `post(png, xray)`, `up()` | `3d-car/pixpost.py` | rear-engine-3d | - |
+| 3D presenter | The main guy (characters/main-guy look) as a chunky toon figure pinned to the screen, right arm aims at any screen point, shrug pose; same palette and pixel size as the car | `3d-car/presenter3d.js` | rear-engine-3d | characters/main-guy |
+| Pinned pills | Pill in the safe zone with a leader line + dot to a moving 3D anchor; `icon_pill_img` with a chip glyph (ELECTRONICS) | `overlays.py` `pin()`, `icon_pill_img()`, `chip_icon()` | rear-engine-3d | Inter font (SIL OFL) |
+| Three.js addons | GLTFExporter, TextureUtils, RoundedBoxGeometry (r160, same build as the vendored core) | `vendor/jsm/` | rear-engine-3d | MIT, `vendor/THREE_LICENSE` |
