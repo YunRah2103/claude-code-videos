@@ -16,7 +16,7 @@ def layer(img, *items):
     fg = Image.new('RGBA', (W, H), (0, 0, 0, 0))
     for it in items: fx.blit(fg, up(it[0], it[1]), it[2], it[3], anchor=it[4] if len(it) > 4 else 'center')
     img.alpha_composite(G.rim(fg)); return img
-def garage(t): return G.frame(t).convert('RGBA')
+def garage(t): return S.stage(t)
 
 from pixanim.car import car
 HOOK = ((('That brake', None), ('SQUEAL', '#e8343f')), (('might be a warning', None),))

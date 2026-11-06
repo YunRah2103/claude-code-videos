@@ -31,6 +31,33 @@ CFG = {}
 IMPACT = {'pop', 'click', 'stamp', 'thump', 'pulse', 'beep', 'buzzer', 'boom', 'poof', 'clink'}
 
 
+@__import__('functools').lru_cache(4)
+def _glow(col):
+    from PIL import ImageDraw, ImageFilter
+    m = Image.new('L', (W // 4, H // 4), 0)
+    ImageDraw.Draw(m).ellipse((W // 8 - 100, 205 - 110, W // 8 + 100, 205 + 110), fill=255)
+    m = m.filter(ImageFilter.GaussianBlur(34)).resize((W, H), Image.BILINEAR)
+    return Image.new('RGBA', (W, H), col + (255,)), m
+
+
+def stage(t):
+    """Garage backdrop + the episode's accent spotlight (pulsing) + pixel dust motes drifting at two depths."""
+    img = G.frame(t).convert('RGBA')
+    col, mask = _glow(CFG.get('accent', (255, 210, 63)))
+    a = mask.point(lambda v, k=0.22 + 0.06 * math.sin(t * 2.1): int(v * k))
+    img.paste(col, (0, 0), a)
+    from PIL import ImageDraw
+    d = ImageDraw.Draw(img); rnd = __import__('random').Random(9)
+    for i in range(26):
+        near = i % 3 == 0; sp = 70 if near else 30; sz = 12 if near else 6
+        x = (rnd.uniform(0, W) + 40 * math.sin(t * 0.7 + i)) % W
+        y = (rnd.uniform(0, H) - t * sp) % H
+        al = int((90 if near else 55) * (0.6 + 0.4 * math.sin(t * 3 + i)))
+        x, y = round(x / 6) * 6, round(y / 6) * 6
+        d.rectangle((x, y, x + sz, y + sz), fill=(255, 240, 200, al))
+    return img
+
+
 def sentences(words):
     """Start index of each sentence in words.json."""
     st = [0]
@@ -104,6 +131,8 @@ def opening(kind, world, t, focus, z1=1.06):
 def build(here, words, hook, keycol, opening_kind, focus, point, shots, key_sentence, poll, cues, cut_point=None,
           key_point=None, ask_prop=None, dur=None, open_keys=(), mid_keys=(), headline_y=430, cut_z=1.06):
     st = sentences(words); ws = lambda i: words[i]['s']
+    hx = next(c for line in hook for _, c in line if c).lstrip('#')
+    CFG['accent'] = tuple(int(hx[i:i + 2], 16) for i in (0, 2, 4))
     T2, T3, T4 = ws(st[1]) - 0.12, ws(st[key_sentence]) - 0.12, ws(st[-1]) - 0.15
     DUR = dur or min(15.0, max(14.0, round(words[-1]['e'] + 1.25, 2)))
     END_T = DUR - 0.38
@@ -126,7 +155,7 @@ def build(here, words, hook, keycol, opening_kind, focus, point, shots, key_sent
         return shot
 
     def ask(t):
-        img = G.frame(t).convert('RGBA'); fg = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+        img = stage(t); fg = Image.new('RGBA', (W, H), (0, 0, 0, 0))
         f = 0.35 + 0.25 * math.sin(t * 2.2) ** 2 + 0.04 * math.sin(t * 11)          # needle blips with the poll
         fx.blit(fg, up(cb.rpm_gauge(cb.rpm_deg(f), 0), 3), 840, 1640 + 8 * math.sin(t * 2), anchor='center')
         if ask_prop:                                                                  # the episode's hero part, floating in

@@ -41,7 +41,7 @@ def wheel_layer(img, t, locked=False, pulsing=0.0, cx=540, cy=760, s=11):
 
 
 def shot_cut(t):
-    img = G.frame(t).convert('RGBA'); wheel_layer(img, t, pulsing=0.5)
+    img = S.stage(t); wheel_layer(img, t, pulsing=0.5)
     cb.pill(img, t, sw(1) + 0.3, 99, 'ABS', (640, 640), (470, 400), '#ffd23f', '#1a1a2e', '#c9a21c')
     return img
 
@@ -55,7 +55,7 @@ def wave(img, t, x0=360, y0=1400, w=560):
 
 
 def shot_key(t):
-    img = G.frame(t).convert('RGBA'); wheel_layer(img, t, pulsing=1.0, cy=700)
+    img = S.stage(t); wheel_layer(img, t, pulsing=1.0, cy=700)
     if int(t * 14) % 2 == 0: fx.ring(img, (t * 14 % 1) / 14, 0, 640, 600, (255, 210, 63), life=0.07, r1=140)
     wave(img, t)
     fg = Image.new('RGBA', (W, H), (0, 0, 0, 0)); fx.blit(fg, up(X.pedal(0.9 + 0.1 * pump(t * 1.1)), 9), 840, 1800); img.alpha_composite(fg)
