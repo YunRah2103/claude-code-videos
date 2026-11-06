@@ -25,7 +25,7 @@ from pixanim.grid import outline
 
 NAVY = (26, 26, 46, 255)
 STEEL = ((96, 100, 112), (150, 156, 168), (196, 202, 214), (232, 236, 244))
-SPOT = dict(open=((200, 1600), 6), mid=((175, 1640), 5), ask=((300, 1600), 9))   # (feet x, y), pixel size per shot
+SPOT = dict(open=((200, 1600), 6), mid=((185, 1640), 6), ask=((300, 1600), 9))   # (feet x, y), pixel size per shot
 
 
 def _img(w, h): return Image.new('RGBA', (w, h), (0, 0, 0, 0))

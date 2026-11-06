@@ -158,7 +158,7 @@ pixel grids scaled nearest with `pixanim.grid.up`. Voiceover: `shared/series10/m
 | Asset | What it is | Path | Used by | Credit |
 |---|---|---|---|---|
 | Callout pills | Pixel pill with leader line, safe-zone registered | `carbits.py` `pill()` | all ten | own work |
-| Presenter placement | `SPOT`: open (200,1600) size 6, mid (175,1640) size 5, ask (300,1600) size 9 | `explainbits.py` `SPOT`, `series10/engine.py` `presenter()` | all ten | own work |
+| Presenter placement | `SPOT`: open (200,1600) size 6, mid (185,1640) size 6, ask (300,1600) size 9 | `explainbits.py` `SPOT`, `series10/engine.py` `presenter()` | all ten | own work |
 | RPM gauge | Rev counter with red zone (ask shot, every episode) + full dashboard with AC button | `carbits.py` `rpm_gauge()`, `../pixanim/dash.py` | all ten; dashboard: abs-pumping, stop-start, flashing-check-engine | own work |
 | Car and wheel parts | Side-view car, top-down car with steered wheels, tyre, wheel hub with nuts | `../pixanim/car.py` `car()`, `explainbits.py` `car_top()`, `wheel_hub()`, `seriesbits.py` `tyre()` | abs-pumping, brake-squeal, wheel-nut-order, hill-wheels, ev-one-gear, warm-up-myth | own work |
 | Brake disc and pad | Face-on disc + caliper (clamp pulse); pad cutaway with steel wear tab | `explainbits.py` `disc_caliper()`, `pad_section()`, `PAD_TAB()` | abs-pumping, brake-squeal | own work |

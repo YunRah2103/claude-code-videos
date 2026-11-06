@@ -138,8 +138,17 @@ def build(here, words, hook, keycol, opening_kind, focus, point, shots, key_sent
     END_T = DUR - 0.38
     s_open, s_cut, s_key = shots
     P1 = presenter('open', words, point, open_keys)
-    P2 = presenter('mid', words, cut_point or (560, 900), mid_keys)
-    P3 = presenter('mid', words, key_point or (560, 900))
+    hits = sorted(c[0] for c in cues if c[1] in IMPACT and c[0] >= 0.1)
+
+    def react(t0, t1, aim):
+        """Presenter reacts on each beat in [t0, t1): alternating surprise / cheer with a squash, then back to pointing."""
+        ks = []
+        for i, h in enumerate(h for h in hits if t0 + 0.2 <= h < t1 - 0.3):
+            ks += [(h, dict(arms='shock' if i % 2 == 0 else 'cheer', expr='shock' if i % 2 == 0 else 'grin', squash=True)),
+                   (h + 0.4, dict(arms='point', point=aim, expr='grin', squash=True))]
+        return ks
+    P2 = presenter('mid', words, cut_point or (560, 900), list(mid_keys) + react(T2, T3, cut_point or (560, 900)))
+    P3 = presenter('mid', words, key_point or (560, 900), react(T3, T4, key_point or (560, 900)))
     P4 = presenter('ask', words, None, [(ws(st[-1]) + 0.35, dict(arms=('aim', -12), expr='grin', squash=True))])
 
     def world1(t):
@@ -165,7 +174,17 @@ def build(here, words, hook, keycol, opening_kind, focus, point, shots, key_sent
         return D.camera(img.convert('RGB'), t, lerp(1.15, 1.04, oc(prog(t, T4, 0.6))) + 0.05 * prog(t, T4 + 0.6, 3.0), 540, 1300, 5)
 
     CFG['starts'] = {s_cut: T2, s_key: T3}
-    scene = D.sequence([(-9, shot1), (T2, mid(s_cut, P2, cut_z)), (T3, mid(s_key, P3, 1.04)), (T4, ask)])
+    shots = [(-9, shot1), (T2, mid(s_cut, P2, cut_z)), (T3, mid(s_key, P3, 1.04)), (T4, ask)]
+
+    def scene(t):
+        i = max(k for k, (s0, _) in enumerate(shots) if t >= s0); s0, fn = shots[i]
+        d = (0.22, 0.30, 0.42)[i - 1] if i else 0
+        if i and t < s0 + d:
+            a, b, e = shots[i - 1][1](t), fn(t), prog(t, s0, d)
+            if i == 1: return T.whip(a, b, io(e), dx=1)
+            if i == 2: return T.push(a, b, e, dx=-1)
+            return T.iris(a, b, e, X.SPOT['ask'][0][0], X.SPOT['ask'][0][1] - 300)
+        return fn(t)
     q, opts, px, py, rot = poll[:5]; pscale = poll[5] if len(poll) > 5 else 0.9
 
     def overlay(cv, t):
