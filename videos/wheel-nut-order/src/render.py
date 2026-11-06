@@ -56,7 +56,7 @@ def shot_key(t):
 CUES = [(0.1, 'click', 0.7), (0.3, 'click', 0.5), (sw(1) + 0.1, 'pop', 0.6), (sw(1) + 1.0, 'stamp', 0.7)] + \
        [(sw(2) + 0.2 + i / 2.6, 'click', 0.9) for i in range(5)] + [(sw(3), 'ding', 0.5)]
 S.build(HERE, WORDS, HOOK, KEYCOL, 'wipe', (560, 900), HUB, (shot_open, shot_cut, shot_key), 2,
-        ('Did you know that?', (('YES', GRN), ('NO', RED)), ov.SAFE_CX - 30, 880, 2), CUES, cut_point=HUB, key_point=HUB)
+        ('Did you know that?', (('YES', GRN), ('NO', RED)), ov.SAFE_CX - 30, 880, 2), CUES, cut_point=HUB, key_point=HUB, ask_prop=lambda t: (X.wheel_hub(int(t * 3) % 6, -1), 6))
 
 if __name__ == '__main__':
     D.cli()

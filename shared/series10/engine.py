@@ -56,7 +56,7 @@ def _glitch(img, t):
     for _ in range(int(16 * k) + 1):                                   # torn horizontal slices
         y0 = rnd.randrange(0, H - 120); h = rnd.randrange(30, 160); dx = int(rnd.uniform(-160, 160) * k)
         img.paste(img.crop((0, y0, W, y0 + h)), (dx, y0))
-    return img
+    return ImageChops.offset(img, int(rnd.uniform(-90, 90) * k), int(rnd.uniform(-40, 40) * k))   # signal-roll jitter
 
 
 def opening(kind, world, t, focus, z1=1.06):
@@ -75,7 +75,7 @@ def opening(kind, world, t, focus, z1=1.06):
     if kind == 'slow-motion':                                         # speed ramp: 0.25x time, snapping to real time
         tw = t if t >= 1.1 else 0.25 * t + 0.825 * oc(prog(t, 0.6, 0.5))
         e = io(prog(t, -0.3, 1.3)); img = world(tw)
-        return D.camera(img, t, lerp(2.0, z1, e), lerp(fx_ + 480, fx_, e), lerp(fy + 260, fy, e), 3)
+        return D.camera(img, t, lerp(2.4, z1, e), lerp(fx_ + 640, fx_, e), lerp(fy + 320, fy, e), 3)
     base = D.camera(world(t), t, z1, fx_, fy, 6)
     if kind == 'whip-pan':
         e = prog(t, -0.12, 0.6)
@@ -101,7 +101,7 @@ def opening(kind, world, t, focus, z1=1.06):
 
 
 def build(here, words, hook, keycol, opening_kind, focus, point, shots, key_sentence, poll, cues, cut_point=None,
-          key_point=None, dur=None, open_keys=(), mid_keys=(), headline_y=430, cut_z=1.06):
+          key_point=None, ask_prop=None, dur=None, open_keys=(), mid_keys=(), headline_y=430, cut_z=1.06):
     st = sentences(words); ws = lambda i: words[i]['s']
     T2, T3, T4 = ws(st[1]) - 0.12, ws(st[key_sentence]) - 0.12, ws(st[-1]) - 0.15
     DUR = dur or min(15.0, max(14.0, round(words[-1]['e'] + 1.25, 2)))
@@ -120,15 +120,19 @@ def build(here, words, hook, keycol, opening_kind, focus, point, shots, key_sent
     def mid(fn, P, z0):
         def shot(t):
             img = fn(t); P.draw(img, t)
-            return D.camera(img.convert('RGB'), t, lerp(z0 + 0.12, z0, oc(prog(t, CFG['starts'][fn], 0.6))), 560, 960, 5)
+            z = lerp(z0 + 0.12, z0, oc(prog(t, CFG['starts'][fn], 0.6))) + 0.035 * math.sin(t * 0.9)   # slow drift: never static
+            return D.camera(img.convert('RGB'), t, z, 560 + 40 * math.sin(t * 0.7), 960 + 30 * math.cos(t * 0.8), 5)
         return shot
 
     def ask(t):
         img = G.frame(t).convert('RGBA'); fg = Image.new('RGBA', (W, H), (0, 0, 0, 0))
-        f = 0.3 + 0.08 * math.sin(t * 3) + 0.04 * math.sin(t * 11)
-        fx.blit(fg, up(cb.rpm_gauge(cb.rpm_deg(f), 0), 4), 800, 1440 + 8 * math.sin(t * 2), anchor='center')
+        f = 0.35 + 0.25 * math.sin(t * 2.2) ** 2 + 0.04 * math.sin(t * 11)          # needle blips with the poll
+        fx.blit(fg, up(cb.rpm_gauge(cb.rpm_deg(f), 0), 3), 840, 1640 + 8 * math.sin(t * 2), anchor='center')
+        if ask_prop:                                                                  # the episode's hero part, floating in
+            spr, sc = ask_prop(t); k = fx.popin(t, T4 + 0.2, 0.35)
+            if k > 0: fx.blit(fg, up(spr, sc), 800, 1300 + 16 * math.sin(t * 2.4), k, k, 6 * math.sin(t * 1.7), anchor='center')
         img.alpha_composite(G.rim(fg)); P4.draw(img, t)
-        return D.camera(img.convert('RGB'), t, lerp(1.15, 1.04, oc(prog(t, T4, 0.6))), 540, 1300, 5)
+        return D.camera(img.convert('RGB'), t, lerp(1.15, 1.04, oc(prog(t, T4, 0.6))) + 0.05 * prog(t, T4 + 0.6, 3.0), 540, 1300, 5)
 
     CFG['starts'] = {s_cut: T2, s_key: T3}
     scene = D.sequence([(-9, shot1), (T2, mid(s_cut, P2, cut_z)), (T3, mid(s_key, P3, 1.04)), (T4, ask)])

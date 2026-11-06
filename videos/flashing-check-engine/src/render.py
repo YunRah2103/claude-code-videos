@@ -63,7 +63,7 @@ def shot_key(t):
 CUES = [(0.05, 'thump', 0.8), (0.1, 'beep', 0.7), (0.43, 'beep', 0.6), (sw(1) + 0.2, 'pop', 0.6), (sw(2), 'beep', 0.8),
         (sw(2) + 0.3, 'buzzer', 0.5), (sw(3) + 0.2, 'hiss', 0.6), (sw(4), 'ding', 0.5)]
 S.build(HERE, WORDS, HOOK, KEYCOL, 'drop-in', (540, 1000), (540, 1000), (shot_open, shot_cut, shot_key), 2,
-        ('Would you know the difference?', (('YES', GRN), ('NO', RED)), ov.SAFE_CX, 420, -2), CUES, cut_point=(780, 700), key_point=Engine.BLOCK)
+        ('Would you know the difference?', (('YES', GRN), ('NO', RED)), ov.SAFE_CX, 420, -2), CUES, cut_point=(780, 700), key_point=Engine.BLOCK, ask_prop=lambda t: (cb.warn_lamp((t * 3) % 1 < 0.55), 12))
 
 if __name__ == '__main__':
     D.cli()

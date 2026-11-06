@@ -62,7 +62,7 @@ def shot_key(t):
 CUES = [(0.0, 'glass_crack', 0.5), (0.1, 'hum', 0.5), (sw(1) + 0.3, 'pop', 0.6), (sw(1) + 0.4, 'vroom', 0.6), (sw(2) + 0.2, 'buzzer', 0.4),
         (sw(3) + 0.3, 'pop', 0.6), (sw(3) + 0.4, 'sparkle', 0.5)]
 S.build(HERE, WORDS, HOOK, KEYCOL, 'glitch-in', (560, 1100), (760, 860), (shot_open, shot_cut, shot_key), 2,
-        ('Did you think you needed to?', (('YES', GRN), ('NO', RED)), ov.SAFE_CX - 20, 900, 3), CUES, cut_point=(600, 1300), key_point=(560, 820))
+        ('Did you think you needed to?', (('YES', GRN), ('NO', RED)), ov.SAFE_CX - 20, 900, 3), CUES, cut_point=(600, 1300), key_point=(560, 820), ask_prop=lambda t: (X.thermo(0.5 + 0.5 * math.sin(t * 1.5) ** 2), 7))
 
 if __name__ == '__main__':
     D.cli()

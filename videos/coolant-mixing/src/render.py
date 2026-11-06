@@ -50,7 +50,7 @@ def shot_key(t):
 
 CUES = [(0.3, 'stamp', 0.7), (sw(1) + 0.3, 'pop', 0.6), (sw(2) + 0.2, 'slide_down', 0.7), (sw(2) + 0.6, 'poof', 0.6), (sw(3), 'ding', 0.5)]
 S.build(HERE, WORDS, HOOK, KEYCOL, 'tilt', (545, 900), (545, 860), (shot_open, shot_cut, shot_key), 2,
-        ('Ever topped up with the wrong one?', (('YES', GRN), ('NO', RED)), ov.SAFE_CX, 560, 4, 0.85), CUES, cut_point=(545, 860), key_point=(760, 1000))
+        ('Ever topped up with the wrong one?', (('YES', GRN), ('NO', RED)), ov.SAFE_CX, 560, 4, 0.85), CUES, cut_point=(545, 860), key_point=(760, 1000), ask_prop=lambda t: (X.coolant_bottle(0.7, (60, 200, 110), 0, t), 6))
 
 if __name__ == '__main__':
     D.cli()

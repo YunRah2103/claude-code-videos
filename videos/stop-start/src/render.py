@@ -58,7 +58,7 @@ def shot_key(t):
 
 CUES = [(0.2, 'poof', 0.6), (0.3, 'click', 0.7), (sw(1) + 0.2, 'pop', 0.6), (sw(2) + 0.2, 'ding', 0.4), (sw(3) + 0.5, 'beep', 0.5), (sw(3) + 0.9, 'vroom', 0.9)]
 S.build(HERE, WORDS, HOOK, KEYCOL, 'pull-back', (560, 900), (790, 985), (shot_open, shot_cut, shot_key), 2,
-        ('Would you turn it off yourself?', (('YES', GRN), ('NO', RED)), ov.SAFE_CX, 760, -2), CUES, cut_point=(690, 760), key_point=Engine.BLOCK)
+        ('Would you turn it off yourself?', (('YES', GRN), ('NO', RED)), ov.SAFE_CX, 760, -2), CUES, cut_point=(690, 760), key_point=Engine.BLOCK, ask_prop=lambda t: (X.ss_icon(int(t * 2) % 2 == 0), 9))
 
 if __name__ == '__main__':
     D.cli()

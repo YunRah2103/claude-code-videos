@@ -68,7 +68,7 @@ def shot_key(t):
 CUES = [(0.1, 'thump', 0.6), (0.35, 'thump', 0.5), (0.6, 'thump', 0.5), (0.5, 'buzzer', 0.4), (sw(1) + 0.3, 'pop', 0.6),
         (sw(2), 'pulse', 1.0), (sw(2) + 0.6, 'pulse', 0.9), (sw(3), 'click', 0.8), (sw(4), 'pop', 0.6), (sw(4) + 0.1, 'screech', 0.3)]
 S.build(HERE, WORDS, HOOK, KEYCOL, 'push-in', (560, 900), (800, 1500), (shot_open, shot_cut, shot_key), 2,
-        ('Did you know that?', (('YES', S.ov.GRN), ('NO', S.ov.RED)), S.ov.SAFE_CX, 640, -3), CUES, cut_point=(640, 640), key_point=(640, 620))
+        ('Did you know that?', (('YES', S.ov.GRN), ('NO', S.ov.RED)), S.ov.SAFE_CX, 640, -3), CUES, cut_point=(640, 640), key_point=(640, 620), ask_prop=lambda t: (X.disc_caliper(t * 300, 0.5 + 0.5 * math.sin(t * 14)), 7))
 
 if __name__ == '__main__':
     D.cli()

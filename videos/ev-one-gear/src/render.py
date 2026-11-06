@@ -47,7 +47,7 @@ def shot_key(t):
 
 CUES = [(0.0, 'thump', 0.7), (0.28, 'thump', 0.6), (0.56, 'thump', 0.6), (sw(1) + 0.2, 'hum', 0.6), (sw(1) + 0.4, 'pop', 0.6), (sw(2), 'whirr', 0.6), (sw(2) + 0.2, 'pop', 0.6)]
 S.build(HERE, WORDS, HOOK, KEYCOL, 'cut-in', (540, 900), (540, 880), (shot_open, shot_cut, shot_key), 2,
-        ('Would you miss the gearbox?', (('YES', GRN), ('NO', RED)), ov.SAFE_CX, 820, 3), CUES, cut_point=(240, 1000), key_point=(600, 820))
+        ('Would you miss the gearbox?', (('YES', GRN), ('NO', RED)), ov.SAFE_CX, 820, 3), CUES, cut_point=(240, 1000), key_point=(600, 820), ask_prop=lambda t: (X.gear_pair(t * 600), 5))
 
 if __name__ == '__main__':
     D.cli()

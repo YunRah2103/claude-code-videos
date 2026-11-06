@@ -53,7 +53,7 @@ def shot_key(t):
 
 CUES = [(0.05, 'screech', 0.5), (0.4, 'scrape', 0.5), (sw(1) + 0.3, 'pop', 0.6), (sw(2) + 1.3, 'scrape', 1.0), (sw(2) + 2.0, 'scrape', 0.8), (sw(3), 'ding', 0.5)]
 S.build(HERE, WORDS, HOOK, KEYCOL, 'whip-pan', (560, 1200), (760, 1460), (shot_open, shot_cut, shot_key), 2,
-        ('Have you heard yours?', (('YES', GRN), ('NO', RED)), ov.SAFE_CX + 10, 520, 3), CUES, cut_point=(470, 1050), key_point=(470, 1050))
+        ('Have you heard yours?', (('YES', GRN), ('NO', RED)), ov.SAFE_CX + 10, 520, 3), CUES, cut_point=(470, 1050), key_point=(470, 1050), ask_prop=lambda t: (X.pad_section(1.0, t), 5))
 
 if __name__ == '__main__':
     D.cli()

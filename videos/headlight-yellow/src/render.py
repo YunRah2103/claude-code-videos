@@ -63,7 +63,7 @@ def shot_key(t):
 
 CUES = [(0.0, 'boom', 0.4), (sw(1) + 0.2, 'pop', 0.6), (sw(2) + 0.2, 'hum', 0.5), (sw(3) + 0.2, 'buzzer', 0.4), (sw(4) + 0.2, 'sparkle', 0.8)]
 S.build(HERE, WORDS, HOOK, KEYCOL, 'zoom-out', LAMP, LAMP, (shot_open, shot_cut, shot_key), 2,
-        ('Have yours gone cloudy?', (('YES', GRN), ('NO', RED)), ov.SAFE_CX, 420, -3), CUES, cut_point=(300, 860), key_point=LAMP)
+        ('Have yours gone cloudy?', (('YES', GRN), ('NO', RED)), ov.SAFE_CX, 420, -3), CUES, cut_point=(300, 860), key_point=LAMP, ask_prop=lambda t: (X.headlight(0.5 + 0.45 * math.sin(t * 2.5)), 5))
 
 if __name__ == '__main__':
     D.cli()
