@@ -1,17 +1,19 @@
 """Gemini TTS (Fenrir) voiceovers for the ten-episode series; resumable (skips episodes whose voiceover is accepted).
-    python shared/series10/make_voiceover.py [episode ...]
+    python shared/series10/make_voiceover.py [episode ...]        (SERIES=series6 for the six-episode series)
 Per episode: one request -> raw JSON saved to out/<ep>/tts_raw*.json -> WAV at the stated PCM rate -> lead silence <=0.15 s
 -> atempo 0.95 (1.0 if over 15 s) -> -16 LUFS -> out/<ep>/voiceover.wav; faster-whisper alignment -> videos/<ep>/src/words.json.
 Completeness: re-request once if <95 % of script words aligned or audio < 11 s. 429: back off 30/60/120/240 s (Retry-After
-honoured), give up after ~10 min. Batches: episodes 1-5, 180 s pause, 6-10; 60 s between requests. Key comes from the proxy
+honoured), give up after ~10 min. Batches: first half, 180 s pause, second half; 60 s between requests. Key comes from the proxy
 or GEMINI_API_KEY / GOOGLE_API_KEY (never printed or written)."""
 import base64, json, os, re, subprocess, sys, time, urllib.error, urllib.request, wave
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.abspath(os.path.join(HERE, '..', '..'))
-sys.path.insert(0, HERE); sys.path.insert(0, os.path.join(ROOT, 'shared'))
+SERIES = os.environ.get('SERIES', 'series10')
+sys.path.insert(0, os.path.join(ROOT, 'shared', SERIES)); sys.path.insert(0, os.path.join(ROOT, 'shared'))
 from scripts import EPISODES, NAMES
 MODEL, VOICE = 'gemini-3.1-flash-tts-preview', 'Fenrir'
 STYLE = 'Say the following in an energetic, conversational short-form explainer style, reading every sentence in full: '
-LOG = os.path.join(ROOT, 'out', 'series10', 'tts_log.json')
+LOG = os.path.join(ROOT, 'out', SERIES, 'tts_log.json')
+HALF = (len(EPISODES) + 1) // 2                 # batch 1 = first half, 180 s pause, batch 2
 
 
 def log(**k):
@@ -72,7 +74,7 @@ def main(eps):
         if ep not in eps: continue
         os.makedirs(os.path.join(ROOT, 'out', ep), exist_ok=True); os.makedirs(os.path.join(ROOT, 'videos', ep, 'src'), exist_ok=True)
         if os.path.exists(os.path.join(ROOT, 'out', ep, 'vo_ok.json')): continue
-        if not first: time.sleep(180 if i == 5 else 60)
+        if not first: time.sleep(180 if i == HALF else 60)
         first = False
         tries = 0
         for tag in ('', '_retry'):
@@ -83,7 +85,7 @@ def main(eps):
             if ok: break
             time.sleep(60)
         json.dump(r, open(os.path.join(ROOT, 'out', ep, 'vo_ok.json'), 'w'))
-        if i == 4 and any(e in eps for e in NAMES[5:]): log(note='batch 1 done; 180 s pause')
+        if i == HALF - 1 and any(e in eps for e in NAMES[HALF:]): log(note='batch 1 done; 180 s pause')
 
 
 if __name__ == '__main__':

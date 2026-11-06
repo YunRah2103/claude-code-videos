@@ -28,7 +28,7 @@ import dashep as D
 G = Garage(W, H, 1520, 9)
 OPENINGS = ('push-in', 'whip-pan', 'pull-back', 'wipe', 'zoom-out', 'tilt', 'slow-motion', 'cut-in', 'drop-in', 'glitch-in')
 CFG = {}
-IMPACT = {'pop', 'click', 'stamp', 'thump', 'pulse', 'beep', 'buzzer', 'boom', 'poof', 'clink'}
+IMPACT = {'pop', 'click', 'stamp', 'thump', 'pulse', 'beep', 'buzzer', 'boom', 'poof', 'clink', 'clack', 'alert', 'tick'}
 
 
 @__import__('functools').lru_cache(4)

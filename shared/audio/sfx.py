@@ -224,3 +224,25 @@ def render(cues, duration):
         i = int(t*SR)
         out[i:i+len(s)] += s[:len(out)-i]
     return out[:int(SR*duration)]
+
+
+def power_down(d=0.9):
+    """Electric power-down whine: a falling tone over a dying low hum (limp mode cutting power)."""
+    t = T(d)
+    f = 900 * (120/900) ** (t/d)
+    s = np.sin(2*np.pi*np.cumsum(f)/SR) + 0.5*np.sin(2*np.pi*np.cumsum(f/2)/SR)
+    return fade(s * np.minimum(1, t/0.02) * (1 - t/d) ** 1.5) * 0.3
+
+def clack(d=0.3):
+    """Hard metal clack (a belt snapping / valve striking piston): noise crack + ringing inharmonic partials."""
+    t = T(d); rng = np.random.default_rng(3)
+    x = rng.uniform(-1, 1, len(t)) * dec(d, 60) + sum(a * np.sin(2*np.pi*f*t) * dec(d, k) for f, a, k in ((620, 0.9, 18), (1730, 0.5, 26), (2950, 0.3, 34)))
+    return fade(lp(x, 2)) * 0.34
+
+def alert(d=0.5):
+    """Soft two-tone dashboard alert chime."""
+    t = T(d); h = d / 2
+    s = np.where(t < h, np.sin(2*np.pi*1046*t), np.sin(2*np.pi*784*t)) * np.exp(-((t % h)) * 9)
+    return fade(s) * 0.22
+
+LIB.update(power_down=power_down, clack=clack, alert=alert, tick=click)

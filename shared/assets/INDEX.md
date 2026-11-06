@@ -173,3 +173,22 @@ pixel grids scaled nearest with `pixanim.grid.up`. Voiceover: `shared/series10/m
 | Poll sticker | YES / NO or two-option sticker, position varies per episode | `overlays.py` `poll()` | all ten | own work |
 | Opening moves | push-in, whip-pan, pull-back, wipe, zoom-out, tilt, slow-motion, cut-in, drop-in, glitch-in | `../series10/engine.py` `opening()` | one per episode | own work |
 | ABS pulse, metal scrape | Synthesised sound effects | `../audio/sfx.py` `pulse()`, `scrape()` | abs-pumping, brake-squeal | own work |
+
+## Six-episode series (limp-mode, timing-belt, speedometer-high, blind-spot, airbag-light, premium-fuel)
+
+Shared render: `../series10/engine.py` `build()` (called once per episode from `videos/<ep>/src/render.py`); scripts in
+`../series6/scripts.py`; voiceover: `SERIES=series6 python shared/series10/make_voiceover.py` (Gemini TTS, Fenrir).
+
+| Asset | What it is | Path | Used by | Credit |
+|---|---|---|---|---|
+| Callout pills | Badge + leader line, recorded for the safe-zone check | `carbits.py` `pill()` | all six | own work |
+| RPM gauge | Chrome dial with red zone and needle (recurring ask-shot gauge) | `carbits.py` `rpm_gauge()` | all six (limp-mode key beat) | own work |
+| Speedometer dial | SPEED dial: dashed amber tolerance band, green true-speed tick, red shown needle (no numbers) | `series6bits.py` `speedo()` | speedometer-high | own work |
+| Power meter | Segmented POWER bar meter that drops and blinks when power is cut | `series6bits.py` `power_meter()` | limp-mode | own work |
+| Timing belt + pulleys | Toothed belt over two cam pulleys and the crank pulley; teeth move; `snap` breaks it | `series6bits.py` `belt_drive()` | timing-belt | own work |
+| Valve / piston gap | One-cylinder cutaway, valve down / piston up, contact flash | `series6bits.py` `valve_piston()` | timing-belt | own work |
+| Blind-spot cone | Top-down road: mirror-view cones (blue), blind-spot cone (red), car hidden in it | `series6bits.py` `blind_road()`, `head_check()` | blind-spot | own work |
+| Airbag warning icon | Generic seated-passenger + bag symbol lamp; SRS control unit with sensor / connector wires | `series6bits.py` `airbag_icon()`, `airbag_module()` | airbag-light | own work |
+| Fuel gauge comparison | E..F fuel gauge; REGULAR vs PREMIUM gauges with equal power bars | `series6bits.py` `fuel_gauge()`, `fuel_compare()` | premium-fuel | own work |
+| Poll sticker | Two-option sticker, position / tilt varies per episode | `overlays.py` `poll()` | all six | own work |
+| Sound effects | power-down whine, metal clack, soft alert chime, needle tick (alias of click) | `../audio/sfx.py` `power_down()`, `clack()`, `alert()`, `tick` | limp-mode, timing-belt, blind-spot, airbag-light, speedometer-high | own work |
