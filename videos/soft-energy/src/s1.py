@@ -7,7 +7,7 @@ from lib import Canvas, hx, mix, glyph, vgrad, Rain, ShortRain
 W, H, K = 240, 228, 3
 WL = 141  # waterline
 
-SKY_T, SKY_B = '#1394b3', '#1ea0bc'
+SKY_T, SKY_B = '#1a9ebd', '#26a6c4'
 HILL1, HILL2 = '#1085b3', '#0c7eae'
 WIRE = '#0b3d52'
 TREE_A, TREE_B, TREE_C = '#0a4d63', '#08455c', '#063a4e'
@@ -29,7 +29,7 @@ def _trees(c):
     trees = []
     x = -4
     while x < 126:
-        top = 58 + int(r.integers(0, 12)) + int(max(0, x - 25) * 0.16)
+        top = min(90, 58 + int(r.integers(0, 12)) + int(max(0, x - 30) * 0.45))
         trees.append((x, top, int(r.integers(0, 3))))
         x += int(r.integers(3, 7))
     cols = ['#043546', '#022b3a', '#01222f']
@@ -75,34 +75,48 @@ def _wires(c):
             c.px(x, y + dy, '#05283a')
 
 
+def ring_y(x):
+    u = (x - 130) / 110
+    return 31 - 15 * math.sin(min(1, max(0, u) * 1.35) * math.pi / 2) + 3 * max(0, u - .74)
+
+
 def _tower(c):
     # giant cooling-tower-like structure on the right, edge curving outward
-    edge = lambda y: 123 + int(17 * (1 - min(1, y / 95)) ** 2)
+    edge = lambda y: 130 - int(12 * (min(y, 95) / 95) ** 1.8)
     c.poly([(edge(y), y) for y in range(0, 141, 4)] + [(W, 140), (W, 0)], TOWER)
     for y in range(0, 141):
         c.px(edge(y), y, '#0b4258')
     r = np.random.default_rng(7)
     vgl = np.asarray(c.im).copy()
-    for y in range(0, 60):  # lighter crown above the neon ring
+    for y in range(0, 32):  # lighter crown above the neon ring
         for x in range(edge(y) + 1, W):
-            f = 0.35 * (1 - y / 30) if y < 30 else 0.04
+            f = 0.3 if y < ring_y(x) else 0.03
             vgl[y, x] = vgl[y, x] * (1 - f) + np.array(hx('#1a7aa0')) * f
     from PIL import Image as _I, ImageDraw as _D
     c.im = _I.fromarray(vgl.astype(np.uint8)); c.d = _D.Draw(c.im)
-    # vertical panel lines fanning out from the crown
-    cx = 190
-    for k in range(34):
-        u = k / 33
-        xb = 128 + u * 112
-        col = '#0d5373' if k % 3 else '#156f96'
-        y = int(r.integers(2, 16))
-        while y < 136:
-            ln = int(r.integers(3, 18)) if y < 70 else int(r.integers(2, 9))
-            for yy in range(y, min(y + ln, 136)):
-                xx = int(cx + (xb - cx) * (0.62 + 0.38 * yy / 136))
-                if xx > edge(yy) + 1:
+    # cylinder shading: lit left limb fading into the dark body
+    arr = np.asarray(c.im).copy()
+    for y in range(0, 140):
+        e = edge(y)
+        for x in range(e + 1, min(W, e + 70)):
+            f = 0.35 * (1 - (x - e) / 70) ** 1.5
+            arr[y, x] = arr[y, x] * (1 - f) + np.array(hx('#0f5a78')) * f
+    c.im = _I.fromarray(arr.astype(np.uint8)); c.d = _D.Draw(c.im)
+    # long panel lines converging toward the top of the tower
+    cx = 205
+    for k in range(46):
+        u = k / 45
+        xb = 96 + u * 170
+        lit = k % 4 != 3
+        col = mix('#063448', '#1f7398', (0.5 + 0.5 * math.sin(k * 1.3)) * (1 - 0.7 * u)) if lit else '#052a3e'
+        y = int(r.integers(0, 10))
+        while y < 138:
+            ln = int(r.integers(14, 50))
+            for yy in range(y, min(y + ln, 138)):
+                xx = int(round(cx + (xb - cx) * (0.45 + 0.55 * yy / 138)))
+                if edge(yy) + 1 < xx < W and yy > ring_y(xx) + 2:
                     c.px(xx, yy, col)
-            y += ln + int(r.integers(2, 10))
+            y += ln + int(r.integers(2, 9))
     # window specks
     for _ in range(42):
         x, y = int(r.integers(140, 236)), int(r.integers(22, 46))
@@ -120,9 +134,7 @@ def neon_ring(c, flick=1.0):
     hi = mix('#7a1428', '#ffb0c8', flick)
     pts = []
     for x in range(130, W):
-        u = (x - 130) / 110
-        y = 31 - 15 * math.sin(min(1, u * 1.35) * math.pi / 2) + 3 * max(0, u - .74)
-        pts.append((x, int(round(y))))
+        pts.append((x, int(round(ring_y(x)))))
     for (x, y) in pts:
         c.rect(x, y, x, y + 1, col)
         if (x // 9) % 3 == 0:
@@ -132,23 +144,25 @@ def neon_ring(c, flick=1.0):
 
 
 def _houses(c):
-    # left house
-    c.poly([(0, 94), (10, 92), (62, 114), (62, 140), (0, 140)], '#0b4256')
-    c.poly([(0, 92), (8, 90), (64, 113), (60, 116), (6, 95), (0, 97)], '#06303f')
-    c.rect(0, 101, 52, 140, '#04435f')
-    c.rect(0, 101, 52, 102, '#0a5470')
-    for x0 in (25, 35, 43):
-        c.rect(x0, 106, x0 + 5, 113, '#053040')
-        c.rect(x0 + 2, 106, x0 + 2, 113, '#0f5670')
+    # left house: long sloped roof, low wall with small windows
+    c.poly([(0, 78), (6, 77), (62, 104), (62, 108), (0, 108)], '#032a38')
+    c.line(0, 77, 62, 104, '#0e4c64')
+    for x in range(4, 56, 5):  # roof seams
+        c.line(x, 82 + int(x * 0.4), x + 2, 108, '#08303f')
+    c.rect(0, 106, 56, 140, '#04435f')
+    c.rect(0, 106, 56, 107, '#0a5470')
+    for x0 in (24, 33, 41):
+        c.rect(x0, 109, x0 + 5, 115, '#032c3c')
+        c.rect(x0 + 2, 109, x0 + 2, 115, '#0e5a74')
     # right houses behind store
-    c.poly([(150, 92), (196, 92), (205, 99), (205, 140), (150, 140)], '#0e4d62')
+    c.poly([(150, 92), (196, 92), (205, 99), (205, 140), (150, 140)], '#052b38')
     c.rect(150, 92, 196, 93, '#16708a')
     c.rect(196, 96, 202, 140, '#0a3f52')
     for (x0, y0) in [(193, 96), (193, 115)]:
         c.rect(x0, y0, x0 + 5, y0 + 10, '#062e3c')
         c.rect(x0 + 2, y0, x0 + 2, y0 + 10, '#127090')
     c.rect(205, 102, W, 140, '#04293a')
-    c.poly([(152, 97), (170, 97), (186, 104), (186, 140), (152, 140)], '#0b4255')
+    c.poly([(152, 97), (170, 97), (186, 104), (186, 140), (152, 140)], '#073444')
     c.rect(171, 98, 172, 118, '#3b8fa8')
 
 
@@ -165,7 +179,7 @@ def _store(c):
     c.rect(102, 70, 103, 98, '#100c0e')
     c.rect(99, 88, 102, 89, '#3a2c2e')
     # store windows (warm)
-    Y = '#ddd47e'
+    Y = '#a6c272'
     c.rect(68, 112, 89, 123, '#0d6a84')
     c.rect(69, 113, 74, 122, Y)
     c.rect(76, 113, 85, 117, Y)
@@ -175,7 +189,7 @@ def _store(c):
     c.rect(98, 113, 106, 120, Y)
     c.rect(99, 116, 104, 117, '#3a8a9a')
     c.rect(98, 123, 106, 129, Y)
-    c.rect(98, 131, 106, 137, '#9a9a5a')
+    c.rect(98, 131, 106, 137, '#6a8a52')
     c.rect(112, 112, 131, 123, '#0d6a84')
     c.rect(113, 113, 130, 122, Y)
     c.rect(115, 117, 117, 122, '#2b4e5a')
@@ -189,10 +203,10 @@ def _store(c):
     c.rect(56, 128, 76, 138, '#1b1015')
     glyph(c, 57, 130, ['#.#.###.##.##', '#.#.#.#.#.#.#', '#.#.###.#.#.#', '#.#.#...#.#.#', '#.#.#...##.##'], '#7aa8b8')
     # ICE freezer
-    c.rect(75, 121, 92, 140, '#2a6f94')
-    c.rect(75, 121, 92, 122, '#4fa0c8')
-    c.rect(78, 124, 88, 128, '#1d5f80')
-    c.rect(79, 125, 87, 127, '#3f8fb8')
+    c.rect(75, 121, 92, 140, '#085c7c')
+    c.rect(75, 121, 92, 122, '#1a7aa0')
+    c.rect(78, 124, 88, 128, '#064a66')
+    c.rect(79, 125, 87, 127, '#176f94')
     glyph(c, 77, 132, ['#.###.###', '#.#...#..', '#.#.#.##.', '#.#.#.#..', '#.###.###'], '#0a2a38')
     c.rect(92, 121, 95, 140, '#1f6080')
     # cage / door grill on the right
@@ -213,17 +227,17 @@ def _car(c):
     c.line(19, 112, 33, 108, '#0e3446')
     # cabin
     c.poly([(10, 123), (18, 116), (42, 116), (47, 123)], '#0f3a50')
-    c.poly([(14, 122), (20, 117), (40, 117), (44, 122)], '#1c6888')
+    c.poly([(14, 122), (20, 117), (40, 117), (44, 122)], '#054c76')
     c.line(22, 121, 26, 117, '#3e94b6'); c.line(30, 121, 34, 117, '#3e94b6')
     c.rect(28, 117, 28, 122, '#0f3a50')
     c.rect(40, 118, 42, 121, '#c8c070')
     # body
-    c.rect(3, 123, 50, 136, '#0b2a3a')
+    c.rect(3, 123, 50, 136, '#011929')
     c.rect(3, 123, 50, 123, '#2a7090')
     c.rect(4, 130, 48, 131, '#3a8aa8')
     c.rect(12, 125, 30, 128, '#082230')
     c.rect(15, 126, 27, 127, '#174a62')
-    c.rect(44, 123, 50, 135, '#235f7c')
+    c.rect(44, 123, 50, 135, '#0e3a54')
     c.rect(47, 125, 49, 128, '#d0c878')
     c.rect(3, 125, 6, 128, '#b03040')
     c.rect(3, 133, 50, 135, '#06141c')
