@@ -27,6 +27,7 @@ Reusable pieces for the pixel-art explainer episodes. Nothing here depends on on
 | `assets/docstyle.py` | Real-photo mini-documentary kit (Ken Burns, parallax over blur, kinetic headline, name chip, timeline + year counter, speech card, grain/vignette, segmented bar). Example: `videos/brand-story-lamborghini` | `assets/INDEX.md` |
 | `assets/seriesbits.py` | Tyre, rubber cutaway, sun + shield, seatbelt buckle + pretensioner, seat, exhaust + catalytic converter, precious-metal tiles, thief silhouette. Example: `videos/tyres-black` | `assets/INDEX.md` |
 | `assets/carbits.py`, `assets/dashep.py` | Dashboard explainer kit: RPM gauge with red zone, warning light, fuel cap, glass cutaway, windscreen, callout pills; looping-episode wiring. Example: `videos/red-zone` | `assets/INDEX.md` |
+| `assets/cozyroom.py` | Cozy top-down room kit: 48-colour palette, cat, mug, console shelf, monitor, gaming chair, plush, car posters, 46 props. Example: `videos/cozy-sim-room` (ambient loop, no presenter) | `assets/INDEX.md` |
 | `assets/garagebits.py` | Under-the-bonnet kit: dipstick (MIN/MAX), snow + frost, battery cutaway, pressure gauge, radiator + cap, coolant spray, steam, ring gear. Example: `videos/oil-dipstick` | `assets/INDEX.md` |
 | `align_fw.py` | faster-whisper word timings on the real voiceover -> `words.json` | docstring |
 | `photos.py` | Fetch Wikimedia Commons photos + `credits.json` (file, source, licence, author) into `videos/<ep>/assets/` (jpgs are git-ignored) | docstring |
