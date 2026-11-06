@@ -68,6 +68,28 @@ SHADOW = _lut({WOOD: BROWN, BROWN: DKBROWN, DKBROWN: INK, PLUM: NAVY, MAUVE: PLU
                SLATE: DKSLATE, NAVY: INK, DKGREEN: FOREST, GREEN: DKGREEN, TAN: WOOD,
                CREAM: TAN, GREY: SLATE, LTGREY: GREY, FOREST: TEAL, SKIN2: WOOD, SALMON: MAUVE})
 
+# MOOD: the whole set goes through this palette swap first, giving the dark
+# Reference look (navy/teal/plum base, ~70% of pixels in INK/NAVY/DKSLATE).
+# Ramp tones stay distinct, so textures survive. Neon is drawn after it.
+MOOD = _lut({WHITE: LTGREY, LTGREY: GREY, CREAM: GREY, TAN: GREY,
+             DKBROWN: INK, BROWN: TEAL, WOOD: DKSLATE, SKIN2: SLATE,
+             PLUM: INK, MAUVE: DKBROWN, SALMON: PLUM, SKIN: MAUVE,
+             TEAL: INK, FOREST: INK, DKGREEN: TEAL, GREEN: FOREST, YELLOW: DKGREEN,
+             BLUE: NAVY, SKY: DKSLATE, CYAN: BLUE,
+             RUST: MAROON, ORANGE: DKBROWN, AMBER: BROWN, GOLD: WOOD, RED: MAROON,
+             MAROON: DKBROWN, HOT: MAROON})
+LIFT = _lut({INK: NAVY, NAVY: DKSLATE, DKSLATE: SLATE, SLATE: GREY, GREY: LTGREY, TEAL: DKSLATE,
+             DKBROWN: PLUM, PLUM: MAUVE, MAUVE: SALMON, MAROON: MAUVE, FOREST: DKGREEN,
+             BROWN: WOOD, WOOD: SKIN2, BLUE: SKY})                 # light on / moonbeam
+PGLOW = _lut({INK: DKBROWN, NAVY: PLUM, TEAL: PLUM, DKSLATE: MAUVE, SLATE: MAUVE, GREY: SALMON,
+              DKBROWN: PLUM, PLUM: MAUVE, MAUVE: SALMON, BLUE: MAUVE, FOREST: PLUM,
+              BROWN: PLUM, WOOD: SALMON, MAROON: HOT})                 # magenta screen glow
+CGLOW = _lut({INK: NAVY, NAVY: BLUE, TEAL: BLUE, DKSLATE: SKY, SLATE: SKY, DKBROWN: NAVY,
+              PLUM: BLUE, FOREST: BLUE, MAROON: PLUM})                  # cyan underglow
+CODER_LUT = MOOD.copy()
+CODER_LUT[[SKIN2, WOOD, BROWN]] = [SKIN2, WOOD, BROWN]                  # keep the skin tone
+NEON = [HOT, CYAN, MAUVE, SALMON]
+
 HEAD = PixelFont(size=20)
 CAP = PixelFont(size=10)
 TINY = BitmapFont()
@@ -378,6 +400,11 @@ CODE = _code()
 
 # ------------------------------------------------------------------- room ---
 TRACK = dict(cx=67, cy=168, rx=40, ry=22)
+# neon sign: car silhouette in tube segments (no segment longer than 11 px)
+NEON_SIGN = [(56, 20), (60, 15), (70, 15), (75, 19), (79, 20), (79, 23), (76, 23)]
+NEON_SIGN = [(*NEON_SIGN[i], *NEON_SIGN[i + 1]) for i in range(len(NEON_SIGN) - 1)] + [
+    (68, 23, 66, 23), (58, 23, 56, 23), (56, 23, 56, 20), (62, 16, 63, 19), (63, 19, 69, 19), (69, 19, 69, 16)]
+NEON_WHEELS = [(72, 23), (62, 23)]
 LAMP = (121, 42)
 NLIGHT = (125, 128)
 WINDOW = (0, 70, 8, 48)    # x, y, w, h on the left wall
@@ -460,14 +487,9 @@ def build_room(seed=3):
     c.blit(_prop(wobble_mask(5, 18, r, 1, (3, 6), (1, 1)), METAL, r, "specks"), 9, 124)
     for y in range(127, 140, 3):
         c.rect(10, y, 3, 1, SLATE)
-    # car poster, rotated, taped corners
-    pc = Canvas(19, 14, INK)
-    pc.rect(1, 1, 17, 6, SKY); pc.rect(1, 7, 17, 6, DKSLATE)
-    pc.poly([(3, 10), (6, 6), (12, 6), (15, 9), (16, 11), (2, 11)], fill=RED)
-    pc.rect(7, 7, 4, 1, CYAN); pc.rect(4, 11, 2, 2, INK); pc.rect(12, 11, 2, 2, INK)
-    pc.px(8, 3, WHITE); pc.px(13, 2, WHITE)
-    pc.rect(0, 0, 2, 2, CREAM); pc.rect(17, 12, 2, 2, CREAM)
-    c.blit(rotate_nn(pc.a, -8), 56, 8)
+    # neon car sign tubes (unlit glass; lit in _emissive at night)
+    for (x0_, y0_, x1_, y1_) in NEON_SIGN:
+        c.line(x0_, y0_, x1_, y1_, DKSLATE)
     # sticky notes above the desk + thermometer
     for i, (nx, ny, col, ang) in enumerate(((86, 3, YELLOW, -8), (93, 2, SALMON, 6), (100, 4, CYAN, -4),
                                             (75, 6, YELLOW, 10))):
@@ -579,26 +601,32 @@ def build_room(seed=3):
 
 class Lights:
     def __init__(self):
-        self.lamp_in = _circle_mask(*LAMP, 9)
-        self.lamp_out = _circle_mask(*LAMP, 18)
-        self.nl_in = _circle_mask(*NLIGHT, 7)
-        self.nl_out = _circle_mask(*NLIGHT, 13)
+        self.lamp_in = _circle_mask(*LAMP, 6)
+        self.lamp_out = _circle_mask(*LAMP, 11)
+        self.ceiling = _circle_mask(66, 120, 58)
+        self.nl_in = _circle_mask(*NLIGHT, 6)
+        self.nl_out = _circle_mask(*NLIGHT, 11)
         wx, wy, ww, wh = WINDOW
         self.moon = _poly_mask([(8, wy + 2), (8, wy + wh - 2), (50, 166), (66, 146)])
-        self.screen = _poly_mask([(86, 30), (110, 30), (114, 62), (82, 62)])
+        self.screen = _poly_mask([(84, 28), (118, 28), (122, 64), (80, 64)])
+        self.screen_in = _poly_mask([(88, 28), (114, 28), (116, 50), (86, 50)])
+        self.bedled = _poly_mask([(90, 70), (96, 70), (96, 138), (88, 138)])
 
-    def apply(self, c, mode, nightlight=True):
-        if mode == "day":
-            return
+    def apply(self, c, mode, under=None):
+        """c is already MOOD-mapped. day = ceiling light on; night = neon."""
         base = c.a.copy()
-        c.a = NIGHT[base]
-        c.a = np.where(self.moon, MOON[base], c.a)
-        c.a = np.where(self.screen, MOON[base], c.a)
-        c.a = np.where(self.lamp_out, base, c.a)
-        c.a = np.where(self.lamp_in, WARM[base], c.a)
-        if nightlight:
-            c.a = np.where(self.nl_out, base, c.a)
-            c.a = np.where(self.nl_in, WARM[base], c.a)
+        if mode == "day":
+            c.a = np.where(self.ceiling, LIFT[base], base)
+            c.a = np.where(self.lamp_out, LIFT[base], c.a)
+            c.a = np.where(self.lamp_in, WARM[LIFT[base]], c.a)
+        else:
+            c.a = np.where(self.moon, LIFT[base], base)
+            c.a = np.where(self.screen, PGLOW[base], c.a)
+            c.a = np.where(self.screen_in, PGLOW[PGLOW[base]], c.a)
+            c.a = np.where(self.lamp_out, WARM[base], c.a)
+            c.a = np.where(self.nl_out, PGLOW[base], c.a)
+        if under is not None:
+            c.a = np.where(under, CGLOW[c.a], c.a)
 
 
 def rag_panel(v, x, y, w, h, seed, fill=INK, edge=DKSLATE, speck=NAVY):
@@ -620,6 +648,13 @@ class CozyEpisode:
         self.ep = ep
         self.room = build_room()
         self.lights = Lights()
+        self.led_x = [x for x in range(10, WW - 9) if self.room.a[33, x] in WALL]
+        cx, cy, rx, ry = TRACK["cx"], TRACK["cy"], TRACK["rx"], TRACK["ry"]
+        self.kerbs = [(int(round(cx + (rx + d) * math.cos(a))), int(round(cy + (ry + d) * math.sin(a))))
+                      for k in range(40) for a in [2 * math.pi * k / 40] if abs(math.cos(a)) > 0.75
+                      for d in (8, -8)]
+        self.dashes = [(int(round(cx + rx * math.cos(2 * math.pi * k / 24))),
+                        int(round(cy + ry * math.sin(2 * math.pi * k / 24)))) for k in range(24)]
         self.cars = make_car(ep.get("car_art", DEFAULT_CAR), ep.get("car_key"))
         self.clock = StepClock(ep["duration"], 30, ep.get("holds", (3, 3, 2, 4, 3, 3, 2, 4, 3, 3)))
         self.snow = Particles(5)
@@ -678,7 +713,7 @@ class CozyEpisode:
         k = cycle(t, (0.6, 0.4, 0.7, 0.5))
         for i, x in enumerate(range(52, WW - 10, 8)):
             y = 4 + (i % 3 == 1) + (i % 3 == 2) * 2
-            c.rect(x, y, 2, 2, (GOLD, HOT, CYAN, GREEN)[(i + k) % 4])
+            c.rect(x, y, 2, 2, (SALMON, HOT, CYAN, MAUVE)[(i + k) % 4])
         # left monitor: code being typed (stepped), scrolling, blinking cursor
         c.rect(82, 12, 19, 13, NAVY)
         for yy in range(12, 25, 2):                         # faint scanlines
@@ -716,10 +751,27 @@ class CozyEpisode:
         # the coder, lit by the screens at night
         b0 = b["crank"]
         pose = "look" if b0 <= t < b["crank_end"] + 0.6 else ("a", "b")[cycle(t, (0.2, 0.1, 0.3, 0.15, 0.25)) % 2]
-        spr = CODER[pose]
-        if ep["light"](t, step) == "night":
-            spr = np.where(spr == T, T, MOON[spr]).astype(np.uint8)
+        spr = np.where(CODER[pose] == T, T, CODER_LUT[CODER[pose]]).astype(np.uint8)
+        night = ep["light"](t, step) == "night"
+        if night:
+            spr = np.where(spr == T, T, PGLOW[spr]).astype(np.uint8)
         c.blit(spr, 86, 35)
+        # --- neon (night): sign flickers on, LED strip, glowing kerbs, cat eyes
+        on = night and not (t < b["night"] + 0.9 and step % 3 == 0)
+        for (x0_, y0_, x1_, y1_) in NEON_SIGN:
+            c.line(x0_, y0_, x1_, y1_, HOT if on else DKSLATE)
+        for (wx_, wy_) in NEON_WHEELS:
+            c.ellipse(wx_ - 2, wy_ - 2, 5, 5, line=CYAN if on else DKSLATE)
+        if night:
+            for x in self.led_x:
+                if x % 7:
+                    c.px(x, 33, MAUVE if (x // 7 + step // 4) % 5 else SALMON)
+            for i, (kx, ky) in enumerate(self.kerbs):
+                c.px(kx, ky, HOT if i % 2 else CYAN)
+            for kx, ky in self.dashes:
+                c.px(kx, ky, CYAN)
+        if b["cat_wake"] <= t and cycle(t, (0.9, 0.3, 0.4)) != 2:
+            c.px(65, 96, GREEN); c.px(69, 96, GREEN)
         wx, wy, ww, wh = WINDOW
         c.rect(wx + 1, wy + 1, ww - 2, wh - 2, INK)
         c.px(wx + 3, wy + 4, CREAM); c.px(wx + 4, wy + 4, LTGREY); c.px(wx + 3, wy + 5, LTGREY)
@@ -762,14 +814,20 @@ class CozyEpisode:
                 self.fx.emit(x + jx, y + jy, int(self.fx.rng.integers(-1, 2)), -1, 4,
                              [YELLOW, GOLD, ORANGE])
         a, (ox, oy) = self.cars[angle_index(deg, len(self.cars))]
-        sx, sy = int(round(x)) - ox + 1, int(round(y)) - oy + 2   # palette-swap shadow
-        sub = c.a[sy:sy + a.shape[0], sx:sx + a.shape[1]]
+        cx_, cy_ = int(round(x)) - ox, int(round(y)) - oy
+        sub = c.a[cy_ + 2:cy_ + 2 + a.shape[0], cx_ + 1:cx_ + 1 + a.shape[1]]   # palette-swap shadow
         m = (a != T)[:sub.shape[0], :sub.shape[1]]
         sub[m] = SHADOW[sub[m]]
-        c.blit(a, int(round(x)) - ox + jx, int(round(y)) - oy + jy)
-        self.fx.draw(c)
-        self.lights.apply(c, ep["light"](t, step))
+        c.a = MOOD[c.a]                                       # the dark Reference mood
+        mode = ep["light"](t, step)
+        under = None
+        if mode != "day":                                     # cyan underglow pool
+            yy, xx = np.ogrid[0:WH, 0:WW]
+            under = ((xx - x) ** 2 + ((yy - y - 1) * 1.4) ** 2) <= 81
+        self.lights.apply(c, mode, under)
         self._emissive(c, t, step)
+        c.blit(a, cx_ + jx, cy_ + jy)                         # the car stays full neon
+        self.fx.draw(c)
         return c
 
     def hud(self, v, step, t):
@@ -777,14 +835,14 @@ class CozyEpisode:
         hu = ep.get("headline_until", 2.6)
         if t < hu + 0.4:                       # drops in, holds, then slides out (stepped)
             y0 = tween_int(t, 0.0, 0.5, -50, 12, "out") if t < hu else tween_int(t, hu, hu + 0.4, 12, -52)
-            rag_panel(v, 12, y0, W - 24, 44, 21, NAVY, INK, DKSLATE)
+            rag_panel(v, 12, y0, W - 24, 44, 21, INK, HOT, NAVY)
             for i, line in enumerate(ep["headline"]):
-                col = YELLOW if i == len(ep["headline"]) - 1 else WHITE
+                col = CYAN if i == len(ep["headline"]) - 1 else WHITE
                 v.text(HEAD, line, W // 2, y0 + 5 + i * 19, col,
-                       shadow_c=MAROON if i else INK, align="center")
+                       shadow_c=PLUM if i else DKSLATE, align="center")
         for (t0, t1, lines) in ep["captions"]:
             if t0 <= t < t1:
-                rag_panel(v, 5, 194, W - 10, 40, 23)
+                rag_panel(v, 5, 194, W - 10, 40, 23, INK, PLUM, NAVY)
                 v.text(TINY, ep.get("tag", "CAR STUFF, EXPLAINED"), W // 2, 227, SLATE, align="center")
                 n = int((t - t0) * 40)
                 shown = 0

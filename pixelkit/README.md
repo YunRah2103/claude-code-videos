@@ -78,6 +78,32 @@ pass `car_art`/`car_key` for a different car (16 angles are baked automatically)
 * Large-area shapes that run off-frame (walls, front wall) extend 3 px past it,
   so their straight outer shading band is never visible.
 
+## Colour mood: dark Reference look + neon
+
+The Reference, matched to ENDESGA 32, is about 70% INK/NAVY/DKSLATE (very dark
+navy and blue-grey), then dark purple-brown, slate, teal and plum, with tiny
+pink and white accents. Its median brightness is 46/255. The set reproduces
+that with palette swaps only:
+
+* `MOOD` remaps every drawn index once per frame: wood becomes teal/blue-grey,
+  fabrics deep plum, plants and grass dark teal-green, the cat muted brown,
+  whites soft grey. Ramp tones stay distinct, so textures survive.
+* Lighting (`Lights.apply`), all hard-edged index swaps:
+  * Before `beats.night`: a ceiling-light pool (`LIFT`) and a warm lamp.
+  * After: a moonbeam (`LIFT`), a magenta monitor glow (`PGLOW`, doubled
+    near the screens), a warm desk-lamp pool, a pink night-light pool, and a
+    cyan underglow (`CGLOW`) that follows the car.
+* Neon is drawn after lighting, so it stays full brightness:
+  * a car-silhouette neon sign that flickers on in stepped frames
+  * an LED strip along the baseboard
+  * pink/cyan track kerbs and cyan centre dashes
+  * string lights
+  * code and battery monitors and the RGB keyboard
+  * the cat's green eyes
+  * the car itself
+* HUD: ink panels with neon edges (hot-pink headline, plum captions) and
+  cyan/hot-pink caption highlights.
+
 ## Encode settings
 
 libx264 `-preset slow -tune animation -crf 14`, High profile, yuv420p,
@@ -123,8 +149,9 @@ unique frame.
 | longest straight edge (≤20) | **17 px** | 63 px FAIL | 140 px FAIL |
 | frames with a long edge | 0% | 100% | 100% |
 | largest flat square (≤12) | **9x9** | 40x40 FAIL | 25x25 FAIL |
-| decoded palette estimate | 30 | 263 | 297 |
-| pre-encode colours (≤32) | **32** | n/a | n/a |
+| median brightness (0-255) | 51 | 47 | 60 |
+| decoded palette estimate | 24 | 263 | 297 |
+| pre-encode colours (≤32) | **28** | n/a | n/a |
 | verify | PASS (7/7) | FAIL | FAIL |
 
 The yuv444p master gives identical results: 0.000%, 65.8%, 17 px and 9x9.

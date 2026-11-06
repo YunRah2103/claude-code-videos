@@ -12,10 +12,10 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 
 from pixelkit.core import tween_int                      # noqa: E402
-from pixelkit.cozyroom import (CREAM, GREEN, HOT, WHITE, YELLOW,  # noqa: E402,F401
+from pixelkit.cozyroom import (CREAM, CYAN, GREEN, HOT, WHITE, YELLOW,  # noqa: E402,F401
                                CozyEpisode, DEFAULT_CAR)
 
-BEATS = dict(snow=1.6, night=4.6, dying=7.4, cat_wake=9.0, crank=9.8, crank_end=11.0,
+BEATS = dict(snow=1.6, night=2.6, dying=7.4, cat_wake=9.0, crank=9.8, crank_end=11.0,
              charge=11.0, go=11.6)
 
 
@@ -59,10 +59,10 @@ EPISODE = dict(
     duration=13.0,
     headline=["COLD vs.", "BATTERY"],
     captions=[
-        (0.0, 2.3, [("WON'T START ON A", WHITE), ("COLD MORNING?", YELLOW)]),
-        (2.3, 4.6, [("COLD SLOWS THE", WHITE), ("BATTERY CHEMISTRY", YELLOW)]),
-        (4.6, 7.4, [("SO IT DELIVERS", WHITE), ("LESS CURRENT...", YELLOW)]),
-        (7.4, 9.8, [("AND THICK COLD OIL", WHITE), ("NEEDS MORE TO CRANK", YELLOW)]),
+        (0.0, 2.3, [("WON'T START ON A", WHITE), ("COLD MORNING?", CYAN)]),
+        (2.3, 4.6, [("COLD SLOWS THE", WHITE), ("BATTERY CHEMISTRY", CYAN)]),
+        (4.6, 7.4, [("SO IT DELIVERS", WHITE), ("LESS CURRENT...", CYAN)]),
+        (7.4, 9.8, [("AND THICK COLD OIL", WHITE), ("NEEDS MORE TO CRANK", CYAN)]),
         (9.8, 11.4, [("LOW POWER, BIG LOAD", WHITE), ("= CLICK. NO START.", HOT)]),
         (11.4, 13.01, [("KEEP IT CHARGED.", GREEN), ("PARK IT WARM.", WHITE)]),
     ],

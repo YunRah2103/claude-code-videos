@@ -161,6 +161,7 @@ def analyse(path, block=None, heatmap=None, label=None):
     changes = None
     hist = {}
     max_edge = max_flat = long_frames = flat_frames = 0
+    lumas = []
     long_edges = []
     for f in frames(path, w, h):
         bl = blocks(f, b, ox, oy)
@@ -183,6 +184,7 @@ def analyse(path, block=None, heatmap=None, label=None):
             same.append(not moved.any())
             changes = moved.astype(np.int32) if changes is None else changes + moved
         prev = nat
+        lumas.append(float(np.median(nat @ np.array([0.2126, 0.7152, 0.0722]))))
         q = (nat.astype(np.uint8) >> 3).reshape(-1, 3)
         key = (q[:, 0].astype(np.int32) << 10) | (q[:, 1].astype(np.int32) << 5) | q[:, 2]
         u, c = np.unique(key, return_counts=True)
@@ -217,7 +219,7 @@ def analyse(path, block=None, heatmap=None, label=None):
                 held=100.0 * sum(same) / max(1, len(same)),
                 ufps=len(holds) / dur, block_fps=block_fps,
                 active=100.0 * act.size / max(1, changes.size if changes is not None else 1), holds=dict(sorted(hc.items())),
-                est_colours=est_colours, frames=nfr, max_edge=max_edge, max_flat=max_flat,
+                est_colours=est_colours, frames=nfr, luma=float(np.median(lumas)), max_edge=max_edge, max_flat=max_flat,
                 long_edges=float(np.mean(long_edges)) if long_edges else 0.0,
                 long_frames=100.0 * long_frames / max(1, len(long_edges)),
                 flat_frames=100.0 * flat_frames / max(1, len(long_edges)))
@@ -277,6 +279,7 @@ def main(argv=None):
         ("longest straight edge", lambda r: f"{r['max_edge']}px"),
         ("long edges / frame", lambda r: f"{r['long_edges']:.1f} ({r['long_frames']:.0f}% fr)"),
         ("largest flat square", lambda r: f"{r['max_flat']}x{r['max_flat']} ({r['flat_frames']:.0f}% fr)"),
+        ("median brightness (0-255)", lambda r: f"{r['luma']:.0f}"),
         ("est. palette (decoded)", lambda r: str(r["est_colours"])),
         ("pre-encode colours", lambda r: "n/a" if r["pre_colours"] is None else str(r["pre_colours"])),
     ]
