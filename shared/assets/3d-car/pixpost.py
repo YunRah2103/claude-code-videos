@@ -27,9 +27,10 @@ RAMPS = {0: (R_BACK, 0, 0, 0), 1: (R_BODY, 1, 0, 1), 2: (R_GLASS, 1, 0, 1), 3: (
          5: (R_TYRE, 0.45, 0, 0), 6: (R_HEAD, 1.1, 0.05, 0), 7: (R_TAIL, 1.1, 0.1, 0), 8: (R_METAL, 1, 0, 1), 9: (R_GLOW, 1.05, 0.08, 0),
          10: (R_SAND, 1, 0, 0), 11: (R_BACK, 1, 0, 0), 12: (R_TAIL, 1.1, 0.1, 0), 13: (R_GLOW, 1.05, 0.15, 0), 14: (R_SAND, 1.05, 0.15, 0),
          15: (R_TYRE, 1.2, 0, 0), 16: (R_BODY, 1.0, 0.3, 1), 17: (R_BACK, 1.3, 0.25, 0), 18: (R_SAND, 0.78, 0, 0), 19: (R_TYRE, 1, 0, 0),
-         20: (R_GLOW, 1, 0.1, 0)}
+         20: (R_GLOW, 1, 0.1, 0), 21: (R_METAL, 1.2, 0.35, 0), 22: (R_TYRE, 0.3, 0, 0)}
 SIL2 = False                                         # True: 2-px silhouette (for finer grids)
-ENV = [0, 10, 11, 18, 19, 20]                       # never outlined (floor, backdrop)
+ENV = [0, 10, 11, 18, 19, 20]
+NOLINE = [21, 22]                                   # face details: no outline on them or around them                       # never outlined (floor, backdrop)
 PALETTE = sorted({OUTLINE, RIMC, *R_BACK, *R_SAND, *R_BODY, *R_GLASS, *R_TYRE, *R_METAL, *R_GLOW, *R_TAIL, *R_HEAD})
 assert len(PALETTE) <= 40, len(PALETTE)
 PAL = np.array([HEX(c) for c in PALETTE], np.uint8)
@@ -62,12 +63,12 @@ def _down(info, dep, k=DOWN):
 def _outline(ids, dep):
     """1-px navy line on the near side of depth jumps and part boundaries (floor and backdrop never outlined)."""
     dm = dep / 65535.0 * 40.0
-    env = np.isin(ids, ENV); o = np.zeros(ids.shape, bool)
+    env = np.isin(ids, ENV); free = env | np.isin(ids, NOLINE); o = np.zeros(ids.shape, bool)
     for dy, dx in ((0, 1), (0, -1), (1, 0), (-1, 0)):
         qi = np.roll(ids, (dy, dx), (0, 1)); qd = np.roll(dm, (dy, dx), (0, 1))
         jump = qd - dm > 0.05 + 0.03 * dm
-        part = (qi != ids) & ((qd > dm + 0.004) | ((np.abs(qd - dm) <= 0.004) & (ids < qi)))
-        o |= ~env & (jump | part | np.isin(qi, ENV) & (qi != ids))
+        part = (qi != ids) & ~np.isin(qi, NOLINE) & ((qd > dm + 0.004) | ((np.abs(qd - dm) <= 0.004) & (ids < qi)))
+        o |= ~free & (jump & ~np.isin(qi, NOLINE) | part | np.isin(qi, ENV) & (qi != ids))
     sil = np.zeros(ids.shape, bool)                  # second pixel on the outer silhouette (chunkier line, like hand pixel art)
     for dy, dx in ((0, 1), (0, -1), (1, 0), (-1, 0)):
         qi = np.roll(ids, (dy, dx), (0, 1)); qd = np.roll(dm, (dy, dx), (0, 1))

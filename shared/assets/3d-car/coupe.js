@@ -8,7 +8,7 @@
 import { ID } from './toon.js';
 import { RoundedBoxGeometry } from '../vendor/jsm/geometries/RoundedBoxGeometry.js';
 
-export const DIM = { L: 4.3, xF: 1.27, xR: -1.18, rF: 0.33, rR: 0.345, wF: 0.22, wR: 0.31, zF: 0.73, zR: 0.79 };
+export const DIM = { L: 4.3, xF: 1.27, xR: -1.18, rF: 0.35, rR: 0.36, wF: 0.235, wR: 0.32, zF: 0.73, zR: 0.79 };
 
 // monotone cubic through (x, y) knots
 function curve(k) {
@@ -30,10 +30,10 @@ function curve(k) {
 const BELT = curve([[-2.15, 0.70], [-1.95, 0.80], [-1.55, 0.86], [-1.15, 0.88], [-0.6, 0.80], [0.2, 0.775], [0.85, 0.79], [1.27, 0.80], [1.8, 0.71], [2.15, 0.57]]);
 const HALFW = curve([[-2.15, 0.80], [-1.9, 0.89], [-1.2, 0.955], [-0.55, 0.87], [0.3, 0.855], [1.27, 0.885], [1.85, 0.83], [2.15, 0.70]]);
 const BOT = curve([[-2.15, 0.33], [-1.95, 0.22], [1.85, 0.20], [2.15, 0.30]]);
-const TOP = curve([[-2.15, 0.70], [-2.0, 0.80], [-1.75, 0.835], [-1.35, 0.90], [-0.8, 1.06], [-0.25, 1.205], [0.15, 1.215], [0.45, 1.13],
+const TOP = curve([[-2.15, 0.70], [-2.0, 0.80], [-1.75, 0.84], [-1.35, 0.92], [-0.8, 1.10], [-0.25, 1.245], [0.12, 1.255], [0.45, 1.15],
   [0.95, 0.80], [1.3, 0.745], [1.75, 0.66], [2.05, 0.56], [2.15, 0.48]]);
 const CAB = curve([[-1.75, 0], [-1.25, 1], [0.7, 1], [1.0, 0]]);   // greenhouse weight
-const ARCH_R = 0.405;
+const ARCH_R = 0.425;
 
 function archTop(x) {
   let a = -1;
@@ -53,11 +53,12 @@ function half(x) {
   const L = (u, v) => u + (v - u) * c;
   return [
     [0, bot, 0], [0.6 * W, bot, 1], [0.6 * W, ay, 1], [0.955 * W, p2y, a > bot ? 1 : 0], [W, p3y, 0], [0.975 * W, belt - 0.018, 0],
-    [0.9 * W, belt + 0.012, 0], [L(0.8, 0.75) * W, L(belt + 0.004, belt + 0.05), 0],
-    [L(0.52, 0.66) * W, L((belt + top) / 2 + 0.006, top - 0.075), 0], [L(0.25, 0.43) * W, top - L(0.003, 0.012), 0], [0, top, 0]];
+    [0.9 * W, belt + 0.012, 0], [L(0.8, 0.79) * W, L(belt + 0.004, belt + 0.035), 0],        // glass base (window sill)
+    [L(0.52, 0.71) * W, L((belt + top) / 2 + 0.006, top - 0.085), 0],                              // near-upright side glass
+    [L(0.25, 0.5) * W, top - L(0.003, 0.012), 0], [0, top, 0]];
 }
 // edge h (between half points h and h+1) -> what it is
-const H_UNDER = [0, 1, 2], H_SIDEGLASS = 8, H_TOP = [9, 10];
+const H_UNDER = [0, 1, 2], H_SIDEGLASS = 7, H_TOP = [8, 9];   // edge h joins half points h and h+1
 const N_HALF = 11, K = 4;                            // control points per half, samples per edge
 
 function ring(x) {
@@ -117,7 +118,7 @@ function bodyGeometry(THREE) {
 
 function wheel(THREE, mat, r, w, front) {
   const grp = new THREE.Group(), spin = new THREE.Group(); grp.add(spin);
-  const rr = r * 0.66, prof = [];                     // tyre: lathe of a rounded section (sidewall bulge, flat tread)
+  const rr = r * 0.72, prof = [];                     // tyre: lathe of a rounded section (sidewall bulge, flat tread)
   const N = 10;
   for (let i = 0; i <= N; i++) { const a = -Math.PI / 2 + Math.PI * i / N; prof.push(new THREE.Vector2(rr + (r - rr) * (0.55 + 0.45 * Math.cos(a)) + 0.012 * Math.cos(a) ** 8, w / 2 * Math.sin(a) * (0.92 + 0.08 * Math.cos(a)))); }
   const tyre = new THREE.Mesh(new THREE.LatheGeometry(prof, 36), mat(ID.TYRE, { spec: 0.1 })); tyre.rotation.x = Math.PI / 2;
@@ -125,9 +126,11 @@ function wheel(THREE, mat, r, w, front) {
   const out = w / 2 - 0.035;
   const barrel = new THREE.Mesh(new THREE.CylinderGeometry(rr * 0.98, rr * 0.98, w * 0.8, 28, 1, true), mat(ID.DARK, { side: 2 }));
   barrel.rotation.x = Math.PI / 2; spin.add(barrel);
-  const disc = new THREE.Mesh(new THREE.CylinderGeometry(rr * 0.78, rr * 0.78, 0.03, 24), mat(ID.METAL, { level: 0.75 }));
-  disc.rotation.x = Math.PI / 2; disc.position.z = out - 0.11; grp.add(disc);   // brake disc (doesn't spin with the camera-facing spokes)
-  const lip = new THREE.Mesh(new THREE.TorusGeometry(rr * 0.97, 0.018, 6, 36), mat(ID.RIM, { spec: 0.8 })); lip.position.z = out; spin.add(lip);
+  const disc = new THREE.Mesh(new THREE.CylinderGeometry(rr * 0.78, rr * 0.78, 0.03, 24), mat(ID.METAL, { level: 0.45 }));
+  disc.rotation.x = Math.PI / 2; disc.position.z = out - 0.11; grp.add(disc);   // dark brake disc: spoke gaps read as gaps
+  const cal = new THREE.Mesh(new RoundedBoxGeometry(0.1, 0.2, 0.07, 2, 0.03), mat(ID.TAIL, { spec: 0.5 }));   // red caliper (does not spin)
+  cal.position.set(front ? -rr * 0.55 : rr * 0.55, rr * 0.3, out - 0.08); cal.rotation.z = front ? 0.5 : -0.5; grp.add(cal);
+  const lip = new THREE.Mesh(new THREE.TorusGeometry(rr * 0.96, 0.024, 6, 36), mat(ID.RIM, { spec: 1.0, level: 1.15 })); lip.position.z = out; spin.add(lip);
   const hub = new THREE.Mesh(new THREE.CylinderGeometry(rr * 0.2, rr * 0.24, 0.05, 12), mat(ID.RIM, { spec: 0.8 }));
   hub.rotation.x = Math.PI / 2; hub.position.z = out - 0.01; spin.add(hub);
   for (let k = 0; k < 5; k++) {                       // 5 split spokes, tapered, slightly dished
@@ -151,25 +154,26 @@ export function buildCoupe(THREE, mat) {
 
   const ray = new THREE.Raycaster(), hit = (o, d) => { ray.set(new THREE.Vector3(...o), new THREE.Vector3(...d).normalize()); return ray.intersectObject(body)[0]; };
   body.updateMatrixWorld(true);
-  const stick = (mesh, o, d, lift = 0.004) => {         // place a part flush on the body surface, facing out
+  const stick = (mesh, o, d, lift = 0.004, upright = false) => {   // place a part flush on the body surface, facing out
     const h = hit(o, d); if (!h) return null;
-    const n = h.face.normal.clone(); mesh.position.copy(h.point).addScaledVector(n, lift);
+    const n = upright ? new THREE.Vector3(...d).negate().normalize() : h.face.normal.clone(); mesh.position.copy(h.point).addScaledVector(n, lift);
     mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), n); shell.add(mesh); return h;
   };
 
   // round headlights with a bezel and an inner lens ring
   for (const s of [1, -1]) {
     const lamp = new THREE.Group();
-    lamp.add(new THREE.Mesh(new THREE.CircleGeometry(0.12, 24), mat(ID.HEAD, { kind: 0, spec: 1.2 })));
-    const bez = new THREE.Mesh(new THREE.TorusGeometry(0.122, 0.016, 6, 28), mat(ID.RIM, { spec: 0.8 })); lamp.add(bez);
-    const core = new THREE.Mesh(new THREE.CircleGeometry(0.05, 16), mat(ID.HEAD, { kind: 3, level: 1.2 })); core.position.z = 0.004; lamp.add(core);
-    stick(lamp, [3, 0.66, s * 0.6], [-1, -0.25, 0], 0.01);
-    // small amber-free indicator / intake slot below
-    const slot = new THREE.Mesh(new RoundedBoxGeometry(0.3, 0.07, 0.02, 2, 0.02), mat(ID.DARK));
-    stick(slot, [3, 0.37, s * 0.48], [-1, 0, 0], 0.0);
+    lamp.add(new THREE.Mesh(new THREE.CircleGeometry(0.13, 24), mat(ID.HEAD, { kind: 0, spec: 0.6, level: 0.7 })));   // dark lens
+    const bez = new THREE.Mesh(new THREE.TorusGeometry(0.135, 0.02, 6, 28), mat(ID.RIM, { spec: 0.8 })); lamp.add(bez);
+    const drl = new THREE.Mesh(new THREE.TorusGeometry(0.085, 0.016, 4, 24), mat(ID.HEAD, { kind: 3, level: 1.25 })); drl.position.z = 0.004; lamp.add(drl);
+    const core = new THREE.Mesh(new THREE.CircleGeometry(0.032, 12), mat(ID.HEAD, { kind: 3, level: 0.95 })); core.position.z = 0.006; lamp.add(core);
+    stick(lamp, [3, 0.62, s * 0.6], [-1, 0, 0], 0.012);
+    const ind = new THREE.Mesh(new RoundedBoxGeometry(0.16, 0.04, 0.03, 2, 0.015), mat(ID.TAIL, { kind: 3, level: 1.1 }));   // slim side lamp
+    stick(ind, [3, 0.5, s * 0.68], [-1, 0, 0], 0.0, true);
+    const duct = new THREE.Mesh(new RoundedBoxGeometry(0.26, 0.09, 0.05, 2, 0.04), mat(ID.DARK)); stick(duct, [3, 0.36, s * 0.47], [-1, 0, 0], 0.0, true);
   }
-  // front grille-less splitter mouth
-  const mouth = new THREE.Mesh(new RoundedBoxGeometry(0.62, 0.08, 0.02, 2, 0.03), mat(ID.DARK)); stick(mouth, [3, 0.33, 0], [-1, 0, 0], 0.0);
+  const mouth = new THREE.Mesh(new RoundedBoxGeometry(0.36, 0.07, 0.05, 2, 0.03), mat(ID.DARK)); stick(mouth, [3, 0.34, 0], [-1, 0, 0], 0.0, true);
+  const lip = new THREE.Mesh(new RoundedBoxGeometry(0.08, 0.03, 1.4, 2, 0.012), mat(ID.DARK)); lip.position.set(2.0, 0.22, 0); shell.add(lip);
 
   // taillight bar: tube through surface points across the tail
   const tp = [];
@@ -178,9 +182,9 @@ export function buildCoupe(THREE, mat) {
   // rear diffuser + twin exhaust tips
   const diff = new THREE.Mesh(new RoundedBoxGeometry(0.12, 0.12, 1.2, 2, 0.03), mat(ID.DARK)); diff.position.set(-2.1, 0.3, 0); shell.add(diff);
   for (const s of [1, -1]) {
-    const ex = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.05, 0.22, 16, 1, true), mat(ID.METAL, { spec: 1.0, side: 2 }));
-    ex.rotation.z = Math.PI / 2; ex.position.set(-2.14, 0.29, s * 0.17); shell.add(ex);
-    const inner2 = new THREE.Mesh(new THREE.CircleGeometry(0.045, 12), mat(ID.DARK)); inner2.rotation.y = -Math.PI / 2; inner2.position.set(-2.2, 0.29, s * 0.17); shell.add(inner2);
+    const ex = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.07, 0.24, 16, 1, true), mat(ID.METAL, { spec: 1.0, side: 2, level: 1.1 }));
+    ex.rotation.z = Math.PI / 2; ex.position.set(-2.15, 0.3, s * 0.2); shell.add(ex);
+    const inner2 = new THREE.Mesh(new THREE.CircleGeometry(0.06, 12), mat(ID.DARK)); inner2.rotation.y = -Math.PI / 2; inner2.position.set(-2.22, 0.3, s * 0.2); shell.add(inner2);
   }
   // duck-tail spoiler: extruded side profile with a gentle bevel
   const sh = new THREE.Shape(); sh.moveTo(0, 0); sh.lineTo(-0.36, 0); sh.quadraticCurveTo(-0.42, 0.02, -0.44, 0.115); sh.lineTo(-0.40, 0.125); sh.quadraticCurveTo(-0.2, 0.07, 0, 0.03); sh.lineTo(0, 0);
@@ -201,16 +205,23 @@ export function buildCoupe(THREE, mat) {
   }
   // mirrors on short stalks
   for (const s of [1, -1]) {
-    const m = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 10), mat(ID.BODY, { spec: 0.45 })); m.scale.set(0.12, 0.065, 0.075);
-    m.position.set(0.62, BELT(0.62) + 0.11, s * (HALFW(0.62) * 0.8 + 0.12)); shell.add(m);
+    const m = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 10), mat(ID.BODY, { spec: 0.45 })); m.scale.set(0.15, 0.055, 0.07);
+    m.position.set(0.6, BELT(0.62) + 0.09, s * (HALFW(0.62) * 0.8 + 0.12)); m.rotation.y = s * 0.15; shell.add(m);
     const glass = new THREE.Mesh(new THREE.CircleGeometry(0.055, 12), mat(ID.GLASS, { spec: 1 })); glass.scale.set(1, 0.9, 1);
     glass.rotation.y = -Math.PI / 2; glass.position.set(0.545, m.position.y, m.position.z); shell.add(glass);
-    const st = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.03, 0.14), mat(ID.DARK)); st.position.set(0.64, BELT(0.62) + 0.06, s * (HALFW(0.62) * 0.8 + 0.04)); shell.add(st);
+    const st = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.025, 0.14), mat(ID.BODY)); st.position.set(0.63, BELT(0.62) + 0.05, s * (HALFW(0.62) * 0.8 + 0.04)); shell.add(st);
   }
   // door shut line + handle (dark slits)
   for (const s of [1, -1]) {
-    const dl = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.36, 0.01), mat(ID.DARK)); stick(dl, [-0.3, 0.55, s * 2], [0, 0, -s], 0.002);
-    const hd = new THREE.Mesh(new RoundedBoxGeometry(0.14, 0.03, 0.012, 2, 0.006), mat(ID.DARK)); stick(hd, [-0.12, 0.7, s * 2], [0, 0, -s], 0.003);
+    for (const [x, h, tilt] of [[0.62, 0.42, -0.12], [-0.62, 0.40, 0.05]]) {   // door front / rear cut lines
+      const dl = new THREE.Mesh(new THREE.BoxGeometry(0.018, h, 0.012), mat(ID.DARK)); dl.rotation.z = tilt; stick(dl, [x, 0.55, s * 2], [0, 0, -s], 0.002);
+    }
+    const hd = new THREE.Mesh(new RoundedBoxGeometry(0.15, 0.035, 0.014, 2, 0.007), mat(ID.DARK)); stick(hd, [-0.42, 0.71, s * 2], [0, 0, -s], 0.003);
+    const intake = new THREE.Group();                 // engine air intake ahead of the rear wheel (a rear-engine cue)
+    const scoop = new THREE.Mesh(new RoundedBoxGeometry(0.42, 0.13, 0.05, 3, 0.05), mat(ID.DARK)); intake.add(scoop);
+    for (let k = 0; k < 3; k++) { const fin = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.012, 0.055), mat(ID.METAL, { level: 0.8 })); fin.position.y = -0.04 + k * 0.04; intake.add(fin); }
+    intake.rotation.z = 0.12; stick(intake, [-0.8, 0.6, s * 2], [0, 0, -s], 0.004);
+    const sill = new THREE.Mesh(new RoundedBoxGeometry(1.5, 0.07, 0.04, 2, 0.02), mat(ID.DARK)); stick(sill, [0.05, 0.27, s * 2], [0, 0, -s], 0.0, true);
   }
 
   // x-ray internals: chassis floor, flat engine BEHIND the rear axle, gearbox ahead of it, axles, driveshafts

@@ -59,7 +59,7 @@ def overlay(cv, t):
     ov.pin(cv, t, 2.45, 4.8, 'ENGINE', anc(t, 'engine'), follow('engine', 300, 0.6), 760, ORG, grid=8)
     ov.pin(cv, t, 2.85, 4.8, 'REAR AXLE', anc(t, 'rear_axle'), follow('rear_axle', 640, 0.6), 940, TEAL, grid=8)
     ov.pin(cv, t, 8.45, 10.8, 'OVERSTEER', anc(t, 'tail'), follow('tail', 600, 0.4), 800, RED, grid=8)
-    ov.pin(cv, t, 11.3, 13.8, 'WIDER REAR TYRES', anc(t, 'rear_tyre') if t < 12.5 else anc(t, 'rear_tyre_l'), 480, 780, YEL, grid=8)
+    ov.pin(cv, t, 11.3, 13.8, 'WIDER REAR TYRES', anc(t, 'rear_tyre'), 480, 780, YEL, grid=8)
     ov.pin(cv, t, 12.7, 13.8, 'ELECTRONICS', None, 690, 960, TEAL, sz=54, icon='chip', grid=8)
     ov.poll(cv, t, 14.05, 15.5, 'Front engine or rear engine?', ov.SAFE_CX, 760, 0.9,
             opts=(('FRONT', GRN), ('REAR', YEL)))

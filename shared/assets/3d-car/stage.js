@@ -16,7 +16,7 @@ export function stage(canvas) {
   const camera = new THREE.PerspectiveCamera(34, SW / SH, 0.05, 80); scene.add(camera);
 
   // rig: target, yaw (deg; 0 = camera on +z, 90 = in front of the car), pitch (deg), dist, fov, shift (target's NDC drop)
-  function shoot({ target = [0, 0.55, 0], yaw = 30, pitch = 12, dist = 11, fov = 34, shift = 0.5, roll = 0 }) {
+  function shoot({ target = [0, 0.55, 0], yaw = 30, pitch = 12, dist = 11, fov = 34, shift = 0.5, shiftX = 0, roll = 0 }) {
     const y = THREE.MathUtils.degToRad(yaw), p = THREE.MathUtils.degToRad(pitch);
     camera.fov = fov; camera.position.set(target[0] + Math.sin(y) * Math.cos(p) * dist, target[1] + Math.sin(p) * dist, target[2] + Math.cos(y) * Math.cos(p) * dist);
     camera.up.set(Math.sin(THREE.MathUtils.degToRad(roll)), 1, 0).normalize(); camera.lookAt(...target);
@@ -24,7 +24,7 @@ export function stage(canvas) {
     const hx = Math.sin(y), hz = Math.cos(y), rx = Math.cos(y), rz = -Math.sin(y);
     U.uKey.value.set(hx * 0.7 - rx * 0.6, 0.85, hz * 0.7 - rz * 0.6).normalize();
     U.uRim.value.set(-hx * 0.8 + rx * 0.5, 0.35, -hz * 0.8 + rz * 0.5).normalize();
-    camera.updateProjectionMatrix(); camera.projectionMatrix.elements[9] = shift;
+    camera.updateProjectionMatrix(); camera.projectionMatrix.elements[9] = shift; camera.projectionMatrix.elements[8] = -shiftX;   // lens shift (NDC)
     camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert(); camera.updateMatrixWorld(true);
   }
   const v = new THREE.Vector3();

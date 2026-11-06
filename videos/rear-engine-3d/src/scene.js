@@ -41,7 +41,7 @@ export function build(canvas) {
     U.uTime.value = t;
     if (t < 1 || t >= 14) {                                      // fast orbit (loops: 16 s == 0 s)
       const tau = t < 1 ? t : t - 16;
-      rig = { target: [-0.15, 0.5, 0], yaw: 35 - 82 * tau, pitch: 11 + 2 * tau, dist: 10.8 + 0.5 * tau, fov: 34 };
+      rig = { target: [-0.15, 0.5, 0], yaw: 35 - 82 * tau, pitch: 11 + 2 * tau, dist: 11.4 + 0.5 * tau, fov: 34, shiftX: 0.16 };
       point = t >= 14 ? null : 'engine'; shrug = ss(14.1, 14.4, t) * (1 - ss(15.6, 15.9, t));
     } else if (t < 2) {                                          // rear 3/4, low: tail, duck tail, exhausts
       const tau = t - 1; rig = { target: [-1.45, 0.6, 0], yaw: -132 + 30 * tau, pitch: 14, dist: 7.4 - 0.7 * tau, fov: 34 };
@@ -58,7 +58,7 @@ export function build(canvas) {
       const tau = t - 5, s = 1.5 * tau + 3.2 * tau * tau;
       floorOff = s; backRot = -s / 15; pose = { spin: s / DIM.rR, squat: 0.032 * ss(0, 0.5, tau) * (1 - 0.3 * ss(2.2, 3, tau)), hot: tau > 0.55 ? 1 : 0 };
       arrowOn = ss(0.15, 0.45, tau);
-      if (t < 6.5) { rig = { target: [0, 0.55, 0], yaw: 180 + 4 * tau, pitch: 5, dist: 13.6, fov: 34 }; point = 'rear_tyre_l'; guyAt = [0.13, 0.985]; }
+      if (t < 6.5) { rig = { target: [0, 0.55, 0], yaw: 180 + 4 * tau, pitch: 5, dist: 13.6, fov: 34, shiftX: 0.12 }; point = 'rear_tyre_l'; guyAt = [0.13, 0.985]; }
       else { const u = t - 6.5; rig = { target: [-1.25, 0.6, -0.55], yaw: -150 + 10 * u, pitch: 11, dist: 3.9 - 0.35 * u, fov: 34 }; point = 'rear_tyre_l'; }
     } else if (t < 11) {                                         // top-down corner, tail swings out
       const tau = t - 8, c = corner(tau);
@@ -69,7 +69,7 @@ export function build(canvas) {
       const tau = t - 11; pose = { spin: 0.6 * tau };
       rig = { target: [-1.18, 0.38, 0.82], yaw: -24 + 9 * tau, pitch: 7, dist: 2.6 - 0.25 * tau, fov: 34, shift: 0.38 }; point = 'rear_tyre';
     } else {                                                     // low rear: wide rear stance + electronics chip
-      const tau = t - 12.5; rig = { target: [-1.4, 0.5, 0], yaw: -100 + 14 * tau, pitch: 9, dist: 7.0 - 0.5 * tau, fov: 34 }; point = 'rear_tyre';
+      const tau = t - 12.5; rig = { target: [-1.4, 0.5, 0], yaw: -100 + 14 * tau, pitch: 9, dist: 7.0 - 0.5 * tau, fov: 34, shiftX: 0.14 }; point = 'rear_tyre';
     }
     car.group.position.copy(carPos); car.group.rotation.y = carYaw;
     car.pose({ ...pose, xray: xray > 0, glowPulse: 0.12 + 0.1 * Math.sin(t * 9) });

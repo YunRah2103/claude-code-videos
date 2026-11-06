@@ -6,7 +6,8 @@
 import * as THREE from 'three';
 
 export const ID = { BODY: 1, GLASS: 2, TYRE: 3, RIM: 4, DARK: 5, HEAD: 6, TAIL: 7, METAL: 8, GLOW: 9, SAND: 10,
-  BACK: 11, ARROW: 12, HOT: 13, SKIN: 14, HAIR: 15, SHIRT: 16, JEANS: 17, SAND_LINE: 18, SKID: 19, BACK_LAMP: 20 };
+  BACK: 11, ARROW: 12, HOT: 13, SKIN: 14, HAIR: 15, SHIRT: 16, JEANS: 17, SAND_LINE: 18, SKID: 19, BACK_LAMP: 20,
+  SPECS: 21, EYE: 22 };   // face details: never outlined (they are 1-2 px at 135x240)
 
 export const U = {                                   // shared uniforms (one object: set once per frame)
   uMode: { value: 0 }, uNear: { value: 0.1 }, uFar: { value: 60 },
