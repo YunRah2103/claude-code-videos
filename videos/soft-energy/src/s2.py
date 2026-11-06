@@ -328,7 +328,7 @@ def icon(c, t):
         _bowl_at(c, CREAM, st)
     if 0.3 < u < 0.78:  # noodles lifted out of the bowl
         p = (u - 0.3) / 0.48
-        for i, x in enumerate(range(66, 84, 2)):
+        for i, x in enumerate(range(62, 102, 2)):
             drop = max(0.0, p - 0.35) * (1.2 + 0.9 * abs(math.sin(i * 2.3)))
             rise = min(1.0, p / 0.3)
             top = 103 - int((40 - 4 * (i % 3)) * rise * max(0, 1 - drop))
@@ -338,8 +338,8 @@ def icon(c, t):
     if 0.87 < u < 1.55:  # bubbles rise and pop
         p = (u - 0.87) / 0.68
         rr = np.random.default_rng(4)
-        for k in range(9):
-            bx = 62 + int(rr.integers(0, 34)); by0 = 92 - int(rr.integers(0, 12))
+        for k in range(12):
+            bx = 58 + int(rr.integers(0, 46)); by0 = 96 - int(rr.integers(0, 16))
             d0 = rr.uniform(0, .45)
             q = (p - d0) / 0.55
             if 0 < q < 1:
@@ -393,8 +393,10 @@ BANNER_SEQ = _banner_seq()
 def banner(c, t):
     x0, x1, y0, y1 = 246, 283, 0, 96
     c.rect(x0, y0, x1, y1, '#e40808')
-    for y in range(y0, y1 + 1, 2):
-        c.rect(x0, y, x1, y, '#b00404')
+    roll = int(t * 30) % 3
+    for y in range(y0, y1 + 1):
+        if (y + roll) % 3 == 0:
+            c.rect(x0, y, x1, y, '#cc0606')
     c.rect(x0, y1 - 1, x1, y1, '#c40000')
     sub = Canvas(x1 - x0 + 1, y1 - y0 + 1, (0, 0, 0))
     for (name, y, start, alt) in BANNER_SEQ:
@@ -412,7 +414,9 @@ def banner(c, t):
     reg = a[y0:y1 + 1, x0:x1 + 1]
     reg[on] = m[on]
     # scanline darkening over icons too
-    reg[::2][on[::2]] = (reg[::2][on[::2]] * 0.85).astype(np.uint8)
+    rows = ((np.arange(reg.shape[0]) + roll) % 3 == 0)
+    m2 = on & rows[:, None]
+    reg[m2] = (reg[m2] * 0.72).astype(np.uint8)
     a[y0:y1 + 1, x0:x1 + 1] = reg
     from PIL import Image, ImageDraw
     c.im = Image.fromarray(a); c.d = ImageDraw.Draw(c.im)
@@ -453,7 +457,7 @@ def type_row(c, t):
 
 def lanterns(c, t):
     for i, (x, y) in enumerate([(201, 228), (233, 230)]):
-        f = 0.97 + 0.03 * math.sin(t * 2.2 + i * 2)
+        f = 0.92 + 0.08 * np.random.default_rng(int(t * 30) * 7 + i).random()
         body = mix('#400000', '#ff1414', f)
         c.rect(x + 2, y, x + 12, y + 20, body)
         c.rect(x, y + 3, x + 14, y + 17, body)
@@ -513,10 +517,11 @@ def left_sign(c, t):
     """Vertical block-glyph sign at the far left that cycles colour states."""
     seq = ['#3ae0e0', '#2ee03a', None, '#3ae0e0', '#2ee03a', '#f4ecd0', None]
     ph = int(t / 0.53) % len(seq)
+    sub = int(t * 15)
     col = seq[ph]
     c.rect(0, 280, 11, 314, '#030818')
     c.rect(4, 277, 6, 278, '#ff2020' if col else '#601010')
-    rr = np.random.default_rng(ph * 7 + 3)
+    rr = np.random.default_rng(ph * 7 + 3 + sub * 1000)
     for k in range(5):
         y = 283 + k * 6
         if col is None:
@@ -532,6 +537,18 @@ def blink_dot(c, t):
     c.rect(28, 3, 30, 5, '#ff1010')
 
 
+def shimmer(c, t):
+    a = np.asarray(c.im).copy()
+    reg = a[58:140, 42:124].astype(np.int16)
+    lit = reg[..., 1] > 120
+    rows = ((np.arange(58, 140) + int(t * 30)) % 4 == 0)
+    m = lit & rows[:, None]
+    reg[m] = (reg[m] * 0.82).astype(np.int16)
+    a[58:140, 42:124] = reg.astype(np.uint8)
+    from PIL import Image, ImageDraw
+    c.im = Image.fromarray(a); c.d = ImageDraw.Draw(c.im)
+
+
 class Scene2:
     def __init__(s):
         s.base = Canvas(W, H, '#000000')
@@ -541,6 +558,7 @@ class Scene2:
     def frame(s, t):
         c = s.base.copy()
         icon(c, t)
+        shimmer(c, t)
         banner(c, t)
         yellow_bars(c, t)
         type_row(c, t)

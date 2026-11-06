@@ -25,7 +25,7 @@ def _slat_panel(c, x0, y0, x1, y1):
 def slats(c, x0, y0, x1, y1, t, seed):
     """Lit slats with dim glitch patches drifting slowly downward."""
     rr = np.random.default_rng(seed)
-    patches = [(rr.uniform(0, 1), rr.uniform(8, 18), rr.uniform(18, 30)) for _ in range(3)]
+    patches = [(rr.uniform(0, 1), rr.uniform(8, 20), rr.uniform(24, 40)) for _ in range(4)]
     span = y1 - y0
     for y in range(y0 + 5, y1 - 4, 4):
         dim = False
@@ -365,9 +365,14 @@ def _person(c):
 
 
 def phone(c, t):
-    c.rect(37, 291, 44, 298, '#4ac0f0')
-    c.rect(38, 292, 43, 297, '#c0f0ff')
-    c.rect(39, 294, 42, 294, '#2a6a9a')
+    f = int(t * 30)
+    on = (f // 9) % 4 != 3
+    c.rect(37, 291, 44, 298, '#4ac0f0' if on else '#123a5a')
+    if on:
+        c.rect(38, 292, 43, 297, '#c0f0ff')
+        c.rect(39, 294, 42, 294, '#2a6a9a')
+        if (f // 3) % 2:
+            c.rect(39, 296, 41, 296, '#2a6a9a')
 
 
 SIGN_L = [
@@ -469,7 +474,7 @@ class Scene3:
         c.rect(0, 304, 72, 305, '#0a1c3c')
         c.rect(0, 316, 72, 316, '#06122a')
         s.base = c
-        s.rain = ShortRain(W, H, 95, 21, 4, 14, (240, 330), (0.12, 0.3), 0, 330)
+        s.rain = ShortRain(W, H, 115, 21, 4, 14, (240, 330), (0.12, 0.3), 0, 336)
         r = np.random.default_rng(3)
         s.fog = r.uniform(0, 1, (6, 4))
 
@@ -498,9 +503,9 @@ class Scene3:
         # drifting fog banks
         yy, xx = np.mgrid[0:H, 0:W]
         fog = np.zeros((H, W), np.float32)
-        for (cx, cy, rx, ry, sp) in [(280, 150, 40, 16, 6)]:
+        for (cx, cy, rx, ry, sp) in [(270, 155, 34, 14, 10), (300, 140, 22, 9, 7)]:
             x = (cx + sp * t) % (W + 120) - 60
             fog += np.exp(-(((xx - x) / rx) ** 2 + ((yy - cy) / ry) ** 2))
-        a += fog[..., None] * np.array([8, 22, 50], np.float32) * 0.35
-        s.rain.draw(a, t, '#4a88c8', 0.5)
+        a += fog[..., None] * np.array([10, 26, 56], np.float32) * 0.5
+        s.rain.draw(a, t, '#5a98d8', 0.55)
         return a
