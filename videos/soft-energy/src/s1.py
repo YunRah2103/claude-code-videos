@@ -2,16 +2,16 @@
 import math
 import numpy as np
 from PIL import Image, ImageFilter
-from lib import Canvas, hx, mix, glyph, vgrad, Rain
+from lib import Canvas, hx, mix, glyph, vgrad, Rain, ShortRain
 
 W, H, K = 240, 228, 3
 WL = 141  # waterline
 
-SKY_T, SKY_B = '#24a8c6', '#168db0'
-HILL1, HILL2 = '#1286a8', '#0f7799'
+SKY_T, SKY_B = '#1394b3', '#1ea0bc'
+HILL1, HILL2 = '#1085b3', '#0c7eae'
 WIRE = '#0b3d52'
 TREE_A, TREE_B, TREE_C = '#0a4d63', '#08455c', '#063a4e'
-TOWER = '#042637'
+TOWER = '#022135'
 NEON = '#ff2a4a'
 
 
@@ -19,7 +19,7 @@ def _sky(c):
     vgrad(c, 0, 0, W - 1, 100, SKY_T, SKY_B)
     # far hills, hazy
     c.poly([(0, 40), (12, 41), (30, 46), (48, 52), (60, 58), (60, 100), (0, 100)], HILL1)
-    c.poly([(0, 44), (14, 45), (28, 49), (44, 54), (60, 60), (60, 100), (0, 100)], '#148cad')
+    c.poly([(0, 44), (14, 45), (28, 49), (44, 54), (60, 60), (60, 100), (0, 100)], '#0e80ae')
     c.poly([(40, 72), (58, 66), (75, 63), (92, 64), (110, 70), (125, 74), (125, 100), (40, 100)], HILL1)
     c.poly([(50, 76), (68, 70), (85, 68), (100, 70), (125, 78), (125, 100), (50, 100)], HILL2)
 
@@ -32,7 +32,7 @@ def _trees(c):
         top = 58 + int(r.integers(0, 12)) + int(max(0, x - 25) * 0.16)
         trees.append((x, top, int(r.integers(0, 3))))
         x += int(r.integers(3, 7))
-    cols = ['#0a4357', '#083a4d', '#062f40']
+    cols = ['#043546', '#022b3a', '#01222f']
     for xx in range(0, 122):
         best, k = 999, 0
         for (px, top, ci) in trees:
@@ -48,7 +48,7 @@ def _trees(c):
         xx, yy = int(r.integers(0, 121)), int(r.integers(64, 99))
         p = c.im.getpixel((xx, yy))
         if p in [hx(cc) for cc in cols]:
-            c.px(xx, yy, '#0e5870' if r.random() < .45 else '#04283a')
+            c.px(xx, yy, '#0a4558' if r.random() < .45 else '#011a24')
 
 
 def _pole(c, x, y0, y1, arms):
@@ -63,11 +63,9 @@ def _wires(c):
     # bundle from upper-left falling to the right (towards the tower)
     for i, (y0, y1) in enumerate([(2, 46), (5, 48), (9, 51), (12, 53), (16, 56), (-3, 40)]):
         c.line(0, y0, 130, y1 + 25, WIRE if i % 2 else '#0d4a63')
-        c.line(0, y0 + 1, 130, y1 + 26, '#0f5a75')
     # bundle from upper-right falling to the left
     for i, (xa, xb) in enumerate([(100, 44), (108, 52), (116, 60), (124, 68), (90, 36), (135, 80)]):
         c.line(xa, 0, xb - 10, 96, WIRE if i % 2 else '#0d4a63')
-        c.line(xa + 1, 0, xb - 9, 96, '#0f5a75')
     for i, (xa, xb) in enumerate([(152, 105), (160, 112), (140, 98)]):
         c.line(xa, 0, xb - 30, 96, '#0d4a63')
     # horizontal sagging wires
@@ -87,7 +85,7 @@ def _tower(c):
     vgl = np.asarray(c.im).copy()
     for y in range(0, 60):  # lighter crown above the neon ring
         for x in range(edge(y) + 1, W):
-            f = 0.55 * (1 - y / 30) if y < 30 else 0.06
+            f = 0.35 * (1 - y / 30) if y < 30 else 0.04
             vgl[y, x] = vgl[y, x] * (1 - f) + np.array(hx('#1a7aa0')) * f
     from PIL import Image as _I, ImageDraw as _D
     c.im = _I.fromarray(vgl.astype(np.uint8)); c.d = _D.Draw(c.im)
@@ -137,8 +135,8 @@ def _houses(c):
     # left house
     c.poly([(0, 94), (10, 92), (62, 114), (62, 140), (0, 140)], '#0b4256')
     c.poly([(0, 92), (8, 90), (64, 113), (60, 116), (6, 95), (0, 97)], '#06303f')
-    c.rect(0, 101, 52, 140, '#0f5670')
-    c.rect(0, 101, 52, 102, '#136580')
+    c.rect(0, 101, 52, 140, '#04435f')
+    c.rect(0, 101, 52, 102, '#0a5470')
     for x0 in (25, 35, 43):
         c.rect(x0, 106, x0 + 5, 113, '#053040')
         c.rect(x0 + 2, 106, x0 + 2, 113, '#0f5670')
@@ -155,9 +153,9 @@ def _houses(c):
 
 
 def _store(c):
-    c.rect(62, 96, 150, 140, '#031a22')
-    c.rect(60, 93, 152, 98, '#0f5a74')
-    c.rect(60, 93, 152, 93, '#1a7896')
+    c.rect(62, 96, 150, 140, '#031a20')
+    c.rect(60, 93, 152, 98, '#05435d')
+    c.rect(60, 93, 152, 93, '#0e5a76')
     # roof-top board (tilted)
     c.poly([(91, 75), (114, 67), (114, 90), (93, 97)], '#1c1418')
     c.poly([(91, 75), (114, 67), (114, 69), (91, 77)], '#2a2022')
@@ -167,7 +165,7 @@ def _store(c):
     c.rect(102, 70, 103, 98, '#100c0e')
     c.rect(99, 88, 102, 89, '#3a2c2e')
     # store windows (warm)
-    Y = '#e9e28f'
+    Y = '#ddd47e'
     c.rect(68, 112, 89, 123, '#0d6a84')
     c.rect(69, 113, 74, 122, Y)
     c.rect(76, 113, 85, 117, Y)
@@ -176,10 +174,13 @@ def _store(c):
     c.rect(97, 112, 107, 138, '#0d6a84')
     c.rect(98, 113, 106, 120, Y)
     c.rect(99, 116, 104, 117, '#3a8a9a')
-    c.rect(98, 123, 106, 137, Y)
-    c.rect(112, 112, 122, 123, '#0d6a84')
-    c.rect(113, 113, 121, 122, Y)
-    c.rect(115, 116, 118, 120, '#2b5e6a')
+    c.rect(98, 123, 106, 129, Y)
+    c.rect(98, 131, 106, 137, '#9a9a5a')
+    c.rect(112, 112, 131, 123, '#0d6a84')
+    c.rect(113, 113, 130, 122, Y)
+    c.rect(115, 117, 117, 122, '#2b4e5a')
+    c.rect(119, 116, 126, 120, '#2b4e5a')
+    c.rect(121, 117, 124, 119, Y)
     c.rect(66, 102, 70, 103, '#3a8aa8')
     c.rect(66, 105, 70, 106, '#3a8aa8')
     c.rect(66, 108, 70, 108, '#3a8aa8')
@@ -188,7 +189,7 @@ def _store(c):
     c.rect(56, 128, 76, 138, '#1b1015')
     glyph(c, 57, 130, ['#.#.###.##.##', '#.#.#.#.#.#.#', '#.#.###.#.#.#', '#.#.#...#.#.#', '#.#.#...##.##'], '#7aa8b8')
     # ICE freezer
-    c.rect(75, 121, 92, 140, '#2f7fa8')
+    c.rect(75, 121, 92, 140, '#2a6f94')
     c.rect(75, 121, 92, 122, '#4fa0c8')
     c.rect(78, 124, 88, 128, '#1d5f80')
     c.rect(79, 125, 87, 127, '#3f8fb8')
@@ -204,21 +205,30 @@ def _store(c):
 
 
 def _car(c):
-    B, D, L = '#2f86b0', '#0b2d3e', '#57b0d0'
-    c.poly([(14, 122), (22, 116), (40, 116), (46, 122)], '#1d6a90')
-    c.rect(16, 117, 44, 118, '#081f2c')
-    c.rect(11, 115, 31, 116, '#0a3346')  # roof rack
-    c.poly([(18, 121), (24, 117), (31, 117), (31, 121)], L)
-    c.poly([(33, 117), (40, 117), (44, 121), (33, 121)], '#3c95bb')
-    c.rect(4, 122, 52, 133, D)
-    c.rect(4, 129, 52, 131, B)
-    c.rect(6, 123, 50, 124, '#174f6c')
-    c.rect(4, 125, 6, 127, '#c43a4a')
-    c.rect(50, 125, 52, 127, '#d6c070')
-    c.rect(53, 128, 56, 131, '#e9e28f')  # head-light glow
-    c.rect(18, 129, 26, 130, '#7cc4dc')
-    c.rect(8, 134, 13, 138, '#03141c')
-    c.rect(40, 134, 45, 138, '#03141c')
+    """Station wagon seen from the rear three-quarter, roof rack on top."""
+    # roof rack load
+    c.rect(16, 110, 36, 110, '#0a2836')
+    for x in (17, 24, 31, 36):
+        c.rect(x, 110, x, 116, '#0a2836')
+    c.line(19, 112, 33, 108, '#0e3446')
+    # cabin
+    c.poly([(10, 123), (18, 116), (42, 116), (47, 123)], '#0f3a50')
+    c.poly([(14, 122), (20, 117), (40, 117), (44, 122)], '#1c6888')
+    c.line(22, 121, 26, 117, '#3e94b6'); c.line(30, 121, 34, 117, '#3e94b6')
+    c.rect(28, 117, 28, 122, '#0f3a50')
+    c.rect(40, 118, 42, 121, '#c8c070')
+    # body
+    c.rect(3, 123, 50, 136, '#0b2a3a')
+    c.rect(3, 123, 50, 123, '#2a7090')
+    c.rect(4, 130, 48, 131, '#3a8aa8')
+    c.rect(12, 125, 30, 128, '#082230')
+    c.rect(15, 126, 27, 127, '#174a62')
+    c.rect(44, 123, 50, 135, '#235f7c')
+    c.rect(47, 125, 49, 128, '#d0c878')
+    c.rect(3, 125, 6, 128, '#b03040')
+    c.rect(3, 133, 50, 135, '#06141c')
+    c.rect(7, 136, 12, 140, '#020c12')
+    c.rect(38, 136, 44, 140, '#020c12')
 
 
 def _ground(c):
@@ -246,51 +256,70 @@ def build():
 class Scene1:
     def __init__(s):
         s.base = build()
-        s.rain = Rain(W, H, 70, 11, 5, 14, (330, 430))
-        s.rain_far = Rain(W, H, 60, 12, 2, 6, (220, 300))
+        s.rain = ShortRain(W, H, 60, 11, 6, 16, (300, 420), (0.12, 0.3), 0, WL + 3)
+        s.rain_far = ShortRain(W, H, 40, 12, 2, 6, (200, 280), (0.1, 0.25), 0, WL)
         r = np.random.default_rng(5)
         s.ph = r.uniform(0, 6.28, H)
 
     def frame(s, t):
         c = s.base.copy()
-        flick = 1.0 if (int(t * 30) % 47) not in (3, 4, 19) else 0.55
+        flick = 0.92 + 0.08 * math.cos(2 * math.pi * (t - 0.6) / 1.85)  # slow breathing pulse
         neon_ring(c, flick)
         a = c.arr()
         top = a[:WL].copy()
         # reflection: flipped, rippled, darkened
         out = a.copy()
         for y in range(WL, H):
-            sy = 2 * WL - y - 1
+            sy = 2 * 135 - y
             if sy < 0:
                 sy = 0
             d = (y - WL) / (H - WL)
             amp = 0.6 + 2.6 * d
-            off = int(round(amp * 1.4 * math.sin(t * 2.3 + y * 0.9 + s.ph[y]) + amp * 0.5 * math.sin(t * 5.1 + y * 2.1)))
+            off = int(round(amp * 0.7 * math.sin(t * 1.6 + y * 0.9 + s.ph[y]) + amp * 0.25 * math.sin(t * 3.1 + y * 2.1)))
             row = np.roll(top[sy], off, axis=0)
-            dark = 0.28 * (1 - d) ** 1.6 + 0.04
-            base = np.array(mix('#03283a', '#011824', d), np.float32)
-            out[y] = base * (1 - dark) + row * dark * np.array([0.6, 0.85, 0.95])
+            dark = 0.42 * (1 - d) ** 2.2 + 0.03
+            base = np.array(mix('#001c26', '#00263a', d / 0.3) if d < 0.3 else mix('#00263a', '#002134', (d - 0.3) / 0.7), np.float32)
+            k = dark * (0.45 if y % 2 else 1.0)
+            out[y] = base * (1 - k) + row * k * np.array([0.55, 0.9, 0.75])
         # broken shimmer lines on reflection
-        rr = np.random.default_rng(int(t * 12))
-        for _ in range(26):
+        rr = np.random.default_rng(int(t * 3))
+        for _ in range(14):
             y = int(rr.integers(WL + 2, H - 10))
             x = int(rr.integers(0, W - 12))
             ln = int(rr.integers(2, 9))
             out[y, x:x + ln] = out[y, x:x + ln] * 0.75 + np.array(hx('#0b4e66')) * 0.25
-        # neon reflection ripple (bottom right)
-        for k in range(60):
-            x = 128 + k * 1.7
-            y = 196 + 0.12 * k + 2.5 * math.sin(k * 0.7 + t * 6)
-            yy, xx = int(y), int(x)
-            if 0 <= xx < W and WL < yy < H:
-                f = 0.5 + 0.3 * math.sin(k * 1.3 + t * 9)
-                out[yy, xx] = out[yy, xx] * (1 - f) + np.array(hx('#c0304e')) * f
-                if yy + 1 < H:
-                    out[yy + 1, xx] = out[yy + 1, xx] * (1 - f * .5) + np.array(hx('#8a2040')) * f * .5
-        s.rain_far.draw(out, t, '#4fb7d6', 0.35, WL)
-        s.rain.draw(out, t, '#8fe6ff', 0.75, WL + 3)
+        # neon reflection ripple: appears only briefly (as in the source clip)
+        vis = 0.0
+        if 0.43 <= t < 0.87:
+            vis = 0.45 + 0.55 * (t - 0.43) / 0.44
+        elif 2.2 <= t < 2.5:
+            vis = 1.0
+        if vis > 0:
+            for k in range(84):
+                x = 133 + k
+                yb = 190 + 0.18 * k
+                fade = (1 - k / 95) * vis
+                hgt = 2 + int(3 * abs(math.sin(k * 1.9 + t * 7)))
+                for j in range(hgt):
+                    if (k * 3 + j) % 5 == 4:
+                        continue
+                    yy, xx = int(yb + j - hgt // 2 + math.sin(k * 0.8) * 1.2), x
+                    if WL < yy < H and xx < W:
+                        f = 0.7 * fade
+                        out[yy, xx] = out[yy, xx] * (1 - f) + np.array(hx('#c03060')) * f
+            if t >= 2.2:  # brighter blob where the ripple starts
+                for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1), (2, 0), (-1, 1)]:
+                    out[190 + dy, 133 + dx] = out[190 + dy, 133 + dx] * 0.4 + np.array(hx('#d03868')) * 0.6
+        # small blue splash glow on the water
+        for dy in range(-4, 5):
+            for dx in range(-3, 4):
+                if abs(dx) + abs(dy) * 0.7 <= 3.2 and (dx + dy) % 2 == 0:
+                    out[213 + dy, 163 + dx] = out[213 + dy, 163 + dx] * 0.55 + np.array(hx('#1a5a9a')) * 0.45
+        s.rain_far.draw(out, t, '#4fb7d6', 0.35)
+        s.rain.draw(out, t, '#8fe6ff', 0.7)
         # rain splashes on water
-        for _ in range(8):
-            x = int(rr.integers(0, W)); y = int(rr.integers(WL + 4, H - 4))
+        rs = np.random.default_rng(int(t * 30) + 999)
+        for _ in range(4):
+            x = int(rs.integers(0, W)); y = int(rs.integers(WL + 4, H - 4))
             out[y, max(0, x - 1):x + 2] = out[y, max(0, x - 1):x + 2] * 0.5 + np.array(hx('#2b6f88')) * 0.5
         return out

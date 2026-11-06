@@ -16,9 +16,10 @@ from lib import upscale, bloom, vignette
 FPS, OW, OH = 30, 720, 682
 DUR = 8.2
 CUTS = [(0, 75, 's1', 3), (75, 166, 's2', 2), (166, 246, 's3', 2)]  # frame ranges per scene
-BLOOM = {'s1': (160, 7, 0.5), 's2': (175, 7, 0.4), 's3': (130, 7, 0.75)}
+BLOOM = {'s1': (185, 7, 0.45), 's2': (175, 6, 0.28), 's3': (130, 7, 0.75)}
+NOBLOOM = {'s2': [(150, 492, 290, 604)]}
 _scenes = {}
-VIG = vignette(OH, OW, 0.35)
+VIG = vignette(OH, OW, 0.08)
 
 
 def scene(name):
@@ -35,7 +36,10 @@ def frame(i):
             arr = np.clip(scene(name).frame(t), 0, 255).astype(np.uint8)
             img = upscale(arr, k)[:OH, :OW].astype(np.float32)
             th, rad, gain = BLOOM[name]
+            src = img.copy()
             img = bloom(img, th, rad, gain) * VIG
+            for (x0, y0, x1, y1) in NOBLOOM.get(name, []):  # keep these areas crisp like the source
+                img[y0:y1, x0:x1] = src[y0:y1, x0:x1] * VIG[y0:y1, x0:x1]
             return np.clip(img, 0, 255).astype(np.uint8)
     raise ValueError(i)
 

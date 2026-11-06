@@ -135,3 +135,37 @@ class Rain:
                 if 0 <= yy < ymax:
                     f = alpha * br * (0.45 + 0.55 * k / max(1, l - 1))
                     a[yy, xi] = a[yy, xi] * (1 - f) + col * f
+
+
+class ShortRain:
+    """Rain streaks that live briefly (spawn, fall a short way, vanish) like the source clip."""
+
+    def __init__(s, w, h, n, seed, lmin=4, lmax=12, speed=(250, 350), life=(0.12, 0.35), ymin=0, ymax=None):
+        r = np.random.default_rng(seed)
+        s.w, s.h, s.n, s.seed = w, h, n, seed
+        s.period = r.uniform(0.5, 1.3, n)
+        s.phase = r.uniform(0, 2, n)
+        s.lmin, s.lmax, s.speed, s.life = lmin, lmax, speed, life
+        s.ymin, s.ymax = ymin, (h if ymax is None else ymax)
+
+    def draw(s, a, t, col, alpha=0.7, xr=None):
+        col = np.array(hx(col) if isinstance(col, str) else col, np.float32)
+        for i in range(s.n):
+            tt = t + s.phase[i]
+            k = int(tt // s.period[i])
+            local = tt - k * s.period[i]
+            r = np.random.default_rng((s.seed * 1000003 + i * 7919 + k) & 0x7fffffff)
+            life = r.uniform(*s.life)
+            x = int(r.uniform(*(xr or (0, s.w))))
+            y0 = r.uniform(s.ymin - 10, s.ymax - 20)
+            v = r.uniform(*s.speed)
+            l = int(r.integers(s.lmin, s.lmax + 1))
+            br = r.uniform(0.4, 1.0)
+            if local > life:
+                continue
+            y = y0 + v * local
+            for j in range(l):
+                yy = int(y) + j
+                if s.ymin <= yy < s.ymax and 0 <= x < s.w:
+                    f = alpha * br * (0.4 + 0.6 * j / max(1, l - 1))
+                    a[yy, x] = a[yy, x] * (1 - f) + col * f

@@ -44,34 +44,34 @@ def text(c, x, y, s, col, gap=2):
 
 
 def _bg(c):
-    vgrad(c, 0, 0, W - 1, H - 1, '#01051a', '#040e34')
+    vgrad(c, 0, 0, W - 1, H - 1, '#00021a', '#010a2a')
     r = np.random.default_rng(2)
     # distant blue-lit buildings at both sides
-    c.rect(0, 70, 22, 340, '#050f30')
-    c.rect(2, 120, 20, 340, '#06143c')
+    c.rect(0, 70, 22, 340, '#001028')
+    c.rect(2, 120, 20, 340, '#00142c')
     for y in range(125, 300, 6):
         c.rect(4, y, 18, y + 1, '#08184a')
-    c.rect(300, 60, 359, 340, '#040a28')
+    c.rect(300, 60, 359, 340, '#020106')
     c.poly([(290, 175), (359, 165), (359, 200), (300, 205)], '#0b2466')
     c.rect(339, 150, 352, 340, '#081e4c')
     c.rect(341, 150, 343, 340, '#123a7a')
     for y in range(160, 330, 14):
         c.rect(336, y, 355, y + 1, '#0a2a66')
     # main building mass
-    c.rect(22, 8, 338, 336, '#07040a')
-    c.rect(330, 100, 340, 336, '#06030a')
+    c.rect(22, 8, 338, 336, '#030104')
+    c.rect(330, 100, 340, 336, '#030104')
     # subtle panel texture + warm red spill near the neon
     for _ in range(900):
         x, y = int(r.integers(22, 338)), int(r.integers(8, 336))
         d = math.hypot(x - 110, y - 100)
-        col = mix('#0b060e', '#2a0606', max(0, 1 - d / 140))
+        col = mix('#050206', '#1a0404', max(0, 1 - d / 140))
         c.rect(x, y, x + int(r.integers(1, 6)), y, col)
     for y in range(70, 150, 9):
-        c.rect(24, y, 100, y, '#120a14')
+        c.rect(24, y, 100, y, '#0a050c')
     c.poly([(20, 55), (100, 52), (100, 70), (12, 74)], '#0c0710')
     c.poly([(8, 70), (60, 66), (60, 82), (8, 86)], '#09060c')
     # open night sky top-right and top-left, with dark rooftop clutter
-    sky = Canvas(W, H, (0, 0, 0)); vgrad(sky, 0, 0, W - 1, 120, '#061444', '#0c2a72')
+    sky = Canvas(W, H, (0, 0, 0)); vgrad(sky, 0, 0, W - 1, 120, '#00021c', '#020c34')
     c.im.paste(sky.im.crop((290, 0, 360, 88)), (290, 0))
     c.im.paste(sky.im.crop((0, 0, 44, 50)), (0, 0))
     c.rect(296, 36, 350, 37, '#040a24')
@@ -92,14 +92,14 @@ def _bg(c):
     # upper floor: red lit lattice windows
     c.rect(104, 20, 202, 52, '#2a0606')
     for i, x0 in enumerate((106, 140, 172)):
-        c.rect(x0, 23, x0 + 28, 50, '#7a1612')
+        c.rect(x0, 23, x0 + 28, 50, '#541410')
         for gx in range(x0, x0 + 29, 5):
             c.rect(gx, 23, gx, 50, '#4a0a08')
         for gy in range(23, 51, 5):
             c.rect(x0, gy, x0 + 28, gy, '#4a0a08')
         for _ in range(6):
             px, py = x0 + 2 + int(r.integers(0, 5)) * 5, 25 + int(r.integers(0, 5)) * 5
-            c.rect(px, py, px + 2, py + 2, '#a8302a')
+            c.rect(px, py, px + 2, py + 2, '#7a2620')
         c.rect(x0 + 2, 23, x0 + 26, 26, '#140303')
         for k in range(x0 + 3, x0 + 26, 7):
             c.rect(k, 23, k + 3, 28, '#140303')
@@ -128,7 +128,7 @@ def _bg(c):
     c.rect(226, 75, 240, 76, '#2a0404')
     # roof under neon sign
     c.poly([(30, 138), (300, 138), (330, 148), (346, 144), (340, 152), (6, 152), (0, 146), (14, 148)], '#0c0912')
-    c.rect(12, 150, 318, 160, '#08060c')
+    c.rect(12, 150, 318, 160, '#050307')
     for x in range(14, 316, 6):
         c.rect(x, 151, x + 2, 152, '#140d18')
     # carved wood band
@@ -146,37 +146,42 @@ def _bg(c):
     c.poly([(150, 186), (168, 172), (182, 172), (182, 186)], '#7a3a1a')
     c.poly([(154, 186), (168, 175), (176, 175), (176, 186)], '#5a2410')
     # right middle: dark storage and dim shop sign
-    c.rect(190, 162, 300, 188, '#09060a')
+    c.rect(190, 162, 300, 188, '#040205')
     for x in range(254, 300, 7):
         c.rect(x, 190, x + 3, 196, '#3a3a10')
     # blue awning band with text area
     c.poly([(16, 196), (330, 196), (345, 205), (345, 214), (8, 214), (8, 205)], '#070d22')
     c.rect(8, 212, 345, 214, '#0c1a36')
     c.rect(20, 196, 330, 197, '#0c1a36')
-    # striped awning
-    for i, x0 in enumerate(range(36, 190, 14)):
-        col = '#3e240c' if i % 2 == 0 else '#140b08'
-        c.poly([(x0, 218), (x0 + 14, 218), (x0 + 10, 248), (x0 - 4, 248)], col)
-        if i % 2 == 0:
-            c.poly([(x0 + 2, 232), (x0 + 12, 232), (x0 + 10, 248), (x0 - 2, 248)], '#6a4214')
-    c.rect(32, 216, 190, 218, '#0c0806')
+    # awning: bold brown stripes, slanted on the canopy then hanging straight
+    c.rect(30, 216, 192, 250, '#0a0604')
+    for x0 in range(34, 186, 23):
+        c.poly([(x0 + 8, 217), (x0 + 19, 217), (x0 + 11, 233), (x0, 233)], '#4a2c12')
+        c.rect(x0, 233, x0 + 10, 250, '#5a3816')
+        c.rect(x0, 233, x0 + 10, 234, '#6e4618')
+        rr2 = np.random.default_rng(x0)
+        for _ in range(12):
+            px, py = x0 + int(rr2.integers(0, 10)), 220 + int(rr2.integers(0, 29))
+            if py >= 233 or rr2.random() < .4:
+                c.rect(px, py, px + 1, py + 1, '#7a5020' if rr2.random() < .5 else '#3a2208')
     # shop front frame
-    c.rect(40, 248, 188, 306, '#0f0a06')
+    c.rect(40, 248, 188, 306, '#080503')
     # shoji lattice windows (warm, dim)
     for (x0, x1) in [(48, 92), (140, 182)]:
-        c.rect(x0, 252, x1, 300, '#5a420e')
+        c.rect(x0, 252, x1, 300, '#2e2418')
         for gx in range(x0, x1 + 1, 5):
-            c.rect(gx, 252, gx, 300, '#1a1206')
+            c.rect(gx, 252, gx, 300, '#120c08')
         for gy in range(252, 301, 5):
-            c.rect(x0, gy, x1, gy, '#1a1206')
+            c.rect(x0, gy, x1, gy, '#120c08')
         rr = np.random.default_rng(x0)
-        for _ in range(16):
+        for _ in range(28):
             px = x0 + 1 + int(rr.integers(0, (x1 - x0) // 5)) * 5
             py = 253 + int(rr.integers(0, 9)) * 5
-            c.rect(px, py, px + 3, py + 3, '#8a6416' if rr.random() < .7 else '#b08a22')
-        c.rect(x0, 285, x1, 300, '#1c1408')
-        for gx in range(x0 + 2, x1, 6):
-            c.rect(gx, 287, gx + 3, 298, '#2c2210')
+            c.rect(px, py, px + 3, py + 3, ['#7a5a32', '#946a36', '#5a4c42'][int(rr.random() * 3)])
+        c.rect(x0, 285, x1, 300, '#0e0a08')
+        c.rect(x0, 286, x1, 286, '#4a4440')
+        for gx in range(x0 + 2, x1, 5):
+            c.rect(gx, 286, gx, 299, '#3a3430')
     # counter and stools
     c.rect(40, 302, 190, 305, '#3a1a0c')
     c.rect(40, 302, 190, 302, '#5a2a12')
@@ -184,7 +189,7 @@ def _bg(c):
         c.rect(x0, 311, x1, 313, '#4a1c0c')
         c.rect(x0 + 1, 311, x1 - 1, 311, '#6a2a12')
     # door with emblem
-    c.rect(196, 250, 252, 324, '#06102a')
+    c.rect(196, 250, 252, 324, '#010818')
     c.rect(222, 252, 223, 322, '#030818')
     c.circle(220, 284, 26, None, '#173a66')
     c.box(209, 270, 231, 278, '#173a66')
@@ -219,9 +224,9 @@ def _bg(c):
 def _sign_static(c):
     # pill outline to the right of the circle
     c.d.rounded_rectangle([96, 70, 216, 137], radius=33, outline=hx(RED), width=2)
-    c.rect(118, 72, 200, 135, '#120304')
+    c.rect(118, 72, 200, 135, '#0c0101')
     for x in range(120, 200, 5):
-        c.rect(x, 72, x, 135, '#1a0606')
+        c.rect(x, 72, x, 135, '#120202')
     for y in (91, 123):
         c.rect(118, y, 212, y + 1, '#c00808')
     c.rect(120, 70, 200, 71, RED)
@@ -290,34 +295,57 @@ def _rings(c, col, col2, prog=1.0):
         c.px(cx, cy, col)
 
 
+# per-frame bowl state measured from the source loop: 0 rest, -1 lifted 1px, None hidden, +n dropped n px
+_BOWL = {}
+for f0, f1, v in [(0, 9, 0), (10, 14, -1), (15, 16, None), (17, 17, 6), (18, 18, 4), (19, 19, 6), (20, 20, 1),
+                  (21, 22, 9), (23, 23, 11), (24, 24, 6), (25, 28, -1), (29, 35, 0), (36, 38, -1), (39, 39, None),
+                  (40, 42, -1), (43, 43, 1), (44, 48, 0), (49, 51, -1), (52, 52, 4), (53, 53, 9), (54, 54, 6),
+                  (55, 61, 0), (62, 64, -1), (65, 66, None), (67, 67, -1), (68, 73, 0), (74, 78, -1), (79, 80, None),
+                  (81, 86, 0), (87, 89, -1), (90, 90, None)]:
+    for f in range(f0, f1 + 1):
+        _BOWL[f] = v
+
+
+def _bowl_at(c, col, dy):
+    sub = Canvas(W, H, (0, 0, 0))
+    _bowl(sub, col)
+    m = np.asarray(sub.im)
+    a = np.asarray(c.im).copy()
+    on = m.sum(2) > 0
+    ys, xs = np.nonzero(on)
+    ys2 = np.clip(ys + dy, 0, H - 1)
+    # keep the dropped bowl inside the round sign
+    keep = (xs - 82) ** 2 + (ys2 - 99) ** 2 <= 37 ** 2
+    a[ys2[keep], xs[keep]] = m[ys[keep], xs[keep]]
+    from PIL import Image, ImageDraw
+    c.im = Image.fromarray(a); c.d = ImageDraw.Draw(c.im)
+
+
 def icon(c, t):
     """3-second neon animation cycle inside the round sign."""
     u = t % 3.03
-    flick = 0.25 if 0.78 < u < 0.92 or 1.5 < u < 1.56 else 1.0
-    _circle_base(c, 1.0 if flick > .5 else 0.85)
-    bowl_part = 1.0
-    if 0.78 < u < 0.92:
-        bowl_part = 0.65
-    elif 1.5 < u < 1.7:
-        bowl_part = (u - 1.5) / 0.2
-    _bowl(c, CREAM, bowl_part)
+    _circle_base(c, 1.0)
+    st = _BOWL.get(int(round(u * 30)) % 91, 0)
+    if st is not None:
+        _bowl_at(c, CREAM, st)
     if 0.3 < u < 0.78:  # noodles lifted out of the bowl
         p = (u - 0.3) / 0.48
         for i, x in enumerate(range(66, 84, 2)):
             drop = max(0.0, p - 0.35) * (1.2 + 0.9 * abs(math.sin(i * 2.3)))
-            top = 103 - int((40 - 4 * (i % 3)) * max(0, 1 - drop))
+            rise = min(1.0, p / 0.3)
+            top = 103 - int((40 - 4 * (i % 3)) * rise * max(0, 1 - drop))
             if top < 103:
                 c.rect(x, top, x, 103, YEL if i % 2 == 0 else YEL2)
 
-    if 0.95 < u < 1.5:  # bubbles rise and pop
-        p = (u - 0.95) / 0.55
+    if 0.87 < u < 1.55:  # bubbles rise and pop
+        p = (u - 0.87) / 0.68
         rr = np.random.default_rng(4)
-        for k in range(7):
+        for k in range(9):
             bx = 62 + int(rr.integers(0, 34)); by0 = 92 - int(rr.integers(0, 12))
             d0 = rr.uniform(0, .45)
             q = (p - d0) / 0.55
             if 0 < q < 1:
-                rad = 1 + int(5 * q)
+                rad = 2 + int(6 * q)
                 by = by0 - int(12 * q)
                 if q < 0.85:
                     c.circle(bx, by, rad, None, YEL if k % 2 else YEL2)
@@ -346,24 +374,36 @@ ICONS = {
     'wave': ['.##...##...##', '#..#.#..#.#..', '....#....#...'],
     'bar': ['#########', '.........', '#########', '.........', '#########'],
 }
-BANNER_SEQ = [('box', 30, 0.0, 0), ('spoon', 52, 0.25, 0), ('bowl', 6, 0.5, 0), ('bar', 32, 0.85, 0),
-              ('sushi', 50, 1.0, 0), ('wave', 4, 1.3, 1), ('cup', 26, 1.55, 0), ('wave', 62, 1.9, 1),
-              ('fork', 44, 2.1, 0), ('bowl', 28, 2.4, 0), ('bar', 60, 2.75, 1), ('box', 30, 3.03, 0),
-              ('spoon', 52, 3.28, 0)]
+def _banner_seq():
+    """Deterministic stream of food icons entering the banner at varied heights."""
+    rr = np.random.default_rng(17)
+    names = ['box', 'spoon', 'bowl', 'bar', 'sushi', 'wave', 'cup', 'fork']
+    seq, t, lane = [], -1.0, 0
+    lanes = [4, 22, 40, 58, 76]
+    while t < 3.6:
+        name = names[int(rr.integers(0, len(names)))]
+        y = lanes[lane % 5] + int(rr.integers(-3, 4))
+        seq.append((name, y, t, int(name in ('wave', 'bar') and rr.random() < 0.7)))
+        lane += int(rr.integers(2, 4))
+        t += float(rr.uniform(0.16, 0.26))
+    return seq
+
+
+BANNER_SEQ = _banner_seq()
 
 
 def banner(c, t):
     x0, x1, y0, y1 = 246, 283, 0, 96
-    c.rect(x0, y0, x1, y1, '#e80000')
+    c.rect(x0, y0, x1, y1, '#e40808')
     for y in range(y0, y1 + 1, 2):
-        c.rect(x0, y, x1, y, '#b80000')
+        c.rect(x0, y, x1, y, '#b00404')
     c.rect(x0, y1 - 1, x1, y1, '#c40000')
     sub = Canvas(x1 - x0 + 1, y1 - y0 + 1, (0, 0, 0))
     for (name, y, start, alt) in BANNER_SEQ:
         dt = t - start
         if dt < -1:
             continue
-        x = int(40 - (dt + 0.45) * 48)
+        x = int(40 - (dt + 0.45) * 60)
         g = ICONS[name]
         if x < -20 or x > 40:
             continue
@@ -382,37 +422,40 @@ def banner(c, t):
 
 
 def yellow_bars(c, t):
-    k = int(t * 7)
+    """Mostly-lit bar sign; a single bar changes every few frames (like the source)."""
+    base = [20, 20, 14, 20, 20, 9, 20, 20, 20, 16, 20, 20]
+    dimb = [False, False, True, False, False, True, False, False, False, False, True, False]
+    k = int(t * 10)
     rr = np.random.default_rng(k)
-    for i, x in enumerate(range(253, 288, 3)):
-        h = 20 if rr.random() < 0.75 else int(rr.integers(6, 18))
-        bright = rr.random() < 0.8
+    i = int(rr.integers(0, 12))
+    h = list(base); dm = list(dimb)
+    h[i] = int(rr.integers(6, 21)); dm[i] = not dm[i]
+    for j, x in enumerate(range(253, 288, 3)):
         c.rect(x, 142, x + 1, 161, '#2a2a06')
-        c.rect(x, 162 - h, x + 1, 161, '#f0e810' if bright else '#8a8410')
+        c.rect(x, 162 - h[j], x + 1, 161, '#8a8410' if dm[j] else '#f0e810')
 
 
 TYPE = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
 TX = [47, 72, 97, 122, 147, 172, 197, 222]
 
 
+TYPE_T = [0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.5, 1.7]
+
+
 def type_row(c, t):
-    n = int((t - 0.15) / 0.2) + 1 if t > 0.15 else 0
-    phase_white = t > 1.95
-    blue = 2.25 < t < 2.5
-    for i in range(min(n, len(TYPE))):
-        col = '#3ad6d0'
-        if phase_white:
-            col = '#e8f0e8'
-        if blue:
-            col = '#2244b0'
+    f = int(round(t * 30))
+    n = sum(1 for tt in TYPE_T if t >= tt - 1e-6)
+    col = '#28fce4'
+    if f >= 62:
+        ph = (f - 62) % 11
+        col = '#1e5ae8' if ph < 3 else ('#dce1ff' if ph < 6 else '#28fce4')
+    for i in range(n):
         glyph7(c, TX[i], 198, G[TYPE[i]], col)
-        if i == n - 1 and not phase_white and (int(t * 10) % 2 == 0):
-            c.rect(TX[i], 206, TX[i] + 6, 206, '#3ad6d0')
 
 
 def lanterns(c, t):
     for i, (x, y) in enumerate([(201, 228), (233, 230)]):
-        f = 0.85 + 0.15 * math.sin(t * 7 + i * 2) + (0.0 if int(t * 30 + i * 13) % 37 else -0.3)
+        f = 0.97 + 0.03 * math.sin(t * 2.2 + i * 2)
         body = mix('#400000', '#ff1414', f)
         c.rect(x + 2, y, x + 12, y + 20, body)
         c.rect(x, y + 3, x + 14, y + 17, body)
@@ -425,58 +468,70 @@ def lanterns(c, t):
 
 def kitchen(c, t):
     Y, Y2, Y3, D = '#fff21a', '#d8c000', '#9a8400', '#2a2408'
-    c.rect(94, 256, 140, 300, Y)
-    # tattered noren curtain edge along the top
-    for x in range(78, 141):
-        h = 3 + int(3 * abs(math.sin(x * 0.9))) + (4 if x % 9 < 2 else 0)
-        c.rect(x, 250, x, 250 + h, Y if x % 7 < 4 else '#2a1c06')
-    for x in (96, 112, 126, 138):
-        c.rect(x, 246, x + 2, 252, Y)
-    # window mullions inside
+    # ragged lit opening (drapery edges top and sides)
+    pts = [(78, 262), (82, 258), (86, 260), (90, 255), (96, 257), (100, 252), (106, 254), (112, 253),
+           (118, 256), (122, 252), (126, 253), (128, 248), (131, 252), (134, 247), (138, 251), (141, 250),
+           (141, 296), (138, 300), (78, 300)]
+    c.poly(pts, Y)
+    # dark notches along the top drapery
+    for (x, y) in [(84, 258), (92, 256), (104, 254), (115, 255), (130, 251), (137, 250)]:
+        c.rect(x, y, x + 2, y + 3, '#2a1c06')
+    c.rect(78, 262, 80, 300, '#2a1c06')
+    # pale lattice inside the light
     for gy in range(262, 292, 6):
-        c.rect(102, gy, 116, gy, Y2)
-    for gx in (106, 112):
+        c.rect(98, gy, 114, gy, Y2)
+    for gx in (102, 108):
         c.rect(gx, 258, gx, 292, Y2)
-    # left shelf with jars and dark cabinet
-    c.rect(78, 256, 93, 300, Y)
-    c.rect(78, 262, 93, 264, Y3)
-    c.rect(78, 272, 93, 274, Y3)
-    for x in range(79, 93, 4):
-        c.rect(x, 266, x + 2, 271, D)
-    c.rect(80, 278, 91, 300, D)
-    for x in range(81, 91, 3):
-        c.rect(x, 280, x + 1, 288, Y3)
-    c.rect(94, 286, 102, 300, D)
-    # steam above pot
+    # left shelves with dark jars
+    for y in (264, 272, 280):
+        c.rect(80, y, 94, y + 1, Y3)
+    for x in range(81, 94, 4):
+        c.rect(x, 266, x + 2, 271, D); c.rect(x + 1, 274, x + 2, 279, D)
+    c.rect(80, 284, 92, 300, D)
+    for x in range(82, 92, 3):
+        c.rect(x, 286, x + 1, 296, '#4a4010')
+    # steam above the pot
     for k in range(3):
         sy = 278 - int((t * 14 + k * 6) % 16)
         sx = 103 + k * 3 + int(2 * math.sin(t * 3 + k))
         c.rect(sx, sy, sx + 1, sy + 2, '#fffde0')
-    # pot on stove
-    c.rect(100, 289, 113, 300, '#3a3206')
-    c.rect(98, 287, 115, 289, '#2a2404')
-    c.rect(105, 284, 108, 286, '#2a2404')
-    for x in range(102, 112, 3):
+    # pot with lid
+    c.rect(98, 288, 116, 300, '#3a3206')
+    c.rect(96, 286, 118, 288, '#2a2404')
+    c.rect(105, 283, 109, 285, '#2a2404')
+    for x in range(100, 116, 3):
         c.px(x, 297, '#5a4c10')
-    # chef silhouette
-    bob = int(round(math.sin(t * 2.2)))
-    cx = 124
-    c.rect(cx - 2, 268 + bob, cx + 4, 270 + bob, '#140a1e')
-    c.rect(cx - 3, 270 + bob, cx + 5, 282 + bob, '#140a1e')
-    c.rect(cx - 7, 283 + bob, cx + 9, 300, '#180c22')
-    c.rect(cx - 9, 286 + bob, cx - 6, 293 + bob, '#180c22')
-    c.px(cx - 1, 276 + bob, '#ffffff'); c.px(cx + 2, 276 + bob, '#ffffff')
+    # chef silhouette (slow sway)
+    sway = int(round(math.sin(t * 1.6)))
+    cx = 126 + sway
+    c.rect(cx - 3, 266, cx + 4, 270, '#140a1e')
+    c.rect(cx - 4, 270, cx + 5, 283, '#140a1e')
+    c.rect(cx - 8, 284, cx + 10, 300, '#180c22')
+    c.rect(cx - 10, 288, cx - 7, 294, '#180c22')
+    c.px(cx - 1, 276, '#ffffff'); c.px(cx + 2, 276, '#ffffff')
 
 
 def left_sign(c, t):
-    on = int(t * 4) % 6 != 5
-    col = '#1ee03a' if on else '#0a6a1a'
-    glyph(c, 3, 291, ['####', '#.##', '####', '#..#', '####', '....', '#.#.', '####', '.#..', '####', '....', '###.', '#.##', '####'], col)
-    c.rect(18, 283, 20, 284, '#ff2020' if int(t * 2) % 2 else '#601010')
+    """Vertical block-glyph sign at the far left that cycles colour states."""
+    seq = ['#3ae0e0', '#2ee03a', None, '#3ae0e0', '#2ee03a', '#f4ecd0', None]
+    ph = int(t / 0.53) % len(seq)
+    col = seq[ph]
+    c.rect(0, 280, 11, 314, '#030818')
+    c.rect(4, 277, 6, 278, '#ff2020' if col else '#601010')
+    rr = np.random.default_rng(ph * 7 + 3)
+    for k in range(5):
+        y = 283 + k * 6
+        if col is None:
+            if rr.random() < 0.6:
+                c.px(int(rr.integers(1, 10)), y + 2, '#c01818')
+            continue
+        c.rect(1, y, 9, y + 3, col)
+        for _ in range(3):  # carve glyph detail
+            c.px(int(rr.integers(2, 9)), y + int(rr.integers(1, 3)), '#04304a' if col != '#2ee03a' else '#0a4a12')
 
 
 def blink_dot(c, t):
-    c.rect(28, 3, 30, 5, '#ff1010' if (t % 1.2) < 0.6 else '#500404')
+    c.rect(28, 3, 30, 5, '#ff1010')
 
 
 class Scene2:
