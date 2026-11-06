@@ -173,7 +173,7 @@ def build(here, words, hook, keycol, opening_kind, focus, point, shots, key_sent
         if t >= END_T: ov.headline(cv, max(-0.35, t - DUR), T2 - 0.25, hook, y=headline_y)
         ov.poll(cv, t, ws(st[-1]) - 0.1, END_T - 0.1, q, px, py, pscale, opts, rot)
 
-    HITS = sorted(c[0] for c in list(cues) + [(T4 + 0.25, 'pop', 0)] if c[1] in IMPACT)
+    HITS = sorted(c[0] for c in list(cues) + [(T4 + 0.25, 'pop', 0)] if c[1] in IMPACT and c[0] >= 0.1)   # none on frame 0: keeps the loop seam exact
     MARKS = (T2, T3, T4)
 
     def polished(t):
