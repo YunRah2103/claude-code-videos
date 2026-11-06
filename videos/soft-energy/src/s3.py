@@ -199,9 +199,9 @@ def _hills(c):
     r = np.random.default_rng(4)
     for x in range(0, W):
         h = 252 + int(6 * math.sin(x * 0.05) + 4 * math.sin(x * 0.13 + 1)) + int(r.integers(-2, 3))
-        c.rect(x, h, x, 300, '#01060f')
+        c.rect(x, h, x, 300, '#030c22')
         if r.random() < 0.3:
-            c.rect(x, h - int(r.integers(1, 6)), x, h, '#01060f')
+            c.rect(x, h - int(r.integers(1, 6)), x, h, '#030c22')
     for x in range(0, W, 2):
         y = 258 + int(5 * math.sin(x * 0.07)) + int(r.integers(0, 6))
         c.px(x, y, '#061a36')
@@ -337,7 +337,7 @@ def neon(c, t):
     col = mix('#2a3a08', GRN, f)
     col2 = mix('#1a2a06', '#70b000', f)
     # board behind
-    c.poly([(212, 190), (314, 206), (314, 236), (214, 222)], '#0f0d05')
+    c.poly([(212, 190), (314, 206), (314, 236), (214, 222)], '#0a0d08')
     c.poly([(212, 190), (314, 206), (314, 208), (212, 192)], '#2a3a0a')
     # circle emblem
     for rr, cc in [(17, col), (16, col), (14, col2)]:
@@ -411,7 +411,7 @@ class Scene3:
             sy = 2 * 326 - y
             off = int(round(1.5 * math.sin(t * 3 + y * 1.3)))
             row = np.roll(a[sy], off, axis=0)
-            f = 0.35 * (1 - (y - 327) / (H - 327))
+            f = 0.55 * (1 - (y - 327) / (H - 327))
             a[y] = a[y] * (1 - f) + row * f
         # drifting fog banks
         yy, xx = np.mgrid[0:H, 0:W]
