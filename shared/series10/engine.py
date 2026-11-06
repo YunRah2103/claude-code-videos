@@ -48,12 +48,12 @@ def presenter(where, words, point=None, keys=()):
 
 # ------------------------------------------------------------------ opening moves (all already moving on frame 0)
 def _glitch(img, t):
-    k = 1 - oc(prog(t, -0.05, 0.85))
+    k = 1 - io(prog(t, -0.05, 1.15))
     if k < 0.02: return img
-    r, g, b = img.split(); o = int(46 * k)
+    r, g, b = img.split(); o = int(70 * k)
     img = Image.merge('RGB', (ImageChops.offset(r, o, 0), g, ImageChops.offset(b, -o, int(6 * k))))
     rnd = __import__('random').Random(int(t * 15))
-    for _ in range(int(9 * k) + 1):                                   # torn horizontal slices
+    for _ in range(int(16 * k) + 1):                                   # torn horizontal slices
         y0 = rnd.randrange(0, H - 120); h = rnd.randrange(30, 160); dx = int(rnd.uniform(-160, 160) * k)
         img.paste(img.crop((0, y0, W, y0 + h)), (dx, y0))
     return img
@@ -66,7 +66,7 @@ def opening(kind, world, t, focus, z1=1.06):
     if kind == 'pull-back':
         e = io(prog(t, -0.5, 1.9)); return D.camera(world(t), t, lerp(2.1, z1, e), fx_, lerp(fy - 160, fy, e), 6)
     if kind == 'zoom-out':
-        e = ob(prog(t, -0.12, 0.75)); return D.camera(world(t), t, max(1.0, lerp(3.4, z1, e)), fx_, fy, 14 * (1 - e))
+        e = oc(prog(t, -0.08, 1.15)); return D.camera(world(t), t, max(1.0, lerp(4.2, z1, e)), fx_, fy, 18 * (1 - e))
     if kind == 'tilt':
         e = io(prog(t, -0.35, 1.4)); return D.camera(world(t), t, 1.32, fx_, lerp(-500, fy, e), 4)
     if kind == 'cut-in':
@@ -75,7 +75,7 @@ def opening(kind, world, t, focus, z1=1.06):
     if kind == 'slow-motion':                                         # speed ramp: 0.25x time, snapping to real time
         tw = t if t >= 1.1 else 0.25 * t + 0.825 * oc(prog(t, 0.6, 0.5))
         e = io(prog(t, -0.3, 1.3)); img = world(tw)
-        return D.camera(img, t, lerp(1.5, z1, e), lerp(fx_ + 260, fx_, e), lerp(fy + 200, fy, e), 3)
+        return D.camera(img, t, lerp(2.0, z1, e), lerp(fx_ + 480, fx_, e), lerp(fy + 260, fy, e), 3)
     base = D.camera(world(t), t, z1, fx_, fy, 6)
     if kind == 'whip-pan':
         e = prog(t, -0.12, 0.6)
