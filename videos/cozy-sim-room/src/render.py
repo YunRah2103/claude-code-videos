@@ -158,7 +158,7 @@ def build_static():
                        ('cases', 44, 53), ('phone', 113, 62), ('headphones', 138, 60), ('can', 154, 54), ('remote', 104, 63),
                        ('drink', 150, 64), ('books', 20, 64)):
         place(a, prop(name), x, y)
-    R(a, 80, 59, 100, 63, '2'); R(a, 80, 59, 100, 59, '5')            # wheel base clamp
+    R(a, 82, 64, 98, 68, '2'); R(a, 82, 64, 98, 64, '5')            # wheel base clamp
     place(a, cr.mug(), 126, 53)
     # left wall: plate, key hook; window frame + sill
     R(a, 5, 60, 12, 65, 'G'); R(a, 6, 61, 11, 64, 'k'); R(a, 7, 62, 10, 63, 'i')
@@ -221,6 +221,37 @@ def build_static():
 
 STATIC, EMIS = build_static()
 
+GLYPH = {
+    '@': [".###.", "#...#", "#.###", "#.#.#", "#.###", "#....", ".###.", "....."],
+    'y': [".....", ".....", "#...#", "#...#", "#...#", ".####", "....#", ".###."],
+    'u': [".....", ".....", "#...#", "#...#", "#...#", "#..##", ".##.#", "....."],
+    'b': ["#....", "#....", "####.", "#...#", "#...#", "#...#", "####.", "....."],
+    '_': [".....", ".....", ".....", ".....", ".....", ".....", ".....", "#####"],
+    'c': [".....", ".....", ".###.", "#....", "#....", "#....", ".###.", "....."],
+    'a': [".....", ".....", ".###.", "....#", ".####", "#...#", ".####", "....."],
+    'r': [".....", ".....", "#.##.", "##..#", "#....", "#....", "#....", "....."],
+    's': [".....", ".....", ".####", "#....", ".###.", "....#", "####.", "....."],
+}
+HANDLE, SH, SIGN_Y = '@yub_cars', 18, 28      # wall strip of SH rows inserted at SIGN_Y; sign lands at 11-14 % height
+
+
+def build_band():
+    b = np.empty((SH, W0, 3), np.float32); b[:] = P['1']
+    b[:, 3:13] = P['2']; b[:, 166:178] = P['2']; b[:, 13] = P['1']; b[:, 165] = P['1']
+    b[:, 14:165] = P['3']
+    for x in range(17, 165, 7): b[:, x] = P['2']
+    em = np.zeros((SH, W0), np.float32)
+    w = len(HANDLE) * 6 - 1; x0 = 76 - w // 2
+    b[5:SH, x0 - 3:x0 + w + 3] = P['a']; b[5, x0 - 3:x0 + w + 3] = P['b']      # dark acrylic backing
+    for i, ch in enumerate(HANDLE):
+        for yy, row in enumerate(GLYPH[ch]):
+            for xx, c in enumerate(row):
+                if c == '#': b[7 + yy, x0 + i * 6 + xx] = P['N']; em[7 + yy, x0 + i * 6 + xx] = 1
+    return b, em
+
+
+BAND, BAND_EM = build_band()
+
 
 # ------------------------------------------------------------------ gamer (char grid -> sprite with outline)
 GX, GY = 108, 92                 # grid origin in room coords
@@ -239,55 +270,94 @@ class CG:
         for j, r in enumerate(rows):
             for i, c in enumerate(r):
                 if c != '.': self.put(x + i, y + j, c)
-    def limb(self, p0, p1, core, edge, hi):
+    def limb(self, p0, p1, core, edge, hi, sleeve=0):
         n = int(max(abs(p1[0] - p0[0]), abs(p1[1] - p0[1]))) + 1
         pts = [(p0[0] + (p1[0] - p0[0]) * k / max(1, n - 1), p0[1] + (p1[1] - p0[1]) * k / max(1, n - 1)) for k in range(n)]
-        for (x, y) in pts: self.rect(int(round(x)) - 2, int(round(y)) - 1, int(round(x)) + 1, int(round(y)) + 1, edge)
-        for (x, y) in pts: self.rect(int(round(x)) - 1, int(round(y)) - 1, int(round(x)), int(round(y)), core)
-        for (x, y) in pts[::2]: self.put(x - 1, y - 1, hi)
+        for i, (x, y) in enumerate(pts): self.rect(int(round(x)) - 2, int(round(y)) - 1, int(round(x)) + 1, int(round(y)) + 1, 'G' if i < sleeve else edge)
+        for i, (x, y) in enumerate(pts): self.rect(int(round(x)) - 1, int(round(y)) - 1, int(round(x)), int(round(y)), 'H' if i < sleeve else core)
+        for (x, y) in pts[sleeve::2]: self.put(x - 1, y - 1, hi)
 
 
-HEAD = [".....llll.....", "...llmmnmll...", "..lmmnnmmmml..", ".lmmnmmmmmmml.", "FEEEEEEEEEEEEF", "GFlmmnmmmmmlFG",
-        "GFlmmmmmmmmlFG", "FElmmmmmmmmlEF", ".ylmmmmmmmmly.", ".xllmmmmmmllx.", "...lllmmlll...", "....xyyyyx....",
-        "..tuuuuuuuut..", ".tuvuttttuvut.", "..tttttttttt.."]
+# The main guy (characters/main-guy): dark messy hair with two cowlicks, silver square glasses, brown skin, white tee.
+BACK = ["....l...l.....", "...ll..ll.....", "..llllllllll..", ".llmllllmllll.", ".llllmllllmll.", "llllllllllllll",
+        "FlllllmllllllF", "yFllllllllllFy", "xllllllllllllx", ".llllllllllll.", "..llllllllll..", "...lyyyyyyl...",
+        "....xyyyyx....", "..GHHHHHHHHG.."]
+SIDE = ["....l...l.....", "...ll..ll.....", "..llllllllll..", ".llmllllmlly..", ".llllllllyyy..", "llllllllyyyyy.",
+        "lyFFFFFGGGGy..", "lxlllllGH0Gy..", "lllllllFFFFyy.", ".lllllllyyyyy.", "..llllllyywy..", "...lyyyyyty...",
+        "....xyyyyx....", "..GHHHHHHHHG.."]
+FACE = ["....l...l.....", "...ll..ll.....", "..llllllllll..", ".llmllllllmll.", ".llllllllllll.", "llyllyyyyllyll",
+        "lyyyyyyyyyyyyl", "yGGGGGyyGGGGGy", "xGH0yGGGGH0yGx", "xFFFFFyyFFFFFx", "yywyyyyyyyywyy", ".yyytyyyytyyy.",
+        "..yyyttttyyy..", "...yyyyyyyy...", "....xyyyyx....", "..GHHHHHHHHG.."]
+FACE_OPEN = FACE[:12] + ["..yyytsstyyy.."] + FACE[13:]
+FACE_BLINK = FACE[:8] + ["xGyyyGGGGyyyGx", "xFF0FFyyFF0FFx"] + FACE[10:]
+TURN = (6.0, 9.6)                # swivels round at 6.0 s, waves, back on the wheel by 9.6 s
+
+
+def shoulders(g, cx, cy, rx=15.0):
+    for y in range(int(cy - 6), int(cy + 7)):
+        for x in range(int(cx - rx - 1), int(cx + rx + 2)):
+            d = ((x - cx) / rx) ** 2 + ((y - cy) / 5.5) ** 2
+            if d <= 1: g.put(x, y, 'F' if d > .82 else ('G' if d > .55 or y > cy + 2 else 'H'))
+
+
+def wheel(g, ang):
+    for k in range(48):
+        th = 2 * math.pi * k / 48
+        for rr, c0 in ((11, 'F'), (10, 'E')):
+            g.put(135 + rr * math.cos(th), 105 + rr * .38 * math.sin(th), c0 if math.sin(th) < 0 else 'D')
+    for th in (ang, ang + math.pi, ang + math.pi / 2):
+        for r in range(1, 10): g.put(135 + r * math.cos(th), 105 + r * .38 * math.sin(th), 'D')
+    g.rect(133, 104, 137, 106, '1'); g.put(135 + 10.5 * math.cos(ang - math.pi / 2), 105 + 4 * math.sin(ang - math.pi / 2), 'v')
 
 
 def gamer(t):
     steer = .55 * sn(t, 6) + .25 * sn(t, 15, 1.0)
     hx = int(round(1.2 * sn(t, 4) + steer * 1.4))
     cx = int(round(.8 * sn(t, 2, .5)))
+    turned = TURN[0] + .2 <= t < TURN[1] - .2
+    side = TURN[0] <= t < TURN[1] and not turned
     g = CG()
-    # pedal plate + legs reaching under the desk
-    g.rect(124, 113, 146, 118, '2'); g.rect(124, 113, 146, 113, '3')
+    g.rect(124, 113, 146, 118, '2'); g.rect(124, 113, 146, 113, '3')            # pedal set
     for px in (126, 133, 141): g.rect(px, 114, px + 2, 116, '5')
+    if turned:                                                                   # facing the camera, waving
+        wheel(g, 0.0)
+        g.stamp(cr.CHAIR[:15], 125, 104)                                         # backrest now behind him
+        g.stamp(cr.CHAIR[15:], 125, 136)
+        g.rect(127, 128, 143, 135, 'H'); g.rect(127, 133, 143, 135, 'G')         # white tee
+        shoulders(g, 135, 125)
+        g.rect(127, 135, 143, 140, 'D'); g.rect(127, 135, 143, 135, '2')         # black jeans, knees toward us
+        for lx in (130, 140):
+            g.rect(lx - 2, 140, lx + 2, 145, 'D'); g.rect(lx - 2, 140, lx - 2, 145, 'E')
+            g.rect(lx - 3, 146, lx + 2, 148, 'H'); g.rect(lx - 3, 148, lx + 2, 148, 'G')
+        g.limb((122, 124), (128, 136), 'y', 'x', 'y', sleeve=4); g.rect(127, 135, 129, 137, 'y')
+        waving = 6.55 <= t < 8.95
+        blink = 8.2 <= t < 8.3
+        g.stamp(FACE_BLINK if blink else (FACE_OPEN if waving else FACE), 128, 109)
+        if waving:
+            w = int((t - 6.55) / .2) % 2
+            g.limb((148, 124), (154, 118), 'y', 'x', 'y', sleeve=4)
+            g.limb((154, 118), (155 + 3 * w, 108 - w), 'y', 'x', 'y')
+            hxp, hyp = 155 + 3 * w, 107 - w
+            g.rect(hxp - 1, hyp - 2, hxp + 1, hyp + 1, 'y'); g.put(hxp - 1, hyp - 3, 'y'); g.put(hxp + 1, hyp - 3, 'y')
+        else:
+            g.limb((148, 124), (142, 136), 'y', 'x', 'y', sleeve=4); g.rect(141, 135, 143, 137, 'y')
+        return cr.S([''.join(r) for r in g.g], outline='1')
     press = 1 if sn(t, 12) > .3 else 0
-    for lx in (130, 139):
-        g.rect(lx - 2, 117, lx + 2, 126, 'h'); g.rect(lx - 1, 117, lx - 1, 126, 'i')
+    for lx in (130, 139):                                                        # legs under the desk
+        g.rect(lx - 2, 117, lx + 2, 124, 'D'); g.rect(lx - 1, 117, lx - 1, 124, 'E')
         g.rect(lx - 2, 114 + (press if lx > 135 else 0), lx + 2, 116 + (press if lx > 135 else 0), 'H')
-    # shoulders (hoodie), seen from above-behind
-    for y in range(124, 135):
-        for x in range(117, 154):
-            d = ((x - 135 - hx * .5) / 17.5) ** 2 + ((y - 129.5) / 5.5) ** 2
-            if d <= 1: g.put(x, y, 'v' if (y < 127 and d > .45) else ('t' if d > .8 else 'u'))
-    # chair back over the lower torso (turns 1px)
-    g.stamp([r.replace('v', 'e').replace('u', 'd') for r in cr.CHAIR], 125 + cx, 131)
-    # wheel ring (turns with steering) and spokes
+    shoulders(g, 135 + hx * .5, 124.5)
+    g.stamp([r.replace('v', 'e').replace('u', 'd') for r in cr.CHAIR], 125 + cx, 126)
     ang = steer * .9
-    for k in range(48):
-        th = 2 * math.pi * k / 48
-        for rr, c0 in ((11, 'F'), (10, 'E')):
-            g.put(135 + rr * math.cos(th), 101 + rr * .38 * math.sin(th), c0 if math.sin(th) < 0 else 'D')
-    for th in (ang, ang + math.pi, ang + math.pi / 2):
-        for r in range(1, 10): g.put(135 + r * math.cos(th), 101 + r * .38 * math.sin(th), 'D')
-    g.rect(133, 100, 137, 102, '1'); g.put(135 + 10.5 * math.cos(ang - math.pi / 2), 101 + 4 * math.sin(ang - math.pi / 2), 'v')
-    # arms + hands on the rim
-    hands = [(135 + 11 * math.cos(math.pi + ang), 101 + 4.2 * math.sin(math.pi + ang)),
-             (135 + 11 * math.cos(ang), 101 + 4.2 * math.sin(ang))]
-    for (sx, sy), (hxp, hyp) in zip(((120 + hx * .5, 127), (150 + hx * .5, 127)), hands):
-        g.limb((sx, sy), (hxp, hyp + 2), 'u', 't', 'v')
-        g.rect(int(round(hxp)) - 1, int(round(hyp)) - 1, int(round(hxp)) + 1, int(round(hyp)) + 1, 'y')
-        g.put(hxp - 1, hyp - 1, 'x')
-    g.stamp(HEAD, 128 + hx, 111)
+    wheel(g, ang)
+    if not side:
+        hands = [(135 + 11 * math.cos(math.pi + ang), 105 + 4.2 * math.sin(math.pi + ang)),
+                 (135 + 11 * math.cos(ang), 105 + 4.2 * math.sin(ang))]
+        for (sx, sy), (hxp, hyp) in zip(((122 + hx * .5, 122), (148 + hx * .5, 122)), hands):
+            g.limb((sx, sy), (hxp, hyp + 2), 'y', 'x', 'y', sleeve=4)
+            g.rect(int(round(hxp)) - 1, int(round(hyp)) - 1, int(round(hxp)) + 1, int(round(hyp)) + 1, 'y')
+            g.put(hxp - 1, hyp - 1, 'x')
+    g.stamp(SIDE if side else BACK, 128 + hx, 106)
     return cr.S([''.join(r) for r in g.g], outline='1')
 
 
@@ -436,6 +506,7 @@ def smooth_up(x):
 
 
 BEAM = blur(BEAM, 4)
+BEAM_S = np.concatenate([BEAM[:SIGN_Y], np.zeros((SH, W0), np.float32), BEAM[SIGN_Y:H0 - SH]])
 YY, XX = np.mgrid[0:H0, 0:W0].astype(np.float32)
 VIG = smooth_up(np.repeat((1 - .45 * np.clip((np.hypot((XX - W0 / 2) / W0, (YY - H0 / 2) / H0 * .8) - .25) / .4, 0, 1)
                            ** 1.5)[..., None], 1, 2))
@@ -484,6 +555,8 @@ def frame(n, raw=True):
     gm = gamer(t)
     shade(a, gm, GX - 45, GY - 33, 2, 3, .6); paste(a, gm, GX - 45, GY - 33)
 
+    a = np.concatenate([a[:SIGN_Y], BAND, a[SIGN_Y:H0 - SH]]); em = np.concatenate([em[:SIGN_Y], BAND_EM, em[SIGN_Y:H0 - SH]])
+    a[H0 - 3:] = P['1']; em[H0 - 3:] = 0                                            # bottom wall cap
     # ---- light (reference look): muted teal grade, smooth full-res light falloff, bloom on light sources
     m = em > 0
     lum = a.mean(-1, keepdims=True)
@@ -499,21 +572,23 @@ def frame(n, raw=True):
         d = np.sqrt(((XX - cx) / r) ** 2 + ((YY - cy) / (ry or r)) ** 2)
         v = (np.clip(1 - d, 0, 1) ** 2 * k)[..., None] * (np.asarray(c, np.float32) / 255)
         Lm[...] += v; add[...] += v * haze
-    light(90, 48, 110, (200, 95, 255), 1.45 * flick_s, ry=70, haze=30)             # desk + screens, purple neon wash
+    light(90, 48 + SH, 110, (200, 95, 255), 1.45 * flick_s, ry=70, haze=30)             # desk + screens, purple neon wash
     light(90, 27, 105, lc, .5 + .15 * led, ry=26)                                    # LED strip
-    light(90, 82, 34, (110, 165, 255), .4 * flick_s, ry=24)                          # screen spill on the gamer
-    light(8, 155, 72, wc, .5 + .3 * e, ry=90)                                        # window
-    light(22, 56, 30, (255, 190, 110), .85, haze=18)                                 # desk lamp
-    light(153, 90, 22, hue[int(cyc(t, 3) * 4) % 4], .6)                              # PC fans
-    light(130, 56, 12, (255, 210, 150), .25)                                         # mug
+    light(90, 82 + SH, 34, (110, 165, 255), .4 * flick_s, ry=24)                          # screen spill on the gamer
+    light(8, 155 + SH, 72, wc, .5 + .3 * e, ry=90)                                        # window
+    light(22, 56 + SH, 30, (255, 190, 110), .85, haze=18)
+    light(76, 40, 50, (255, 120, 200), .55 * flick_s, ry=22, haze=20)                # @yub_cars neon                                 # desk lamp
+    light(153, 90 + SH, 22, hue[int(cyc(t, 3) * 4) % 4], .6)                              # PC fans
+    light(130, 56 + SH, 12, (255, 210, 150), .25)                                         # mug
     bc = wc * .6 + np.array([150, 200, 170], np.float32) * .4                     # greenish shaft like the reference
-    Lm += BEAM[..., None] * (.45 + .35 * e) * bc / 255
-    add += BEAM[..., None] * (26 + 14 * e) * bc / 255
+    Lm += BEAM_S[..., None] * (.45 + .35 * e) * bc / 255
+    add += BEAM_S[..., None] * (26 + 14 * e) * bc / 255
     for (u0, v0, k, ph) in MOTES:                                                    # dust in the window shaft
         u = (u0 + cyc(t, k)) % 1
         x = int(14 + u * 90); yc0, yc1 = 116 + u * 43, 194 + u * 62
         y = int(yc0 + (yc1 - yc0) * (.5 + .45 * math.sin(2 * math.pi * v0 + ph + 2 * math.pi * cyc(t, 1))))
-        if 0 <= y < H0 and 14 <= x < 164 and BEAM[y, x] > .05:
+        y += SH
+        if 0 <= y < H0 and 14 <= x < 164 and BEAM_S[y, x] > .05:
             add[y, x] += np.array([255, 235, 200]) * (.5 + .3 * e)
     Lm[m] = .95 + .05 * flick_s; add[m] = 0
     bloom = blur(base * m[..., None] * (.85 + .15 * flick_s), 3)
@@ -555,10 +630,10 @@ def build_audio(path):
     pr = unit(band(np.random.default_rng(5).standard_normal(len(tp)), 40, 220)) * (.5 + .5 * np.sin(2 * np.pi * 26 * tp)) ** 2
     add(purr, pr * np.sin(np.pi * tp / pd) ** 2, 5.2, .22)
     clicks = np.zeros(n)
-    for at in (1.25, 3.75, 6.25, 8.75, 11.25, 13.75):                # paddle shifts
+    for at in (1.25, 3.75, 11.25, 13.75):                            # paddle shifts
         add(clicks, sfx.click(), at, .10)
-    for at in (7.0, 7.12, 7.3):                                      # buttons on the wheel
-        add(clicks, sfx.click(), at, .05)
+    for at in (6.0, 9.4):                                            # chair swivel
+        add(clicks, sfx.creak(), at, .12)
     mid = room + eng + tyre + clicks + purr
     L, Rr = mid + rain * 1.4 + tap * 1.3, mid + rain * .7 + tap * .6  # window is on the left
     st = np.stack([L, Rr], 1)
