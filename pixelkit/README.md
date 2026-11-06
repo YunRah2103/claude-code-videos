@@ -97,6 +97,24 @@ by f/(f-z), so walls become slanted faces and tall props lean outward.
   axis-aligned box edges ruler-straight, and this adds the irregularity an
   artist would add by hand.
 
+## Lighting & shading (what makes it read as 3D)
+
+* **Stepped light levels:** a light field (ambient minus corner/junction
+  occlusion and a vignette, plus monitor, lamp and window light) is
+  quantised into 4 bands: deep shadow, shadow, normal, lit. Each band is a
+  palette swap (`DIM2`/`DIM`/`LIT`) with a 1 px dithered seam between bands.
+  Shadows shift cool (to navy) rather than crushing to black, so seams and
+  texture survive. The static room is lit once. Characters use the same map
+  without dither, so they get clean bands.
+* **Cast shadows:** furniture throws shadows across the floor away from the
+  window (footprint swept along the light direction by its height).
+* **Round volume shading:** `core.shade_round` treats a mask as a
+  half-ellipsoid with Lambert light from the top-left, in 4 clean bands plus
+  an optional glint. It is used for the beanbag, bear, plush, pillow, dog,
+  and the player's hair and hoodie.
+* **Face lighting:** faces turned toward the window are lighter, faces turned
+  away are darker. Lit top edges are dashed.
+
 ## Gamer-room wallpaper (`pixelkit/gameroom.py`)
 
 A 10 s seamless loop (no captions) that follows the composition and mood of

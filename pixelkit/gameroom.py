@@ -9,7 +9,7 @@ import math
 
 import numpy as np
 
-from .core import (T, Canvas, StepClock, blob_mask, cable, cycle, nick_edges, outline, pattern,
+from .core import (T, Canvas, StepClock, blob_mask, cable, cycle, nick_edges, outline, pattern, shade_round,
                    render, rotate_nn, shade, sprite, texture, wobble_mask)
 from .cozyroom import (PAL, PGLOW, WARM, _grow, _lut,
                        AMBER, BLUE, BROWN, CREAM, CYAN, DKBROWN, DKGREEN, DKSLATE, FOREST,
@@ -43,6 +43,18 @@ BEAM_SOFT = _lut({INK: NAVY, DKBROWN: NAVY, TEAL: NAVY, NAVY: DKSLATE, PLUM: DKS
                   MAROON: PLUM, SLATE: GREY})
 
 
+DIM = _lut({WHITE: LTGREY, LTGREY: GREY, GREY: SLATE, SLATE: DKSLATE, DKSLATE: NAVY,
+            CREAM: TAN, TAN: WOOD, SKIN: SALMON, SALMON: MAUVE, MAUVE: PLUM, PLUM: DKBROWN,
+            SKIN2: WOOD, WOOD: BROWN, BROWN: DKBROWN, DKBROWN: NAVY, YELLOW: GOLD, GOLD: AMBER,
+            AMBER: ORANGE, ORANGE: RUST, RUST: MAROON, RED: MAROON, HOT: MAROON, MAROON: DKBROWN,
+            CYAN: SKY, SKY: BLUE, BLUE: NAVY, GREEN: DKGREEN, DKGREEN: FOREST, FOREST: TEAL, TEAL: NAVY})
+# shadows go cool (navy) instead of crushing to black, so seams and texture survive
+LIT = _lut({INK: NAVY, NAVY: DKSLATE, DKSLATE: SLATE, SLATE: GREY, GREY: LTGREY, DKBROWN: BROWN,
+            BROWN: WOOD, WOOD: SKIN2, PLUM: MAUVE, MAUVE: SALMON, TEAL: FOREST, FOREST: DKGREEN,
+            MAROON: RED, BLUE: SKY, RUST: ORANGE})
+DIM2 = DIM[DIM]
+
+
 def _prop(mask, ramp, kind="dots", line=INK):
     a = shade(mask, ramp, line=line)
     if kind:
@@ -63,10 +75,11 @@ def gamer(pose):
         if pose != "down":
             c.px(hx + (0 if sx < 14 else 2), hy - 1, SKIN2)           # spread fingers
             c.px(hx + 1, hy - 1, SKIN2)
-    body = shade(blob_mask(18, 11, np.random.default_rng(2), 1), [DKBROWN, MAROON, RED, SALMON])
+    body = shade_round(blob_mask(18, 11, np.random.default_rng(2), 1), [DKBROWN, MAROON, RED, SALMON])
     c.blit(body, 5, 11)
-    c.ellipse(9, 4, 10, 10, fill=RUST)
-    c.ellipse(10, 4, 7, 5, fill=ORANGE)                                 # hair shine
+    hair = np.zeros((10, 10), bool)
+    hair[np.add.outer((np.arange(10) - 4.5) ** 2, (np.arange(10) - 4.5) ** 2) <= 22] = True
+    c.blit(shade_round(hair, [DKBROWN, MAROON, RUST, ORANGE], spec=AMBER), 9, 4)
     for (x, y) in ((11, 3), (14, 2), (16, 4), (9, 8), (18, 9)):
         c.px(x, y, RUST)
     c.px(9, 9, SKIN2); c.px(19, 9, SKIN2)                              # ears
@@ -79,12 +92,14 @@ def dog(tail, breath):
     c = Canvas(30, 24, T)
     r = np.random.default_rng(5)
     bm = blob_mask(19, 11 + breath, r, 1)
-    c.blit(_prop(bm, DOG, None, line=None), 4, 8 - breath)
+    c.blit(shade_round(bm, DOG), 4, 8 - breath)
     c.ellipse(12, 12, 7, 4, fill=CREAM)                                 # chest
     for (x0, y0, x1, y1) in ((16, 17, 12, 22), (18, 17, 16, 23), (7, 16, 3, 21), (9, 17, 7, 22)):
         c.line(x0, y0, x1, y1, WOOD)
         c.px(x1, y1, CREAM)
-    c.ellipse(17, 2, 10, 9, fill=SKIN2)                                 # head
+    hm = np.zeros((9, 10), bool)
+    hm[np.add.outer(((np.arange(9) - 4) / 4.5) ** 2, ((np.arange(10) - 4.5) / 5) ** 2) <= 1] = True
+    c.blit(shade_round(hm, DOG, spec=TAN), 17, 2)                        # head
     c.ellipse(24, 5, 5, 4, fill=TAN)                                    # snout
     c.px(28, 6, INK); c.px(22, 4, INK)                                  # nose, eye
     c.poly([(17, 3), (19, 1), (21, 4), (19, 8)], fill=BROWN)            # floppy ear
@@ -96,7 +111,7 @@ def dog(tail, breath):
 def bear():
     """Round grey bear plush (original), sitting."""
     c = Canvas(22, 22, T)
-    c.blit(shade(blob_mask(18, 16, np.random.default_rng(8), 1), GREYR), 2, 5)
+    c.blit(shade_round(blob_mask(18, 16, np.random.default_rng(8), 1), GREYR, spec=LTGREY), 2, 5)
     c.ellipse(2, 1, 6, 6, fill=SLATE); c.ellipse(14, 1, 6, 6, fill=SLATE)
     c.px(4, 3, GREY); c.px(16, 3, GREY)
     c.ellipse(6, 12, 10, 8, fill=GREY)                                  # belly
@@ -111,7 +126,7 @@ def pink_plush():
     m = blob_mask(18, 14, np.random.default_rng(11), 1)
     m[3:9, 0:7] &= False
     c = Canvas(20, 16, T)
-    c.blit(_prop(m, PINKR, None, line=None), 1, 1)
+    c.blit(shade_round(m, PINKR, spec=SKIN), 1, 1)
     c.px(11, 9, INK); c.px(14, 9, INK); c.line(12, 11, 13, 11, PLUM)
     c.px(9, 10, SALMON); c.px(16, 10, SALMON)
     return outline(c.a.copy(), INK)
@@ -225,6 +240,19 @@ def build(seed=7):
         if y % 6:
             fl.px(0, y, INK); fl.px(fw - 1, y, INK); fl.px(1, y, INK if y % 3 else DKBROWN)
     c.blit(fl.a, FX0, FY0)
+    # cast shadows: light from the left window throws shadows right and a little down
+    sh = Canvas(W, H, 0)
+    for (x0, y0, x1, y1, hgt) in ((24, 40, 110, 55, 13), (56, 58, 76, 71, 20), (76, 84, 112, 136, 12),
+                                  (52, 192, 76, 206, 12), (88, 190, 112, 206, 16), (80, 60, 108, 78, 8)):
+        dx, dy = 0.8 * hgt, 0.35 * hgt
+        sh.poly(_hull([(x0, y0), (x1, y0), (x1, y1), (x0, y1), (x0 + dx, y0 + dy), (x1 + dx, y0 + dy),
+                       (x1 + dx, y1 + dy), (x0 + dx, y1 + dy)]), fill=1)
+    sm = sh.a.astype(bool)
+    sm[:FY0] = False
+    sm[FY1:] = False
+    sm[:, :FX0] = False
+    sm[:, FX1:] = False
+    c.a = np.where(sm, DIM[c.a], c.a)
     # --- shelf + four consoles on the back wall
     cam.box(c, 28, 40, 106, 44, 25, 27, SLATE, DKSLATE, NAVY, hi=GREY, line=NAVY)
     for i, (x0, ramp) in enumerate(((31, LIGHTR), (50, LIGHTR), (69, GREYR), (88, GREYR))):
@@ -256,22 +284,25 @@ def build(seed=7):
                 rug[y, x] = DKBROWN
     for y in range(2, 82):
         if y % 10 != 1 and rug[y, 3] != T:
-            rug[y, 3] = MAUVE
+            rug[y, 3] = PLUM
     c.blit(rug, 34, 94)
     c.blit(rotate_nn(sprite("KKKKK\nKrKbK\nKKKKK", {"K": NAVY, "r": RED, "b": BLUE}), 25), 72, 150)
     c.blit(rotate_nn(sprite("sss\nsSs\n.ss", {"s": SLATE, "S": DKSLATE}), -40), 64, 182)
     # --- beanbag with the bear on top
     bag = blob_mask(28, 20, r, 2)
-    bx, by = cam.extrude(c, bag, 80, 58, 0, 7, TEAL, shade(bag, BEAN))
+    bx, by = cam.extrude(c, bag, 80, 58, 0, 7, INK, shade_round(bag, BEAN, line=INK))
     c.blit(bear(), bx + 4, by - 9)
     # --- bed: frame, quilted mattress, pillow, handheld
-    cam.box(c, 76, 84, 112, 136, 0, 6, BROWN, BROWN, DKBROWN, hi=WOOD, line=DKBROWN, ao=INK)
+    cam.box(c, 76, 84, 112, 136, 0, 6, BROWN, BROWN, WOOD, hi=SKIN2, line=DKBROWN, ao=INK)
     quilt = tex(34, 48, DKSLATE, NAVY, step=10, gap=40)
     _seams(quilt, 0, 0, 34, 48, NAVY, step=10, vertical=False, gap=40)
     for y in range(48):
         quilt.px(0, y, BLUE if y % 6 else DKSLATE)
-    cam.box(c, 77, 86, 111, 134, 6, 12, quilt.a, NAVY, NAVY, hi=BLUE, line=INK)
-    cam.box(c, 82, 87, 106, 95, 12, 15, tex(24, 8, GREY, SLATE, step=6, gap=40).a, SLATE, SLATE, hi=LTGREY)
+    cam.box(c, 77, 86, 111, 134, 6, 12, quilt.a, NAVY, DKSLATE, hi=BLUE, line=INK)
+    pm = np.ones((8, 24), bool)
+    pm[[0, 0, 7, 7], [0, 23, 0, 23]] = False
+    pillow = shade_round(pm, LIGHTR)
+    cam.box(c, 82, 87, 106, 95, 12, 15, np.where(pillow == T, SLATE, pillow).astype(np.uint8), SLATE, DKSLATE)
     cam.box(c, 86, 104, 98, 108, 12, 13, DKSLATE, SLATE, SLATE, hi=GREY)
     # --- front: game box, pizza box, two crates (north faces show: they are below centre)
     cover = tex(22, 20, MAROON, rim=RED)
@@ -315,9 +346,34 @@ class GameRoom:
                       for _ in range(12)]
         self.city = [(wy0 + 2 + int(rng.integers(0, wy1 - wy0 - 4)), wz0 + 2 + int(rng.integers(0, wz1 - wz0 - 4)))
                      for _ in range(16)]
+        # --- stepped light levels: 0 deep shadow, 1 shadow, 2 normal, 3 lit
+        yy, xx = np.mgrid[0:H, 0:W].astype(float)
+
+        def seg_d(ax, ay, bx, by):
+            vx, vy = bx - ax, by - ay
+            tt = np.clip(((xx - ax) * vx + (yy - ay) * vy) / (vx * vx + vy * vy), 0, 1)
+            return np.hypot(xx - ax - tt * vx, yy - ay - tt * vy)
+        corners = [(FX0, FY0), (FX1, FY0), (FX1, FY1), (FX0, FY1)]
+        rims = [cam.P(x, y, HW) for x, y in corners]
+        d = np.full((H, W), 99.0)
+        for i in range(4):                       # floor/wall junctions and wall corners
+            (ax, ay), (bx, by) = corners[i], corners[(i + 1) % 4]
+            d = np.minimum(d, seg_d(ax, ay, bx, by))
+            d = np.minimum(d, seg_d(ax, ay, *rims[i]) * 1.3)
+        ao = np.clip(1 - d / 9, 0, 1)
+        vign = ((xx - 67) / 85) ** 2 + ((yy - 115) / 150) ** 2
+        F = 0.62 - 0.30 * ao - 0.22 * vign
+        F += 0.32 * np.exp(-np.hypot(xx - 66, yy - 46) / 26)       # monitor glow
+        F += 0.30 * np.exp(-np.hypot(*(np.array([xx, yy]) - np.array(cam.P(102, 46, 21))[:, None, None])) / 9)
+        F += 0.22 * self.patch + 0.08 * self.shaft
+        bands = lambda f: np.select([f < 0.24, f < 0.44, f < 0.82], [0, 1, 2], 3)
+        self.level_clean = bands(F)                                          # for characters
+        self.level = bands(F + np.where((xx.astype(int) + yy.astype(int)) % 2, 0.02, -0.02))  # dithered seams
         # backrest drawn per frame on top of the player
         self.backrest = Canvas(W, H, T)
         CAM.box(self.backrest, 56, 68, 76, 71, 8, 20, DKSLATE, NAVY, INK, hi=SLATE)
+        self.room.blit(self.backrest.a, 0, 0)
+        self.lit_room = self._apply_levels(self.room.a, self.level)
 
     @staticmethod
     def _mask(pts):
@@ -331,12 +387,12 @@ class GameRoom:
         return (xx - cx) ** 2 + (yy - cy) ** 2 <= rr * rr
 
     def frame(self, step, t):
-        c = self.room.copy()
+        c = Canvas(W, H, INK)
+        c.a = self.lit_room.copy()
         pose = ("down", "up", "up2", "up", "up2")[cycle(t, (3.2, 0.6, 0.3, 0.6, 0.3))]
-        c.blit(self.backrest.a, 0, 0)
-        c.blit(GAMERS[pose], 52, 33)
-        c.blit(DOGS[(cycle(t, (0.6, 0.4)), cycle(t, (1.2, 0.8)))], 36, 92)
-        c.blit(PINK_PLUSH, 60, 88)
+        self._blit_lit(c, GAMERS[pose], 52, 33)
+        self._blit_lit(c, DOGS[(cycle(t, (0.6, 0.4)), cycle(t, (1.2, 0.8)))], 36, 92)
+        self._blit_lit(c, PINK_PLUSH, 60, 88)
         # light: shaft through the air (soft), patch on the floor (bright), lamp, desk glow
         base = c.a.copy()
         a = np.where(self.shaft, BEAM_SOFT[base], base)
@@ -347,6 +403,17 @@ class GameRoom:
         self._emissive(c, step, t)
         nick_edges(c.a, PAL.lut)            # chip any ruler-straight perspective edge
         return c
+
+    @staticmethod
+    def _apply_levels(a, lv):
+        return np.select([lv == 0, lv == 1, lv == 3], [DIM2[a], DIM[a], LIT[a]], a).astype(np.uint8)
+
+    def _blit_lit(self, c, spr, x, y):
+        """Characters take the room light in clean bands (no dither seams)."""
+        h, w = spr.shape
+        lv = self.level_clean[y:y + h, x:x + w]
+        lit = np.where(spr == T, T, self._apply_levels(spr[:lv.shape[0], :lv.shape[1]], lv))
+        c.blit(lit.astype(np.uint8), x, y)
 
     def _screen(self, c, img, x0, x1, y, z0, z1):
         CAM.warp(c, img, "y", y, x0, x1, z0, z1)

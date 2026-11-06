@@ -760,3 +760,32 @@ def nick_edges(a, rgb, max_run=14, every=12, edge_t=24, same_t=10):
         if not changed:
             break
     return a
+
+
+def shade_round(mask, ramp, light=(-0.55, -0.65, 0.53), line=None, spec=None):
+    """Volume shading for rounded forms (cushions, plush, heads): treats the
+    mask as a half-ellipsoid, lights it with a Lambert term from `light`
+    (x, y, z toward camera) and quantises to the 4-tone ramp in clean
+    bands: highlight, base, core shadow, reflected deep edge. `spec` adds a
+    1-2 px specular glint. Returns an index sprite (T outside)."""
+    h, w = mask.shape
+    ys, xs = np.nonzero(mask)
+    if not len(ys):
+        return np.full(mask.shape, T, np.uint8)
+    cy, cx = (ys.min() + ys.max()) / 2, (xs.min() + xs.max()) / 2
+    ry, rx = max(1.0, (ys.max() - ys.min()) / 2 + 0.5), max(1.0, (xs.max() - xs.min()) / 2 + 0.5)
+    yy, xx = np.mgrid[0:h, 0:w]
+    nx, ny = (xx - cx) / rx, (yy - cy) / ry
+    nz = np.sqrt(np.clip(1 - nx ** 2 - ny ** 2, 0.04, 1))
+    L = np.array(light, float)
+    L /= np.linalg.norm(L)
+    lam = (nx * L[0] + ny * L[1] + nz * L[2]) / np.sqrt(nx ** 2 + ny ** 2 + nz ** 2)
+    a = np.full(mask.shape, T, np.uint8)
+    tone = np.select([lam > 0.78, lam > 0.42, lam > 0.08], [ramp[3], ramp[2], ramp[1]], ramp[0])
+    a[mask] = tone[mask]
+    if spec is not None:
+        k = np.argmax(np.where(mask, lam, -9))
+        a.flat[k] = spec
+    if line is not None:
+        a = outline(a, line)
+    return a
