@@ -506,3 +506,193 @@ def still(canvas, palette, path, zoom=1):
         im = im.resize((canvas.w * zoom, canvas.h * zoom), Image.NEAREST)
     im.save(path)
     return path
+
+
+# ----------------------------------------------------------- organic detail ---
+# Helpers that keep hand-made irregularity: wobbly silhouettes, clustered
+# ramp shading with hue-shifted tones, surface textures, nearest-neighbour
+# rotation at native resolution, pixel-perfect cables and clutter.
+
+def wobble_mask(w, h, rng, depth=1, seg=(3, 8), chip=(1, 3), sides="tblr"):
+    """w x h bool mask whose edges are inset by 0..depth px in random runs of
+    `seg` length, with chipped corners. No straight edge longer than seg[1]."""
+    m = np.ones((h, w), bool)
+
+    def runs(n):
+        out, i = [], 0
+        while i < n:
+            k = int(rng.integers(seg[0], seg[1] + 1))
+            out.append((i, min(n, i + k), int(rng.integers(0, depth + 1))))
+            i += k
+        # never two neighbouring runs at the same depth -> edge always breaks
+        for j in range(1, len(out)):
+            if out[j][2] == out[j - 1][2]:
+                a, b, d = out[j]
+                out[j] = (a, b, (d + 1) % (depth + 1))
+        return out
+    for a, b, d in runs(w) if "t" in sides else []:
+        m[:d, a:b] = False
+    for a, b, d in runs(w) if "b" in sides else []:
+        m[h - d:, a:b] = False
+    for a, b, d in runs(h) if "l" in sides else []:
+        m[a:b, :d] = False
+    for a, b, d in runs(h) if "r" in sides else []:
+        m[a:b, w - d:] = False
+    for cy, cx, sy, sx in ((0, 0, 1, 1), (0, w - 1, 1, -1), (h - 1, 0, -1, 1), (h - 1, w - 1, -1, -1)):
+        k = int(rng.integers(chip[0], chip[1] + 1))
+        for i in range(k):
+            for j in range(k - i):
+                yy, xx = cy + sy * i, cx + sx * j
+                if 0 <= yy < h and 0 <= xx < w:
+                    m[yy, xx] = False
+    return m
+
+
+def blob_mask(w, h, rng, rough=1):
+    """Irregular ellipse-like mask (bean bags, cushions, crumpled cloth)."""
+    yy, xx = np.mgrid[0:h, 0:w]
+    ang = np.arctan2(yy - (h - 1) / 2, xx - (w - 1) / 2)
+    k = rng.integers(3, 6)
+    ph = rng.uniform(0, 6.3, 2)
+    r = 1 + rough * 0.08 * (np.sin(k * ang + ph[0]) + 0.6 * np.sin((k + 2) * ang + ph[1]))
+    d = ((xx - (w - 1) / 2) / (w / 2)) ** 2 + ((yy - (h - 1) / 2) / (h / 2)) ** 2
+    return d <= r * r
+
+
+def _shift(m, dy, dx):
+    o = np.zeros_like(m)
+    h, w = m.shape
+    o[max(0, dy):h + min(0, dy), max(0, dx):w + min(0, dx)] = \
+        m[max(0, -dy):h - max(0, dy), max(0, -dx):w - max(0, dx)]
+    return o
+
+
+def shade(mask, ramp, line=None, band=2):
+    """Clustered ramp shading of a mask lit from the top-left.
+    ramp = [deep shadow (cool), shadow, base, highlight (warm)]."""
+    a = np.full(mask.shape, T, np.uint8)
+    a[mask] = ramp[2]
+    lit = mask & ~_shift(mask, 1, 1)
+    sh = mask & ~_shift(mask, -band, -band)
+    deep = mask & ~_shift(mask, -1, -1)
+    a[sh] = ramp[1]
+    a[deep] = ramp[0]
+    a[lit & ~deep] = ramp[3]
+    if line is not None:
+        o = outline(a, line)
+        return o
+    return a
+
+
+def _tone(a, ys, xs, ramp, delta):
+    pos = {c: i for i, c in enumerate(ramp)}
+    for y, x in zip(ys, xs):
+        if 0 <= y < a.shape[0] and 0 <= x < a.shape[1] and a[y, x] in pos:
+            a[y, x] = ramp[max(0, min(len(ramp) - 1, pos[a[y, x]] + delta))]
+
+
+def texture(a, ramp, rng, kind="noise", density=0.04, mask=None):
+    """Add surface texture in place on an index sprite/canvas array.
+    kinds: noise (2-4 px clusters), grain (short streaks), weave (checker
+    patches), dither (2-tone checker patches), wrinkle (short folds with a
+    highlight), specks (single pixels)."""
+    h, w = a.shape
+    m = np.isin(a, ramp) if mask is None else mask & np.isin(a, ramp)
+    ys, xs = np.nonzero(m)
+    if not len(ys):
+        return a
+    n = max(1, int(len(ys) * density / (3 if kind != "specks" else 1)))
+    pick = rng.integers(0, len(ys), n)
+    for y, x in zip(ys[pick], xs[pick]):
+        d = int(rng.choice([-1, 1]))
+        if kind == "noise":
+            py, px = [y], [x]
+            for _ in range(int(rng.integers(1, 4))):
+                y2, x2 = py[-1] + int(rng.integers(-1, 2)), px[-1] + int(rng.integers(-1, 2))
+                py.append(y2); px.append(x2)
+            _tone(a, py, px, ramp, d)
+        elif kind == "specks":
+            _tone(a, [y], [x], ramp, d)
+        elif kind == "grain":
+            L = int(rng.integers(2, 6))
+            vert = rng.random() < 0.5
+            _tone(a, [y + (i if vert else 0) for i in range(L)],
+                  [x + (0 if vert else i) for i in range(L)], ramp, -1)
+        elif kind in ("weave", "dither"):
+            ph, pw = int(rng.integers(2, 4)), int(rng.integers(3, 6))
+            cy, cx = [], []
+            for i in range(ph):
+                for j in range(pw):
+                    if (i + j) % 2 == 0:
+                        cy.append(y + i); cx.append(x + j)
+            _tone(a, cy, cx, ramp, -1 if kind == "dither" else d)
+        elif kind == "wrinkle":
+            L = int(rng.integers(3, 7))
+            sx = int(rng.choice([-1, 1]))
+            py = [y + i for i in range(L)]
+            px = [x + sx * (i // 2) for i in range(L)]
+            _tone(a, py, px, ramp, -1)
+            _tone(a, py, [p + 1 for p in px], ramp, 1)
+    return a
+
+
+def rotate_nn(spr, deg):
+    """Rotate an index sprite at native resolution with nearest neighbour
+    (pixel staircases, no smoothing). Use for loose props; use rotsprite()
+    for hero sprites that rotate during animation."""
+    im = Image.fromarray(spr, "L").rotate(deg, resample=Image.NEAREST, expand=True, fillcolor=T)
+    a = np.asarray(im).copy()
+    ys, xs = np.nonzero(a != T)
+    return a[ys.min():ys.max() + 1, xs.min():xs.max() + 1] if len(ys) else a
+
+
+def curve_points(pts, steps=None):
+    """Pixel-perfect points along a quadratic/cubic Bezier (no doubled
+    corners), for cables, cords and wire."""
+    pts = [np.array(p, float) for p in pts]
+    n = steps or int(sum(np.abs(pts[i + 1] - pts[i]).sum() for i in range(len(pts) - 1)) * 2) + 2
+    out = []
+    for t in np.linspace(0, 1, n):
+        q = list(pts)
+        while len(q) > 1:
+            q = [q[i] * (1 - t) + q[i + 1] * t for i in range(len(q) - 1)]
+        p = (int(round(q[0][0])), int(round(q[0][1])))
+        if not out or p != out[-1]:
+            out.append(p)
+    # drop L-corner pixels (x,y) whose neighbours are diagonal to each other
+    clean = [out[0]]
+    for i in range(1, len(out) - 1):
+        a, b = clean[-1], out[i + 1]
+        if abs(a[0] - b[0]) == 1 and abs(a[1] - b[1]) == 1:
+            continue
+        clean.append(out[i])
+    clean.append(out[-1])
+    return clean
+
+
+def cable(canvas, pts, c, hi=None):
+    for i, (x, y) in enumerate(curve_points(pts)):
+        canvas.px(x, y, c)
+        if hi is not None and i % 5 == 2:
+            canvas.px(x, y, hi)
+
+
+def scatter(canvas, items, rng, region, n, avoid=None, rotate=True):
+    """Scatter small clutter sprites (3-8 px) inside region=(x0,y0,x1,y1),
+    skipping pixels where `avoid` (bool world mask) is True."""
+    x0, y0, x1, y1 = region
+    placed = 0
+    for _ in range(n * 6):
+        if placed >= n:
+            break
+        s = items[int(rng.integers(0, len(items)))]
+        if rotate:
+            s = rotate_nn(s, float(rng.choice([0, 15, 30, 45, 60, 90, 120, 160, -20, -40])))
+        x, y = int(rng.integers(x0, max(x0 + 1, x1 - s.shape[1]))), int(rng.integers(y0, max(y0 + 1, y1 - s.shape[0])))
+        if avoid is not None and avoid[y:y + s.shape[0], x:x + s.shape[1]].any():
+            continue
+        canvas.blit(s, x, y)
+        if avoid is not None:
+            avoid[y:y + s.shape[0], x:x + s.shape[1]] |= s != T
+        placed += 1
+    return placed

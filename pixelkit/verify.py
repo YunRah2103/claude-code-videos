@@ -31,6 +31,66 @@ RANGE_T = 24
 HOLD_T = 28
 MAX_NONUNI = 0.5   # percent
 MIN_HELD = 40.0    # percent
+# Organic-detail checks, on the native frame (block-core means).
+EDGE_T = 24        # neighbouring native pixels differing more than this = edge
+FLAT_T = 10        # neighbours within this = same flat colour
+MAX_EDGE = 20      # longest allowed perfectly straight edge (native px)
+MAX_FLAT = 12      # largest allowed flat square side (native px)
+
+
+def _runs(m):
+    """Lengths of True runs along the rows of a 2-D bool array."""
+    p = np.zeros((m.shape[0], m.shape[1] + 2), np.int8)
+    p[:, 1:-1] = m
+    d = np.diff(p, axis=1).ravel()
+    return np.flatnonzero(d == -1) - np.flatnonzero(d == 1)
+
+
+def straight_edges(nat):
+    """(longest perfectly straight edge, number longer than MAX_EDGE).
+    A straight edge is a run along one row (or column) boundary where the
+    two sides differ by more than EDGE_T and each side keeps the same colour
+    (within FLAT_T) the whole way. A 1 px jog or a colour change ends it."""
+    out = []
+    for a in (nat, nat.transpose(1, 0, 2)):
+        e = np.abs(a[1:] - a[:-1]).max(axis=2) > EDGE_T              # boundary y|y+1
+        su = np.abs(a[:-1, 1:] - a[:-1, :-1]).max(axis=2) <= FLAT_T   # upper side same
+        sd = np.abs(a[1:, 1:] - a[1:, :-1]).max(axis=2) <= FLAT_T     # lower side same
+        link = e[:, 1:] & e[:, :-1] & su & sd
+        r = _runs(link) + 1
+        out.append(r)
+        out.append(e.sum(axis=1)[:0])                                 # keep dtype
+    r = np.concatenate(out)
+    return (int(r.max()) if r.size else 0), int((r > MAX_EDGE).sum())
+
+
+def _flat_exists(nr, nd, k):
+    """Is there a k x k window with no colour step inside? nr/nd are
+    summed-area tables of 'differs from right/down neighbour'."""
+    def win(sat, hh, ww):
+        return sat[hh:, ww:] - sat[:-hh, ww:] - sat[hh:, :-ww] + sat[:-hh, :-ww]
+    a = win(nr, k, k - 1)
+    b = win(nd, k - 1, k)
+    n = min(a.shape[0], b.shape[0]), min(a.shape[1], b.shape[1])
+    return bool(((a[:n[0], :n[1]] + b[:n[0], :n[1]]) == 0).any())
+
+
+def largest_flat(nat):
+    """Side of the largest uniform square (native px), by binary search."""
+    def sat(m):
+        s = np.zeros((m.shape[0] + 1, m.shape[1] + 1), np.int32)
+        s[1:, 1:] = m.cumsum(0).cumsum(1)
+        return s
+    nr = sat(np.abs(np.diff(nat, axis=1)).max(axis=2) > FLAT_T)
+    nd = sat(np.abs(np.diff(nat, axis=0)).max(axis=2) > FLAT_T)
+    lo, hi = 1, min(nat.shape[:2])
+    while lo < hi:
+        mid = (lo + hi + 1) // 2
+        if _flat_exists(nr, nd, mid):
+            lo = mid
+        else:
+            hi = mid - 1
+    return lo
 
 
 def probe(path):
@@ -100,6 +160,8 @@ def analyse(path, block=None, heatmap=None, label=None):
     same = []
     changes = None
     hist = {}
+    max_edge = max_flat = long_frames = flat_frames = 0
+    long_edges = []
     for f in frames(path, w, h):
         bl = blocks(f, b, ox, oy)
         core = bl[:, :, t:b - t, t:b - t].astype(np.int16)
@@ -109,6 +171,13 @@ def analyse(path, block=None, heatmap=None, label=None):
         total += bad.size
         heat = bad.astype(np.int32) if heat is None else heat + bad
         nat = core.mean(axis=(2, 3))
+        if prev is None or np.abs(nat - prev).max() > HOLD_T:   # new unique frame
+            me, nl = straight_edges(nat)
+            mf = largest_flat(nat)
+            max_edge, max_flat = max(max_edge, me), max(max_flat, mf)
+            long_frames += nl > 0
+            flat_frames += mf > MAX_FLAT
+            long_edges.append(nl)
         if prev is not None:
             moved = np.abs(nat - prev).max(axis=2) > HOLD_T
             same.append(not moved.any())
@@ -148,7 +217,10 @@ def analyse(path, block=None, heatmap=None, label=None):
                 held=100.0 * sum(same) / max(1, len(same)),
                 ufps=len(holds) / dur, block_fps=block_fps,
                 active=100.0 * act.size / max(1, changes.size if changes is not None else 1), holds=dict(sorted(hc.items())),
-                est_colours=est_colours, frames=nfr)
+                est_colours=est_colours, frames=nfr, max_edge=max_edge, max_flat=max_flat,
+                long_edges=float(np.mean(long_edges)) if long_edges else 0.0,
+                long_frames=100.0 * long_frames / max(1, len(long_edges)),
+                flat_frames=100.0 * flat_frames / max(1, len(long_edges)))
 
 
 def native_colours(d):
@@ -183,6 +255,8 @@ def main(argv=None):
             "block uniformity <= 0.5%": r["nonuni"] <= MAX_NONUNI,
             "held pairs >= 40%": r["held"] >= MIN_HELD,
             "output 1080x1920": (r["w"], r["h"]) == (1080, 1920),
+            f"straight edges <= {MAX_EDGE}px": r["max_edge"] <= MAX_EDGE,
+            f"flat regions <= {MAX_FLAT}x{MAX_FLAT}": r["max_flat"] <= MAX_FLAT,
         }
         if r["pre_colours"] is not None:
             c[f"pre-encode colours <= {a.palette_size}"] = r["pre_colours"] <= a.palette_size
@@ -200,6 +274,9 @@ def main(argv=None):
         ("animated blocks (>=1/s)", lambda r: f"{r['active']:.1f}%"),
         ("updates/s per anim block", lambda r: f"{r['block_fps']:.1f}"),
         ("hold lengths", lambda r: " ".join(f"{k}x{v}" for k, v in list(r["holds"].items())[:6])),
+        ("longest straight edge", lambda r: f"{r['max_edge']}px"),
+        ("long edges / frame", lambda r: f"{r['long_edges']:.1f} ({r['long_frames']:.0f}% fr)"),
+        ("largest flat square", lambda r: f"{r['max_flat']}x{r['max_flat']} ({r['flat_frames']:.0f}% fr)"),
         ("est. palette (decoded)", lambda r: str(r["est_colours"])),
         ("pre-encode colours", lambda r: "n/a" if r["pre_colours"] is None else str(r["pre_colours"])),
     ]

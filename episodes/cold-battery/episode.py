@@ -1,4 +1,4 @@
-"""Episode: why cold kills car batteries (13 s, cozy-room set).
+"""Episode: why cold kills car batteries (13 s, cozy-room set, 135x240 native, x8).
 
 Only this file changes per episode: headline, captions, beats, the car art,
 speed/battery/light/camera curves.
@@ -51,8 +51,8 @@ def light(t, step):         # palette-swap lighting mode
 
 def camera(t):              # integer world-y of the camera
     if t < 9.6:
-        return tween_int(t, 0.2, 2.4, 20, 8, "inout")
-    return tween_int(t, 9.6, 10.4, 8, 18, "out")
+        return tween_int(t, 0.2, 2.4, 12, 3, "inout")
+    return tween_int(t, 9.6, 10.4, 3, 12, "out")
 
 
 EPISODE = dict(
@@ -60,10 +60,10 @@ EPISODE = dict(
     headline=["COLD vs.", "BATTERY"],
     captions=[
         (0.0, 2.3, [("WON'T START ON A", WHITE), ("COLD MORNING?", YELLOW)]),
-        (2.3, 4.6, [("COLD SLOWS THE", WHITE), ("BATTERY'S CHEMISTRY", YELLOW)]),
-        (4.6, 7.4, [("SO IT CAN DELIVER", WHITE), ("LESS CURRENT...", YELLOW)]),
-        (7.4, 9.8, [("WHILE THICK COLD OIL", WHITE), ("NEEDS MORE TO CRANK", YELLOW)]),
-        (9.8, 11.4, [("LESS POWER + MORE LOAD", WHITE), ("= CLICK. NO START.", HOT)]),
+        (2.3, 4.6, [("COLD SLOWS THE", WHITE), ("BATTERY CHEMISTRY", YELLOW)]),
+        (4.6, 7.4, [("SO IT DELIVERS", WHITE), ("LESS CURRENT...", YELLOW)]),
+        (7.4, 9.8, [("AND THICK COLD OIL", WHITE), ("NEEDS MORE TO CRANK", YELLOW)]),
+        (9.8, 11.4, [("LOW POWER, BIG LOAD", WHITE), ("= CLICK. NO START.", HOT)]),
         (11.4, 13.01, [("KEEP IT CHARGED.", GREEN), ("PARK IT WARM.", WHITE)]),
     ],
     beats=BEATS,

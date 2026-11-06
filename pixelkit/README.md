@@ -1,9 +1,9 @@
 # pixelkit: native-grid pixel-art video
 
 Free, code-only pipeline: Python 3 + Pillow + NumPy + ffmpeg (libx264). Every
-frame is drawn as **palette indices at 180x320** and upscaled ×6 by ffmpeg
-`scale=…:flags=neighbor` to 1080x1920. No sub-pixel motion, antialiasing,
-alpha blending, smooth scaling or interpolation.
+frame is drawn as **palette indices at 135x240** and upscaled ×8 by ffmpeg
+`scale=…:flags=neighbor` to 1080x1920 (the engine also does 180x320 ×6). No
+sub-pixel motion, antialiasing, alpha blending, smooth scaling or interpolation.
 
 ## Commands (run from the repository root)
 
@@ -39,14 +39,34 @@ Outputs: `out/cold-battery/cold-battery.mp4` (upload),
 | Particles on the grid | `Particles.emit/step/draw` (whole pixels per step, `every=n` for slow drift) |
 | Stepped clock | `StepClock(duration, 30, holds)` (uneven holds → ~10 unique fps), `cycle(t, durations)`, `tween_int()` |
 | Pre-baked rotation | `scale2x()`, `rotsprite()` (Scale2x ×3 → nearest rotate → /8), `bake_rotations(spr, 16)`, `angle_index()` |
-| Render | `render(scene, clock, palette, out, scale=6, master=…, native_dir=…, crf=14)` |
+| Organic detail | `wobble_mask()` (irregular silhouettes, chipped corners), `blob_mask()`, `shade(mask, ramp)` (clustered 4-tone hue-shifted ramp), `texture(kind=noise\|grain\|weave\|dither\|wrinkle\|specks)`, `rotate_nn()` (nearest rotation at native res), `curve_points()`/`cable()` (pixel-perfect curves), `scatter()` (3-8 px clutter) |
+| Render | `render(scene, clock, palette, out, scale=8, master=…, native_dir=…, crf=14)` |
 
 `pixelkit/cozyroom.py` is the reusable set (room, props, pet, palette-swap
 lighting, HUD). An episode (`episodes/<name>/episode.py`) only defines the
 headline, timed captions, beats, car art and speed/battery/light/camera curves.
 For a new episode copy `episodes/cold-battery/episode.py` and edit `EPISODE`;
 pass `car_art`/`car_key` for a different car (16 angles are baked automatically).
-For 8x (135x240) build a 135x240 scene and call `render(..., scale=8)`.
+
+## Organic detail rules (how the set follows them)
+
+* Hero objects (bed, blanket, rug, desk, dresser, cushion, beanbag, panels) are
+  `wobble_mask`/`blob_mask` shapes. Edges jog by 1-2 px every 3-9 px, corners
+  are chipped and the blanket hangs over with depth-2 folds.
+* Diagonals: the rug (-4°), poster (-7°), keyboard, laptop (18°), pizza box
+  (27°), t-shirts, books, sneakers, controller and pillow are rotated with
+  `rotate_nn` at native resolution. Cables are curves (`cable`).
+* Every surface is textured: board grain and broken seams, weave on fabrics,
+  wrinkles on cloth, specks on walls, asphalt and the HUD panels.
+* Shading uses 4-tone ramps with cool shadows and warm highlights (e.g. floor
+  `3e2731→733e39→b86f50→c28569`, blanket `68386c→b55088→f6757a→e8b796`) in
+  clustered bands that follow each silhouette. NIGHT/MOON/WARM are index
+  remaps that keep ramp tones distinct, so the texture survives the dark.
+* About 18 small items (paper balls, coins, pencils, socks, cartridges, crumbs,
+  sticky notes) are scattered over the free floor, plus cups and stationery on
+  the desk.
+* Large-area shapes that run off-frame (walls, front wall) extend 3 px past it,
+  so their straight outer shading band is never visible.
 
 ## Encode settings
 
@@ -55,8 +75,8 @@ libx264 `-preset slow -tune animation -crf 14`, High profile, yuv420p,
 yuv444p, High 4:4:4, CRF 10. The input is split **before** scaling so each
 branch does RGB→YUV inside the single nearest-neighbour scale (an earlier
 version scaled once and let ffmpeg auto-convert 420→444 bicubically, which put
-0.35% non-uniform blocks into the master; now 0.000%). 6 px blocks are even, so
-4:2:0 chroma never straddles two art pixels. No dithering. `paletteuse` is not
+0.35% non-uniform blocks into the master; now 0.000%). 8 px (and 6 px) blocks
+are even, so 4:2:0 chroma never straddles two art pixels. No dithering. `paletteuse` is not
 needed because frames are already palette indices.
 
 ## Verify checks (`pixelkit/verify.py`)
@@ -68,24 +88,39 @@ needed because frames are already palette indices.
   moves >28. Hard limit ≥40 % of pairs
 * pre-encode colours from `--native-dir` ≤ `--palette-size` (32)
 * output exactly 1080x1920
+* straight edges: a run along one row/column boundary where the two sides
+  differ by >24 and each side keeps the same colour (±10). A 1 px jog or a
+  colour change ends it. Hard limit: longest run ≤ 20 native px
+* flat regions: largest square with no neighbour step >10 inside. Hard
+  limit ≤ 12x12 native px
 * info: unique frames/s, hold lengths, % animated blocks, decoded palette estimate
 
 Tolerances absorb codec noise. They were calibrated on the decoded Reference
-(HEVC) and on our own x264 renders of flat blocks.
+(HEVC) and on our own x264 renders of flat blocks. All metrics are computed at
+native resolution from block-core means. The edge and flat checks run on every
+unique frame.
 
-## Analysis and results (2026-11-06)
+## Analysis and results (2026-11-06, 135x240 ×8 build)
 
 | metric | Ours | Reference | Mine |
 |---|---|---|---|
 | source | h264 30 fps | HEVC 30 fps | h264 60 fps |
-| grid / native res | 6 px / 180x320 | 8 px / 135x240 | 6 px / 180x320 |
-| non-uniform blocks (≤0.5%) | **0.001%** | 0.025% | 0.933% FAIL |
+| grid / native res | 8 px / 135x240 | 8 px / 135x240 | 6 px / 180x320 |
+| non-uniform blocks (≤0.5%) | **0.000%** | 0.025% | 0.933% FAIL |
 | held pairs (≥40%) | **65.8%** | 27.1% FAIL | 0.0% FAIL |
 | unique frames/s | 10.3 | 21.9 | 60.0 |
 | hold lengths (frames×count) | 2×34 3×78 4×22 | 1×150 2×57 3×12 | 1×1080 |
-| decoded palette estimate | 34 | 263 | 297 |
-| pre-encode colours (≤32) | **31** | n/a | n/a |
-| verify | PASS | FAIL (held) | FAIL |
+| longest straight edge (≤20) | **19 px** | 63 px FAIL | 140 px FAIL |
+| frames with a long edge | 0% | 100% | 100% |
+| largest flat square (≤12) | **9x9** | 40x40 FAIL | 25x25 FAIL |
+| decoded palette estimate | 30 | 263 | 297 |
+| pre-encode colours (≤32) | **32** | n/a | n/a |
+| verify | PASS (7/7) | FAIL | FAIL |
+
+The yuv444p master gives identical results: 0.000%, 65.8%, 19 px and 9x9.
+The Reference's flat squares are its large grey-teal floor. Its straight edges
+are the room's wall lines. HEVC smoothing may hide fine floor texture that the
+source had.
 
 What the Reference does and Mine doesn't:
 
@@ -118,6 +153,6 @@ What the Reference does and Mine doesn't:
 * Godot, Pixelorama and LibreSprite are not installed, so sprites are ASCII/procedural.
   No CC0 car pack was downloaded (no network installs).
 * No audio track yet. Mux SFX/voice later with `-c:v copy`.
-* At CRF 14 the flat art encodes to ~0.4 Mbps, well under 15–25 Mbps. That is
+* At CRF 14 the art encodes to ~0.2 Mbps, well under 15–25 Mbps. That is
   expected for flat colour. If a platform needs a minimum bitrate, raise it with
   `crf` or add `-b:v`.
