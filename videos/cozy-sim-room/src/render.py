@@ -15,6 +15,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, '..', '..', '..', 'shared'))
 sys.path.insert(0, os.path.join(HERE, '..', '..', '..', 'shared', 'assets'))
 from audio import sfx                                             # noqa: E402
+from pixanim import guy as pg                                     # noqa: E402
+from pixanim.grid import Grid                                     # noqa: E402
+from functools import lru_cache
 from ambient import paste, vgrad, up                 # noqa: E402
 import cozyroom as cr                                             # noqa: E402
 
@@ -158,7 +161,7 @@ def build_static():
                        ('cases', 44, 53), ('phone', 113, 62), ('headphones', 138, 60), ('can', 154, 54), ('remote', 104, 63),
                        ('drink', 150, 64), ('books', 20, 64)):
         place(a, prop(name), x, y)
-    R(a, 82, 64, 98, 68, '2'); R(a, 82, 64, 98, 64, '5')            # wheel base clamp
+    R(a, 83, 67, 96, 73, '2'); R(a, 83, 67, 96, 67, '5')            # wheel base clamp
     place(a, cr.mug(), 126, 53)
     # left wall: plate, key hook; window frame + sill
     R(a, 5, 60, 12, 65, 'G'); R(a, 6, 61, 11, 64, 'k'); R(a, 7, 62, 10, 63, 'i')
@@ -253,112 +256,74 @@ def build_band():
 BAND, BAND_EM = build_band()
 
 
-# ------------------------------------------------------------------ gamer (char grid -> sprite with outline)
-GX, GY = 108, 92                 # grid origin in room coords
-GW, GH = 54, 62
-
-
-class CG:
-    def __init__(self): self.g = [['.'] * GW for _ in range(GH)]
-    def put(self, x, y, c):
-        x, y = int(round(x)) - GX, int(round(y)) - GY
-        if 0 <= x < GW and 0 <= y < GH: self.g[y][x] = c
-    def rect(self, x0, y0, x1, y1, c):
-        for y in range(y0, y1 + 1):
-            for x in range(x0, x1 + 1): self.put(x, y, c)
-    def stamp(self, rows, x, y):
-        for j, r in enumerate(rows):
-            for i, c in enumerate(r):
-                if c != '.': self.put(x + i, y + j, c)
-    def limb(self, p0, p1, core, edge, hi, sleeve=0):
-        n = int(max(abs(p1[0] - p0[0]), abs(p1[1] - p0[1]))) + 1
-        pts = [(p0[0] + (p1[0] - p0[0]) * k / max(1, n - 1), p0[1] + (p1[1] - p0[1]) * k / max(1, n - 1)) for k in range(n)]
-        for i, (x, y) in enumerate(pts): self.rect(int(round(x)) - 2, int(round(y)) - 1, int(round(x)) + 1, int(round(y)) + 1, 'G' if i < sleeve else edge)
-        for i, (x, y) in enumerate(pts): self.rect(int(round(x)) - 1, int(round(y)) - 1, int(round(x)), int(round(y)), 'H' if i < sleeve else core)
-        for (x, y) in pts[sleeve::2]: self.put(x - 1, y - 1, hi)
-
-
-# The main guy (characters/main-guy): dark messy hair with two cowlicks, silver square glasses, brown skin, white tee.
-BACK = ["....l...l.....", "...ll..ll.....", "..llllllllll..", ".llmllllmllll.", ".llllmllllmll.", "llllllllllllll",
-        "FlllllmllllllF", "yFllllllllllFy", "xllllllllllllx", ".llllllllllll.", "..llllllllll..", "...lyyyyyyl...",
-        "....xyyyyx....", "..GHHHHHHHHG.."]
-SIDE = ["....l...l.....", "...ll..ll.....", "..llllllllll..", ".llmllllmlly..", ".llllllllyyy..", "llllllllyyyyy.",
-        "lyFFFFFGGGGy..", "lxlllllGH0Gy..", "lllllllFFFFyy.", ".lllllllyyyyy.", "..llllllyywy..", "...lyyyyyty...",
-        "....xyyyyx....", "..GHHHHHHHHG.."]
-FACE = ["....l...l.....", "...ll..ll.....", "..llllllllll..", ".llmllllllmll.", ".llllllllllll.", "llyllyyyyllyll",
-        "lyyyyyyyyyyyyl", "yGGGGGyyGGGGGy", "xGH0yGGGGH0yGx", "xFFFFFyyFFFFFx", "yywyyyyyyyywyy", ".yyytyyyytyyy.",
-        "..yyyttttyyy..", "...yyyyyyyy...", "....xyyyyx....", "..GHHHHHHHHG.."]
-FACE_OPEN = FACE[:12] + ["..yyytsstyyy.."] + FACE[13:]
-FACE_BLINK = FACE[:8] + ["xGyyyGGGGyyyGx", "xFF0FFyyFF0FFx"] + FACE[10:]
+# ------------------------------------------------------------------ gamer: the approved main-guy rig (shared/pixanim/guy.py)
+# Driving: his back view (the real sprite with the face painted over as the back of his head), hands raised to the
+# wheel beside his head like the reference. At 6 s he swivels round, grins and waves with the rig's own wave poses.
+pg.ARMS.update({'drv0': (((4, -5), (7, -12)), ((4, -5), (7, -12))),
+                'drvL': (((4, -6), (7, -13)), ((4, -4), (7, -11))),
+                'drvR': (((4, -4), (7, -11)), ((4, -6), (7, -13)))})
+SX, SY = 66, 64                  # sprite top-left while driving (hands land at the wheel, y 83)
+WHEEL = (SX + 23.5, SY + 17)    # upright wheel facing him: its sides show beside his head
 TURN = (6.0, 9.6)                # swivels round at 6.0 s, waves, back on the wheel by 9.6 s
 
 
-def shoulders(g, cx, cy, rx=15.0):
-    for y in range(int(cy - 6), int(cy + 7)):
-        for x in range(int(cx - rx - 1), int(cx + rx + 2)):
-            d = ((x - cx) / rx) ** 2 + ((y - cy) / 5.5) ** 2
-            if d <= 1: g.put(x, y, 'F' if d > .82 else ('G' if d > .55 or y > cy + 2 else 'H'))
+@lru_cache(None)
+def back_view(arms):
+    g0 = pg._body(arms, 'sit')
+    g = Grid(pg.W, pg.H); g.g = [row[:] for row in g0.g]
+    O, C = pg.OX, pg.GP
+    def r(x0, y0, x1, y1, c): g.rect(x0 + O, y0, x1 + O, y1, C[c])
+    r(9, 9, 26, 25, 'hair')                                              # back of the head, hair wraps the nape
+    r(14, 22, 21, 25, 'skin'); r(14, 22, 21, 22, 'skinsh'); r(14, 23, 14, 25, 'skinsh'); r(21, 23, 21, 25, 'skinsh')
+    r(10, 22, 13, 24, 'hairhi'); r(22, 22, 25, 24, 'hairhi')
+    g.px(9 + O, 25, None); g.px(26 + O, 25, None)
+    for (x, y) in ((12, 11), (13, 12), (20, 10), (21, 11), (15, 15), (16, 16), (22, 17), (11, 18), (17, 6), (18, 7), (16, 8)):
+        g.px(x + O, y, C['hairhi'])
+    r(9, 14, 9, 15, 'frame'); r(26, 14, 26, 15, 'frame')                 # glasses arms over the ears
+    r(15, 26, 20, 27, 'skinsh'); r(14, 28, 21, 31, 'tee')               # back neckline
+    for y in range(44, pg.H):                                            # legs go under the desk, out of view
+        g.g[y] = [None] * pg.W
+    return g.image()
 
 
-def wheel(g, ang):
-    for k in range(48):
-        th = 2 * math.pi * k / 48
-        for rr, c0 in ((11, 'F'), (10, 'E')):
-            g.put(135 + rr * math.cos(th), 105 + rr * .38 * math.sin(th), c0 if math.sin(th) < 0 else 'D')
-    for th in (ang, ang + math.pi, ang + math.pi / 2):
-        for r in range(1, 10): g.put(135 + r * math.cos(th), 105 + r * .38 * math.sin(th), 'D')
-    g.rect(133, 104, 137, 106, '1'); g.put(135 + 10.5 * math.cos(ang - math.pi / 2), 105 + 4 * math.sin(ang - math.pi / 2), 'v')
+def rgba(img): return np.asarray(img, np.float32)
+
+
+def squash(img, k=.5):
+    w, h = img.size; n = max(1, int(w * k))
+    out = Image.new('RGBA', (w, h)); out.paste(img.resize((n, h), Image.NEAREST), ((w - n) // 2, 0)); return out
+
+
+def wheel(a, ang):
+    cx, cy = WHEEL
+    for k in range(64):
+        th = 2 * math.pi * k / 64
+        for rr, c0 in ((16, 'G'), (15, 'E')):
+            x, y = int(round(cx + rr * math.cos(th))), int(round(cy + rr * .62 * math.sin(th)))
+            a[y, x] = P[c0 if math.cos(th) * math.sin(ang + .6) < .3 else 'F']
+    a[int(cy - 9.5 * math.cos(ang)), int(cx + 15.5 * math.sin(ang))] = P['v']        # top marker turns with the steering
 
 
 def gamer(t):
+    """-> list of (rgba float sprite, x, y), back to front."""
     steer = .55 * sn(t, 6) + .25 * sn(t, 15, 1.0)
-    hx = int(round(1.2 * sn(t, 4) + steer * 1.4))
-    cx = int(round(.8 * sn(t, 2, .5)))
-    turned = TURN[0] + .2 <= t < TURN[1] - .2
-    side = TURN[0] <= t < TURN[1] and not turned
-    g = CG()
-    g.rect(124, 113, 146, 118, '2'); g.rect(124, 113, 146, 113, '3')            # pedal set
-    for px in (126, 133, 141): g.rect(px, 114, px + 2, 116, '5')
-    if turned:                                                                   # facing the camera, waving
-        wheel(g, 0.0)
-        g.stamp(cr.CHAIR[:15], 125, 104)                                         # backrest now behind him
-        g.stamp(cr.CHAIR[15:], 125, 136)
-        g.rect(127, 128, 143, 135, 'H'); g.rect(127, 133, 143, 135, 'G')         # white tee
-        shoulders(g, 135, 125)
-        g.rect(127, 135, 143, 140, 'D'); g.rect(127, 135, 143, 135, '2')         # black jeans, knees toward us
-        for lx in (130, 140):
-            g.rect(lx - 2, 140, lx + 2, 145, 'D'); g.rect(lx - 2, 140, lx - 2, 145, 'E')
-            g.rect(lx - 3, 146, lx + 2, 148, 'H'); g.rect(lx - 3, 148, lx + 2, 148, 'G')
-        g.limb((122, 124), (128, 136), 'y', 'x', 'y', sleeve=4); g.rect(127, 135, 129, 137, 'y')
+    hx = int(round(.8 * sn(t, 4) + steer))
+    chair = rgba(cr.chair())
+    turning = TURN[0] <= t < TURN[1]
+    swivel = turning and not (TURN[0] + .2 <= t < TURN[1] - .2)
+    if turning and not swivel:
         waving = 6.55 <= t < 8.95
-        blink = 8.2 <= t < 8.3
-        g.stamp(FACE_BLINK if blink else (FACE_OPEN if waving else FACE), 128, 109)
-        if waving:
-            w = int((t - 6.55) / .2) % 2
-            g.limb((148, 124), (154, 118), 'y', 'x', 'y', sleeve=4)
-            g.limb((154, 118), (155 + 3 * w, 108 - w), 'y', 'x', 'y')
-            hxp, hyp = 155 + 3 * w, 107 - w
-            g.rect(hxp - 1, hyp - 2, hxp + 1, hyp + 1, 'y'); g.put(hxp - 1, hyp - 3, 'y'); g.put(hxp + 1, hyp - 3, 'y')
-        else:
-            g.limb((148, 124), (142, 136), 'y', 'x', 'y', sleeve=4); g.rect(141, 135, 143, 137, 'y')
-        return cr.S([''.join(r) for r in g.g], outline='1')
-    press = 1 if sn(t, 12) > .3 else 0
-    for lx in (130, 139):                                                        # legs under the desk
-        g.rect(lx - 2, 117, lx + 2, 124, 'D'); g.rect(lx - 1, 117, lx - 1, 124, 'E')
-        g.rect(lx - 2, 114 + (press if lx > 135 else 0), lx + 2, 116 + (press if lx > 135 else 0), 'H')
-    shoulders(g, 135 + hx * .5, 124.5)
-    g.stamp([r.replace('v', 'e').replace('u', 'd') for r in cr.CHAIR], 125 + cx, 126)
-    ang = steer * .9
-    wheel(g, ang)
-    if not side:
-        hands = [(135 + 11 * math.cos(math.pi + ang), 105 + 4.2 * math.sin(math.pi + ang)),
-                 (135 + 11 * math.cos(ang), 105 + 4.2 * math.sin(ang))]
-        for (sx, sy), (hxp, hyp) in zip(((122 + hx * .5, 122), (148 + hx * .5, 122)), hands):
-            g.limb((sx, sy), (hxp, hyp + 2), 'y', 'x', 'y', sleeve=4)
-            g.rect(int(round(hxp)) - 1, int(round(hyp)) - 1, int(round(hxp)) + 1, int(round(hyp)) + 1, 'y')
-            g.put(hxp - 1, hyp - 1, 'x')
-    g.stamp(SIDE if side else BACK, 128 + hx, 106)
-    return cr.S([''.join(r) for r in g.g], outline='1')
+        arms = ('wave1' if int((t - 6.55) / .2) % 2 == 0 else 'wave2') if waving else 'down'
+        expr = 'blink' if 8.2 <= t < 8.3 else ('grin' if waving else 'smile')
+        img = pg.guy(expr, arms, 'sit', (0, 0))
+        return [(chair[:16], SX + 13, SY + 6), (rgba(img), SX, SY - 4)]
+    arms = 'drvL' if steer < -.3 else ('drvR' if steer > .3 else 'drv0')
+    img = back_view(arms)
+    if swivel:                                                           # quick swivel: squash through side-on
+        front = 6.1 <= t < 6.2 or 9.4 <= t < 9.5
+        img = squash(pg.guy('smile', 'down', 'sit', (0, 0)) if front else img)
+        return [(rgba(img), SX, SY - (4 if front else 0)), (chair, SX + 13, SY + 35)]
+    return [(rgba(img), SX + hx, SY), (chair, SX + 13, SY + 35)]
 
 
 # ------------------------------------------------------------------ screens
@@ -552,8 +517,10 @@ def frame(n, raw=True):
     c = cr.cat(breath=cyc(t, 6), flick=flick)
     place(a, c, 46, 152)
     # gamer
-    gm = gamer(t)
-    shade(a, gm, GX - 45, GY - 33, 2, 3, .6); paste(a, gm, GX - 45, GY - 33)
+    if not (TURN[0] + .2 <= t < TURN[1] - .2):
+        wheel(a, (.55 * sn(t, 6) + .25 * sn(t, 15, 1.0)) * .9)
+    for spr, x, y in gamer(t):
+        shade(a, spr, x, y, 2, 3, .6); paste(a, spr, x, y)
 
     a = np.concatenate([a[:SIGN_Y], BAND, a[SIGN_Y:H0 - SH]]); em = np.concatenate([em[:SIGN_Y], BAND_EM, em[SIGN_Y:H0 - SH]])
     a[H0 - 3:] = P['1']; em[H0 - 3:] = 0                                            # bottom wall cap
