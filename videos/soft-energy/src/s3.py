@@ -200,15 +200,15 @@ def _bridge(c):
     c.poly([(0, 145), (360, 235), (360, 262), (0, 172)], '#01050f')
     for x in range(0, 360):
         y = int(top(x))
-        c.px(x, y - 1, '#1a3c7c')
-        c.rect(x, y, x, y + 5, '#05122e' if x % 3 else '#081a40')
-        c.px(x, y + 6, '#12306a')
+        c.px(x, y - 1, '#14306a')
+        c.rect(x, y, x, y + 5, '#030c20' if x % 3 else '#06132e')
+        c.px(x, y + 6, '#0a2048')
         if x % 5 == 0:
-            c.rect(x, y + 7, x, y + 14, '#06132e')
+            c.rect(x, y + 7, x, y + 14, '#040c1e')
     # green-tinted underside fading toward the sign
     for x in range(4, 352):
         y = int(top(x)) + 15
-        f = max(0, 1 - abs(x - 250) / 190)
+        f = 0.45 + 0.55 * max(0, 1 - abs(x - 250) / 200)
         for k in range(8):
             if (x + k) % 2 == 0:
                 c.px(x, y + k, mix('#030c1a', '#24480c', f * (1 - k / 10)))
@@ -302,8 +302,8 @@ def truck_lights(c, t):
 
 def _kiosk(c):
     c.rect(200, 262, 346, 330, '#010611')
-    c.rect(198, 260, 348, 268, '#0c2c58')
-    c.rect(198, 260, 348, 260, '#1a4a86')
+    c.rect(198, 260, 348, 268, '#081c3a')
+    c.rect(198, 260, 348, 260, '#12305a')
     c.rect(294, 268, 296, 330, '#0a2a58')
     # signs
     c.rect(212, 276, 240, 290, '#06142e')
@@ -433,8 +433,8 @@ def neon(c, t):
 class Scene3:
     def __init__(s):
         c = Canvas(W, H, '#001437')
-        vgrad(c, 0, 0, W - 1, 170, '#000c30', '#011a48')
-        vgrad(c, 0, 171, W - 1, 300, '#01163e', '#021a46')
+        vgrad(c, 0, 0, W - 1, 170, '#001034', '#011a48')
+        vgrad(c, 0, 171, W - 1, 300, '#00102e', '#011438')
         _far(c)
         _right_tower(c)
         _tower(c)
@@ -493,12 +493,12 @@ class Scene3:
             sy = 2 * 333 - y
             off = int(round(1.5 * math.sin(t * 3 + y * 1.3)))
             row = np.roll(a[sy], off, axis=0)
-            f = 0.55 * (1 - (y - 336) / (H - 336))
+            f = 0.35 * (1 - (y - 336) / (H - 336))
             a[y] = a[y] * (1 - f) + row * f
         # drifting fog banks
         yy, xx = np.mgrid[0:H, 0:W]
         fog = np.zeros((H, W), np.float32)
-        for (cx, cy, rx, ry, sp) in [(275, 150, 40, 16, 6), (200, 120, 40, 12, 3)]:
+        for (cx, cy, rx, ry, sp) in [(280, 150, 40, 16, 6)]:
             x = (cx + sp * t) % (W + 120) - 60
             fog += np.exp(-(((xx - x) / rx) ** 2 + ((yy - cy) / ry) ** 2))
         a += fog[..., None] * np.array([8, 22, 50], np.float32) * 0.35
