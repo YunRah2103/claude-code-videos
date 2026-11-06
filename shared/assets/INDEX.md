@@ -214,10 +214,10 @@ returned as float RGBA for `ambient.paste`; `S(rows, outline=, sub=)` builds any
 ## 3D pixel car kit (`3d-car/`)
 
 Pixel-art look from a real 3D model, first used by `videos/rear-engine-3d`. Three.js (vendored r160, Chromium via Playwright)
-renders ID / light / depth tiles at 360x640 (no colour in WebGL); `pixpost.py` reduces them to a 180x320 grid (front-most
-sample wins), maps every pixel to one fixed 32-colour palette with Bayer-dithered ramp edges, adds navy outlines (depth
-jumps + part boundaries, 2 px on the silhouette) and an optional dithered x-ray shell, then scales 6x nearest. Frames are
-stepped deterministically with `pix3d/render3d.mjs`. Text goes on top through `overlays.py` (safe zone checked).
+renders ID / light / depth tiles at 270x480 (no colour in WebGL); `pixpost.py` reduces them to a 135x240 grid (front-most
+sample wins), maps every pixel to one fixed 32-colour palette as flat posterised tones (dither only at band edges and on
+the x-ray shell), adds 1-px navy outlines (depth jumps + part boundaries), then scales 8x nearest. Frames are stepped
+deterministically with `pix3d/render3d.mjs` at 30 fps and held x2 in the 60 fps video (pixel-animation cadence). Text goes on top through `overlays.py` (safe zone checked).
 
 | Asset | What it is | Path | Used by | Credit |
 |---|---|---|---|---|
@@ -227,5 +227,5 @@ stepped deterministically with `pix3d/render3d.mjs`. Text goes on top through `o
 | Stage | 4-tile renderer, orbit rig with lens shift (keeps the car in the bottom of a 9:16 frame), `project()` anchors in 1080x1920 px | `3d-car/stage.js` | rear-engine-3d | - |
 | Palette + post-process | `RAMPS` per material id (cream/tan body, navy, sand, teal glass, orange glow, ...), `post(png, xray)`, `up()` | `3d-car/pixpost.py` | rear-engine-3d | - |
 | 3D presenter | The main guy (characters/main-guy look) as a chunky toon figure pinned to the screen, right arm aims at any screen point, shrug pose; same palette and pixel size as the car | `3d-car/presenter3d.js` | rear-engine-3d | characters/main-guy |
-| Pinned pills | Pill in the safe zone with a leader line + dot to a moving 3D anchor; `icon_pill_img` with a chip glyph (ELECTRONICS) | `overlays.py` `pin()`, `icon_pill_img()`, `chip_icon()` | rear-engine-3d | Inter font (SIL OFL) |
+| Pinned pills | Pill in the safe zone with a leader line + dot to a moving 3D anchor; `icon_pill_img` with a chip glyph (ELECTRONICS) | `overlays.py` `pin(..., grid=8)` (leader drawn as hard pixels on the art grid), `icon_pill_img()`, `chip_icon()` | rear-engine-3d | Inter font (SIL OFL) |
 | Three.js addons | GLTFExporter, TextureUtils, RoundedBoxGeometry (r160, same build as the vendored core) | `vendor/jsm/` | rear-engine-3d | MIT, `vendor/THREE_LICENSE` |

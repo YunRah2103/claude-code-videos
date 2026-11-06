@@ -248,16 +248,27 @@ def icon_pill_img(txt, col=YEL, sz=60, icon='chip'):
     return out
 
 
-def pin(cv, t, t0, t1, txt, target, x, y, col=YEL, sz=58, icon=None):
+def pin(cv, t, t0, t1, txt, target, x, y, col=YEL, sz=58, icon=None, grid=1):
     """Pill inside the safe zone with a leader line + dot to a moving screen point (e.g. a projected 3D anchor).
-    target: (x, y) in 1080x1920 px or None. The leader is art (not text), so it may run into the bottom 38 %."""
+    target: (x, y) in 1080x1920 px or None. The leader is art (not text), so it may run into the bottom 38 %.
+    grid > 1: the leader + dot are drawn as hard pixels on that grid (match a pixel-art world, e.g. 8)."""
     if not (t0 <= t < t1 + 0.2): return
     img = icon_pill_img(txt, col, sz, icon) if icon else pill_img(txt, col, sz)
     x, y = clamp_to_safe(x, y, img.width * 1.15, img.height * 1.15)     # room for the pop-in overshoot
     k = popin(t, t0, 0.24) * popout(t, t1, 0.18)
     if target and k > 0.3:
-        tx, ty = target; d = ImageDraw.Draw(cv); y0 = y + (img.height / 2 - 30) * k * (1 if ty > y else -1)
+        tx, ty = target; y0 = y + (img.height / 2 - 30) * k * (1 if ty > y else -1)
         e = min(1.0, (t - t0) / 0.25); ex, ey = x + (tx - x) * e, y0 + (ty - y0) * e
-        d.line((x, y0, ex, ey), fill=INK, width=12); d.line((x, y0, ex, ey), fill=col, width=5)
-        if e >= 1: d.ellipse((tx - 13, ty - 13, tx + 13, ty + 13), fill=INK); d.ellipse((tx - 8, ty - 8, tx + 8, ty + 8), fill=col)
+        if grid > 1:                                  # hard pixel line: 1 px colour core in a 1 px dark rim
+            g = grid; lay = Image.new('RGBA', (W // g, H // g), (0, 0, 0, 0)); d = ImageDraw.Draw(lay)
+            p = [round(v / g) for v in (x, y0, ex, ey)]
+            for ox, oy in ((1, 0), (-1, 0), (0, 1), (0, -1)): d.line((p[0] + ox, p[1] + oy, p[2] + ox, p[3] + oy), fill=INK)
+            d.line(p, fill=col)
+            if e >= 1:
+                cx, cy = round(tx / g), round(ty / g); d.rectangle((cx - 2, cy - 2, cx + 2, cy + 2), fill=INK); d.rectangle((cx - 1, cy - 1, cx + 1, cy + 1), fill=col)
+            lay = lay.resize((W, H), Image.NEAREST); cv.paste(lay, (0, 0), lay)
+        else:
+            d = ImageDraw.Draw(cv)
+            d.line((x, y0, ex, ey), fill=INK, width=12); d.line((x, y0, ex, ey), fill=col, width=5)
+            if e >= 1: d.ellipse((tx - 13, ty - 13, tx + 13, ty + 13), fill=INK); d.ellipse((tx - 8, ty - 8, tx + 8, ty + 8), fill=col)
     place(cv, img, x, y, k, 0.0, 'pill ' + txt)

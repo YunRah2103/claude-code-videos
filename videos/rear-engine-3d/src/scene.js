@@ -92,7 +92,7 @@ export function build(canvas) {
     }
     skid.count = n; skid.instanceMatrix.needsUpdate = true; skid.visible = n > 0;
     // presenter: lower-left, pointing at the part being discussed (screen space)
-    guy.place(S.camera, guyAt[0], guyAt[1], 0.15);
+    guy.place(S.camera, guyAt[0], guyAt[1], 0.19);
     const pt = point ? S.project(car.anchor(point)) : null;
     guy.pose({ t, cam: S.camera, point: pt ? [pt[0] / 1080, pt[1] / 1920] : null, shrug, talk: 0 });
     S.render(car.shell, xray > 0);

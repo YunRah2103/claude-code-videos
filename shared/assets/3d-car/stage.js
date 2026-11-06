@@ -1,10 +1,10 @@
-// Stage for the 3D-pixel car episodes: 360x640 tiles (pixpost.py reduces them to 180x320, then 6x), sand floor with a light pool and joints,
+// Stage for the 3D-pixel car episodes: 270x480 tiles (pixpost.py reduces them to 135x240, then 8x), sand floor with a light pool and joints,
 // slatted navy roller-door backdrop, orbit camera with lens shift, and the multi-pass ID render pixpost.py reads:
-//   canvas 1440x640 = [info | depth | info without the car shell | depth without the shell]   (x-ray tiles optional)
+//   canvas 1080x480 = [info | depth | info without the car shell | depth without the shell]   (x-ray tiles optional)
 import * as THREE from 'three';
 import { ID, U, mat } from './toon.js';
 
-export const SW = 360, SH = 640, K = 3;
+export const SW = 270, SH = 480, K = 4;          // tiles; pixpost.py halves them to the 135x240 pixel grid (8x)
 export function stage(canvas) {
   canvas.width = SW * 4; canvas.height = SH;
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, preserveDrawingBuffer: true });
@@ -28,7 +28,7 @@ export function stage(canvas) {
     camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert(); camera.updateMatrixWorld(true);
   }
   const v = new THREE.Vector3();
-  function project(p) {                               // world point -> 1080x1920 px + on-screen flag
+  function project(p) {                               // world point -> 1080x1920 px + on-screen flag (SW * K = 1080)
     v.copy(p).project(camera);
     return [Math.round((v.x + 1) / 2 * SW * K), Math.round((1 - v.y) / 2 * SH * K), v.z < 1 ? 1 : 0];
   }
