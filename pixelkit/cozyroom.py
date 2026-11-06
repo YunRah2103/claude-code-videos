@@ -11,7 +11,7 @@ import math
 
 import numpy as np
 
-from .core import (T, BitmapFont, Camera, Canvas, Palette, Particles, PixelFont,
+from .core import (T, BitmapFont, Camera, Canvas, Palette, Particles, PixelFont, pattern,
                    StepClock, angle_index, bake_rotations, blob_mask, cable, cycle,
                    outline, render, rotate_nn, scatter, shade, shake, sprite,
                    texture, tween_int, wobble_mask)
@@ -81,9 +81,9 @@ MOOD = _lut({WHITE: LTGREY, LTGREY: GREY, CREAM: GREY, TAN: GREY,
 LIFT = _lut({INK: NAVY, NAVY: DKSLATE, DKSLATE: SLATE, SLATE: GREY, GREY: LTGREY, TEAL: DKSLATE,
              DKBROWN: PLUM, PLUM: MAUVE, MAUVE: SALMON, MAROON: MAUVE, FOREST: DKGREEN,
              BROWN: WOOD, WOOD: SKIN2, BLUE: SKY})                 # light on / moonbeam
-PGLOW = _lut({INK: DKBROWN, NAVY: PLUM, TEAL: PLUM, DKSLATE: MAUVE, SLATE: MAUVE, GREY: SALMON,
-              DKBROWN: PLUM, PLUM: MAUVE, MAUVE: SALMON, BLUE: MAUVE, FOREST: PLUM,
-              BROWN: PLUM, WOOD: SALMON, MAROON: HOT})                 # magenta screen glow
+PGLOW = _lut({INK: DKBROWN, NAVY: PLUM, TEAL: DKBROWN, DKSLATE: PLUM, SLATE: MAUVE, GREY: MAUVE,
+              LTGREY: SALMON, DKBROWN: PLUM, PLUM: MAUVE, MAUVE: SALMON, BLUE: PLUM,
+              FOREST: DKBROWN, BROWN: PLUM, WOOD: MAUVE, MAROON: MAUVE})       # magenta screen glow
 CGLOW = _lut({INK: NAVY, NAVY: BLUE, TEAL: BLUE, DKSLATE: SKY, SLATE: SKY, DKBROWN: NAVY,
               PLUM: BLUE, FOREST: BLUE, MAROON: PLUM})                  # cyan underglow
 CODER_LUT = MOOD.copy()
@@ -211,9 +211,18 @@ CLUTTER = [
 ]
 
 
+_PAT = {"grain": "grain", "weave": "weave", "specks": "dots", "noise": "dots", "dither": "diag"}
+
+
 def _prop(mask, ramp, rng, kind="noise", density=0.06, line=INK):
+    """Shaded prop. Hard surfaces get a regular pattern; cloth keeps a few
+    hand-placed-looking folds (wrinkle), at half the old density."""
     a = shade(mask, ramp, line=line)
-    texture(a, ramp, rng, kind, density)
+    if kind == "wrinkle":
+        texture(a, ramp, rng, "wrinkle", density * 0.5)
+        pattern(a, ramp, "weave", a == ramp[2])
+    else:
+        pattern(a, ramp, _PAT[kind], a == ramp[2])
     return a
 
 
@@ -291,7 +300,7 @@ def hanging(rng, ramp, w, h):
     return a
 
 
-GARMENTS = [BLUEF, REDF, LEAF, CLOTH, PINK, CARD, DENIM, BLACKJ, SEAT]
+GARMENTS = [PINK, CLOTH, DENIM, SEAT, CLOTH, PINK, DENIM]     # curated: plum / grey / denim
 
 
 def wardrobe(c, r, avoid):
@@ -301,7 +310,7 @@ def wardrobe(c, r, avoid):
     _put(c, _prop(wobble_mask(w, h, r, 1, (3, 7), (1, 2)), DARKWOOD, r, "grain", 0.08), x0, y0, avoid)
     iw, ih = w - 8, h - 8
     inner = np.where(wobble_mask(iw, ih, r, 1, (3, 7), (1, 2)), np.uint8(INK), np.uint8(T))
-    texture(inner, [INK, NAVY], r, "specks", 0.08)
+    pattern(inner, [INK, NAVY], "dots", inner == INK, delta=1)
     c.blit(inner, x0 + 4, y0 + 4)
     c.rect(x0 + 4, y0 + 6, iw, 1, GREY)                       # hanging rail
     x = x0 + 4
@@ -321,29 +330,29 @@ def wardrobe(c, r, avoid):
     c.poly([(x0, y0 + 2), (x0 - 6, y0 + 7), (x0 - 8, y0 + h + 4), (x0, y0 + h - 1)], fill=WOOD, line=INK)
     c.poly([(x0 + w - 1, y0 + 2), (x0 + w + 6, y0 + 8), (x0 + w + 8, y0 + h + 5), (x0 + w - 1, y0 + h - 1)],
            fill=WOOD, line=INK)
+    for hy in (y0 + 9, y0 + 21):                               # brass hinges
+        c.rect(x0 - 1, hy, 2, 2, GOLD)
+        c.rect(x0 + w - 2, hy, 2, 2, GOLD)
     c.line(x0 - 5, y0 + 18, x0 - 5, y0 + 21, GOLD)
     c.line(x0 + w + 5, y0 + 19, x0 + w + 5, y0 + 22, GOLD)
-    texture(c.a, DARKWOOD, r, "grain", 0.15,
+    pattern(c.a, DARKWOOD, "grain", ox=3,
             mask=_poly_mask([(x0 - 7, y0), (x0 + w + 8, y0), (x0 + w + 8, y0 + h + 6), (x0 - 7, y0 + h + 6)])
             & ~_poly_mask([(x0 + 1, y0), (x0 + w - 2, y0), (x0 + w - 2, y0 + h), (x0 + 1, y0 + h)]))
     c.blit(rotate_nn(hoodie(r, BLACKJ), 20), x0 + w - 2, y0 + 4)          # draped over the door
     # the spill: heavy at the wardrobe mouth, thinning out across the floor
     ox, oy = x0 + w // 2, y0 + h + 2
-    pieces = [jeans(r), hoodie(r, REDF), tshirt(r, LEAF), towel(r, PINK), jeans(r, BLACKJ),
-              tshirt(r, CLOTH), hoodie(r, SEAT), tshirt(r, CARD), towel(r, BLUEF), tshirt(r, REDF),
-              jeans(r), tshirt(r, BLUEF), hoodie(r, LEAF)]
-    for i, g in enumerate(pieces):
-        d = 3 + 2.5 * i ** 0.9
-        a = r.uniform(0.15, 2.4)
-        g = rotate_nn(g, float(r.integers(-70, 70)))
-        px = int(ox + d * math.cos(a) * 1.15 - g.shape[1] // 2)
-        py = int(oy - 6 + d * math.sin(a) * 0.9 - g.shape[0] // 2)
-        _put(c, g, max(6, px), max(y0 + h - 8, py), avoid)
+    # tidy cascade: big pieces at the mouth, smaller ones fanning out
+    pieces = [(hoodie(r, PINK), -6, 0, -15), (jeans(r), 6, 1, 20), (tshirt(r, CLOTH), -12, 9, 30),
+              (towel(r, PINK), 2, 11, -10), (tshirt(r, DENIM), 13, 12, -25), (jeans(r, BLACKJ), -4, 19, 70),
+              (tshirt(r, REDF), 10, 22, 15), (tshirt(r, CLOTH), -15, 22, -35)]
+    for g, dx, dy, ang in pieces:
+        g = rotate_nn(g, float(ang))
+        _put(c, g, ox + dx - g.shape[1] // 2, oy - 6 + dy, avoid)
     # basket overflowing next to the heap
     bk = _prop(blob_mask(15, 11, r, 1), CARD, r, "weave", 0.25)
     _put(c, bk, x0 + w + 4, oy + 6, avoid)
     for i in range(3):
-        g = rotate_nn(tshirt(r, GARMENTS[i * 3 % len(GARMENTS)])[:7, :10], float(r.integers(-40, 40)))
+        g = rotate_nn(tshirt(r, (CLOTH, PINK, DENIM)[i])[:7, :10], float((-20, 10, 35)[i]))
         c.blit(g, x0 + w + 4 + i * 3, oy + 2 + i)
     for i, spr in enumerate((CLUTTER[6], CLUTTER[6], SNEAKER)):            # socks + a shoe
         _put(c, rotate_nn(spr, float(r.integers(-60, 60))), ox - 18 + i * 13, oy + 22 + (i % 2) * 4, avoid)
@@ -444,27 +453,27 @@ def build_room(seed=3):
     avoid = np.zeros((WH, WW), bool)
     floor = np.arange(WH)[:, None] >= 34
     # --- floor: 8 px boards, broken seams, alternating tones, grain
-    for k, x0 in enumerate(range(0, WW, 8)):
-        base = (BROWN, WOOD, BROWN, BROWN, WOOD)[k % 5]
+    for k, x0 in enumerate(range(0, WW, 8)):          # clean staggered boards
+        base = (BROWN, BROWN, WOOD)[k % 3]
         c.rect(x0, 34, 8, WH, base)
-        _dashed(c, x0 + 7, 34, WH, DKBROWN, r)
-        _dashed(c, x0, 34, WH, SKIN2 if base == WOOD else WOOD, r, (4, 12))
-        y = 34 - int(r.integers(0, 50))
-        while y < WH:                                        # butt joints
-            c.rect(x0, y, 7, 1, DKBROWN)
-            y += int(r.integers(30, 70))
-    texture(c.a, FLOOR, r, "grain", 0.05, mask=floor)
-    texture(c.a, FLOOR, r, "noise", 0.02, mask=floor)
+        off = (k * 7) % 16
+        for y in range(34, WH):
+            if (y + off) % 16:
+                c.px(x0 + 7, y, DKBROWN)                      # seam (nail gap every 16)
+            if (y + off + 8) % 16 > 1:
+                c.px(x0, y, SKIN2 if base == WOOD else WOOD)  # lit board edge
+        for y in range(34 + (k * 19) % 48, WH, 48):
+            c.rect(x0, y, 7, 1, DKBROWN)                      # butt joints
+    pattern(c.a, FLOOR, "grain", mask=floor)
     # --- back wall: patterned wallpaper, wobbly baseboard + shadow
     c.rect(0, 0, WW, 34, NAVY)
     for y in range(4, 30, 6):
         for x in range((y // 6) % 2 * 4, WW, 8):
             c.px(x, y, DKSLATE); c.px(x + 1, y + 1, DKSLATE); c.px(x - 1, y + 1, DKSLATE)
             c.px(x, y + 2, DKSLATE)
-    texture(c.a[:30], WALL, r, "specks", 0.02)
     c.rect(0, 0, WW, 2, INK)
     for x in range(0, WW, 5):
-        c.px(x + int(r.integers(0, 3)), 2, INK)
+        c.px(x + 2, 2, INK)
     bb = wobble_mask(WW, 5, r, depth=1, seg=(4, 9), chip=(0, 0), sides="tb")
     c.blit(shade(bb, WALL), 0, 30)
     sh = wobble_mask(WW, 3, r, depth=1, seg=(3, 8), chip=(0, 0), sides="b")
@@ -474,7 +483,6 @@ def build_room(seed=3):
     # (masks run 3 px past the frame so their straight outer bands are off-screen)
     for x0, sides in ((-3, "r"), (WW - 8, "l")):
         a = shade(wobble_mask(11, WH, r, depth=1, seg=(4, 10), chip=(0, 0), sides=sides), WALL)
-        texture(a, WALL, r, "specks", 0.05)
         c.blit(a, x0, 0)
     # window frame + curtains + sill
     wx, wy, ww, wh = WINDOW
@@ -482,7 +490,7 @@ def build_room(seed=3):
     sill = wobble_mask(4, wh - 6, r, 1, (3, 7), (1, 1), "lr")
     c.blit(shade(sill, CLOTH), 8, wy + 3)
     for cy0 in (wy - 9, wy + wh - 4):
-        c.blit(_prop(blob_mask(9, 14, r, 2), PINK, r, "wrinkle", 0.25), 3, cy0)
+        c.blit(_prop(blob_mask(9, 14, r, 1), PINK, r, "wrinkle", 0.25), 3, cy0)
     # radiator
     c.blit(_prop(wobble_mask(5, 18, r, 1, (3, 6), (1, 1)), METAL, r, "specks"), 9, 124)
     for y in range(127, 140, 3):
@@ -529,7 +537,7 @@ def build_room(seed=3):
     wardrobe(c, r, avoid)
     # --- trash can by the desk with paper balls (small second cluster)
     _put(c, _prop(blob_mask(8, 8, r, 1), METAL, r, "specks"), 66, 40, avoid)
-    for i, (dx, dy) in enumerate(((2, -1), (-4, 6), (5, 8), (9, 3), (0, 10))):
+    for i, (dx, dy) in enumerate(((-4, 7), (8, 4))):
         c.blit(rotate_nn(CLUTTER[0], 30.0 * i), 66 + dx, 40 + dy)
     _put(c, pizza_box(r), 58, 54, avoid)
     for i, col in enumerate((GREEN, CYAN, GREEN)):                     # empty energy cans
@@ -538,8 +546,7 @@ def build_room(seed=3):
     # --- bed (right): frame, rumpled blanket with folds, pillow, laptop, shirt
     _put(c, _prop(wobble_mask(36, 70, r, 1, (4, 9), (1, 2)), DARKWOOD, r, "grain", 0.05), 98, 66, avoid)
     bla = shade(wobble_mask(36, 52, r, depth=2, seg=(3, 7), chip=(2, 4), sides="tlbr"), PINK, line=PLUM)
-    texture(bla, PINK, r, "weave", 0.05)
-    texture(bla, PINK, r, "wrinkle", 0.06)
+    pattern(bla, PINK, "quilt", bla == PINK[2])
     c.blit(bla, 95, 84)
     for (x0, y0, x1, y1) in ((99, 92, 108, 104), (110, 118, 120, 130), (104, 108, 112, 112)):
         c.line(x0, y0, x1, y1, MAUVE); c.line(x0 + 1, y0, x1 + 1, y1, SKIN)
@@ -551,7 +558,7 @@ def build_room(seed=3):
     _put(c, _prop(blob_mask(26, 18, r, 2), REDF, r, "weave", 0.06), 54, 92, avoid)
     # --- rug (rotated), track with kerbs, cones, tree
     rug = shade(wobble_mask(112, 74, r, depth=1, seg=(3, 7), chip=(2, 3)), RUGR, line=INK)
-    texture(rug, RUGR, r, "weave", 0.06)
+    pattern(rug, RUGR, "weave", rug == RUGR[2])
     for x in range(2, 110, 2):
         rug[0, x] = CREAM
         rug[-1, x] = CREAM
@@ -564,8 +571,8 @@ def build_room(seed=3):
     c.ellipse(cx - rx + 9, cy - ry + 9, 2 * rx - 17, 2 * ry - 17, fill=DKGREEN)
     tm = np.zeros((WH, WW), bool)
     tm[cy - ry - 10:cy + ry + 11, cx - rx - 10:cx + rx + 11] = True
-    texture(c.a, [NAVY, DKSLATE, SLATE], r, "specks", 0.08, mask=tm)
-    texture(c.a, GRASS, r, "noise", 0.12, mask=tm)
+    pattern(c.a, [NAVY, DKSLATE, SLATE], "dots", mask=tm & (c.a == DKSLATE))
+    pattern(c.a, GRASS, "dots", mask=tm & (c.a == DKGREEN))
     for k in range(24):
         a = 2 * math.pi * k / 24
         c.px(cx + rx * math.cos(a), cy + ry * math.sin(a), LTGREY)
@@ -599,45 +606,77 @@ def build_room(seed=3):
     return c
 
 
+def _grow(m, k):
+    o = m.copy()
+    for _ in range(k):
+        g = o.copy()
+        g[1:] |= o[:-1]; g[:-1] |= o[1:]; g[:, 1:] |= o[:, :-1]; g[:, :-1] |= o[:, 1:]
+        o = g
+    return o
+
+
+_YY, _XX = np.mgrid[0:WH, 0:WW]
+CHECK = (_XX + _YY) % 2 == 0          # 50% dither for light falloff rings
+
+
 class Lights:
+    """Hard-edged palette-swap pools with a dithered falloff ring, the
+    classic pixel-art way to soften light without blending."""
+
     def __init__(self):
-        self.lamp_in = _circle_mask(*LAMP, 6)
-        self.lamp_out = _circle_mask(*LAMP, 11)
-        self.ceiling = _circle_mask(66, 120, 58)
-        self.nl_in = _circle_mask(*NLIGHT, 6)
-        self.nl_out = _circle_mask(*NLIGHT, 11)
         wx, wy, ww, wh = WINDOW
-        self.moon = _poly_mask([(8, wy + 2), (8, wy + wh - 2), (50, 166), (66, 146)])
-        self.screen = _poly_mask([(84, 28), (118, 28), (122, 64), (80, 64)])
-        self.screen_in = _poly_mask([(88, 28), (114, 28), (116, 50), (86, 50)])
-        self.bedled = _poly_mask([(90, 70), (96, 70), (96, 138), (88, 138)])
+        pools = {
+            "lamp": _circle_mask(*LAMP, 7),
+            "ceiling": _circle_mask(66, 120, 50),
+            "nl": _circle_mask(*NLIGHT, 6),
+            "moon": _poly_mask([(8, wy + 4), (8, wy + wh - 4), (52, 162), (64, 148)]),
+            "screen": _poly_mask([(86, 30), (116, 30), (120, 58), (82, 58)]),
+        }
+        self.core = pools
+        self.ring = {k: _grow(m, 4) & ~m & CHECK for k, m in pools.items()}
+
+    def _pool(self, a, base, k, lut):
+        a = np.where(self.ring[k], lut[base], a)
+        return np.where(self.core[k], lut[base], a)
 
     def apply(self, c, mode, under=None):
         """c is already MOOD-mapped. day = ceiling light on; night = neon."""
         base = c.a.copy()
+        a = base
         if mode == "day":
-            c.a = np.where(self.ceiling, LIFT[base], base)
-            c.a = np.where(self.lamp_out, LIFT[base], c.a)
-            c.a = np.where(self.lamp_in, WARM[LIFT[base]], c.a)
+            a = self._pool(a, base, "ceiling", LIFT)
+            a = self._pool(a, base, "lamp", WARM[LIFT])
         else:
-            c.a = np.where(self.moon, LIFT[base], base)
-            c.a = np.where(self.screen, PGLOW[base], c.a)
-            c.a = np.where(self.screen_in, PGLOW[PGLOW[base]], c.a)
-            c.a = np.where(self.lamp_out, WARM[base], c.a)
-            c.a = np.where(self.nl_out, PGLOW[base], c.a)
+            a = self._pool(a, base, "moon", LIFT)
+            a = self._pool(a, base, "screen", PGLOW)
+            a = self._pool(a, base, "lamp", WARM)
+            a = self._pool(a, base, "nl", PGLOW)
         if under is not None:
-            c.a = np.where(under, CGLOW[c.a], c.a)
+            core = under
+            ring = _grow(under, 2) & ~under & CHECK
+            a = np.where(ring | core, CGLOW[a], a)
+        c.a = a
 
 
-def rag_panel(v, x, y, w, h, seed, fill=INK, edge=DKSLATE, speck=NAVY):
-    """Hand-cut HUD panel: wobbly border, chipped corners, speckled fill."""
-    r = np.random.default_rng(seed)
-    m = wobble_mask(w, h, r, depth=1, seg=(3, 7), chip=(1, 2))
-    a = np.where(m, np.uint8(fill), np.uint8(T))
-    yy, xx = np.nonzero(m)
-    k = ((xx * 7 + yy * 13) % 19 == 0) | ((xx * 5 + yy * 3) % 29 == 0)
-    a[yy[k], xx[k]] = speck
-    v.blit(outline(a, edge), x - 1, y - 1)
+def rag_panel(v, x, y, w, h, seed=0, fill=INK, edge=PLUM, speck=NAVY, accent=None):
+    """Clean HUD panel: chamfered corners, 1 px border broken by accent
+    'rivets' every 12 px, and a quiet diamond-lattice fill."""
+    a = np.full((h, w), fill, np.uint8)
+    for (cy, cx) in ((0, 0), (0, w - 1), (h - 1, 0), (h - 1, w - 1)):
+        sy, sx = (1 if cy == 0 else -1), (1 if cx == 0 else -1)
+        a[cy, cx] = a[cy, cx + sx] = a[cy + sy, cx] = T
+    yy, xx = np.mgrid[0:h, 0:w]
+    a[((xx % 6 == 0) & (yy % 6 == 0) | (xx % 6 == 3) & (yy % 6 == 3)) & (a != T)] = speck
+    o = outline(a, edge)
+    acc = accent if accent is not None else edge
+    oh, ow = o.shape
+    for i in range(6, ow - 6, 12):
+        o[0, i] = o[0, i + 1] = acc
+        o[oh - 1, i] = o[oh - 1, i + 1] = acc
+    for j in range(6, oh - 6, 12):
+        o[j, 0] = o[j + 1, 0] = acc
+        o[j, ow - 1] = o[j + 1, ow - 1] = acc
+    v.blit(o, x - 1, y - 1)
 
 
 # ------------------------------------------------------------------- scene ---
@@ -753,8 +792,6 @@ class CozyEpisode:
         pose = "look" if b0 <= t < b["crank_end"] + 0.6 else ("a", "b")[cycle(t, (0.2, 0.1, 0.3, 0.15, 0.25)) % 2]
         spr = np.where(CODER[pose] == T, T, CODER_LUT[CODER[pose]]).astype(np.uint8)
         night = ep["light"](t, step) == "night"
-        if night:
-            spr = np.where(spr == T, T, PGLOW[spr]).astype(np.uint8)
         c.blit(spr, 86, 35)
         # --- neon (night): sign flickers on, LED strip, glowing kerbs, cat eyes
         on = night and not (t < b["night"] + 0.9 and step % 3 == 0)
@@ -778,14 +815,8 @@ class CozyEpisode:
         for yy in range(wy + 12, wy + wh, 12):
             c.rect(wx, yy, ww, 1, LTGREY)
         self.snow.draw(c)
-        for yy in range(wy + 1, wy + wh - 1):               # frost creeping in
-            k = (yy * 7) % 11
-            if k < 3:
-                c.px(wx + 1, yy, WHITE if k else LTGREY)
-            if k in (4, 5, 9):
-                c.px(wx + ww - 2, yy, LTGREY if k == 9 else WHITE)
-            if k == 6:
-                c.px(wx + 2, yy, LTGREY)
+        for (fx, fy) in ((1, 1), (2, 1), (1, 2), (ww - 2, 1), (1, 13), (ww - 2, 25), (1, 37), (2, 37)):
+            c.px(wx + fx, wy + fy, LTGREY)                  # frost in the pane corners
         c.rect(wx + 1, wy + wh - 3, ww - 2, 2, WHITE)       # snow on the sill
         c.px(wx + 2, wy + wh - 4, WHITE); c.px(wx + 4, wy + wh - 4, WHITE)
         c.px(119, 199, GREEN if t >= b["charge"] else (RED if t >= b["dying"] else DKSLATE))
@@ -823,7 +854,7 @@ class CozyEpisode:
         under = None
         if mode != "day":                                     # cyan underglow pool
             yy, xx = np.ogrid[0:WH, 0:WW]
-            under = ((xx - x) ** 2 + ((yy - y - 1) * 1.4) ** 2) <= 81
+            under = ((xx - x) ** 2 + ((yy - y - 1) * 1.4) ** 2) <= 42
         self.lights.apply(c, mode, under)
         self._emissive(c, t, step)
         c.blit(a, cx_ + jx, cy_ + jy)                         # the car stays full neon
@@ -835,14 +866,14 @@ class CozyEpisode:
         hu = ep.get("headline_until", 2.6)
         if t < hu + 0.4:                       # drops in, holds, then slides out (stepped)
             y0 = tween_int(t, 0.0, 0.5, -50, 12, "out") if t < hu else tween_int(t, hu, hu + 0.4, 12, -52)
-            rag_panel(v, 12, y0, W - 24, 44, 21, INK, HOT, NAVY)
+            rag_panel(v, 12, y0, W - 24, 44, 21, INK, HOT, NAVY, CYAN)
             for i, line in enumerate(ep["headline"]):
                 col = CYAN if i == len(ep["headline"]) - 1 else WHITE
                 v.text(HEAD, line, W // 2, y0 + 5 + i * 19, col,
                        shadow_c=PLUM if i else DKSLATE, align="center")
         for (t0, t1, lines) in ep["captions"]:
             if t0 <= t < t1:
-                rag_panel(v, 5, 194, W - 10, 40, 23, INK, PLUM, NAVY)
+                rag_panel(v, 5, 194, W - 10, 40, 23, INK, PLUM, NAVY, MAUVE)
                 v.text(TINY, ep.get("tag", "CAR STUFF, EXPLAINED"), W // 2, 227, SLATE, align="center")
                 n = int((t - t0) * 40)
                 shown = 0
@@ -853,7 +884,7 @@ class CozyEpisode:
                         v.text(CAP, txt[:k], W // 2, 198 + i * 14, col, align="center")
         level = ep["battery"](t)
         by = 182
-        rag_panel(v, 5, by, 30, 11, 24)
+        rag_panel(v, 5, by, 30, 11, 24, INK, PLUM, NAVY, MAUVE)
         v.rect(8, by + 2, 17, 7, GREY); v.rect(9, by + 3, 15, 5, INK); v.rect(25, by + 4, 2, 3, GREY)
         segs = max(0, min(5, int(math.ceil(level / 20))))
         col = GREEN if level > 50 else GOLD if level > 25 else RED

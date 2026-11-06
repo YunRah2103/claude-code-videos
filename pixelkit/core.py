@@ -519,9 +519,11 @@ def wobble_mask(w, h, rng, depth=1, seg=(3, 8), chip=(1, 3), sides="tblr"):
     m = np.ones((h, w), bool)
 
     def runs(n):
+        # long sides get longer, calmer runs (still <= 17 px between jogs)
+        lo, hi = max(seg[0], min(10, n // 6)), max(seg[1], min(17, n // 4))
         out, i = [], 0
         while i < n:
-            k = int(rng.integers(seg[0], seg[1] + 1))
+            k = int(rng.integers(lo, hi + 1))
             out.append((i, min(n, i + k), int(rng.integers(0, depth + 1))))
             i += k
         # never two neighbouring runs at the same depth -> edge always breaks
@@ -696,3 +698,35 @@ def scatter(canvas, items, rng, region, n, avoid=None, rotate=True):
             avoid[y:y + s.shape[0], x:x + s.shape[1]] |= s != T
         placed += 1
     return placed
+
+
+def pattern(a, ramp, kind="dots", mask=None, ox=0, oy=0, delta=-1):
+    """Deterministic, designed surface texture (refined alternative to the
+    random `texture`). Shifts ramp tones by `delta` on a regular lattice:
+    dots (diamond lattice), weave (offset stitches), quilt (diagonal
+    diamonds), grain (staggered board streaks), diag (sparse stripes).
+    Every pattern has a period < 12 px, so no flat area exceeds 12x12."""
+    h, w = a.shape
+    yy, xx = np.mgrid[0:h, 0:w]
+    xx, yy = xx + ox, yy + oy
+    if kind == "dots":
+        sel = ((xx % 4 == 0) & (yy % 4 == 0)) | ((xx % 4 == 2) & (yy % 4 == 2))
+    elif kind == "weave":
+        sel = ((yy % 2 == 0) & (xx % 4 == 0)) | ((yy % 2 == 1) & (xx % 4 == 2))
+    elif kind == "quilt":
+        sel = ((xx + yy) % 8 == 0) | ((xx - yy) % 8 == 0)
+    elif kind == "grain":
+        sel = (np.isin(xx % 8, (2, 5))) & (((yy + 5 * (xx // 8) + 3 * (xx % 8)) % 13) < 3)
+    elif kind == "diag":
+        sel = (xx + yy) % 6 == 0
+    else:
+        raise ValueError(kind)
+    m = np.isin(a, ramp) & sel
+    if mask is not None:
+        m &= mask
+    pos = {c: i for i, c in enumerate(ramp)}
+    lut = np.arange(256, dtype=np.uint8)
+    for c_, i in pos.items():
+        lut[c_] = ramp[max(0, min(len(ramp) - 1, i + delta))]
+    a[m] = lut[a[m]]
+    return a

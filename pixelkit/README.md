@@ -78,6 +78,29 @@ pass `car_art`/`car_key` for a different car (16 angles are baked automatically)
 * Large-area shapes that run off-frame (walls, front wall) extend 3 px past it,
   so their straight outer shading band is never visible.
 
+## Refinement pass (clean, designed detail)
+
+* Surfaces use `pattern()` (core): deterministic lattices instead of random
+  specks:
+  * board grain on the floor and furniture
+  * offset weave on the rug and fabrics
+  * diagonal quilting on the blanket
+  * quiet dot lattices on the asphalt, infield, wardrobe interior and panels
+
+  Every pattern has a period under 12 px, so the flat-region rule holds
+  without noise. Cloth keeps a few folds (`wrinkle` at half the old density).
+* Floor: uniform 8 px boards with a nail gap every 16 px, a lit edge, and
+  butt joints every 48 px staggered per board.
+* Silhouettes: `wobble_mask` uses longer runs on long sides (up to 17 px
+  between 1 px jogs), so big shapes read as hand-drawn rather than ragged.
+* Light pools have a 4 px 50% dither falloff ring, the classic pixel-art
+  way to soften light without blending.
+* HUD: chamfered panels, 1 px neon border with accent rivets every 12 px,
+  diamond-lattice fill.
+* Curated clothes palette (plum / soft grey / denim + one maroon accent),
+  arranged in a tidy cascade from the wardrobe. The coder keeps their own
+  colours under the screen glow.
+
 ## Colour mood: dark Reference look + neon
 
 The Reference, matched to ENDESGA 32, is about 70% INK/NAVY/DKSLATE (very dark
@@ -148,7 +171,7 @@ unique frame.
 | hold lengths (frames×count) | 2×34 3×78 4×22 | 1×150 2×57 3×12 | 1×1080 |
 | longest straight edge (≤20) | **17 px** | 63 px FAIL | 140 px FAIL |
 | frames with a long edge | 0% | 100% | 100% |
-| largest flat square (≤12) | **9x9** | 40x40 FAIL | 25x25 FAIL |
+| largest flat square (≤12) | **7x7** | 40x40 FAIL | 25x25 FAIL |
 | median brightness (0-255) | 51 | 47 | 60 |
 | decoded palette estimate | 24 | 263 | 297 |
 | pre-encode colours (≤32) | **28** | n/a | n/a |
