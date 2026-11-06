@@ -503,7 +503,7 @@ def title_img(text):
     return im.resize((im.width * 12, im.height * 12), Image.NEAREST)
 
 
-def showcase_frame(t):
+def showcase_frame(t, titles=True):
     i = min(len(ORDER) - 1, int(t // SEG))
     f = frame(t, ORDER[i]).astype(np.float32)
     lt = t - i * SEG
@@ -514,7 +514,7 @@ def showcase_frame(t):
         w = 0.5 + lt / XF
         f = frame(t, ORDER[i - 1]) * (1 - w) + f * w
     ta = min(1, max(0, (lt - 0.7) / 0.4)) * min(1, max(0, (3.4 - lt) / 0.5))
-    if ta > 0:
+    if ta > 0 and titles:
         ti = title_img(MOODS[ORDER[i]]['title'])
         arr = np.asarray(ti, np.float32)
         x0 = (1080 - ti.width) // 2; y0 = 1690
@@ -526,7 +526,7 @@ def showcase_frame(t):
 def _work(args):
     kind, i = args
     t = i / FPS
-    return (frame(t, kind) if kind in MOODS else showcase_frame(t)).tobytes()
+    return (frame(t, kind) if kind in MOODS else showcase_frame(t, kind != 'showcase_clean')).tobytes()
 
 
 def video(path, audio=None, secs=DUR, kind='day'):
