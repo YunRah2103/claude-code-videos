@@ -12,7 +12,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 
 from pixelkit.core import tween_int                      # noqa: E402
-from pixelkit.cozyroom import (CREAM, CYAN, GREEN, HOT, WHITE, YELLOW,  # noqa: E402,F401
+from pixelkit.cozyroom import (CREAM, MAUVE, SALMON, TAN, WHITE,  # noqa: E402,F401
                                CozyEpisode, DEFAULT_CAR)
 
 BEATS = dict(snow=1.6, night=2.6, dying=7.4, cat_wake=9.0, crank=9.8, crank_end=11.0,
@@ -21,14 +21,14 @@ BEATS = dict(snow=1.6, night=2.6, dying=7.4, cat_wake=9.0, crank=9.8, crank_end=
 
 def car_speed(t):           # radians/s around the rug track
     if t < 2.0:
-        return 2.0
+        return 1.3
     if t < BEATS["dying"]:
-        return 1.6
+        return 1.1
     if t < 9.0:
-        return 1.6 * (9.0 - t) / (9.0 - BEATS["dying"])
+        return 1.1 * (9.0 - t) / (9.0 - BEATS["dying"])
     if t < BEATS["go"]:
         return 0.0
-    return min(2.2, (t - BEATS["go"]) * 2.5)
+    return min(1.3, (t - BEATS["go"]) * 1.5)
 
 
 def battery(t):             # percent shown on HUD + monitor
@@ -49,22 +49,20 @@ def light(t, step):         # palette-swap lighting mode
     return "night"
 
 
-def camera(t):              # integer world-y of the camera
-    if t < 9.6:
-        return tween_int(t, 0.2, 2.4, 12, 0, "inout")
-    return tween_int(t, 9.6, 10.4, 0, 10, "out")
+def camera(t):              # integer world-y of the camera: locked, like the Reference
+    return 3
 
 
 EPISODE = dict(
     duration=13.0,
     headline=["COLD vs.", "BATTERY"],
     captions=[
-        (0.0, 2.3, [("WON'T START ON A", WHITE), ("COLD MORNING?", CYAN)]),
-        (2.3, 4.6, [("COLD SLOWS THE", WHITE), ("BATTERY CHEMISTRY", CYAN)]),
-        (4.6, 7.4, [("SO IT DELIVERS", WHITE), ("LESS CURRENT...", CYAN)]),
-        (7.4, 9.8, [("AND THICK COLD OIL", WHITE), ("NEEDS MORE TO CRANK", CYAN)]),
-        (9.8, 11.4, [("LOW POWER, BIG LOAD", WHITE), ("= CLICK. NO START.", HOT)]),
-        (11.4, 13.01, [("KEEP IT CHARGED.", GREEN), ("PARK IT WARM.", WHITE)]),
+        (0.0, 2.3, [("WON'T START ON A", CREAM), ("COLD MORNING?", SALMON)]),
+        (2.3, 4.6, [("COLD SLOWS THE", CREAM), ("BATTERY CHEMISTRY", SALMON)]),
+        (4.6, 7.4, [("SO IT DELIVERS", CREAM), ("LESS CURRENT...", SALMON)]),
+        (7.4, 9.8, [("AND THICK COLD OIL", CREAM), ("NEEDS MORE TO CRANK", SALMON)]),
+        (9.8, 11.4, [("LOW POWER, BIG LOAD", CREAM), ("= CLICK. NO START.", MAUVE)]),
+        (11.4, 13.01, [("KEEP IT CHARGED.", TAN), ("PARK IT WARM.", CREAM)]),
     ],
     beats=BEATS,
     car_art=DEFAULT_CAR,

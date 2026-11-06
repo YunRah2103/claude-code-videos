@@ -86,6 +86,8 @@ PGLOW = _lut({INK: DKBROWN, NAVY: PLUM, TEAL: DKBROWN, DKSLATE: PLUM, SLATE: MAU
               FOREST: DKBROWN, BROWN: PLUM, WOOD: MAUVE, MAROON: MAUVE})       # magenta screen glow
 CGLOW = _lut({INK: NAVY, NAVY: BLUE, TEAL: BLUE, DKSLATE: SKY, SLATE: SKY, DKBROWN: NAVY,
               PLUM: BLUE, FOREST: BLUE, MAROON: PLUM})                  # cyan underglow
+SOFT = _lut({WHITE: LTGREY, CYAN: SKY, HOT: MAROON, YELLOW: GOLD})     # calmer car colours
+SOFT[T] = T
 CODER_LUT = MOOD.copy()
 CODER_LUT[[SKIN2, WOOD, BROWN]] = [SKIN2, WOOD, BROWN]                  # keep the skin tone
 NEON = [HOT, CYAN, MAUVE, SALMON]
@@ -626,9 +628,9 @@ class Lights:
     def __init__(self):
         wx, wy, ww, wh = WINDOW
         pools = {
-            "lamp": _circle_mask(*LAMP, 7),
+            "lamp": _circle_mask(*LAMP, 11),
             "ceiling": _circle_mask(66, 120, 50),
-            "nl": _circle_mask(*NLIGHT, 6),
+            "nl": _circle_mask(*NLIGHT, 9),
             "moon": _poly_mask([(8, wy + 4), (8, wy + wh - 4), (52, 162), (64, 148)]),
             "screen": _poly_mask([(86, 30), (116, 30), (120, 58), (82, 58)]),
         }
@@ -650,7 +652,7 @@ class Lights:
             a = self._pool(a, base, "moon", LIFT)
             a = self._pool(a, base, "screen", PGLOW)
             a = self._pool(a, base, "lamp", WARM)
-            a = self._pool(a, base, "nl", PGLOW)
+            a = self._pool(a, base, "nl", WARM)
         if under is not None:
             core = under
             ring = _grow(under, 2) & ~under & CHECK
@@ -718,7 +720,7 @@ class CozyEpisode:
             s = self._sim_step
             t = self.clock.t(s)
             r = self.snow.rng
-            if t > b["snow"]:
+            if t > b["snow"] and s % 3 == 0:
                 self.snow.emit(r.integers(wx + 1, wx + ww - 1), wy + 1, 0, 1, 60, [WHITE],
                                every=int(r.integers(1, 3)))
             for q in self.snow.p:
@@ -749,10 +751,11 @@ class CozyEpisode:
     def _emissive(self, c, t, step):
         """Light sources drawn AFTER the lighting swap so they stay bright."""
         ep, b = self.ep, self.ep["beats"]
-        k = cycle(t, (0.6, 0.4, 0.7, 0.5))
-        for i, x in enumerate(range(52, WW - 10, 8)):
+        bulbs = list(range(52, WW - 10, 8))
+        dim = int(t / 2.3) * 5 % len(bulbs)                 # one slow twinkle at a time
+        for i, x in enumerate(bulbs):
             y = 4 + (i % 3 == 1) + (i % 3 == 2) * 2
-            c.rect(x, y, 2, 2, (SALMON, HOT, CYAN, MAUVE)[(i + k) % 4])
+            c.rect(x, y, 2, 2, PLUM if i == dim else (TAN, SALMON)[i % 2])
         # left monitor: code being typed (stepped), scrolling, blinking cursor
         c.rect(82, 12, 19, 13, NAVY)
         for yy in range(12, 25, 2):                         # faint scanlines
@@ -773,7 +776,7 @@ class CozyEpisode:
                 c.rect(x, 13 + i * 2, min(ln, left), 1, cc)
                 x += ln + 1
                 left -= ln
-            if li == line and (step // 2) % 2 == 0:
+            if li == line and (step // 5) % 2 == 0:
                 c.rect(x, 13 + i * 2, 1, 1, WHITE)
         # right monitor: battery graph
         c.rect(106, 15, 13, 10, NAVY)
@@ -783,32 +786,28 @@ class CozyEpisode:
         for i in range(4):
             c.rect(108 + i * 3, 24 - i * 2, 2, 1 + i * 2, col if i < bars else DKSLATE)
         c.text(TINY, f"{int(level):d}", 119, 16, WHITE, align="right")
-        # rgb keyboard glow (wave), drawn before the coder's hands
-        for i, x in enumerate(range(88, 106, 2)):
-            c.px(x, 36 + (x - 86) // 11, (HOT, GOLD, GREEN, CYAN, BLUE, MAUVE)[(i + step) % 6])
-            c.px(x + 1, 38 + (x - 86) // 11, (HOT, GOLD, GREEN, CYAN, BLUE, MAUVE)[(i + step + 3) % 6])
+        # soft, steady keyboard backlight (one hue, no wave)
+        for i, x in enumerate(range(88, 106, 3)):
+            c.px(x, 36 + (x - 86) // 11, PLUM)
         # the coder, lit by the screens at night
         b0 = b["crank"]
-        pose = "look" if b0 <= t < b["crank_end"] + 0.6 else ("a", "b")[cycle(t, (0.2, 0.1, 0.3, 0.15, 0.25)) % 2]
+        pose = "look" if b0 <= t < b["crank_end"] + 0.6 else ("a", "b")[cycle(t, (0.4, 0.3, 0.5, 0.35)) % 2]
         spr = np.where(CODER[pose] == T, T, CODER_LUT[CODER[pose]]).astype(np.uint8)
         night = ep["light"](t, step) == "night"
         c.blit(spr, 86, 35)
         # --- neon (night): sign flickers on, LED strip, glowing kerbs, cat eyes
-        on = night and not (t < b["night"] + 0.9 and step % 3 == 0)
+        # one soft neon sign (single warm hue, one gentle blink as it warms up)
+        on = night and not (b["night"] + 0.2 <= t < b["night"] + 0.4)
         for (x0_, y0_, x1_, y1_) in NEON_SIGN:
-            c.line(x0_, y0_, x1_, y1_, HOT if on else DKSLATE)
+            c.line(x0_, y0_, x1_, y1_, SALMON if on else DKSLATE)
         for (wx_, wy_) in NEON_WHEELS:
-            c.ellipse(wx_ - 2, wy_ - 2, 5, 5, line=CYAN if on else DKSLATE)
-        if night:
+            c.ellipse(wx_ - 2, wy_ - 2, 5, 5, line=MAUVE if on else DKSLATE)
+        if night:                                         # dim, steady LED strip
             for x in self.led_x:
                 if x % 7:
-                    c.px(x, 33, MAUVE if (x // 7 + step // 4) % 5 else SALMON)
-            for i, (kx, ky) in enumerate(self.kerbs):
-                c.px(kx, ky, HOT if i % 2 else CYAN)
-            for kx, ky in self.dashes:
-                c.px(kx, ky, CYAN)
-        if b["cat_wake"] <= t and cycle(t, (0.9, 0.3, 0.4)) != 2:
-            c.px(65, 96, GREEN); c.px(69, 96, GREEN)
+                    c.px(x, 33, PLUM)
+        if b["cat_wake"] <= t and cycle(t, (1.6, 0.3, 0.9)) != 2:
+            c.px(65, 96, GOLD); c.px(69, 96, GOLD)
         wx, wy, ww, wh = WINDOW
         c.rect(wx + 1, wy + 1, ww - 2, wh - 2, INK)
         c.px(wx + 3, wy + 4, CREAM); c.px(wx + 4, wy + 4, LTGREY); c.px(wx + 3, wy + 5, LTGREY)
@@ -831,7 +830,7 @@ class CozyEpisode:
         c = self.room.copy()
         self.steam.draw(c)
         awake = b["cat_wake"] <= t
-        f = cycle(t, (0.9, 0.3, 0.4)) if awake else cycle(t, (1.1, 0.8))
+        f = cycle(t, (1.6, 0.3, 0.9)) if awake else cycle(t, (1.6, 1.2))
         c.blit(CATS[(int(awake), f if awake else f % 2)], 56 + (1 if awake else 0), 92)
         if not awake:
             zk = int((t * 10) % 18)
@@ -857,7 +856,7 @@ class CozyEpisode:
             under = ((xx - x) ** 2 + ((yy - y - 1) * 1.4) ** 2) <= 42
         self.lights.apply(c, mode, under)
         self._emissive(c, t, step)
-        c.blit(a, cx_ + jx, cy_ + jy)                         # the car stays full neon
+        c.blit(SOFT[a], cx_ + jx, cy_ + jy)                   # car: soft, still readable
         self.fx.draw(c)
         return c
 
@@ -866,14 +865,14 @@ class CozyEpisode:
         hu = ep.get("headline_until", 2.6)
         if t < hu + 0.4:                       # drops in, holds, then slides out (stepped)
             y0 = tween_int(t, 0.0, 0.5, -50, 12, "out") if t < hu else tween_int(t, hu, hu + 0.4, 12, -52)
-            rag_panel(v, 12, y0, W - 24, 44, 21, INK, HOT, NAVY, CYAN)
+            rag_panel(v, 12, y0, W - 24, 44, 21, INK, PLUM, NAVY, DKBROWN)
             for i, line in enumerate(ep["headline"]):
-                col = CYAN if i == len(ep["headline"]) - 1 else WHITE
+                col = SALMON if i == len(ep["headline"]) - 1 else CREAM
                 v.text(HEAD, line, W // 2, y0 + 5 + i * 19, col,
                        shadow_c=PLUM if i else DKSLATE, align="center")
         for (t0, t1, lines) in ep["captions"]:
             if t0 <= t < t1:
-                rag_panel(v, 5, 194, W - 10, 40, 23, INK, PLUM, NAVY, MAUVE)
+                rag_panel(v, 5, 194, W - 10, 40, 23, INK, NAVY, NAVY, DKSLATE)
                 v.text(TINY, ep.get("tag", "CAR STUFF, EXPLAINED"), W // 2, 227, SLATE, align="center")
                 n = int((t - t0) * 40)
                 shown = 0
@@ -884,11 +883,11 @@ class CozyEpisode:
                         v.text(CAP, txt[:k], W // 2, 198 + i * 14, col, align="center")
         level = ep["battery"](t)
         by = 182
-        rag_panel(v, 5, by, 30, 11, 24, INK, PLUM, NAVY, MAUVE)
+        rag_panel(v, 5, by, 30, 11, 24, INK, NAVY, NAVY, DKSLATE)
         v.rect(8, by + 2, 17, 7, GREY); v.rect(9, by + 3, 15, 5, INK); v.rect(25, by + 4, 2, 3, GREY)
         segs = max(0, min(5, int(math.ceil(level / 20))))
         col = GREEN if level > 50 else GOLD if level > 25 else RED
-        if level <= 25 and (step // 2) % 2:
+        if level <= 25 and (step // 6) % 2:
             col = MAROON
         for i in range(segs):
             v.rect(10 + i * 3, by + 4, 2, 3, col)
@@ -898,7 +897,7 @@ class CozyEpisode:
     def frame(self, step, t):
         w = self.world(step, t)
         b = self.ep["beats"]
-        sh = shake(step, 1, 3) if b["crank"] <= t < b["crank_end"] and step % 3 == 0 else (0, 0)
+        sh = (0, 0)                                           # no camera shake: keep it calm
         v = Camera(0, self.ep["camera"](t)).view(w, W, H, sh)
         self.hud(v, step, t)
         return v

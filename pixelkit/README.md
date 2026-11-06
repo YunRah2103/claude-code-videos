@@ -78,6 +78,22 @@ pass `car_art`/`car_key` for a different car (16 angles are baked automatically)
 * Large-area shapes that run off-frame (walls, front wall) extend 3 px past it,
   so their straight outer shading band is never visible.
 
+## Cozy pass (calm, not overstimulating)
+
+Measured as "animated blocks": the share of the frame that changes at least
+once a second. It went from 15% to **1.9%**; the Reference is 3.7%.
+
+* Camera locked; no pans and no shake (the Reference never moves its camera).
+* One warm light family: string lights are steady amber and pink with a
+  single slow twinkle. The desk lamp and night-light are larger warm pools.
+* Neon cut down to one soft sign (salmon/mauve) with a single blink as it
+  warms up, a dim steady LED strip, and cyan only on the code screen. No RGB
+  keyboard wave and no glowing kerbs.
+* Slower motion: the car laps about 35% slower, with typing, cursor, cat
+  breathing/blinking and snow all on longer holds.
+* Car drawn with a `SOFT` swap (no pure white, cyan or hot pink).
+* HUD in warm cream/salmon/tan on quiet navy-bordered panels.
+
 ## Refinement pass (clean, designed detail)
 
 * Surfaces use `pattern()` (core): deterministic lattices instead of random
