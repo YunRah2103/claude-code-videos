@@ -11,7 +11,7 @@ recurring RPM gauge, headline, poll, captions, tag, progress bar and the loop ba
 Beats: open 0 -> T2 (sentence 2), cutaway T2 -> T3 (key sentence), key beat T3 -> T4 (final question), ask T4 -> end.
 """
 import math, os, sys
-from PIL import Image, ImageChops
+from PIL import Image, ImageChops, ImageEnhance
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 for p in (ROOT, os.path.join(ROOT, 'assets')):
     if p not in sys.path: sys.path.insert(0, p)
@@ -28,6 +28,7 @@ import dashep as D
 G = Garage(W, H, 1520, 9)
 OPENINGS = ('push-in', 'whip-pan', 'pull-back', 'wipe', 'zoom-out', 'tilt', 'slow-motion', 'cut-in', 'drop-in', 'glitch-in')
 CFG = {}
+IMPACT = {'pop', 'click', 'stamp', 'thump', 'pulse', 'beep', 'buzzer', 'boom', 'poof', 'clink'}
 
 
 def sentences(words):
@@ -143,7 +144,22 @@ def build(here, words, hook, keycol, opening_kind, focus, point, shots, key_sent
         if t >= END_T: ov.headline(cv, max(-0.35, t - DUR), T2 - 0.25, hook, y=headline_y)
         ov.poll(cv, t, ws(st[-1]) - 0.1, END_T - 0.1, q, px, py, pscale, opts, rot)
 
+    HITS = sorted(c[0] for c in list(cues) + [(T4 + 0.25, 'pop', 0)] if c[1] in IMPACT)
+    MARKS = (T2, T3, T4)
+
+    def polished(t):
+        """Series twist: beat-synced camera punch + shake, a light flash on every cut, and a punchy grade."""
+        img = scene(t)
+        dt = [t - h for h in HITS if 0 <= t - h < 0.45]
+        if dt:
+            k = math.exp(-min(dt) * 9)
+            img = D.camera(img, t, 1 + 0.045 * k, W / 2 + 14 * k * math.sin(t * 90), H / 2 + 10 * k * math.cos(t * 80), 0)
+        img = ImageEnhance.Contrast(ImageEnhance.Color(img).enhance(1.14)).enhance(1.05)
+        fl = [t - m for m in MARKS if 0 <= t - m < 0.16]
+        if fl: img = Image.blend(img, Image.new('RGB', (W, H), (255, 246, 214)), 0.32 * (1 - fl[0] / 0.16))
+        return img
+
     allcues = [(0.0, 'whoosh', 0.6), (T4 + 0.25, 'pop', 0.8), (ws(st[-1]) + 0.1, 'sparkle', 0.5), (END_T, 'whoosh', 0.6)] + list(cues)
-    D.wire(here, words, DUR, END_T, scene, [T2, T3, T4], allcues, keycol, overlay, cap=(T2 - 0.05, 1075), lead=1 / FPS)
+    D.wire(here, words, DUR, END_T, polished, [T2, T3, T4], allcues, keycol, overlay, cap=(T2 - 0.05, 1075), lead=1 / FPS)
     CFG.update(T2=T2, T3=T3, T4=T4, DUR=DUR, END_T=END_T, st=st)
     return CFG

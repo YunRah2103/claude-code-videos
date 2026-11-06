@@ -48,7 +48,7 @@ def shot_key(t):
     img = garage(t); k = k_star(t); done = min(5, int(k + 0.5))
     hub(img, t, done, X.STAR[5][min(4, int(k))] if k < 4.6 else -1)
     X.star_lines(img, *HUB, 17 * SC, k)
-    cb.pill(img, t, sw(2) + 0.3, sw(3) - 0.1, 'STAR PATTERN', (HUB[0], HUB[1] - 17 * SC), (470, 400), *PY)
+    cb.pill(img, t, sw(2) + 0.3, sw(3) - 0.1, 'STAR PATTERN', (HUB[0] - 90, HUB[1] - 17 * SC - 30), (470, 400), *PY)
     cb.pill(img, t, sw(3), 99, 'TORQUE: SEE MANUAL', (HUB[0], HUB[1]), (470, 400), *PW)
     return img
 
