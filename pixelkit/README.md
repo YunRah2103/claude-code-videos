@@ -78,6 +78,36 @@ pass `car_art`/`car_key` for a different car (16 angles are baked automatically)
 * Large-area shapes that run off-frame (walls, front wall) extend 3 px past it,
   so their straight outer shading band is never visible.
 
+## Gamer-room wallpaper (`pixelkit/gameroom.py`)
+
+A 10 s seamless loop (no captions) that follows the composition and mood of
+the reference wallpaper: tall top-down room, console shelf, three monitors,
+a cheering player, a dog on a purple rug, plushies on a beanbag, the bed, a
+window light beam with dust, posters, a game box, a pizza box and crates.
+Everything is drawn in code. The reference's characters, logos and artwork
+(the plush character, console brands, posters) are **not** reproduced.
+Original stand-ins are used instead: a round grey bear, unbranded consoles,
+car-themed posters and box art.
+
+```bash
+python episodes/gamer-room/episode.py preview out/gamer-room/sheet.png
+python tools/video.py run --log out/logs/gamer.log -- \
+  python episodes/gamer-room/episode.py render out/gamer-room
+python -m pixelkit.verify out/gamer-room/gamer-room.mp4 --native-dir out/gamer-room/native
+```
+
+* Light: a solid moonbeam palette swap with a sparse dither falloff, a warm
+  lamp, and a magenta LED strip. The desk is plum with grey lit edges, so it
+  reads purple without a tint.
+* There is no olive in ENDESGA 32, so the lower floor mixes dark brown and
+  teal in a checker dither.
+* Loop-safe animation: every cycle divides 10 s. Gamer cheer (5 s), dog tail
+  (1 s) and breathing (2 s), clouds on the monitor, 4 game scenes, one city
+  light blinking, and dust motes drifting 60 px per loop. Frame 0 equals
+  t = 10 s (tested).
+* Result: PASS 7/7. Edges 17 px, flat 9x9, 30 colours, held 75%, median
+  brightness 51 (Reference 47).
+
 ## Cozy pass (calm, not overstimulating)
 
 Measured as "animated blocks": the share of the frame that changes at least

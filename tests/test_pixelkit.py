@@ -79,5 +79,24 @@ class OrganicTests(unittest.TestCase):
             self.assertLessEqual(max(abs(x1 - x0), abs(y1 - y0)), 1)
 
 
+class GameRoomTests(unittest.TestCase):
+    def test_wallpaper_frames_follow_the_rules(self):
+        from pixelkit.cozyroom import PAL
+        from pixelkit.gameroom import GameRoom
+        g = GameRoom()
+        for s in range(0, g.clock.steps, 9):
+            f = g.frame(s, g.clock.t(s))
+            self.assertEqual(f.a.shape, (240, 135))
+            self.assertLess(int(f.a.max()), 32)
+            rgb = PAL.to_rgb(f.a).astype(float)
+            self.assertLessEqual(verify.straight_edges(rgb)[0], verify.MAX_EDGE)
+            self.assertLessEqual(verify.largest_flat(rgb), verify.MAX_FLAT)
+
+    def test_loop_is_seamless(self):
+        from pixelkit.gameroom import GameRoom
+        g = GameRoom()
+        self.assertTrue((g.frame(0, 0.0).a == g.frame(0, 10.0).a).all())
+
+
 if __name__ == "__main__":
     unittest.main()
