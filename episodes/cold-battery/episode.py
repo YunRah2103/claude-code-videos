@@ -51,8 +51,8 @@ def light(t, step):         # palette-swap lighting mode
 
 def camera(t):              # integer world-y of the camera
     if t < 9.6:
-        return tween_int(t, 0.2, 2.4, 12, 3, "inout")
-    return tween_int(t, 9.6, 10.4, 3, 12, "out")
+        return tween_int(t, 0.2, 2.4, 12, 0, "inout")
+    return tween_int(t, 9.6, 10.4, 0, 10, "out")
 
 
 EPISODE = dict(

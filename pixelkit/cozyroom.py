@@ -225,6 +225,157 @@ def laptop(rng):
     return c.a
 
 
+
+DENIM = [NAVY, DKSLATE, BLUE, SKY]
+BLACKJ = [INK, NAVY, DKSLATE, SLATE]
+HAIR = [INK, INK, DKBROWN, BROWN]
+ARM = [BROWN, WOOD, SKIN2, TAN]
+
+
+def jeans(rng, ramp=DENIM):
+    m = np.zeros((16, 10), bool)
+    m[:4] = True
+    m[3:, 0:4] = True
+    m[3:, 6:10] = True
+    m &= wobble_mask(10, 16, rng, 1, (2, 4), (1, 1))
+    a = _prop(m, ramp, rng, "wrinkle", 0.15)
+    a[1, 2:9] = np.where(a[1, 2:9] != T, ramp[1], T)          # waistband seam
+    return a
+
+
+def hoodie(rng, ramp):
+    m = blob_mask(16, 14, rng, 2)
+    m[0:3, 5:11] = True                                       # hood
+    m[3:9, 0:2] = True
+    m[3:9, 14:16] = True                                      # sleeves
+    a = _prop(m, ramp, rng, "wrinkle", 0.14)
+    a[9, 5:11] = np.where(a[9, 5:11] != T, ramp[0], T)        # pocket
+    return a
+
+
+def towel(rng, ramp):
+    a = _prop(wobble_mask(13, 8, rng, 1, (2, 5), (1, 2)), ramp, rng, "weave", 0.1)
+    for x in (3, 9):
+        a[1:7, x] = np.where(a[1:7, x] != T, ramp[3], T)
+    return a
+
+
+def hanging(rng, ramp, w, h):
+    """A garment on a hanger: sloped shoulders, wrinkled body, hook on top."""
+    m = wobble_mask(w, h, rng, 1, (2, 5), (1, 2), "lrb")
+    m[0, 0] = m[0, -1] = False
+    a = np.pad(_prop(m, ramp, rng, "wrinkle", 0.2), ((1, 0), (0, 0)), constant_values=T)
+    a[0, w // 2 + 1] = GREY
+    return a
+
+
+GARMENTS = [BLUEF, REDF, LEAF, CLOTH, PINK, CARD, DENIM, BLACKJ, SEAT]
+
+
+def wardrobe(c, r, avoid):
+    """Open wardrobe on the back wall, stuffed with clothes that spill out
+    onto the floor in one heap (the room's clutter lives here)."""
+    x0, y0, w, h = 9, 3, 38, 33
+    _put(c, _prop(wobble_mask(w, h, r, 1, (3, 7), (1, 2)), DARKWOOD, r, "grain", 0.08), x0, y0, avoid)
+    iw, ih = w - 8, h - 8
+    inner = np.where(wobble_mask(iw, ih, r, 1, (3, 7), (1, 2)), np.uint8(INK), np.uint8(T))
+    texture(inner, [INK, NAVY], r, "specks", 0.08)
+    c.blit(inner, x0 + 4, y0 + 4)
+    c.rect(x0 + 4, y0 + 6, iw, 1, GREY)                       # hanging rail
+    x = x0 + 4
+    k = 0
+    while x < x0 + 4 + iw - 3:                                 # packed hangers
+        gw = int(r.integers(4, 7))
+        g = hanging(r, GARMENTS[(k * 5 + 2) % len(GARMENTS)], gw, int(r.integers(12, 19)))
+        c.blit(rotate_nn(g, float(r.choice([-8, -4, 0, 5, 9]))), x - 1, y0 + 5)
+        x += gw - 1
+        k += 1
+    # stuffed shelf at the bottom of the wardrobe
+    for i in range(6):
+        b = _prop(blob_mask(int(r.integers(7, 11)), int(r.integers(5, 7)), r, 2),
+                  GARMENTS[(i * 4 + 1) % len(GARMENTS)], r, "wrinkle", 0.2)
+        c.blit(b, x0 + 3 + i * 5, y0 + h - 10 + int(r.integers(-1, 2)))
+    # doors swung open (diagonal planks)
+    c.poly([(x0, y0 + 2), (x0 - 6, y0 + 7), (x0 - 8, y0 + h + 4), (x0, y0 + h - 1)], fill=WOOD, line=INK)
+    c.poly([(x0 + w - 1, y0 + 2), (x0 + w + 6, y0 + 8), (x0 + w + 8, y0 + h + 5), (x0 + w - 1, y0 + h - 1)],
+           fill=WOOD, line=INK)
+    c.line(x0 - 5, y0 + 18, x0 - 5, y0 + 21, GOLD)
+    c.line(x0 + w + 5, y0 + 19, x0 + w + 5, y0 + 22, GOLD)
+    texture(c.a, DARKWOOD, r, "grain", 0.15,
+            mask=_poly_mask([(x0 - 7, y0), (x0 + w + 8, y0), (x0 + w + 8, y0 + h + 6), (x0 - 7, y0 + h + 6)])
+            & ~_poly_mask([(x0 + 1, y0), (x0 + w - 2, y0), (x0 + w - 2, y0 + h), (x0 + 1, y0 + h)]))
+    c.blit(rotate_nn(hoodie(r, BLACKJ), 20), x0 + w - 2, y0 + 4)          # draped over the door
+    # the spill: heavy at the wardrobe mouth, thinning out across the floor
+    ox, oy = x0 + w // 2, y0 + h + 2
+    pieces = [jeans(r), hoodie(r, REDF), tshirt(r, LEAF), towel(r, PINK), jeans(r, BLACKJ),
+              tshirt(r, CLOTH), hoodie(r, SEAT), tshirt(r, CARD), towel(r, BLUEF), tshirt(r, REDF),
+              jeans(r), tshirt(r, BLUEF), hoodie(r, LEAF)]
+    for i, g in enumerate(pieces):
+        d = 3 + 2.5 * i ** 0.9
+        a = r.uniform(0.15, 2.4)
+        g = rotate_nn(g, float(r.integers(-70, 70)))
+        px = int(ox + d * math.cos(a) * 1.15 - g.shape[1] // 2)
+        py = int(oy - 6 + d * math.sin(a) * 0.9 - g.shape[0] // 2)
+        _put(c, g, max(6, px), max(y0 + h - 8, py), avoid)
+    # basket overflowing next to the heap
+    bk = _prop(blob_mask(15, 11, r, 1), CARD, r, "weave", 0.25)
+    _put(c, bk, x0 + w + 4, oy + 6, avoid)
+    for i in range(3):
+        g = rotate_nn(tshirt(r, GARMENTS[i * 3 % len(GARMENTS)])[:7, :10], float(r.integers(-40, 40)))
+        c.blit(g, x0 + w + 4 + i * 3, oy + 2 + i)
+    for i, spr in enumerate((CLUTTER[6], CLUTTER[6], SNEAKER)):            # socks + a shoe
+        _put(c, rotate_nn(spr, float(r.integers(-60, 60))), ox - 18 + i * 13, oy + 22 + (i % 2) * 4, avoid)
+
+
+def _coder(pose):
+    """Top-down coder seen from behind (main-guy palette: dark messy hair,
+    brown skin, white tee, silver glasses). pose: 'a'/'b' typing, 'look'."""
+    c = Canvas(20, 19, T)
+    lh, rh = {"a": (0, 1), "b": (1, 0), "look": (2, 2)}[pose]
+    for (sx, hx, hy) in ((5, 6, 1 + lh), (14, 12, 1 + rh)):            # arms to the keys
+        c.line(sx, 10, hx, hy + 1, SKIN2)
+        c.line(sx + (1 if sx < 10 else -1), 10, hx + (1 if sx < 10 else -1), hy + 1, WOOD)
+        c.rect(hx, hy, 2, 2, SKIN2)
+    tee = shade(blob_mask(16, 10, np.random.default_rng(4), 1), CLOTH)
+    c.blit(tee, 2, 9)
+    c.line(6, 12, 13, 12, LTGREY)                                       # shoulder fold
+    if pose == "look":
+        c.ellipse(5, 4, 10, 9, fill=INK)
+        c.ellipse(4, 7, 6, 6, fill=SKIN2)                               # face turned left
+        c.px(4, 9, LTGREY); c.px(5, 9, GREY); c.px(6, 9, LTGREY)        # glasses
+        c.px(5, 11, WOOD)
+        c.px(9, 5, DKBROWN); c.px(11, 6, DKBROWN)
+    else:
+        c.ellipse(5, 4, 10, 9, fill=INK)
+        c.px(7, 6, DKBROWN); c.px(10, 5, DKBROWN); c.px(12, 7, DKBROWN)  # hair shine
+        c.px(4, 8, SKIN2); c.px(15, 8, SKIN2)                            # ears
+        c.px(5, 7, LTGREY); c.px(14, 7, LTGREY)                          # glasses arms
+    c.px(9, 3, INK); c.px(10, 2, INK); c.px(11, 3, INK)                  # cowlicks
+    return outline(c.a.copy(), INK)
+
+
+CODER = {p: _coder(p) for p in ("a", "b", "look")}
+
+
+def _code(seed=9, n=60):
+    """Fake syntax-highlighted lines: (indent, [(len, colour)], chars)."""
+    r = np.random.default_rng(seed)
+    out, ind = [], 0
+    for _ in range(n):
+        toks = [(int(r.integers(2, 5)), MAUVE)] if r.random() < 0.5 else []
+        for _ in range(int(r.integers(1, 4))):
+            toks.append((int(r.integers(1, 5)), (CYAN, WHITE, GREEN, GOLD, LTGREY)[int(r.integers(0, 5))]))
+        while sum(l + 1 for l, _ in toks) + ind > 17:
+            toks.pop()
+        if not toks:
+            toks = [(2, GREY)]
+        out.append((ind, toks, sum(l for l, _ in toks)))
+        ind = max(0, min(6, ind + int(r.choice([-2, 0, 0, 2]))))
+    return out
+
+
+CODE = _code()
+
 # ------------------------------------------------------------------- room ---
 TRACK = dict(cx=67, cy=168, rx=40, ry=22)
 LAMP = (121, 42)
@@ -309,62 +460,59 @@ def build_room(seed=3):
     c.blit(_prop(wobble_mask(5, 18, r, 1, (3, 6), (1, 1)), METAL, r, "specks"), 9, 124)
     for y in range(127, 140, 3):
         c.rect(10, y, 3, 1, SLATE)
-    # --- shelf on the back wall + consoles + books
-    c.blit(shade(wobble_mask(46, 3, r, 1, (4, 9), (1, 1), "b"), DARKWOOD), 12, 23)
-    c.blit(_prop(wobble_mask(12, 7, r, 1, (3, 6), (1, 1)), CLOTH, r, "specks"), 13, 16)
-    c.px(21, 19, HOT)
-    c.blit(_prop(wobble_mask(10, 6, r, 1, (3, 5), (1, 1)), ROAD, r, "specks"), 27, 17)
-    c.rect(29, 19, 5, 1, SKY)
-    for i, col in enumerate((RED, BLUE, GOLD, GREEN, MAUVE)):
-        bk = np.full((8 - (i % 2), 2), col, np.uint8)
-        c.blit(rotate_nn(bk, (0, 0, 8, 0, -14)[i]), 39 + i * 3, 15 + (i % 2))
     # car poster, rotated, taped corners
-    pc = Canvas(26, 18, INK)
-    pc.rect(1, 1, 24, 8, SKY); pc.rect(1, 9, 24, 8, DKSLATE)
-    pc.poly([(4, 12), (8, 8), (17, 8), (21, 12), (22, 14), (3, 14)], fill=RED)
-    pc.rect(9, 9, 6, 2, CYAN); pc.rect(5, 14, 3, 2, INK); pc.rect(17, 14, 3, 2, INK)
-    pc.px(10, 4, WHITE); pc.px(15, 3, WHITE); pc.px(19, 5, WHITE)
-    pc.text(TINY, "GT", 24, 2, WHITE, align="right")
-    pc.rect(0, 0, 3, 2, CREAM); pc.rect(23, 16, 3, 2, CREAM)
-    c.blit(rotate_nn(pc.a, -7), 59, 4)
-    # clock + thermometer
-    c.ellipse(90, 3, 10, 10, fill=CREAM, line=INK)
-    c.px(92, 5, WHITE); c.line(95, 8, 95, 5, INK); c.line(95, 8, 97, 9, INK)
-    c.blit(_prop(wobble_mask(4, 18, r, 1, (3, 6), (1, 1)), CLOTH, r, "specks"), 104, 3)
-    c.ellipse(103, 19, 6, 6, fill=RED, line=INK)
-    # --- desk (top right) with clutter on top
+    pc = Canvas(19, 14, INK)
+    pc.rect(1, 1, 17, 6, SKY); pc.rect(1, 7, 17, 6, DKSLATE)
+    pc.poly([(3, 10), (6, 6), (12, 6), (15, 9), (16, 11), (2, 11)], fill=RED)
+    pc.rect(7, 7, 4, 1, CYAN); pc.rect(4, 11, 2, 2, INK); pc.rect(12, 11, 2, 2, INK)
+    pc.px(8, 3, WHITE); pc.px(13, 2, WHITE)
+    pc.rect(0, 0, 2, 2, CREAM); pc.rect(17, 12, 2, 2, CREAM)
+    c.blit(rotate_nn(pc.a, -8), 56, 8)
+    # sticky notes above the desk + thermometer
+    for i, (nx, ny, col, ang) in enumerate(((86, 3, YELLOW, -8), (93, 2, SALMON, 6), (100, 4, CYAN, -4),
+                                            (75, 6, YELLOW, 10))):
+        n = np.full((5, 5), col, np.uint8)
+        n[2, 1:4] = INK if i % 2 else NAVY
+        n[3, 1:3] = INK if i % 2 else NAVY
+        c.blit(rotate_nn(n, ang), nx, ny)
+    c.blit(_prop(wobble_mask(4, 18, r, 1, (3, 6), (1, 1)), CLOTH, r, "specks"), 121, 3)
+    c.ellipse(120, 19, 6, 6, fill=RED, line=INK)
+    # --- desk (top right): dual monitors, rgb keyboard, mug, cans, duck
     dm = wobble_mask(48, 19, r, depth=1, seg=(3, 7), chip=(1, 3))
     m = np.zeros((WH, WW), bool); m[31:50, 79:127] = dm
     c.remap(SHADOW, m)
     _put(c, _prop(dm, DESK, r, "grain", 0.08), 77, 29, avoid)
-    c.blit(shade(wobble_mask(20, 14, r, 1, (3, 6), (1, 1)), [INK, INK, INK, DKSLATE]), 88, 14)
-    c.rect(92, 13, 3, 1, INK); c.px(93, 12, HOT)                     # webcam
-    c.blit(sprite("ppp\npPp", {"p": YELLOW, "P": GOLD}), 106, 23)   # sticky note
-    c.rect(96, 28, 4, 3, DKSLATE)
-    kb = Canvas(20, 7, T)
-    kb.a = shade(wobble_mask(18, 5, r, 1, (3, 6), (1, 1)), CLOTH, line=INK)
-    for x in range(2, 16, 2):
-        kb.px(x, 2, GREY)
-    c.blit(rotate_nn(kb.a, 9), 86, 34)
+    c.blit(shade(wobble_mask(23, 17, r, 1, (3, 6), (1, 1)), [INK, INK, INK, DKSLATE]), 80, 10)
+    c.blit(shade(wobble_mask(17, 14, r, 1, (3, 6), (1, 1)), [INK, INK, INK, DKSLATE]), 104, 13)
+    c.rect(89, 9, 3, 1, INK); c.px(90, 8, HOT)                        # webcam
+    c.rect(90, 27, 4, 3, DKSLATE); c.rect(111, 27, 4, 3, DKSLATE)    # stands
+    kb = Canvas(22, 7, T)
+    kb.a = shade(wobble_mask(20, 5, r, 1, (3, 6), (1, 1)), ROAD, line=INK)
+    c.blit(rotate_nn(kb.a, 5), 86, 34)
     c.blit(sprite("oo\noW\noo", {"o": INK, "W": WHITE}), 109, 39)     # mouse
-    cable(c, [(110, 39), (114, 33), (110, 29)], INK)
-    c.blit(MUG, 80, 34)
-    c.blit(rotate_nn(sprite("ppppp\npPPPp\nppppp\npPPpp", {"p": WHITE, "P": LTGREY}), -22), 97, 40)
-    c.line(84, 45, 91, 42, GOLD); c.px(91, 42, SALMON)                 # pencil
-    c.ellipse(116, 41, 8, 5, fill=SLATE, line=INK)                     # desk lamp
-    c.line(119, 41, 117, 34, INK)
-    c.poly([(112, 34), (122, 32), (120, 28), (114, 29)], fill=GOLD, line=INK)
-    cable(c, [(123, 43), (128, 48), (124, 30)], INK)
+    cable(c, [(110, 39), (114, 33), (112, 29)], INK)
+    c.blit(MUG, 78, 35)
+    for i, col in enumerate((GREEN, CYAN)):                            # energy drinks
+        c.blit(sprite("ooo\noCo\noWo\nooo", {"o": INK, "C": col, "W": WHITE}), 79 + i * 4, 29)
+    c.blit(sprite(".yy.\nyyyo\n.yyy\n.yy.", {"y": YELLOW, "o": ORANGE}), 104, 42)   # rubber duck
+    c.blit(rotate_nn(sprite("ppppp\npPPPp\nppppp\npPPpp", {"p": WHITE, "P": LTGREY}), -22), 112, 41)
+    c.line(80, 45, 86, 43, GOLD); c.px(86, 43, SALMON)                 # pencil
+    c.ellipse(118, 39, 8, 5, fill=SLATE, line=INK)                     # desk lamp
+    c.line(121, 39, 120, 33, INK)
+    c.poly([(115, 33), (124, 31), (122, 28), (117, 29)], fill=GOLD, line=INK)
+    cable(c, [(124, 41), (128, 48), (125, 30)], INK)
     # chair seat, rotated a little
     _put(c, rotate_nn(_prop(blob_mask(18, 14, r, 1), SEAT, r, "weave", 0.06), 12), 89, 50, avoid)
-    # --- dresser + plant + backpack + trash can
-    _put(c, _prop(wobble_mask(22, 18, r, 1, (3, 7), (1, 2)), DARKWOOD, r, "grain", 0.08), 9, 32, avoid)
-    for y in (39, 45):
-        c.line(11, y, 29, y, DKBROWN); c.rect(19, y + 2, 3, 1, GOLD)
-    c.blit(PLANT, 22, 24)
-    _put(c, rotate_nn(_prop(blob_mask(11, 13, r, 2), LEAF, r, "wrinkle", 0.15), -14), 34, 36, avoid)
-    _put(c, _prop(blob_mask(8, 8, r, 1), METAL, r, "specks"), 49, 38, avoid)
-    c.blit(CLUTTER[0], 51, 40)
+    # --- wardrobe overflowing with clothes (the clutter zone)
+    wardrobe(c, r, avoid)
+    # --- trash can by the desk with paper balls (small second cluster)
+    _put(c, _prop(blob_mask(8, 8, r, 1), METAL, r, "specks"), 66, 40, avoid)
+    for i, (dx, dy) in enumerate(((2, -1), (-4, 6), (5, 8), (9, 3), (0, 10))):
+        c.blit(rotate_nn(CLUTTER[0], 30.0 * i), 66 + dx, 40 + dy)
+    _put(c, pizza_box(r), 58, 54, avoid)
+    for i, col in enumerate((GREEN, CYAN, GREEN)):                     # empty energy cans
+        can = sprite("ooo\noCo\noCo\nooo", {"o": INK, "C": col})
+        c.blit(rotate_nn(can, (90, 0, 60)[i]), 75 + i * 4, 58 + (i % 2) * 3)
     # --- bed (right): frame, rumpled blanket with folds, pillow, laptop, shirt
     _put(c, _prop(wobble_mask(36, 70, r, 1, (4, 9), (1, 2)), DARKWOOD, r, "grain", 0.05), 98, 66, avoid)
     bla = shade(wobble_mask(36, 52, r, depth=2, seg=(3, 7), chip=(2, 4), sides="tlbr"), PINK, line=PLUM)
@@ -414,7 +562,6 @@ def build_room(seed=3):
     cable(c, [(119, 205), (117, 214), (100, 206), (98, 194)], INK, DKSLATE)
     cable(c, [(122, 196), (126, 170), (126, 134)], INK)
     # --- floor clutter: pizza box, shoes, books, beanbag, bookshelf, clothes
-    _put(c, pizza_box(r), 22, 96, avoid)
     _put(c, rotate_nn(SNEAKER, 25), 52, 236, avoid)
     _put(c, rotate_nn(SNEAKER, -10), 60, 238, avoid)
     _put(c, rotate_nn(_prop(wobble_mask(12, 4, r, 1, (3, 5), (1, 1)), BLUEF, r, "specks"), 12), 78, 230, avoid)
@@ -425,15 +572,6 @@ def build_room(seed=3):
         c.rect(10 + i * 2, 225 + (i % 3), 2, 7 - (i % 3), (RED, GOLD, GREEN, BLUE, MAUVE, CREAM)[i])
         c.rect(10 + i * 2, 235 + (i % 2), 2, 6 - (i % 2), (BLUE, RED, CREAM, GOLD, SKY, GREEN)[i])
     c.blit(PLANT, 26, 222)
-    _put(c, rotate_nn(tshirt(r, LEAF), 50), 36, 64, avoid)
-    _put(c, rotate_nn(sprite("KKKKKK\nKrKKbK\nKKKKKK", {"K": INK, "r": RED, "b": BLUE}), 35), 84, 118, avoid)
-    # scattered small clutter on every free patch
-    av = avoid.copy()
-    av[:38] = True
-    av[:, :9] = True
-    av[:, WW - 9:] = True
-    av[cy - 32:cy + 33, 12:124] = True                          # keep the track clear
-    scatter(c, CLUTTER, r, (9, 40, WW - 9, WH - 6), 18, av)
     # front wall cut with a wobbly top
     c.blit(shade(wobble_mask(WW, 9, r, 1, (4, 9), (0, 0), "t"), WALL), 0, WH - 6)
     return c
@@ -529,22 +667,59 @@ class CozyEpisode:
         vx, vy = -TRACK["rx"] * math.sin(th), TRACK["ry"] * math.cos(th)
         return x, y, math.degrees(math.atan2(vx, -vy))
 
+    def _typed(self, t):
+        """Characters typed so far: ~11 chars/s, paused while looking up."""
+        b = self.ep["beats"]
+        return 64 + int(min(t, b["crank"]) * 11) + int(max(0.0, t - b["crank_end"] - 0.6) * 11)
+
     def _emissive(self, c, t, step):
         """Light sources drawn AFTER the lighting swap so they stay bright."""
         ep, b = self.ep, self.ep["beats"]
         k = cycle(t, (0.6, 0.4, 0.7, 0.5))
-        for i, x in enumerate(range(6, WW - 6, 8)):
+        for i, x in enumerate(range(52, WW - 10, 8)):
             y = 4 + (i % 3 == 1) + (i % 3 == 2) * 2
             c.rect(x, y, 2, 2, (GOLD, HOT, CYAN, GREEN)[(i + k) % 4])
-        c.rect(89, 15, 18, 12, NAVY)                        # monitor screen
-        for y in range(16, 26, 3):
-            c.px(90 + (y * 7) % 15, y, DKSLATE)
+        # left monitor: code being typed (stepped), scrolling, blinking cursor
+        c.rect(82, 12, 19, 13, NAVY)
+        for yy in range(12, 25, 2):                         # faint scanlines
+            c.px(82 + (yy * 5) % 19, yy, DKSLATE)
+        typed = self._typed(t)
+        line, col_ = 0, typed
+        while line < len(CODE) - 1 and col_ > CODE[line][2]:
+            col_ -= CODE[line][2]
+            line += 1
+        first = max(0, line - 5)
+        for i, li in enumerate(range(first, line + 1)):
+            ind, toks, n = CODE[li]
+            x = 83 + ind
+            left = col_ if li == line else n
+            for ln, cc in toks:
+                if left <= 0:
+                    break
+                c.rect(x, 13 + i * 2, min(ln, left), 1, cc)
+                x += ln + 1
+                left -= ln
+            if li == line and (step // 2) % 2 == 0:
+                c.rect(x, 13 + i * 2, 1, 1, WHITE)
+        # right monitor: battery graph
+        c.rect(106, 15, 13, 10, NAVY)
         level = ep["battery"](t)
-        bars = max(0, min(5, int(round(level * 5 / 100))))
+        bars = max(0, min(4, int(round(level * 4 / 100))))
         col = GREEN if level > 50 else GOLD if level > 25 else RED
-        for i in range(5):
-            c.rect(90 + i * 3, 25 - i * 2, 2, 1 + i * 2, col if i < bars else DKSLATE)
-        c.text(TINY, f"{int(level):d}", 106, 16, WHITE, align="right")
+        for i in range(4):
+            c.rect(108 + i * 3, 24 - i * 2, 2, 1 + i * 2, col if i < bars else DKSLATE)
+        c.text(TINY, f"{int(level):d}", 119, 16, WHITE, align="right")
+        # rgb keyboard glow (wave), drawn before the coder's hands
+        for i, x in enumerate(range(88, 106, 2)):
+            c.px(x, 36 + (x - 86) // 11, (HOT, GOLD, GREEN, CYAN, BLUE, MAUVE)[(i + step) % 6])
+            c.px(x + 1, 38 + (x - 86) // 11, (HOT, GOLD, GREEN, CYAN, BLUE, MAUVE)[(i + step + 3) % 6])
+        # the coder, lit by the screens at night
+        b0 = b["crank"]
+        pose = "look" if b0 <= t < b["crank_end"] + 0.6 else ("a", "b")[cycle(t, (0.2, 0.1, 0.3, 0.15, 0.25)) % 2]
+        spr = CODER[pose]
+        if ep["light"](t, step) == "night":
+            spr = np.where(spr == T, T, MOON[spr]).astype(np.uint8)
+        c.blit(spr, 86, 35)
         wx, wy, ww, wh = WINDOW
         c.rect(wx + 1, wy + 1, ww - 2, wh - 2, INK)
         c.px(wx + 3, wy + 4, CREAM); c.px(wx + 4, wy + 4, LTGREY); c.px(wx + 3, wy + 5, LTGREY)
@@ -562,10 +737,10 @@ class CozyEpisode:
         c.rect(wx + 1, wy + wh - 3, ww - 2, 2, WHITE)       # snow on the sill
         c.px(wx + 2, wy + wh - 4, WHITE); c.px(wx + 4, wy + wh - 4, WHITE)
         c.px(119, 199, GREEN if t >= b["charge"] else (RED if t >= b["dying"] else DKSLATE))
-        c.px(116, 31, YELLOW)
+        c.px(119, 31, YELLOW)
         c.px(125, 127, YELLOW)
         lvl = tween_int(t, b["night"], b["night"] + 3.0, 14, 3)
-        c.rect(105, 19 - lvl, 2, lvl, RED)
+        c.rect(122, 19 - lvl, 2, lvl, RED)
 
     def world(self, step, t):
         ep, b = self.ep, self.ep["beats"]
@@ -599,28 +774,25 @@ class CozyEpisode:
 
     def hud(self, v, step, t):
         ep = self.ep
-        v.text(TINY, ep.get("tag", "CAR STUFF, EXPLAINED"), W // 2, 3, CREAM, outline_c=INK,
-               align="center")
-        if t < ep.get("headline_until", 2.6):
-            y0 = tween_int(t, 0.0, 0.5, -50, 12, "out")
+        hu = ep.get("headline_until", 2.6)
+        if t < hu + 0.4:                       # drops in, holds, then slides out (stepped)
+            y0 = tween_int(t, 0.0, 0.5, -50, 12, "out") if t < hu else tween_int(t, hu, hu + 0.4, 12, -52)
             rag_panel(v, 12, y0, W - 24, 44, 21, NAVY, INK, DKSLATE)
             for i, line in enumerate(ep["headline"]):
                 col = YELLOW if i == len(ep["headline"]) - 1 else WHITE
                 v.text(HEAD, line, W // 2, y0 + 5 + i * 19, col,
                        shadow_c=MAROON if i else INK, align="center")
-        else:
-            rag_panel(v, 18, 11, W - 36, 13, 22)
-            v.text(CAP, " ".join(ep["headline"]), W // 2, 14, YELLOW, align="center")
         for (t0, t1, lines) in ep["captions"]:
             if t0 <= t < t1:
-                rag_panel(v, 5, 195, W - 10, 37, 23)
+                rag_panel(v, 5, 194, W - 10, 40, 23)
+                v.text(TINY, ep.get("tag", "CAR STUFF, EXPLAINED"), W // 2, 227, SLATE, align="center")
                 n = int((t - t0) * 40)
                 shown = 0
                 for i, (txt, col) in enumerate(lines):
                     k = max(0, min(len(txt), n - shown))
                     shown += len(txt)
                     if k:
-                        v.text(CAP, txt[:k], W // 2, 200 + i * 15, col, align="center")
+                        v.text(CAP, txt[:k], W // 2, 198 + i * 14, col, align="center")
         level = ep["battery"](t)
         by = 182
         rag_panel(v, 5, by, 30, 11, 24)

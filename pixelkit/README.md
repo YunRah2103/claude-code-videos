@@ -62,9 +62,19 @@ pass `car_art`/`car_key` for a different car (16 angles are baked automatically)
   `3e2731→733e39→b86f50→c28569`, blanket `68386c→b55088→f6757a→e8b796`) in
   clustered bands that follow each silhouette. NIGHT/MOON/WARM are index
   remaps that keep ramp tones distinct, so the texture survives the dark.
-* About 18 small items (paper balls, coins, pencils, socks, cartridges, crumbs,
-  sticky notes) are scattered over the free floor, plus cups and stationery on
-  the desk.
+* Clutter is concentrated, not sprinkled. An open wardrobe on the back wall
+  is packed with hanging clothes, with folded piles on its floor and a hoodie
+  over the door. About 13 garments (jeans, hoodies, tees, towels), socks, a shoe
+  and an overflowing laundry basket spill out of it in a heap that thins
+  across the floor (`wardrobe()`). The only other mess is the coder's: paper
+  balls round the bin, a pizza box and empty energy cans by the chair.
+* A person coding: `CODER` (main-guy palette, seen from behind) types in
+  stepped alternating poses at a desk with two monitors. The left monitor
+  shows syntax-coloured code that types and scrolls at ~11 chars/s with a
+  blinking cursor; the right one shows the battery graph. There is an RGB
+  keyboard, a mug with steam, energy drinks, a rubber duck and sticky notes.
+  The coder turns to look when the car cranks, and is lit by screen glow at
+  night.
 * Large-area shapes that run off-frame (walls, front wall) extend 3 px past it,
   so their straight outer shading band is never visible.
 
@@ -110,14 +120,14 @@ unique frame.
 | held pairs (≥40%) | **65.8%** | 27.1% FAIL | 0.0% FAIL |
 | unique frames/s | 10.3 | 21.9 | 60.0 |
 | hold lengths (frames×count) | 2×34 3×78 4×22 | 1×150 2×57 3×12 | 1×1080 |
-| longest straight edge (≤20) | **19 px** | 63 px FAIL | 140 px FAIL |
+| longest straight edge (≤20) | **17 px** | 63 px FAIL | 140 px FAIL |
 | frames with a long edge | 0% | 100% | 100% |
 | largest flat square (≤12) | **9x9** | 40x40 FAIL | 25x25 FAIL |
 | decoded palette estimate | 30 | 263 | 297 |
 | pre-encode colours (≤32) | **32** | n/a | n/a |
 | verify | PASS (7/7) | FAIL | FAIL |
 
-The yuv444p master gives identical results: 0.000%, 65.8%, 19 px and 9x9.
+The yuv444p master gives identical results: 0.000%, 65.8%, 17 px and 9x9.
 The Reference's flat squares are its large grey-teal floor. Its straight edges
 are the room's wall lines. HEVC smoothing may hide fine floor texture that the
 source had.
