@@ -96,17 +96,22 @@ python tools/video.py run --log out/logs/gamer.log -- \
 python -m pixelkit.verify out/gamer-room/gamer-room.mp4 --native-dir out/gamer-room/native
 ```
 
-* Light: a solid moonbeam palette swap with a sparse dither falloff, a warm
-  lamp, and a magenta LED strip. The desk is plum with grey lit edges, so it
-  reads purple without a tint.
-* There is no olive in ENDESGA 32, so the lower floor mixes dark brown and
-  teal in a checker dither.
+* Calm rebuild. The flat-area rule is met with **structure**, not texture:
+  floor planks, wall panels, desk planks, quilt seams and rug bands every
+  9-10 px, each with a 1 px gap every 16 px. Props are outlined in their own
+  darkest tone; only the characters get black outlines. Clutter is cut to
+  two small items.
+* Light: a soft moonbeam palette swap with a brighter streak inside (two
+  clean bands, no dither) and a warm lamp. The desk is plum with mauve lit
+  edges.
+* There is no olive in ENDESGA 32; the earlier checker-mixed olive floor was
+  dropped for plain dark planks.
 * Loop-safe animation: every cycle divides 10 s. Gamer cheer (5 s), dog tail
   (1 s) and breathing (2 s), clouds on the monitor, 4 game scenes, one city
   light blinking, and dust motes drifting 60 px per loop. Frame 0 equals
   t = 10 s (tested).
-* Result: PASS 7/7. Edges 17 px, flat 9x9, 30 colours, held 75%, median
-  brightness 51 (Reference 47).
+* Result: PASS 7/7. Edges 19 px, flat 12x12, 30 colours, held 75%, median
+  brightness 43 (Reference 47).
 
 ## Cozy pass (calm, not overstimulating)
 

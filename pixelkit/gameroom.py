@@ -38,6 +38,11 @@ BEAM = _lut({INK: NAVY, NAVY: DKSLATE, DKBROWN: DKSLATE, PLUM: SLATE, MAUVE: GRE
              WOOD: GREY, SKIN2: LTGREY, BLUE: SLATE, MAROON: PLUM, DKGREEN: SLATE})
 
 
+BEAM_SOFT = _lut({INK: NAVY, DKBROWN: NAVY, TEAL: NAVY, NAVY: DKSLATE, PLUM: DKSLATE, MAUVE: SLATE,
+                  BROWN: DKSLATE, WOOD: SLATE, FOREST: DKSLATE, DKGREEN: DKSLATE, BLUE: DKSLATE,
+                  MAROON: PLUM, SLATE: GREY})
+
+
 def _prop(mask, ramp, kind="dots", line=INK):
     a = shade(mask, ramp, line=line)
     if kind:
@@ -91,7 +96,7 @@ def dog(tail, breath):
 def bear():
     """Round grey bear plush (original), sitting."""
     c = Canvas(22, 22, T)
-    c.blit(_prop(blob_mask(18, 16, np.random.default_rng(8), 1), GREYR, "dots", line=None), 2, 5)
+    c.blit(shade(blob_mask(18, 16, np.random.default_rng(8), 1), GREYR), 2, 5)
     c.ellipse(2, 1, 6, 6, fill=SLATE); c.ellipse(14, 1, 6, 6, fill=SLATE)
     c.px(4, 3, GREY); c.px(16, 3, GREY)
     c.ellipse(6, 12, 10, 8, fill=GREY)                                  # belly
@@ -113,124 +118,119 @@ def pink_plush():
 
 
 # --------------------------------------------------------------------- set ---
+def _seams(c, x0, y0, x1, y1, col, step=9, gap=16, vertical=True, phase=0):
+    """Structural lines (planks, panels, quilt seams) every `step` px with a
+    1 px gap every `gap` px. They break flat areas and long edges while
+    reading as calm construction detail rather than noise."""
+    if vertical:
+        for k, x in enumerate(range(x0 + step - 1, x1, step)):
+            for y in range(y0, y1):
+                if (y + k * 7 + phase) % gap:
+                    c.px(x, y, col)
+    else:
+        for k, y in enumerate(range(y0 + step - 1, y1, step)):
+            for x in range(x0, x1):
+                if (x + k * 7 + phase) % gap:
+                    c.px(x, y, col)
+
+
+def _solid(mask, ramp):
+    """Shaded prop with a selective outline in its own darkest tone."""
+    return shade(mask, ramp, line=ramp[0])
+
+
 def build(seed=7):
     r = np.random.default_rng(seed)
     c = Canvas(W, H, INK)
-    pattern(c.a, [INK, NAVY], "dots", delta=1)
-    # back wall + console shelf
-    c.blit(_prop(wobble_mask(124, 18, r, 1, (8, 15), (2, 3)), SHELF, "dots", line=None), 5, 8)
-    c.blit(shade(wobble_mask(124, 3, r, 1, (8, 15), (1, 1), "b"), GREYR), 5, 23)
-    consoles = [(22, 13, 18, 10, LIGHTR), (44, 12, 18, 11, LIGHTR), (69, 11, 17, 12, GREYR),
-                (95, 12, 17, 11, [INK, NAVY, DKSLATE, SLATE])]
-    for i, (x, y, w, h, ramp) in enumerate(consoles):
-        c.blit(_prop(wobble_mask(w, h, r, 1, (3, 7), (1, 2)), ramp, "weave"), x, y)
-        c.rect(x + 3, y + h - 3, w - 6, 1, ramp[0])
-    c.px(27, 17, RED); c.px(30, 17, BLUE); c.px(33, 17, GREEN)        # face buttons
-    for yy in (15, 17, 19):
-        c.rect(48, yy, 10, 1, SLATE)                                  # vents
-    c.rect(73, 13, 9, 2, INK); c.px(74, 19, RED); c.px(77, 19, RED)   # cart slot
-    c.ellipse(100, 14, 7, 7, line=DKGREEN)                             # power ring
-    cable(c, [(40, 20), (42, 24), (45, 21)], INK)
-    cable(c, [(86, 20), (90, 25), (95, 21)], INK)
-    cable(c, [(12, 19), (16, 24), (22, 20)], INK)
-    # vent band with backlit window strip
-    for x0, x1 in ((10, 26), (90, 125)):
-        g = np.where(((np.mgrid[0:8, 0:x1 - x0][0] + np.mgrid[0:8, 0:x1 - x0][1]) % 2) == 0, INK, NAVY)
-        c.a[26:34, x0:x1] = g
-    c.rect(26, 26, 64, 8, NAVY)
-    pattern(c.a[26:34, 26:90], [NAVY, BLUE], "weave", delta=1)
-    # desk
-    desk = wobble_mask(104, 38, r, 1, (8, 15), (2, 3))
-    c.blit(_prop(desk, [INK, DKBROWN, PLUM, SLATE], "grain"), 15, 34)    # purple-lit desk
-    for y in (60, 66):
-        c.line(25, y, 42, y, NAVY); c.rect(32, y + 2, 3, 1, SLATE)   # drawers
-    # monitors (bezels; screens are emissive)
-    c.blit(rotate_nn(shade(wobble_mask(24, 14, r, 1, (3, 6), (1, 1)), [INK, INK, INK, NAVY]), -6), 20, 35)
-    c.blit(shade(wobble_mask(32, 11, r, 1, (3, 6), (1, 1)), [INK, INK, INK, NAVY]), 45, 35)
-    c.blit(rotate_nn(shade(wobble_mask(14, 12, r, 1, (3, 6), (1, 1)), [INK, INK, INK, NAVY]), 28), 79, 39)
-    # desk props: keyboard, mouse, mug, figure, handheld, snack
-    kb = shade(wobble_mask(20, 4, r, 1, (3, 6), (1, 1)), [INK, NAVY, DKSLATE, SLATE], line=INK)
-    c.blit(kb, 52, 49)
-    c.blit(sprite(".ooo.\noWWWo\noWCWo\n.ooo.", {"o": INK, "W": WHITE, "C": MAROON}), 38, 50)
-    c.blit(sprite("oo\noW\noo", {"o": INK, "W": LTGREY}), 75, 51)
-    c.blit(sprite(".o.\noAo\noGo\noGo\nooo", {"o": INK, "A": AMBER, "G": PLUM}), 96, 41)
-    c.blit(_prop(wobble_mask(8, 11, r, 1, (2, 4), (1, 1)), LIGHTR, None), 107, 46)
-    c.rect(109, 48, 4, 3, DKSLATE); c.px(109, 53, INK); c.px(111, 54, INK)
-    c.blit(rotate_nn(sprite("RRRR\nRYYR\nRRRR", {"R": RED, "Y": GOLD}), 20), 26, 50)
-    cable(c, [(76, 52), (82, 58), (88, 52)], INK)
+    # --- back wall: dark teal panels, shelf, four plain consoles
+    c.rect(4, 4, W - 8, 30, TEAL)
+    _seams(c, 4, 4, W - 4, 22, INK, step=10)
+    c.blit(shade(wobble_mask(W - 6, 3, r, 1, (8, 15), (1, 1), "b"), GREYR), 3, 21)
+    for (x, y, w, h, ramp) in ((22, 12, 18, 10, LIGHTR), (45, 11, 18, 11, LIGHTR),
+                               (70, 11, 16, 11, GREYR), (94, 12, 18, 10, GREYR)):
+        c.blit(_solid(wobble_mask(w, h, r, 1, (4, 8), (1, 2)), ramp), x, y)
+        c.rect(x + 3, y + h - 3, w - 6, 1, ramp[1])
+    c.px(27, 16, RED); c.px(30, 16, BLUE)
+    c.rect(49, 15, 10, 1, SLATE); c.rect(49, 17, 10, 1, SLATE)
+    c.rect(74, 14, 8, 2, INK)
+    c.ellipse(99, 13, 7, 7, line=FOREST)
+    # vent band: short slats either side of a backlit strip
+    c.rect(4, 25, W - 8, 9, NAVY)
+    for x0 in (8, 94):
+        for y in (27, 29, 31):
+            for xs in range(x0, x0 + 30, 8):
+                c.rect(xs, y, 6, 1, INK)
+    c.rect(40, 26, 52, 7, BLUE)
+    _seams(c, 40, 26, 92, 33, NAVY, step=9, gap=5)
+    # --- desk (plum, plank seams), drawers, monitors, a few props
+    c.blit(_solid(wobble_mask(104, 26, r, 1, (8, 15), (2, 3)), [INK, DKBROWN, PLUM, MAUVE]), 15, 34)
+    _seams(c, 17, 37, 117, 58, DKBROWN, step=8, vertical=False)
+    c.blit(_solid(wobble_mask(20, 11, r, 1, (5, 9), (1, 1)), [DKBROWN, DKBROWN, PLUM, MAUVE]), 22, 47)
+    c.rect(30, 52, 4, 1, SALMON)
+    c.blit(rotate_nn(shade(wobble_mask(24, 14, r, 1, (4, 7), (1, 1)), [INK, INK, INK, NAVY]), -6), 20, 35)
+    c.blit(shade(wobble_mask(32, 11, r, 1, (4, 7), (1, 1)), [INK, INK, INK, NAVY]), 45, 35)
+    c.blit(rotate_nn(shade(wobble_mask(14, 12, r, 1, (4, 7), (1, 1)), [INK, INK, INK, NAVY]), 28), 79, 39)
+    c.blit(shade(wobble_mask(20, 4, r, 1, (4, 7), (1, 1)), [INK, NAVY, DKSLATE, SLATE], line=INK), 52, 49)
+    c.blit(sprite(".ooo.\noWWWo\noWWWo\n.ooo.", {"o": INK, "W": LTGREY}), 99, 47)        # mug
+    c.blit(_solid(wobble_mask(7, 10, r, 1, (2, 4), (1, 1)), LIGHTR), 108, 44)              # handheld
+    c.rect(110, 46, 3, 3, DKSLATE)
     # chair
-    c.blit(_prop(blob_mask(20, 14, r, 1), [INK, NAVY, DKSLATE, SLATE], "weave"), 50, 62)
-    c.blit(_prop(blob_mask(14, 6, r, 1), [INK, NAVY, DKSLATE, SLATE], None), 53, 74)
-    # main floor (carpet) + right floor
-    fm = wobble_mask(84, 150, r, 1, (8, 15), (2, 3))
-    c.blit(_prop(fm, CARPET, "weave", line=None), 28, 72)
-    pattern(c.a[72:222, 28:112], CARPET, "dots", (c.a[72:222, 28:112] == PLUM), delta=-1)
-    # lower floor reads olive: checker-mix dark brown with teal (no olive in the palette)
-    yy, xx = np.mgrid[0:H, 0:W]
-    olive = (yy >= 136) & (yy < 222) & (c.a == DKBROWN) & ((xx + yy) % 2 == 0)
-    olive &= np.pad(fm, ((72, H - 72 - fm.shape[0]), (28, W - 28 - fm.shape[1])))
-    c.a[olive] = TEAL
-    # bean bag + plushies
-    c.blit(_prop(blob_mask(30, 22, r, 2), BEAN, "weave"), 78, 62)
-    c.blit(bear(), 81, 52)
-    # purple rug
-    rug = _prop(wobble_mask(36, 84, r, 1, (8, 15), (2, 3)), RUG, "weave")
-    for y in range(2, 82, 2):
-        rug[y, 0] = SALMON if rug[y, 0] != T else T
-    c.blit(rotate_nn(rug, -3), 36, 88)
-    # bed
-    c.blit(_prop(wobble_mask(40, 52, r, 1, (8, 15), (2, 3)), [INK, DKBROWN, BROWN, WOOD], "grain"), 76, 82)
-    bl = shade(wobble_mask(38, 44, r, 2, (6, 12), (2, 4), "tlbr"), INDIGO, line=INK)
-    pattern(bl, INDIGO, "quilt", bl == INDIGO[2])
-    c.blit(bl, 74, 92)
-    c.blit(_prop(blob_mask(26, 10, r, 1), LIGHTR, "weave", line=DKSLATE), 84, 84)
-    c.blit(rotate_nn(_prop(wobble_mask(14, 6, r, 1, (3, 5), (1, 1)), [INK, NAVY, DKSLATE, SLATE], None), -8), 84, 101)
-    for (x0, y0, x1, y1) in ((78, 112, 88, 124), (96, 120, 108, 128)):
-        c.line(x0, y0, x1, y1, NAVY); c.line(x0 + 1, y0, x1 + 1, y1, BLUE)
-    c.blit(pink_plush(), 64, 80)
-    # right wall + posters
-    c.blit(_prop(wobble_mask(24, 180, r, 1, (8, 15), (0, 0), "l"), [INK, NAVY, DKSLATE, SLATE], "dots", line=None), 116, 40)
-    posters = [(112, 54, 12, 24, [DKBROWN, BROWN, WOOD, TAN], 6), (113, 84, 11, 26, GREYR, -4),
-               (112, 114, 12, 20, [INK, DKBROWN, MAROON, RED], 3), (114, 142, 10, 14, GREYR, -6),
-               (113, 160, 11, 18, [INK, PLUM, MAUVE, SALMON], 5)]
-    for (x, y, w, h, ramp, ang) in posters:
-        pc = _prop(wobble_mask(w, h, r, 1, (3, 7), (1, 1)), ramp, "dots", line=DKSLATE)
-        pc[3:5, 2:w - 2] = np.where(pc[3:5, 2:w - 2] != T, ramp[0], T)         # title bar
-        pc[h // 2:h // 2 + 3, 3:w - 3] = np.where(pc[h // 2:h // 2 + 3, 3:w - 3] != T, ramp[1], T)
+    c.blit(_solid(blob_mask(20, 14, r, 1), [INK, NAVY, DKSLATE, SLATE]), 50, 60)
+    # --- floor: dark boards (vertical planks) across the room
+    c.rect(4, 58, W - 8, 168, DKBROWN)
+    _seams(c, 4, 58, W - 4, 226, INK, step=9)
+    # right floor half catches more light (the beam does the rest)
+    # --- left wall with window (blinds), right wall with three posters
+    c.blit(_solid(wobble_mask(14, 194, r, 1, (8, 15), (0, 0), "r"), [INK, INK, NAVY, DKSLATE]), -4, 34)
+    c.blit(shade(wobble_mask(17, 62, r, 1, (8, 14), (1, 2)), GREYR, line=NAVY), 2, 86)
+    c.rect(4, 89, 13, 56, INK)
+    c.blit(_solid(wobble_mask(16, 194, r, 1, (8, 15), (0, 0), "l"), [INK, INK, NAVY, DKSLATE]), 123, 34)
+    for (x, y, w, h, ramp, ang) in ((114, 62, 12, 22, [BROWN, WOOD, TAN, CREAM], 5),
+                                    (115, 96, 11, 20, [DKBROWN, MAROON, RED, SALMON], -4),
+                                    (114, 128, 12, 18, [NAVY, DKSLATE, SLATE, GREY], 3)):
+        pc = _solid(wobble_mask(w, h, r, 1, (4, 8), (1, 1)), ramp)
+        pc[h // 2:h // 2 + 2, 2:w - 2] = np.where(pc[h // 2:h // 2 + 2, 2:w - 2] != T, ramp[1], T)
+        pc[3, 2:w - 3] = np.where(pc[3, 2:w - 3] != T, ramp[3], T)
         c.blit(rotate_nn(pc, ang), x, y)
-    # left wall + window with blinds + city lights (lights are emissive)
-    c.blit(_prop(wobble_mask(30, 200, r, 1, (8, 15), (0, 0), "r"), [INK, INK, NAVY, DKSLATE], "dots", line=None), -6, 34)
-    c.blit(shade(wobble_mask(20, 66, r, 1, (6, 12), (1, 2)), GREYR, line=INK), 3, 86)
-    c.rect(5, 89, 15, 59, INK)
-    # beanbag chair + radiator bottom-left
-    c.blit(_prop(blob_mask(18, 20, r, 2), [INK, PLUM, MAUVE, SALMON], "weave"), 9, 174)
-    c.blit(_prop(wobble_mask(4, 22, r, 1, (3, 6), (1, 1)), GREYR, None), 9, 186)
-    # floor clutter (clustered by the bed and the rug)
-    for (spr, x, y, a) in (
-            (sprite("KKKKK\nKrKbK\nKKKKK", {"K": NAVY, "r": RED, "b": BLUE}), 92, 140, 25),
-            (sprite("WW\nWL", {"W": LTGREY, "L": GREY}), 60, 176, 0),
-            (sprite("ooo\noRo\nooo", {"o": INK, "R": MAROON}), 64, 132, 30),
-            (sprite("sss\nsSs\n.ss", {"s": SLATE, "S": DKSLATE}), 82, 150, -40),
-            (sprite("RG\nBY", {"R": RED, "G": GREEN, "B": BLUE, "Y": GOLD}), 36, 185, 0)):
-        c.blit(rotate_nn(spr, a), x, y)
-    c.blit(_prop(blob_mask(14, 8, r, 2), [INK, NAVY, BLUE, DKSLATE], None), 34, 102)   # hoodie on floor
-    # bottom: game box on a mat, pizza box, crates, front edge
-    c.blit(rotate_nn(_prop(wobble_mask(30, 32, r, 1, (6, 12), (2, 3)), GREYR, "dots"), -4), 22, 192)
-    gb = Canvas(20, 22, MAROON)
-    gb.rect(0, 0, 20, 9, RED); gb.rect(0, 11, 20, 11, DKBROWN)
-    gb.poly([(4, 7), (10, 1), (16, 7), (13, 7), (10, 4), (7, 7)], fill=CREAM)           # chevron
-    gb.line(3, 19, 9, 13, SALMON); gb.line(9, 13, 15, 19, SALMON)
-    pattern(gb.a, [DKBROWN, MAROON, RED], "dots", delta=1)
-    c.blit(rotate_nn(gb.a, -4), 28, 197)
-    pz = _prop(wobble_mask(42, 26, r, 1, (8, 14), (2, 3)), GREYR, "weave")
-    c.blit(rotate_nn(pz, -6), 76, 178)
-    c.ellipse(90, 186, 13, 9, line=MAROON); c.line(93, 190, 99, 188, MAROON)          # stamp
-    c.blit(_prop(wobble_mask(26, 16, r, 1, (6, 12), (1, 2)), [INK, DKBROWN, MAROON, RED], "weave"), 60, 214)
-    for y in range(217, 228, 3):
-        c.rect(63 + (y % 2), y, 18, 1, RED)
-    c.blit(_prop(wobble_mask(22, 20, r, 1, (6, 12), (1, 2)), CRATE, "grain"), 87, 210)
-    c.blit(_prop(wobble_mask(24, 24, r, 1, (6, 12), (1, 2)), GREEN_CRATE, "grain"), 108, 206)
-    c.blit(shade(wobble_mask(W + 6, 14, r, 1, (8, 15), (0, 0), "t"), [INK, INK, TEAL, FOREST]), -3, 230)
+    # --- beanbag (green), rug (plum with banded stripes), bed (quilted indigo)
+    c.blit(_solid(blob_mask(30, 22, r, 2), BEAN), 78, 62)
+    c.blit(bear(), 82, 52)
+    rug = _solid(wobble_mask(36, 84, r, 1, (8, 15), (2, 3)), RUG)
+    for y in range(6, 80, 10):
+        rug[y, 3:33] = np.where(rug[y, 3:33] != T, DKBROWN, T)
+    for y in range(2, 82):                                  # tasselled border, broken every 10 px
+        if y % 10 != 1 and rug[y, 3] != T:
+            rug[y, 3] = MAUVE
+    rug[2:82, 32] = np.where(rug[2:82, 32] != T, DKBROWN, T)
+    c.blit(rotate_nn(rug, -3), 34, 90)
+    c.blit(_solid(wobble_mask(42, 52, r, 1, (8, 15), (2, 3)), [INK, DKBROWN, BROWN, WOOD]), 76, 82)
+    bl = shade(wobble_mask(40, 44, r, 1, (8, 14), (2, 3), "tlbr"), INDIGO, line=INK)
+    for y in range(9, 44, 10):
+        bl[y, 2:38] = np.where(bl[y, 2:38] == INDIGO[2], NAVY, bl[y, 2:38])
+    for x in range(9, 40, 10):
+        bl[2:42, x] = np.where(bl[2:42, x] == INDIGO[2], NAVY, bl[2:42, x])
+    c.blit(bl, 76, 92)
+    c.blit(_solid(blob_mask(28, 10, r, 1), LIGHTR), 82, 84)
+    c.blit(rotate_nn(_solid(wobble_mask(14, 6, r, 1, (3, 5), (1, 1)), [INK, NAVY, DKSLATE, SLATE]), -8), 86, 104)
+    c.blit(pink_plush(), 62, 82)
+    # --- bottom: game box, pizza box, two crates, front ledge
+    gb = _solid(wobble_mask(22, 26, r, 1, (5, 9), (1, 2)), [INK, INK, DKBROWN, MAROON])
+    gb[11:13, 2:20] = np.where(gb[11:13, 2:20] != T, CREAM, T)
+    c.blit(rotate_nn(gb, -4), 26, 192)
+    c.blit(rotate_nn(sprite("..c..\n.ccc.\nccccc", {"c": CREAM}), -4), 33, 198)
+    pz = _solid(wobble_mask(40, 24, r, 1, (8, 14), (2, 3)), GREYR)
+    pz[8, 2:38] = np.where(pz[8, 2:38] != T, DKSLATE, T)
+    pz[9:22, 19] = np.where(pz[9:22, 19] != T, DKSLATE, T)
+    c.blit(rotate_nn(pz, -6), 74, 180)
+    c.ellipse(83, 192, 9, 7, line=MAROON)
+    c.blit(_solid(wobble_mask(24, 16, r, 1, (6, 11), (1, 2)), [INK, INK, DKBROWN, MAROON]), 58, 212)
+    _seams(c, 60, 214, 80, 226, DKBROWN, step=4, vertical=False, gap=9)
+    c.blit(_solid(wobble_mask(26, 20, r, 1, (6, 11), (1, 2)), [INK, TEAL, FOREST, DKGREEN]), 100, 208)
+    _seams(c, 102, 210, 124, 226, TEAL, step=6, gap=9)
+    c.blit(shade(wobble_mask(W + 6, 14, r, 1, (8, 15), (0, 0), "t"), [INK, INK, TEAL, FOREST]), -3, 228)
+    # two small things only, by the bed (lived-in, not cluttered)
+    c.blit(rotate_nn(sprite("KKKKK\nKrKbK\nKKKKK", {"K": NAVY, "r": RED, "b": BLUE}), 25), 92, 142)
+    c.blit(rotate_nn(sprite("sss\nsSs\n.ss", {"s": SLATE, "S": DKSLATE}), -40), 70, 150)
     return c
 
 
@@ -253,8 +253,10 @@ class GameRoom:
         check = (np.add.outer(np.arange(H), np.arange(W)) % 2) == 0
         sparse = (np.arange(H)[:, None] % 2 == 0) & (np.arange(W)[None, :] % 2 == 0)
         # translucent light = dither: 50% inside, 25% in a 4 px falloff ring
-        self.pools = [(beam, BEAM), (lamp, WARM)]
-        self.rings = [(_grow(beam, 5) & ~beam & sparse, BEAM), (_grow(lamp, 3) & ~lamp & check, WARM)]
+        # light in two clean cel bands: a soft outer band, then the core
+        streak = ~_grow(~beam, 7)                      # brighter streak inside the beam
+        self.pools = [(beam, BEAM_SOFT), (streak, BEAM), (lamp, WARM)]
+        self.rings = []
         rng = np.random.default_rng(3)
         self.motes = [(int(rng.integers(20, 90)), int(rng.integers(70, 190)), int(rng.integers(1, 3)))
                       for _ in range(12)]
@@ -280,7 +282,7 @@ class GameRoom:
         # lighting: hard palette-swap pools with dithered falloff
         base = c.a.copy()
         a = base
-        for m, lut in self.pools + self.rings:
+        for m, lut in self.rings + self.pools:
             a = np.where(m, lut[base], a)
         c.a = a
         self._emissive(c, step, t)
