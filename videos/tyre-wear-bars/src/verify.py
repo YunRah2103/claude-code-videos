@@ -40,6 +40,41 @@ def block_uniform(fr):
     return (rng.max(-1) <= TOL)
 
 
+MAX_STRAIGHT = 20   # native px: longest allowed perfectly straight edge in background structures
+FLAT = 13           # a single-colour square this size (i.e. larger than 12x12) fails
+
+
+def longest_straight(a):
+    """Longest perfectly straight edge: a run of adjacent boundary pixels along one row/column where
+    the two sides differ and at least one side keeps one colour the whole way. Returns (len_px, where)."""
+    best, where = 0, None
+    for name, arr in (('horizontal', a), ('vertical', a.T)):
+        A, B = arr[:-1].astype(int), arr[1:].astype(int)
+        diff = A != B
+        for side, same in (('a', A[:, 1:] == A[:, :-1]), ('b', B[:, 1:] == B[:, :-1])):
+            link = diff[:, 1:] & diff[:, :-1] & same
+            cur = np.zeros(link.shape[0], int)
+            for x in range(link.shape[1]):
+                cur = (cur + 1) * link[:, x]
+                m = int(cur.max())
+                if m + 1 > best:
+                    best, where = m + 1, (name, int(cur.argmax()), x + 1)
+    return best, where
+
+
+def flat_region(a, n=FLAT, skip=(254,)):
+    """First n x n block of one colour (sky sentinel skipped), or None."""
+    for c in np.unique(a):
+        if c in skip:
+            continue
+        m = np.pad((a == c).astype(np.int32), ((1, 0), (1, 0))).cumsum(0).cumsum(1)
+        win = m[n:, n:] - m[:-n, n:] - m[n:, :-n] + m[:-n, :-n]
+        hit = np.argwhere(win == n * n)
+        if len(hit):
+            return int(c), (int(hit[0][1]), int(hit[0][0]))
+    return None
+
+
 def main(out):
     out = Path(out)
     final, master = out / 'final.mp4', out / 'master_silent_yuv444.mp4'
@@ -70,6 +105,25 @@ def main(out):
     check('Master yuv444p: 8px blocks uniform', min(muni) >= 0.999, f'worst sampled frame {min(muni) * 100:.3f}%')
     check('Frame count 390 (13.0s @30)', n == 390, f'{n} frames')
     check('>=40% consecutive decoded frames identical', same / (n - 1) >= 0.40, f'{same}/{n - 1} = {same / (n - 1) * 100:.1f}%')
+
+    # background structures (street layers rendered alone, open sky masked; UI, car and tyre scenes excluded)
+    worst, wf, nbg = (0, None), None, 0
+    for kf in r.KEYS:
+        t = kf / r.FPS
+        if 3.45 <= t < 6.0:          # tread close-up / punch-in: kept as-is, not a street frame
+            continue
+        bg = r.street(t, r.KEY_IDX[kf], sentinel=True)
+        nbg += 1
+        L, pos = longest_straight(bg)
+        if L > worst[0]:
+            worst = (L, f't={t:.2f}s {pos}')
+        f = flat_region(bg)
+        if f and wf is None:
+            wf = f't={t:.2f}s colour {f[0]} at {f[1]}'
+    check(f'Background: no straight edge > {MAX_STRAIGHT} native px', worst[0] <= MAX_STRAIGHT,
+          f'longest {worst[0]} px over {nbg} background drawings ({worst[1]})')
+    check('Background: no flat area > 12x12 without a shading step', wf is None,
+          wf or f'none in {nbg} background drawings (open sky excluded)')
 
     # pre-encode native frames
     nat = r.all_native()

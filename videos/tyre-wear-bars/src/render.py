@@ -438,11 +438,15 @@ def car_sprite(expr, pose, k):
         arm(s, pose, k)
     return outline(s)
 
-# ------------------------------------------------------------------ the street (parallax layers, textured)
+# ------------------------------------------------------------------ the street (parallax layers, hand-textured)
 NW, FWD, CW = 420, 300, 400
 F_CLOUD, F_FAR, F_NEAR, F_ROAD, F_FRONT = 0.1, 0.3, 0.6, 1.0, 1.3
 SIDEWALK = 150
+ROAD_Y, FRONT_Y = 158, 206
 HN = np.vectorize(h01)
+# 3-tone wall ramps (light, mid, dark): light is warmer, shadow cooler (hue-shifted)
+RAMP = {'brick': (SK, BRK, BRKS), 'cream': (CRM, CRMS, R2), 'teal': (CYAN, TEAL, GLS)}
+MAX_EDGE = 19                   # chip limit in the layers (verify fails above 20)
 
 
 def _disc(a, cx, cy, r, c):
@@ -453,18 +457,69 @@ def _disc(a, cx, cy, r, c):
                     a[y, x % a.shape[1]] = c
 
 
+def _blob(a, cx, cy, rx, ry, seed, fn):
+    """Ragged clustered shape; calls fn(x, y) for each pixel inside."""
+    for y in range(int(cy - ry) - 1, int(cy + ry) + 2):
+        for x in range(int(cx - rx) - 1, int(cx + rx) + 2):
+            d = ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2
+            if d <= 1.0 - 0.45 * h01(x // 2, y // 2, seed) and 0 <= y < a.shape[0]:
+                fn(x % a.shape[1], y)
+
+
+def chip_edges(a, maxrun=MAX_EDGE, seed=0):
+    """Hand-made look: no perfectly straight edge longer than maxrun. A 1 px chip/notch is cut into
+    the side of the edge that stays constant, at irregular spacing (9-maxrun px)."""
+    for b in (a, a.T):
+        hgt, wid = b.shape
+        for y in range(hgt - 1):
+            up, dn = b[y], b[y + 1]
+            ru = rd = 0
+            lim = 13 + int(h01(y, seed, 31) * (maxrun - 13))
+            for x in range(1, wid):
+                d0, d1 = up[x - 1] != dn[x - 1], up[x] != dn[x]
+                ru = ru + 1 if d0 and d1 and up[x] == up[x - 1] else 0
+                rd = rd + 1 if d0 and d1 and dn[x] == dn[x - 1] else 0
+                if ru + 1 >= lim:
+                    up[x] = dn[x]
+                    ru = rd = 0; lim = 13 + int(h01(x, y + seed, 32) * (maxrun - 13))
+                elif rd + 1 >= lim:
+                    dn[x] = up[x]
+                    ru = rd = 0; lim = 13 + int(h01(x, y + seed, 33) * (maxrun - 13))
+    return a
+
+
+@lru_cache(None)
+def sky():
+    """Two blues and a horizon haze, joined by hand-dithered seams. Open sky is not a structure."""
+    a = np.full((H, W), SKY2, np.uint8)
+    for y in range(H):
+        base, other = (SKY2, SKY1) if y < 26 else ((SKY1, GLH) if y < 58 else (GLH, SKY1))
+        a[y] = base
+        if y in (22, 24, 54, 56):                    # transition dithers
+            a[y, (np.arange(W) + y) % 2 == 0] = other
+        elif y in (25, 57):
+            a[y, (np.arange(W) + y) % 3 != 0] = other
+    return a
+
+
 @lru_cache(None)
 def clouds():
     a = np.full((70, CW), T, np.uint8)
+    puffs = []
     for cx, cy, s in ((40, 30, 1.0), (150, 18, 0.8), (250, 40, 1.2), (340, 24, 0.9)):
         for dx, dy, r in ((0, 0, 8), (-9, 3, 6), (10, 2, 7), (4, -4, 6), (-15, 5, 4), (16, 5, 4)):
-            _disc(a, cx + dx * s, cy + dy * s, r * s, CLD)
-        for x in range(int(cx - 22 * s), int(cx + 24 * s)):
-            for y in range(cy - 2, min(70, cy + 12)):
-                xx = x % CW
-                if a[y, xx] == CLD and (y > cy + 3 or (y > cy and h01(x, y, 8) < 0.35)):
-                    a[y, xx] = GLH                             # ragged cool underside
-    return a
+            puffs.append((cx + dx * s, cy + dy * s, r * s))
+    for px, py, r in puffs:
+        _disc(a, px, py, r, CLD)
+    for px, py, r in puffs:                           # each puff: lit cap, cool belly (clustered)
+        for y in range(int(py - r), int(py + r) + 1):
+            for x in range(int(px - r), int(px + r) + 1):
+                dd = (x - px) ** 2 + (y - py) ** 2
+                if 0 <= y < 70 and a[y, x % CW] != T and (r * 0.55) ** 2 < dd <= r * r and y > py + 1:
+                    a[y, x % CW] = GLH if (y > py + r * 0.5 or (x + y) % 2) else CLD
+                elif 0 <= y < 70 and a[y, x % CW] != T and y == int(py) and (x % 3 == 0):
+                    a[y, x % CW] = GLH
+    return chip_edges(a, seed=2)
 
 
 @lru_cache(None)
@@ -473,113 +528,235 @@ def far_layer():
     rng = np.random.default_rng(3)
     x = 0
     while x < FWD:
-        w = int(rng.integers(14, 30)); top = int(rng.integers(62, 110))
+        w = int(rng.integers(14, 30)); top = int(rng.integers(62, 108))
         x1 = min(FWD - 1, x + w - 2)
-        R(a, x, top, x1, SIDEWALK, FAR)
-        R(a, x1 - 2, top + 2, x1, SIDEWALK, FARS)
-        R(a, x, top, x1, top, FARS)
-        for yy in range(top + 5, SIDEWALK - 4, 6):
-            for xx in range(x + 2, x1 - 3, 4):
-                if h01(xx, yy, 5) < 0.7:
-                    R(a, xx, yy, xx + 1, yy + 2, FARS if h01(xx, yy, 6) < 0.85 else GLH)
-        if rng.random() < 0.35:
-            R(a, x + w // 2, top - 7, x + w // 2, top - 1, FARS); P(a, x + w // 2 - 1, top - 5, FARS)
-        if rng.random() < 0.3:
-            R(a, x + 3, top - 4, x + 8, top - 1, FARS)
+        cx, tops = x, {}
+        while cx <= x1:                               # stepped, uneven roofline
+            sw = int(rng.integers(5, 12)); off = int(rng.integers(0, 2))
+            for c in range(cx, min(x1, cx + sw - 1) + 1):
+                tops[c] = top + off
+            cx += sw
+        for c in range(x, x1 + 1):
+            R(a, c, tops[c], c, SIDEWALK, FAR)
+        for y in range(top, SIDEWALK + 1):            # jagged shadow side
+            wd = 2 + int(h01(x, y // 4, 5) * 2)
+            for c in range(x1 - wd + 1, x1 + 1):
+                if a[y, c] != T: a[y, c] = FARS
+        for y in range(top + 1, top + 16):            # sunlit edge cluster
+            if h01(x, y // 3, 6) < 0.6 and a[y, x] != T: a[y, x] = GLH
+        yy = top + 6
+        while yy < SIDEWALK - 3:                      # floor ledges with gaps
+            for c in range(x, x1 + 1):
+                if h01(c, yy, 7) > 0.12 and a[yy, c] == FAR: a[yy, c] = FARS
+            for c in range(x + 2, x1 - 3, 4 + int(h01(x, yy, 9) * 2)):   # uneven windows
+                if h01(c, yy, 8) < 0.7:
+                    R(a, c, yy + 2, c + int(h01(c, yy, 4) * 2), yy + 4 + int(h01(c, yy, 3) * 2),
+                      GLH if h01(c, yy, 2) > 0.9 else FARS)
+            yy += 8 + int(h01(x, yy, 8) * 3)
+        r = rng.random()
+        if r < 0.35:                                  # aerial
+            for y in range(top - 8, top): P(a, x + w // 2, y, FARS)
+            R(a, x + w // 2 - 2, top - 6, x + w // 2 + 2, top - 6, FARS)
+        elif r < 0.6:                                 # water tank on legs
+            R(a, x + 3, top - 6, x + 7, top - 3, FARS); P(a, x + 3, top - 2, FARS); P(a, x + 7, top - 2, FARS)
         x += w
-    return a
+    return chip_edges(a, seed=1)
 
 
-def _window(a, xx, yy, kind, seed):
-    R(a, xx - 1, yy - 1, xx + 7, yy + 9, CRM if kind != 'cream' else WH)   # frame
-    R(a, xx, yy, xx + 6, yy + 8, GLS)
-    R(a, xx, yy, xx + 6, yy + 1, ASPD)                                       # lintel shadow inside
-    for i in range(4):
-        P(a, xx + 1 + i, yy + 7 - i * 2, GLH); P(a, xx + 2 + i, yy + 7 - i * 2, GLH)
-    R(a, xx + 3, yy, xx + 3, yy + 8, CRM if kind != 'cream' else WH)        # mullion
-    R(a, xx, yy + 4, xx + 6, yy + 4, CRM if kind != 'cream' else WH)        # transom
+def _window(a, xx, yy, ww, wh, kind, seed):
+    light, mid, dark = RAMP[kind]
+    frame = CRMS if kind == 'cream' else CRM
+    R(a, xx - 1, yy - 1, xx + ww, yy + wh, frame)
+    R(a, xx, yy, xx + ww - 1, yy + wh - 1, GLS)
+    R(a, xx, yy, xx + ww - 1, yy, ASPD)               # shadow under the lintel, inside
+    for i in range(min(ww, wh) // 2):                 # hand-placed glint
+        P(a, xx + 1 + i, yy + wh - 2 - i * 2, GLH)
+    if ww >= 7:
+        R(a, xx + ww // 2, yy, xx + ww // 2, yy + wh - 1, frame)
+    if wh >= 9:
+        R(a, xx, yy + wh // 2, xx + ww - 1, yy + wh // 2, frame)
+    for i in range(ww + 2):                           # chipped frame paint
+        if h01(xx + i, yy, seed + 5) < 0.12: P(a, xx - 1 + i, yy - 1, mid)
     v = h01(xx, yy, seed)
-    if v < 0.3:                                                              # curtains
-        R(a, xx, yy, xx, yy + 8, RED); R(a, xx + 6, yy, xx + 6, yy + 8, RED)
-    elif v < 0.45:
-        R(a, xx, yy + 2, xx + 6, yy + 3, CRMS)                               # half-drawn blind
-    R(a, xx - 2, yy + 10, xx + 8, yy + 10, CRMS if kind == 'cream' else CRM)  # sill
-    R(a, xx - 1, yy + 11, xx + 7, yy + 11, K)
-    if h01(xx, yy, seed + 1) < 0.3:                                          # flower box
-        R(a, xx, yy + 9, xx + 6, yy + 10, BRKS)
-        for i in range(0, 7, 2):
-            P(a, xx + i, yy + 8, RED if (i // 2) % 2 else GRN)
+    if v < 0.22:                                      # curtains, drooping
+        c = RED if h01(xx, yy, seed + 1) < 0.5 else CRM
+        R(a, xx, yy + 1, xx, yy + wh - 1, c); R(a, xx + ww - 1, yy + 1, xx + ww - 1, yy + wh - 1, c)
+        P(a, xx + 1, yy + wh - 1, c); P(a, xx + ww - 2, yy + wh - 1, c)
+    elif v < 0.36:                                    # half-drawn blind
+        R(a, xx, yy + 1, xx + ww - 1, yy + 2 + int(h01(xx, yy, 7) * 3), CRMS)
+    elif v < 0.44:                                    # open shutters, slatted
+        sc = [GRN, RED, TEAL, BRKS][int(h01(xx, yy, seed + 2) * 4)]
+        for sx in (xx - 3, xx + ww + 1):
+            R(a, sx, yy - 1, sx + 1, yy + wh, sc)
+            for y in range(yy, yy + wh, 2): P(a, sx + (1 if sx < xx else 0), y, K)
+    # sill: lit top, dithered shadow beneath, occasional flower box or dirt streak
+    R(a, xx - 2, yy + wh + 1, xx + ww + 1, yy + wh + 1, light)
+    P(a, xx - 2 + int(h01(xx, yy, 9) * (ww + 3)), yy + wh + 1, mid)
+    for c in range(xx - 1, xx + ww + 1):
+        if (c + yy) % 2 == 0: P(a, c, yy + wh + 2, dark)
+    if h01(xx, yy, seed + 3) < 0.3:
+        R(a, xx, yy + wh - 1, xx + ww - 1, yy + wh, BRKS)
+        for i in range(0, ww, 2): P(a, xx + i, yy + wh - 2, RED if (i // 2) % 2 else GRN)
+    elif h01(xx, yy, seed + 4) < 0.5:
+        sx = xx + int(h01(xx, yy, 6) * ww)
+        for i in range(3, 4 + int(h01(xx, yy, 8) * 6)):
+            if i % 2 or h01(sx, i, 2) < 0.5: P(a, sx, yy + wh + i, dark)
+
+
+def _coursing(a, cx, cy, rx, ry, seed):
+    """A clustered patch of exposed brick courses with uneven joints."""
+    def f(x, y):
+        row = y // 3
+        jog = 1 if h01(row, x // 6, seed) < 0.2 else 0
+        if y % 3 == 2 or (x + (row % 2) * 3 + jog) % 6 == 0:
+            a[y, x] = BRKS
+        elif a[y, x] not in (GLS,):
+            a[y, x] = BRK if h01(x // 6, row, seed + 1) > 0.15 else SK
+    _blob(a, cx, cy, rx, ry, seed, f)
 
 
 def _facade(a, x, w, top, kind, rng):
-    body, shade = {'brick': (BRK, BRKS), 'cream': (CRM, CRMS), 'teal': (TEAL, GLS)}[kind]
+    light, mid, dark = RAMP[kind]
     x1 = min(NW - 1, x + w - 1)
-    R(a, x, top, x1, SIDEWALK - 1, body)
-    # surface texture
-    for y in range(top + 3, 128):
-        for xx in range(x, x1 + 1):
-            if kind == 'brick':
-                row = (y - top) // 3
-                if (y - top) % 3 == 2 or (xx + (row % 2) * 3) % 6 == 0:
-                    a[y, xx] = BRKS                                          # mortar coursing
-                elif h01(xx // 6, row, 4) < 0.12:
-                    a[y, xx] = CRMS if h01(xx // 6, row, 5) < 0.3 else BRKS  # odd bricks
-            elif kind == 'cream':
-                if (y - top) % 7 == 6 and h01(xx // 9, y, 7) < 0.8:
-                    a[y, xx] = CRMS                                          # render joints
-                elif h01(xx, y, 3) < 0.035:
-                    a[y, xx] = CRMS                                          # weathering stains
-            else:
-                if (xx - x) % 7 == 0:
-                    a[y, xx] = GLS                                           # cladding seams
-                elif h01(xx, y, 2) < 0.03:
-                    a[y, xx] = CYAN
-    R(a, x1 - 2, top + 3, x1, SIDEWALK - 1, shade)                           # shadow side
-    # cornice with dentils
-    R(a, x, top, x1, top + 2, CRMS if kind != 'cream' else BRKS)
-    for xx in range(x, x1 + 1, 2):
-        P(a, xx, top + 2, K)
-    R(a, x - 1, top - 1, x1 + 1, top - 1, CRM)
-    # rooftop clutter
-    r = h01(x, top, 9)
-    if r < 0.35:
-        R(a, x + 5, top - 7, x + 12, top - 2, GY); R(a, x + 6, top - 6, x + 11, top - 6, K)
-        for xx in range(x + 6, x + 12, 2): R(a, xx, top - 5, xx, top - 3, FARS)
-    elif r < 0.65:
-        R(a, x1 - 10, top - 10, x1 - 6, top - 2, BRK); R(a, x1 - 11, top - 11, x1 - 5, top - 10, K)
-        for y in range(top - 9, top - 2, 3): R(a, x1 - 10, y, x1 - 6, y, BRKS)
+    cx, tops = x, {}
+    while cx <= x1:                                   # ragged parapet
+        sw = int(rng.integers(6, 14)); off = 1 if rng.random() < 0.4 else 0
+        for c in range(cx, min(x1, cx + sw - 1) + 1):
+            tops[c] = top + off
+        cx += sw
+    for c in range(x, x1 + 1):
+        R(a, c, tops[c], c, SIDEWALK - 1, mid)
+        P(a, c, tops[c], light if c < x + w * 0.6 else mid)
+    ct = top + 4                                      # projecting cornice
+    R(a, x - 1, ct, x1 + 1, ct, light)
+    for c in range(x - 1, x1 + 2):
+        P(a, c, ct + 1, dark)
+        if c % 2: P(a, c, ct + 2, dark)               # dithered shadow under the ledge
+        if (c + 1) % 4 == 0: P(a, c, ct + 3, dark)
+    for y in range(ct + 1, SIDEWALK - 1):             # jagged lit edge (left) and shadow edge (right)
+        lw = 1 + int(h01(x, y // 8, 1) * 2)
+        if lw: R(a, x, y, x + lw - 1, y, light)
+        dw = 2 + int(h01(x1, y // 8, 2) * 2)
+        R(a, x1 - dw + 1, y, x1, y, dark)
+    for i in range(2):                                # warm sunlit clusters, upper left
+        bx, by = x + 5 + int(h01(x, i, 3) * w * 0.3), ct + 6 + int(h01(x, i, 4) * 14)
+        _blob(a, bx, by, 3 + h01(x, i, 5) * 3, 2 + h01(x, i, 6) * 2, x + i,
+              lambda px, py: a.__setitem__((py, px), light) if a[py, px] == mid else None)
+    # material texture (clustered, never all-over)
+    if kind == 'brick':
+        for i in range(3):
+            _coursing(a, x + 4 + h01(x, i, 7) * (w - 8), ct + 8 + h01(x, i, 8) * 30, 5 + h01(x, i, 9) * 5,
+                      3 + h01(x, i, 10) * 3, x + i)
+        for i in range(2):                            # chipped / missing bricks
+            bx, by = x + 3 + int(h01(x, i, 11) * (w - 8)), ct + 5 + int(h01(x, i, 12) * 34)
+            R(a, bx, by, bx + 2, by, R2); P(a, bx + 1, by + 1, light)
     else:
-        R(a, x + 8, top - 3, x + 8, top - 1, K); _disc(a, x + 9, top - 6, 3, GY); P(a, x + 9, top - 6, FARS)
-    for yy in range(top + 8, 112, 15):                                       # upper windows
-        for xx in range(x + 5, x1 - 9, 12):
-            _window(a, xx, yy, kind, x)
+        for i in range(2 if kind == 'cream' else 1):  # peeling paint revealing brick
+            bx, by = x + 6 + h01(x, i, 13) * (w - 12), ct + 10 + h01(x, i, 14) * 28
+            rx, ry = 4 + h01(x, i, 15) * 3, 3 + h01(x, i, 16) * 2
+            rx, ry = rx * 0.75, ry * 0.8
+            _coursing(a, bx, by, rx, ry, x + 7 * i)
+            for k_ in range(10):                      # curled paint edge
+                ang = k_ * 0.63
+                P(a, int(bx + (rx + 0.6) * math.cos(ang)), int(by + (ry + 0.6) * math.sin(ang)), light)
+        if kind == 'teal':
+            for c in range(x + 3, x1 - 2, 7):         # cladding seams, broken
+                for y in range(ct + 4, 116):
+                    if a[y, c] == mid and h01(c, y // 5, 17) > 0.25: a[y, c] = dark
+    for i in range(1):                                # crack
+        px, py = x + 4 + int(h01(x, i, 18) * (w - 8)), ct + 8 + int(h01(x, i, 19) * 30)
+        for j in range(5 + int(h01(x, i, 20) * 4)):
+            if a[py, px] in (mid, light): a[py, px] = dark
+            px += 1 if h01(px, py, 21) < 0.5 else 0; py += 1
+    for i in range(2):                                # rising damp / dirt patches (dithered)
+        bx = x + 4 + int(h01(x, i, 22) * (w - 8))
+        _blob(a, bx, 113 + h01(x, i, 23) * 4, 4 + h01(x, i, 24) * 3, 3, x + 30 + i,
+              lambda px, py: a.__setitem__((py, px), dark) if a[py, px] == mid and (px + py) % 2 else None)
+    # uneven windows
+    yy = ct + 7
+    while yy < 104:
+        wh = 7 + int(h01(x, yy, 25) * 3)
+        xx = x + 4 + int(h01(x, yy, 26) * 3)
+        while xx < x1 - 9:
+            ww = 5 + int(h01(xx, yy, 27) * 3)
+            if h01(xx, yy, 28) < 0.88:
+                _window(a, xx, yy + int(h01(xx, yy, 29) * 2), ww, wh, kind, x)
+            else:                                     # bricked-up opening
+                _coursing(a, xx + ww / 2, yy + wh / 2, ww / 2 + 0.5, wh / 2 + 0.5, xx)
+            xx += ww + 5 + int(h01(xx, yy, 30) * 4)
+        yy += wh + 6 + int(h01(x, yy, 31) * 3)
+    # drainpipe with brackets, hopper and shoe
+    px = x + 1 if h01(x, 0, 32) < 0.5 else x1 - 1
+    for y in range(ct + 2, SIDEWALK - 1):
+        a[y, px] = GY
+        if (y - ct) % (11 + int(h01(x, 1, 33) * 3)) == 0: R(a, px, y, px + (1 if px == x + 1 else -1), y, K)
+    R(a, px - 1, ct + 1, px + 1, ct + 2, GY); P(a, px - 1, ct + 2, FARS)
+    P(a, px + (1 if px == x + 1 else -1), SIDEWALK - 2, GY)
+    # rooftop clutter breaking the skyline
+    for i in range(1 + (h01(x, top, 34) < 0.35)):
+        r = h01(x, i, 35); rx = x + 3 + int(h01(x, i, 36) * (w - 12))
+        tt = tops.get(rx, top)
+        if r < 0.3:                                   # chimney with pots
+            hh = 5 + int(h01(x, i, 37) * 5)
+            R(a, rx, tt - hh, rx + 4, tt - 1, BRK); R(a, rx + 3, tt - hh, rx + 4, tt - 1, BRKS)
+            R(a, rx - 1, tt - hh - 1, rx + 5, tt - hh, CRMS)
+            P(a, rx + 1, tt - hh - 2, BRKS); P(a, rx + 3, tt - hh - 2, BRKS)
+            for y in range(tt - hh + 2, tt - 1, 3): R(a, rx, y, rx + 2, y, BRKS)
+        elif r < 0.5:                                 # vent box
+            R(a, rx, tt - 4, rx + 5, tt - 1, GY); R(a, rx + 4, tt - 4, rx + 5, tt - 1, FARS)
+            for c in range(rx + 1, rx + 4, 2): R(a, c, tt - 3, c, tt - 2, K)
+        elif r < 0.7:                                 # aerial
+            for y in range(tt - 9, tt): P(a, rx + 2, y, K)
+            R(a, rx, tt - 8, rx + 4, tt - 8, K); R(a, rx + 1, tt - 6, rx + 3, tt - 6, K)
+        elif r < 0.85:                                # satellite dish
+            _disc(a, rx + 2, tt - 4, 2.4, GY); P(a, rx + 2, tt - 4, FARS); R(a, rx + 2, tt - 2, rx + 2, tt - 1, K)
+        else:                                         # rooftop sign on legs
+            R(a, rx, tt - 8, rx + 8, tt - 4, RED); R(a, rx + 1, tt - 7, rx + 7, tt - 7, CRM)
+            P(a, rx + 1, tt - 3, K); P(a, rx + 7, tt - 3, K); P(a, rx + 7, tt - 2, K)
     # shopfront
-    R(a, x + 1, 127, x1 - 1, 128, K)
+    for c in range(x + 1, x1):
+        P(a, c, 127, K); P(a, c, 128, K if h01(c, 3, x) > 0.1 else dark)
     R(a, x + 3, 129, x1 - 4, SIDEWALK - 1, GLS)
     R(a, x + 3, 129, x1 - 4, 130, ASPD)
-    for xx in range(x + 3, x1 - 4, 9):                                        # display frames
-        R(a, xx, 129, xx, SIDEWALK - 1, K if kind == 'brick' else GY)
+    fx = x + 3
+    while fx < x1 - 4:                                # uneven display frames
+        R(a, fx, 129, fx, SIDEWALK - 1, K if kind == 'brick' else GY)
+        fx += 7 + int(h01(fx, 4, x) * 4)
     for i in range(6):
         P(a, x + 7 + i, 145 - i * 2, GLH); P(a, x + 8 + i, 145 - i * 2, GLH)
-    for xx in range(x + 6, x1 - 6, 5):                                        # goods on display
+    for xx in range(x + 6, x1 - 6, 5):                # goods on display
         if h01(xx, 1, x) < 0.5:
-            R(a, xx, 142, xx + 2, 146, [RED, CRM, TEAL, BO if False else GRN][int(h01(xx, 2, x) * 4)])
+            hgt = 3 + int(h01(xx, 3, x) * 3)
+            R(a, xx, 146 - hgt, xx + 2, 146, [RED, CRM, TEAL, GRN][int(h01(xx, 2, x) * 4)])
     dx = x + w // 2 - 3
-    R(a, dx, 133, dx + 5, SIDEWALK - 1, ASPD); R(a, dx, 133, dx + 5, 133, K)   # door
+    R(a, dx, 133, dx + 5, SIDEWALK - 1, ASPD); R(a, dx, 133, dx + 5, 133, K)
     R(a, dx + 1, 135, dx + 4, 140, GLS); P(a, dx + 4, 142, GY)
-    if kind != 'brick':                                                       # striped awning
+    if kind != 'brick':                               # awning with ruffled, folded edge
         for xx in range(x + 1, x1):
-            c = RED if (xx // 3) % 2 else WH
-            R(a, xx, 119, xx, 124 + ((xx // 3) % 2), c)
-            if c == WH:
-                P(a, xx, 119, CLD)
-        R(a, x + 1, 118, x1 - 1, 118, K)
-        R(a, x + 1, 120, x1 - 1, 120, BRKS if kind == 'cream' else GLS)
-    else:
-        R(a, x + 6, 120, x1 - 8, 125, K); R(a, x + 7, 121, x1 - 9, 124, CRM)   # sign board
+            st = (xx // 3) % 2
+            c, cs = (RED, BRKS) if st else (WH, CLD)
+            ln = 123 + ((xx % 3) == 1) + (1 if h01(xx, 5, x) < 0.25 else 0)
+            for y in range(119, ln + 1):
+                a[y, xx] = cs if (xx % 3 == 2 and y > 120) else c
+            if h01(xx, 6, x) < 0.2: P(a, xx, ln + 1, c)
+        for c in range(x, x1 + 1):
+            P(a, c, 118 - (1 if h01(c // 4, 7, x) < 0.25 else 0), K)
+    else:                                             # fascia sign + hanging sign
+        R(a, x + 6, 120, x1 - 8, 125, K); R(a, x + 7, 121, x1 - 9, 124, CRM)
         for xx in range(x + 9, x1 - 11, 3):
-            R(a, xx, 122, xx + 1, 123, BRKS)                                  # pixel "lettering"
-        R(a, x1 - 4, 112, x1 - 4, 115, K); R(a, x1 - 7, 115, x1 - 1, 119, RED)   # hanging sign
+            R(a, xx, 122, xx + 1, 123 - (1 if h01(xx, 8, x) < 0.3 else 0), BRKS)
+        R(a, x1 - 4, 112, x1 - 4, 115, K); R(a, x1 - 7, 115, x1 - 1, 119, RED); P(a, x1 - 6, 116, CRM)
+    for c in range(x, x1 + 1):                        # plinth with chips
+        P(a, c, SIDEWALK - 1, dark if h01(c, 9, x) > 0.15 else mid)
+    return tops
+
+
+def _wire(a, x0, y0, x1, y1, sag, c=ASPD):
+    n = max(2, x1 - x0)
+    for i in range(n + 1):
+        u = i / n
+        y = y0 + (y1 - y0) * u + 4 * sag * u * (1 - u)
+        P(a, (x0 + i) % NW, int(round(y)), c)
 
 
 @lru_cache(None)
@@ -587,101 +764,150 @@ def near_layer():
     a = np.full((H, NW), T, np.uint8)
     rng = np.random.default_rng(21)
     kinds = ['brick', 'cream', 'teal', 'brick', 'cream', 'brick', 'teal', 'cream']
-    x, i = 0, 0
+    x, i, corners = 0, 0, []
     while x < NW - 30:
         w = int(rng.integers(40, 58)) if NW - x - 58 > 40 else NW - x
-        _facade(a, x, w, int(rng.integers(64, 90)), kinds[i % len(kinds)], rng)
+        top = int(rng.integers(64, 90))
+        _facade(a, x, w, top, kinds[i % len(kinds)], rng)
+        corners.append((x + w - 3, top + 8))
         x += w; i += 1
-    for tx in (70, 205, 330):                                                 # leafy street trees
-        R(a, tx, 120, tx + 2, SIDEWALK - 1, BRKS); P(a, tx, 128, K); P(a, tx + 2, 135, K)
+    for j, ((ax, ay), (bx, by)) in enumerate(zip(corners, corners[1:])):   # a few sagging wires
+        if j % 2 == 0:
+            _wire(a, ax, ay + 3, bx, by + 6, 6)
+    for tx in (70, 205, 330):                                     # leafy street trees
+        for y in range(120, SIDEWALK):
+            R(a, tx, y, tx + 2, y, BRKS)
+            if h01(tx, y // 3, 3) < 0.5: P(a, tx, y, SK)          # lit bark
+            if h01(tx, y, 4) < 0.15: P(a, tx + 1, y, K)            # knots
         R(a, tx - 2, SIDEWALK - 1, tx + 4, SIDEWALK - 1, K)
         leaf = np.zeros((40, 44), bool)
+        yy_, xx_ = np.mgrid[0:40, 0:44]
         for dx, dy, r in ((0, 0, 11), (-9, 6, 8), (10, 5, 8), (-4, -7, 7), (6, -6, 7), (0, 10, 7)):
-            yy, xx = np.mgrid[0:40, 0:44]
-            leaf |= (xx - 22 - dx) ** 2 + (yy - 20 - dy) ** 2 <= r * r
+            leaf |= (xx_ - 22 - dx) ** 2 + (yy_ - 20 - dy) ** 2 <= r * r
         for yy, xx in zip(*np.nonzero(leaf)):
             gx, gy = tx + 1 + xx - 22, 108 + yy - 20
             edge = not (leaf[min(39, yy + 2), xx] and leaf[yy, min(43, xx + 2)])
             lit = (xx - 22) + (yy - 20) < -4
             n = h01(gx // 2, gy // 2, 11)
-            c = GRNS if (not lit and (n < 0.75 or edge)) else (GRNS if n < 0.18 else GRN)
-            if lit and n > 0.9:
-                c = CYAN if False else GRN
-            a[gy, gx % NW] = c
-        for k_ in range(10):                                                  # hand-placed leaf clumps
+            a[gy, gx % NW] = GRNS if (not lit and (n < 0.75 or edge)) else (GRNS if n < 0.18 else GRN)
+        for k_ in range(10):
             gx = tx + int((h01(k_, tx, 1) - 0.5) * 24); gy = 100 + int(h01(k_, tx, 2) * 14)
             R(a, gx, gy, gx + 1, gy, GRN); P(a, gx, gy + 1, GRNS)
-    for lx in (138, 280, 400):                                                # lamp posts
-        R(a, lx, 98, lx, SIDEWALK - 1, GY); R(a, lx + 1, 100, lx + 1, SIDEWALK - 1, FARS)
+    for lx in (138, 280, 400):                                    # lamp posts: rings, base, little banner
+        for y in range(98, SIDEWALK):
+            P(a, lx, y, GY); P(a, lx + 1, y, FARS)
+        for y in range(104, SIDEWALK - 4, 9 + int(h01(lx, 0, 3) * 3)):
+            R(a, lx - 1, y, lx + 2, y, K)
         R(a, lx - 2, 95, lx + 3, 97, K); R(a, lx - 1, 98, lx + 2, 98, CRM)
-        R(a, lx - 1, SIDEWALK - 3, lx + 2, SIDEWALK - 1, K)
-    # pavement tiles with joints, cracks and a drain
+        R(a, lx - 1, SIDEWALK - 4, lx + 2, SIDEWALK - 1, K); P(a, lx, SIDEWALK - 3, GY)
+        R(a, lx + 2, 104, lx + 5, 111, RED); P(a, lx + 5, 111, T); P(a, lx + 4, 110, BRKS); R(a, lx + 3, 106, lx + 4, 106, CRM)
+    # pavement: staggered slabs, chipped, cracked
     R(a, 0, SIDEWALK, NW - 1, 157, SIDE)
     for xx in range(NW):
         for yy in range(SIDEWALK, 158):
-            if (xx + (3 if yy > 153 else 0)) % 9 == 0 or yy == 153:
+            if (xx + (4 if yy > 153 else 0)) % 9 == 0 or (yy == 153 and h01(xx, 1, 40) > 0.12):
                 a[yy, xx] = CRMS
-            elif h01(xx, yy, 13) < 0.04:
+            elif yy == SIDEWALK and h01(xx, 2, 41) < 0.18:
                 a[yy, xx] = CRMS
-    return outline(a)
+    for cx_ in range(15, NW, 37):                                  # cracks / oil stain clusters
+        for j in range(4):
+            P(a, cx_ + j, SIDEWALK + 2 + (j % 3), CRMS)
+    return chip_edges(outline(a), seed=3)
 
 
 @lru_cache(None)
 def road_strip():
-    """Asphalt with grit, cracks, patches, worn lane paint and a manhole (wraps every 256 px)."""
-    rw = 256
-    a = np.full((46, rw), ASP, np.uint8)
-    yy, xx = np.mgrid[0:46, 0:rw]
-    n = HN(xx, yy, 17)
-    a[n < 0.07] = ASPD
-    a[(n > 0.985)] = SIDE
-    a[0:3] = ASPD                                                             # gutter
-    a[3, ::2] = ASPD
-    R(a, 150, 8, 176, 13, ASPD); R(a, 151, 9, 175, 12, ASP)                   # tar patch
-    for x, y in pix._line((30, 6), (44, 16)) + pix._line((44, 16), (52, 15)) + pix._line((200, 30), (214, 38)):
+    """Kerb, gutter and asphalt: clustered grit, wavy wheel tracks, cracks, patch, manhole, drains."""
+    rw, rh = 256, FRONT_Y - ROAD_Y
+    a = np.full((rh, rw), ASP, np.uint8)
+    a[0] = GY
+    a[1] = K
+    for x in range(rw):
+        if h01(x, 0, 50) < 0.14 or x % 12 == 7: a[0, x] = CRMS if h01(x, 1, 50) < 0.5 else SIDE   # chipped kerb
+        if h01(x, 1, 51) < 0.12 or x % 13 == 9: a[1, x] = FARS
+        a[2, x] = ASPD if x % 10 != 6 and h01(x, 2, 51) > 0.1 else ASP
+        a[3, x] = ASPD if (x + (x // 7)) % 2 else ASP
+    for dx in (40, 170):                                          # gutter drains
+        R(a, dx, 1, dx + 6, 3, K)
+        for c in range(dx + 1, dx + 6, 2): R(a, c, 2, c, 3, FARS)
+    for base in (15, 23, 31):                                     # patchy worn wheel tracks
+        x = 0
+        while x < rw:
+            ln = 6 + int(h01(x, base, 52) * 14)
+            if h01(x, base, 57) < 0.6:
+                for xx in range(x, min(rw, x + ln)):
+                    yc = base + int(round(math.sin(xx / 17 + base) * 1.5))
+                    for y in (yc, yc + 1):
+                        if (xx + y) % 2 == 0: a[y, xx] = ASPD
+            x += ln + 3 + int(h01(x, base, 58) * 10)
+    for i in range(26):                                           # debris washed into the gutter
+        gx = int(h01(i, 5, 59) * rw)
+        for j in range(3 + int(h01(i, 6, 59) * 4)):
+            P(a, (gx + j * 2 + int(h01(i, j, 60) * 2)) % rw, 4 + int(h01(j, i, 61) * 6), ASPD if j % 3 else SIDE)
+    cells = [(cx, cy) for cy in range(4, rh - 3, 8) for cx in range(0, rw, 8)]
+    for i, (cx, cy) in enumerate(cells):                          # grit: one small cluster per 8 px cell
+        gx, gy = cx + int(h01(i, 0, 53) * 5), cy + int(h01(i, 1, 53) * 5)
+        c = ASPD if i % 4 else SIDE
+        for j in range(2 + int(h01(i, 2, 53) * 3)):
+            P(a, (gx + int(h01(i, j, 54) * 3)) % rw, gy + int(h01(j, i, 55) * 2), c)
+    R(a, 150, 9, 176, 13, ASPD); R(a, 151, 10, 175, 12, ASP)      # tar patch, ragged corners
+    P(a, 150, 9, ASP); P(a, 176, 13, ASP); P(a, 163, 9, ASP)
+    for x, y in pix._line((30, 7), (44, 17)) + pix._line((44, 17), (52, 16)) + pix._line((200, 32), (214, 40)):
         P(a, x, y, ASPD)
-    _disc(a, 92, 22, 5, ASPD); _disc(a, 92, 22, 4, FARS)                      # manhole
+    _disc(a, 92, 24, 5, ASPD); _disc(a, 92, 24, 4, FARS)          # manhole
     for i in range(-3, 4, 2):
-        R(a, 89, 22 + i, 95, 22 + i, ASPD)
-    for x0 in range(0, rw, 32):                                               # lane dashes (worn)
-        R(a, x0, 41, x0 + 11, 42, WH)
+        R(a, 89, 24 + i, 95, 24 + i, ASPD)
+    for x0 in range(0, rw, 32):                                   # worn lane dashes
+        R(a, x0, 43, x0 + 11, 44, WH)
         for x in range(x0, x0 + 12):
-            if h01(x, 41, 3) < 0.25: P(a, x, 41 + int(h01(x, 4, 3) * 2), CLD if False else SIDE)
-    return a
+            if h01(x, 43, 3) < 0.22: P(a, x, 43 + int(h01(x, 4, 3) * 2), SIDE)
+        P(a, x0, 43, ASP); P(a, x0 + 11, 44, ASP)
+    for x in range(rw):                                           # near gutter
+        a[rh - 1, x] = ASPD if h01(x, 9, 56) > 0.2 and x % 9 != 4 else ASP
+        if (x + 1) % 2 == 0 and h01(x, 10, 56) < 0.5: a[rh - 2, x] = ASPD
+    return chip_edges(a, seed=4)
 
 
 @lru_cache(None)
 def front_strip():
-    fw = 280
-    a = np.full((33, fw), SIDE, np.uint8)
+    fw, fh = 280, H - FRONT_Y
+    a = np.full((fh, fw), SIDE, np.uint8)
     a[0] = GY; a[1:3] = CRMS
-    for x in range(0, fw, 5):
-        a[1, x] = K                                                           # kerb stone joints
     for x in range(fw):
-        for y in range(3, 33):
-            if (x + (7 if y > 17 else 0)) % 14 == 0 or y == 17:
+        if h01(x, 0, 60) < 0.14 or x % 11 == 3: a[0, x] = SIDE if h01(x, 1, 60) < 0.6 else CRMS
+        if x % (5 + int(h01(x // 5, 2, 60) * 2)) == 0: a[1, x] = K
+    for x in range(fw):                                           # slabs 12x12, staggered, chipped
+        for y in range(3, fh):
+            row = (y - 3) // 12
+            if (y - 3) % 12 == 0 and h01(x, y, 61) > 0.1:
                 a[y, x] = CRMS
-            elif h01(x, y, 23) < 0.05:
+            elif (x + row * 6) % 12 == 0 and h01(x, y, 62) > 0.1:
                 a[y, x] = CRMS
-    for x, y in pix._line((60, 6), (66, 12)) + pix._line((66, 12), (64, 16)):
-        a[y, x] = ASPD                                                         # crack
+    for x, y in pix._line((60, 6), (66, 12)) + pix._line((66, 12), (64, 17)) + pix._line((150, 20), (157, 26)):
+        a[y, x] = ASPD
+    for i in range(10):                                           # stains in clusters
+        sx, sy = int(h01(i, 3, 63) * fw), 6 + int(h01(i, 4, 63) * (fh - 9))
+        for j in range(3):
+            if (sx + j + sy) % 2 == 0: a[sy + j % 2, (sx + j) % fw] = CRMS
     R(a, 180, 4, 190, 9, K)
-    for x in range(181, 190, 2):
-        R(a, x, 5, x, 8, FARS)                                                 # drain grate
-    return a
+    for x in range(181, 190, 2): R(a, x, 5, x, 8, FARS)
+    return chip_edges(a, seed=5)
 
 
 @lru_cache(None)
 def traffic_light(green):
-    s = np.full((64, 7), T, np.uint8)
-    R(s, 3, 14, 3, 63, GY); R(s, 4, 16, 4, 63, FARS)
-    R(s, 0, 0, 6, 15, K); R(s, 1, 1, 5, 14, ASPD)
-    R(s, 2, 2, 4, 4, RED if not green else BRKS)
-    R(s, 2, 6, 4, 8, R1)
-    R(s, 2, 10, 4, 12, GRN if green else GRNS)
-    if not green: P(s, 2, 2, WH)
-    else: P(s, 2, 10, WH)
-    R(s, 1, 30, 5, 34, CRM); R(s, 2, 31, 4, 33, CYAN)                          # pedestrian button box
+    s = np.full((64, 9), T, np.uint8)
+    for y in range(14, 64):
+        P(s, 4, y, GY); P(s, 5, y, FARS)
+    for y in range(18, 62, 9):                       # pole rings (protrude, break the outline)
+        R(s, 3, y, 6, y, K)
+    R(s, 1, 0, 7, 15, K); R(s, 2, 1, 6, 14, ASPD)
+    R(s, 3, 2, 5, 4, RED if not green else BRKS)
+    R(s, 3, 6, 5, 8, R1)
+    R(s, 3, 10, 5, 12, GRN if green else GRNS)
+    P(s, 3, 2 if not green else 10, WH)
+    R(s, 2, 30, 6, 34, CRM); R(s, 3, 31, 5, 33, CYAN)   # pedestrian button
+    R(s, 3, 60, 6, 63, K)                               # base
     return outline(s)
 
 
@@ -710,33 +936,33 @@ def _hscroll(cv, strip, off, y0):
     cv[y0:y0 + strip.shape[0]][m] = sub[m]
 
 
-def street(t, k):
+SKY_SENTINEL = 254
+
+
+def street(t, k, sentinel=False):
+    """Background only. sentinel=True fills open sky with 254 so verify can skip it."""
     d = drive_dist(t)
-    cv = np.full((H, W), SKY1, np.uint8)
-    for x in range(W):                                # sky: two tones with a hand-dithered seam
-        b = 30 + (x // 7) % 3
-        R(cv, x, 0, x, b, SKY2)
-        if x % 2 == 0: P(cv, x, b + 1, SKY2)
-        if x % 4 == 1: P(cv, x, b + 3, SKY2)
+    cv = np.full((H, W), SKY_SENTINEL, np.uint8) if sentinel else sky().copy()
     _hscroll(cv, clouds(), int(d * F_CLOUD + t * 3), 0)
     _hscroll(cv, far_layer(), int(d * F_FAR), 0)
     _hscroll(cv, near_layer(), int(d * F_NEAR), 0)
     near_off = int(d * F_NEAR)
     for i, (wx, sp, c, sk, hc, flip) in enumerate(PEOPLE):
         blit(cv, person(c, sk, hc, (k + i) % 2, flip), int(wx + sp * t) - near_off, SIDEWALK - 10)
-    blit(cv, traffic_light(t >= 11.8), LIGHT_WX - near_off, 94)
+    blit(cv, traffic_light(t >= 11.8), LIGHT_WX - near_off - 1, 94)
     for i, (bx, by, sp) in enumerate(((20, 44, 16), (34, 50, 16), (90, 30, -12))):
         blit(cv, BIRD[(k + i) % 2], int((bx + sp * t) % 170) - 20, by + (k + i) % 2)
-    R(cv, 0, 158, W - 1, 158, GY); R(cv, 0, 159, W - 1, 159, K)
-    _hscroll(cv, road_strip(), int(d * F_ROAD), 160)
-    # car shadow (ragged, under the sills)
-    R(cv, CAR_X + 8, GROUND - 1, CAR_X + 112, GROUND, K)
-    R(cv, CAR_X + 4, GROUND + 1, CAR_X + 116, GROUND + 1, ASPD)
-    _hscroll(cv, front_strip(), int(d * F_FRONT), 206)
+    _hscroll(cv, road_strip(), int(d * F_ROAD), ROAD_Y)
+    for x in range(CAR_X + 6, CAR_X + 114):           # ragged contact shadow under the car
+        if h01(x, 0, 70) > 0.1 and x % 8 != 5: P(cv, x, GROUND - 1, K)
+        if h01(x, 1, 70) > (0.12 if CAR_X + 12 < x < CAR_X + 108 else 0.4) and x % 9 != 2: P(cv, x, GROUND, ASPD)
+        if h01(x, 2, 70) > 0.6 and CAR_X + 16 < x < CAR_X + 104: P(cv, x, GROUND + 1, ASPD)
+    _hscroll(cv, front_strip(), int(d * F_FRONT), FRONT_Y)
     off = int(d * F_FRONT)
     for px in (-30, 110, 250):                        # planters with shrubs
         x = px - off
         R(cv, x, 226, x + 14, 233, BRKS); R(cv, x, 226, x + 14, 226, BRK); R(cv, x + 1, 234, x + 14, 234, ASPD)
+        P(cv, x + 14, 226, BRKS); P(cv, x, 233, ASPD)
         for xx in range(x + 2, x + 14, 4): R(cv, xx, 228, xx, 232, BRK)
         for dx, r in ((3, 4), (8, 5), (12, 3)):
             for yy in range(223 - r, 227):
@@ -785,7 +1011,7 @@ def hud_brackets(cv, x0, y0, x1, y1, c=CYAN, n=5):
 
 # ------------------------------------------------------------------ timeline / stepping
 HOLDS = [3, 2, 4, 3, 3, 2, 4, 3, 2]
-SYNC = [0, 45, 90, 104, 110, 180, 239, 270, 330, 360]   # frames that must start a new drawing
+SYNC = [0, 45, 90, 104, 108, 113, 117, 120, 123, 180, 239, 270, 330, 360]   # frames that must start a new drawing
 
 
 def key_frames():
@@ -968,23 +1194,90 @@ def scene_hook(f, text=True):
     return cv
 
 
+# ------------------------------------------------------------------ analysis (blueprint scan)
+_L = np.array([lum(i) for i in range(32)])
+BG_BP = np.where(_L > 0.42, GLS, np.where(_L > 0.18, CARS, np.where(_L > 0.06, ASPD, K))).astype(np.uint8)
+CAR_BP = np.where(_L > 0.42, GLH, np.where(_L > 0.18, GLS, CARS)).astype(np.uint8)
+CAR_BP[K] = CYAN
+CAR_BP[BY], CAR_BP[BO] = BY, BO                     # the wear bar keeps glowing in the scan
+BG_BP[BY], BG_BP[BO] = BY, BO
+
+
+def blueprint(cv, car_mask, k):
+    bp = BG_BP[cv]
+    bp[car_mask] = CAR_BP[cv[car_mask]]
+    yy, xx = np.mgrid[0:H, 0:W]
+    bp[~car_mask & (xx % 8 == 3) & (yy % 8 == 3)] = GLH                   # measurement grid
+    major = ~car_mask & (xx % 32 == 19) & (yy % 32 == 19)
+    for dx, dy in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)):
+        bp[np.roll(np.roll(major, dy, 0), dx, 1)] = CYAN
+    return bp
+
+
+def scan_frame(f, hud=True):
+    """3.0-3.9 s: beam sweeps the car into blueprint view, then a reticle locks onto the front tyre."""
+    t = f / FPS
+    k = KEY_IDX[KEY_OF[f]]
+    cv = street(t, k)
+    mask_cv = np.full((H, W), T, np.uint8)
+    car_layer(mask_cv, t, k, mouth(f), None, True)
+    car_layer(cv, t, k, mouth(f), None, True)
+    car_mask = mask_cv != T
+    bp = blueprint(cv, car_mask, k)
+    sx = 4 + int(min(1.0, (t - 3.0) / 0.42) * 128)
+    out = cv.copy()
+    out[:, :sx] = bp[:, :sx]
+    if t < 3.42:                                         # the beam: bright core, dithered trail
+        R(out, sx, 0, sx, H - 1, CYAN); R(out, sx + 1, 0, sx + 1, H - 1, GLH)
+        for y in range(0, H, 2):
+            P(out, sx - 2, y, CYAN); P(out, sx - 4, y + 1, GLH)
+    if not hud:
+        return out
+    fx, fy = CAR_X + WHEELS[1], CAR_Y + WHEEL_CY
+    if t < 3.45:
+        text_box(out, 'reveal_scan', ['SCANNING'], (26, 10, 108, 26), border=CYAN)
+        b = [(4, 136, 130, 204), (30, 142, 130, 202), (60, 150, 128, 202)][min(2, int((t - 3.0) / 0.15))]
+        hud_brackets(out, *b)
+        return out
+    # target lock: crosshair, shrinking reticle, tag with leader, analysis bar (no numbers)
+    for x in range(0, W, 3):
+        P(out, x, fy, CYAN)
+    for y in range(40, H, 3):
+        P(out, fx, y, CYAN)
+    stage = min(2, int((t - 3.45) / 0.15))
+    rr = [22, 16, 13][stage]
+    hud_brackets(out, fx - rr, fy - rr, fx + rr, fy + rr, c=BY if stage == 2 and k % 2 else CYAN, n=4)
+    for i in range(16):                                  # rotating tick ring, 4 stepped positions
+        ang = math.radians(i * 22.5 + (k % 4) * 11)
+        if i % 2 == 0:
+            P(out, int(round(fx + (rr - 3) * math.cos(ang))), int(round(fy - (rr - 3) * math.sin(ang))), GLH)
+    bx, by = BAR_POS
+    if stage >= 1:                                       # target the bar itself
+        R(out, bx - 3, by - 3, bx + 3, by - 3, BY); R(out, bx - 3, by + 3, bx + 3, by + 3, BY)
+        P(out, bx - 3, by - 2, BY); P(out, bx + 3, by + 2, BY)
+    tag = (66, 112, 104, 126)
+    text_box(out, 'reveal_tag', ['TYRE'], tag, border=CYAN)
+    for x, y in pix._line((tag[2] - 4, tag[3] + 1), (fx - 4, fy - rr - 1)):
+        P(out, x, y, CYAN)
+    text_box(out, 'reveal_analysing', ['ANALYSING'], (26, 10, 108, 26), border=CYAN)
+    segs = 1 + int((t - 3.45) / 0.45 * 10)
+    for i in range(10):                                  # progress segments, no numbers
+        R(out, 28 + i * 8, 30, 33 + i * 8, 33, CYAN if i < segs else CARS)
+    if stage == 2:
+        text_box(out, 'reveal_lock', ['WEAR BAR'], (10, 214, 80, 230), border=BY, fg=BY)
+        for x, y in pix._line((81, 216), (bx - 4, by + 4)):
+            P(out, x, y, BY)
+    return out
+
+
 def scene_reveal(f):
     t = f / FPS
     k = KEY_IDX[KEY_OF[f]]
-    if t < 3.45:                            # analysis: scan beam sweeps the car, HUD locks onto the tyre
-        cv = street(t, k)
-        car_layer(cv, t, k, mouth(f), None, True)
-        sx = 6 + int((t - 3.0) / 0.45 * 124)
-        R(cv, sx, 140, sx, 200, CYAN)
-        R(cv, sx - 2, 140, sx - 2, 200, GLH)
-        steps = [(4, 136, 130, 204), (60, 150, 128, 202), (84, 162, 122, 202)]
-        b = steps[min(2, int((t - 3.0) / 0.15))]
-        hud_brackets(cv, *b)
-        text_box(cv, 'reveal_scan', ['SCANNING'], (26, 10, 108, 26), border=CYAN)
-        return cv
-    if t < 3.65:                            # stepped punch-in x2 then x4 (integer nearest)
-        src = street(t, k); car_layer(src, t, k, 'smile', None, True)
-        z = 2 if t < 3.55 else 4
+    if t < 3.9:
+        return scan_frame(f)
+    if t < 4.1:                             # stepped punch-in x2 then x4 on the glowing bar (integer nearest)
+        src = scan_frame(int(3.89 * FPS), hud=False)
+        z = 2 if t < 4.0 else 4
         cw, ch = -(-W // z), H // z
         bx, by = BAR_POS
         x0 = min(max(0, bx - cw // 2), W - cw); y0 = min(max(0, by - ch // 2), H - ch)
@@ -993,8 +1286,8 @@ def scene_reveal(f):
         hud_brackets(cv, 10, 40, 124, 200, n=8)
         return cv
     cv, gx, floor = tread_closeup(t, k)
-    settle = 3 if t < 3.72 else (1 if t < 3.8 else 0)
-    blink_on = t >= 4.4 and (k % 3 != 2)
+    settle = 3 if t < 4.17 else (1 if t < 4.25 else 0)
+    blink_on = t >= 4.5 and (k % 3 != 2)
     tri_c = BY if blink_on else GY
     for i in range(5):
         R(cv, gx - i, 160 + i, gx + i, 160 + i, tri_c)
@@ -1006,14 +1299,14 @@ def scene_reveal(f):
     TEXT_REPORT['reveal_twi_mark'] = dict(lines=['TWI'], plate='sidewall (embossed mark, not a caption)',
                                           widths=[w], inner_w=W, fits=True,
                                           contrast=round(float(contrast(BY, R1)), 2))
-    if t >= 3.85:
+    if t >= 4.3:
         a = 0 if k % 2 else 1
         line(cv, (gx, 52), (gx, floor - 22 - a), WH, 2)
         for i in range(4):
             R(cv, gx - i, floor - 24 - a + i, gx + 1 + i, floor - 24 - a + i, WH)
     hud_brackets(cv, 3, 50, 131, 222, n=8)
     box = (8, 14, 126, 46)
-    if t < 3.8:
+    if t < 4.25:
         grow_plate(cv, box, 0.55)
     else:
         text_box(cv, 'reveal_label', ['TREAD WEAR', 'INDICATOR'], box)

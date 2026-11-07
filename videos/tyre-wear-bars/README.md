@@ -7,8 +7,17 @@ upscaled x8 nearest-neighbour only.
 Visuals: the presenter drives a pixel hatchback along a lively daytime town street. Parallax
 layers move in whole-pixel steps: clouds, far blocks, shops/trees/lamps, pedestrians, birds, the
 road and the front pavement with a dog-walker and planters. The car stops at a red light and the
-front tyre's wear bar lights up. A HUD scan analyses the car, punches in x2/x4 and cuts to the tread
-close-up. The NEW/WORN analysis panel sits over the live street. The car pulls away on green as
+front tyre's wear bar lights up. 3.0-3.9 s analysis: a beam sweeps the scene into a blueprint grid
+(the wear bar keeps glowing), then a reticle locks onto the tyre (TYRE tag, progress bar, WEAR BAR
+callout). It punches in x2/x4 on the bar (3.9-4.1 s) and cuts to the tread close-up.
+
+Background art: ragged parapets, chimneys, vents, aerials, dishes and rooftop signs; uneven windows
+with shutters, curtains, blinds and flower boxes; clustered brick courses, peeling paint, cracks and
+damp patches; drainpipes and sagging wires. Walls use a 3-tone ramp with hue shift (brick SK/BRK/BRKS,
+cream CRM/CRMS/R2, teal CYAN/TEAL/GLS). `chip_edges()` gives every background layer a 1 px chip
+before any straight edge passes 19 px. `verify.py` renders the street alone, with open sky masked
+and the car, UI and tyre close-ups excluded. It fails on any straight edge over 20 px or any
+single-colour 13x13 area. The NEW/WORN analysis panel sits over the live street. The car pulls away on green as
 the NEXT EPISODE card slides in.
 
 ## Commands (from `videos/tyre-wear-bars/src`)
