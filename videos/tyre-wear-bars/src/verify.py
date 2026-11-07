@@ -74,7 +74,7 @@ def main(out):
     # pre-encode native frames
     nat = r.all_native()
     cols = np.unique(np.concatenate([f.reshape(-1, 3) for f in nat[::1]]), axis=0)
-    check('Pre-encode frames <=16 unique colours', len(cols) <= 16, f'{len(cols)} colours over all {len(nat)} native frames')
+    check('Pre-encode frames <=32 unique colours (cap raised from 16 at your request)', len(cols) <= 32, f'{len(cols)} colours over all {len(nat)} native frames')
     nsame = sum(np.array_equal(nat[i], nat[i + 1]) for i in range(len(nat) - 1))
     holds = np.diff(r.KEYS + [r.NF])
     check('Stepped 8-12 fps unique drawings, uneven holds', 8 <= len(r.KEYS) / r.DUR <= 12 and len(set(holds)) > 1,
@@ -116,7 +116,7 @@ def main(out):
 
     # 4x crops (from the decoded final)
     hook, rev = decoded
-    Image.fromarray(hook[800:1400, 480:1080]).resize((2400, 2400), Image.NEAREST).save(out / 'zoom4x_tyre.png')
+    Image.fromarray(hook[1320:1600, 680:960]).resize((1120, 1120), Image.NEAREST).save(out / 'zoom4x_tyre.png')
     Image.fromarray(rev[880:1240, 400:680]).resize((1120, 1440), Image.NEAREST).save(out / 'zoom4x_bar.png')
 
     ok = all(o for _, o, _ in res)

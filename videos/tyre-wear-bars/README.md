@@ -1,7 +1,15 @@
 # Car stuff, explained: tyre wear bars
 
 "Your tyres have hidden bars that tell you when to replace them." 13.0 s, 1080x1920, 30 fps,
-H.264 + AAC 192k. Native art 135x240 (16-colour indexed), upscaled x8 nearest-neighbour only.
+H.264 + AAC 192k. Native art 135x240 (32-colour indexed, raised from 16 at your request),
+upscaled x8 nearest-neighbour only.
+
+Visuals: the presenter drives a pixel hatchback along a lively daytime town street. Parallax
+layers move in whole-pixel steps: clouds, far blocks, shops/trees/lamps, pedestrians, birds, the
+road and the front pavement with a dog-walker and planters. The car stops at a red light and the
+front tyre's wear bar lights up. A HUD scan analyses the car, punches in x2/x4 and cuts to the tread
+close-up. The NEW/WORN analysis panel sits over the live street. The car pulls away on green as
+the NEXT EPISODE card slides in.
 
 ## Commands (from `videos/tyre-wear-bars/src`)
 
@@ -24,7 +32,7 @@ shared style prompt in `src/style_prompt.txt`. Changing it makes one new request
 
 | File | Role |
 |---|---|
-| `src/render.py` | palette, tyre (RotSprite 16 angles), presenter crouch (reuses `new-car-trap/src/pix.py`), scenes, encode |
+| `src/render.py` | palette, street parallax, car + presenter, tyre (RotSprite 16 angles), HUD scenes, encode |
 | `src/audio.py` | VO fitting, square-wave SFX (ping 1.5 s, click 7.97 s, blip 11.0 s), mix |
 | `src/tts.py` | Gemini TTS with cache and backoff |
 | `src/verify.py` | pass/fail checks |
