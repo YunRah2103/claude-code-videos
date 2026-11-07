@@ -116,7 +116,7 @@ def main(out):
 
     # 4x crops (from the decoded final)
     hook, rev = decoded
-    Image.fromarray(hook[1320:1600, 680:960]).resize((1120, 1120), Image.NEAREST).save(out / 'zoom4x_tyre.png')
+    Image.fromarray(hook[1320:1600, 760:1040]).resize((1120, 1120), Image.NEAREST).save(out / 'zoom4x_tyre.png')
     Image.fromarray(rev[880:1240, 400:680]).resize((1120, 1440), Image.NEAREST).save(out / 'zoom4x_bar.png')
 
     ok = all(o for _, o, _ in res)

@@ -194,18 +194,23 @@ def tyre_core(n=28, lit=False):
     in_blk = (fr > lo[blk]) & (fr < hi[blk])
     edge = np.minimum(fr - lo[blk], hi[blk] - fr)
     rout = ro[blk] - (edge < 0.06) * 1.0
-    t0 = 0.81 * Rr
+    small = n < 40
+    t0 = Rr - 2.6 if small else 0.81 * Rr
+    gin = Rr - 1.2 if small else t0 + 1.2          # groove depth
+    if small:
+        in_blk = in_blk | (r < gin)
     tread = (r >= t0) & (r <= rout) & in_blk
     spr[tread] = R1
     spr[tread & (r >= rout - 1.3) & (nrm > 0.25)] = R2
     spr[tread & (nrm < -0.45)] = R0
-    spr[(r >= t0) & (r < t0 + 1.2) & ~in_blk] = R0
-    g0 = ((phase < 0.27) | (phase > nb - 0.27)) & (r >= t0 + 1.2) & (r < t0 + 2.6)
+    spr[(r >= t0) & (r < gin) & ~in_blk] = R0
+    g0 = ((phase < 0.27) | (phase > nb - 0.27)) & (r >= gin) & (r < (Rr + 0.2 if small else t0 + 2.6))
     spr[g0] = R1
     if lit:
         spr[g0] = BO
         spr[g0 & (r >= t0 + 1.9)] = BY
-    side = (r >= 0.56 * Rr) & (r < t0)
+    rim = 0.66 if small else 0.56
+    side = (r >= rim * Rr) & (r < t0)
     spr[side] = R1
     spr[side & (r >= 0.72 * Rr) & (nrm > 0.35)] = R2
     shadow = side & (nrm < -0.3)
@@ -214,11 +219,11 @@ def tyre_core(n=28, lit=False):
     if n >= 40:
         tri = (dy < 0) & (r >= 0.64 * Rr) & (r < 0.77 * Rr) & (np.abs(dx) <= (0.77 * Rr - r) * 0.75)
         spr[tri] = GY
-    lip = (r >= 0.5 * Rr) & (r < 0.56 * Rr + 0.6)
+    lip = (r >= (rim - 0.07) * Rr) & (r < rim * Rr + 0.6)
     spr[lip] = GY
     spr[lip & (nrm > 0.2)] = WH
     spr[lip & (nrm < -0.3)] = FARS
-    dish = r < 0.5 * Rr
+    dish = r < (rim - 0.07) * Rr
     spr[dish] = FARS
     sp = (np.degrees(th) - 18) % 72
     hole = dish & (r > 0.17 * Rr) & (r < 0.44 * Rr) & (sp > 14) & (sp < 58)
@@ -234,9 +239,9 @@ def tyre(n=28, lit=False):
 
 
 @lru_cache(None)
-def tyre_rot(n, i):
+def tyre_rot(n, i, lit=False):
     """16 pre-baked angles (22.5 degree steps), RotSprite-style; i>0 turns clockwise."""
-    return outline(pad(rotsprite(tyre_core(n, False), -i * 22.5))) if i % 16 else tyre(n, False)
+    return outline(pad(rotsprite(tyre_core(n, lit), -i * 22.5))) if i % 16 else tyre(n, lit)
 
 # ------------------------------------------------------------------ small sprites
 def _spr(rows, cmap):
@@ -249,6 +254,7 @@ def _spr(rows, cmap):
 
 
 ARROW_DN = outline(pad(_spr(['  ww  ', '  ww  ', '  ww  ', 'wwwwww', ' wwww ', '  ww  '], {'w': WH})))
+ARROW_L = outline(pad(_spr(['   w    ', '  ww    ', ' wwwwwww', 'wwwwwwww', ' wwwwwww', '  ww    ', '   w    '], {'w': WH})))
 CURSOR = outline(pad(_spr(['w    ', 'ww   ', 'www  ', 'wwww ', 'wwwww', 'www  ', 'w ww ', '  ww '], {'w': WH})))
 
 # ------------------------------------------------------------------ presenter (mini head in the car)
@@ -291,103 +297,151 @@ def person(shirt, skin, hair, frame, flip=False):
 BIRD = [_spr(['k   k', ' k k ', '  k  '], {'k': K}), _spr(['     ', 'kk kk', '  k  '], {'k': K})]
 
 # ------------------------------------------------------------------ the car (side view, faces right)
-CAR_X, CAR_Y = 9, 144           # sprite origin on screen (sprite has 8 px headroom for the arm)
-WHEEL_N = 28
-WHEELS = (22, 94)               # wheel centres, car-local x
-WHEEL_CY = 8 + 31               # car-local y
-GROUND = CAR_Y + 8 + 45
+CAR_X, CAR_Y = 8, 146           # sprite origin on screen (8 px headroom for the waving arm)
+CW_ = 120
+WHEEL_N = 26
+WHEELS = (24, 95)               # wheel centres, car-local x
+WHEEL_CY = 8 + 30               # car-local y (sprite coords)
+GROUND = CAR_Y + WHEEL_CY + 13
+STOP_STEP = 5                   # front wheel stops turned 5 x 22.5 deg: the bar faces front-low, visible
+_TOP = [(0, 22), (2, 19), (5, 15), (9, 11), (13, 8), (20, 5.4), (30, 4), (44, 3.4), (58, 3.6), (68, 4.6),
+        (74, 6), (82, 10), (90, 15.5), (94, 17), (104, 18), (112, 19), (116, 21), (119, 24)]
 
 
-def _car_top(x):
-    if x < 4: return 22
-    if x < 15: return 20 - (x - 4) * 14 // 11
-    if x < 80: return 2 + (1 if x < 22 or x > 74 else 0)
-    if x < 96: return 3 + (x - 80) * 15 // 16
-    if x < 114: return 18 + (x - 96) // 6
-    return 21 + (x - 114)
+def car_top(x):
+    return int(round(np.interp(x, *zip(*_TOP))))
+
+
+def _belt(x):
+    return 19 if x < 60 else 18
 
 
 @lru_cache(None)
 def car_body():
-    s = np.full((54, 118), T, np.uint8)
     o = 8
-    for x in range(118):
-        top = _car_top(x)
-        for y in range(top, 37):
-            arch = any((x - wc) ** 2 + (y - 31) ** 2 < 15 ** 2 for wc in WHEELS)
-            if not arch:
-                s[y + o, x] = CAR
-        if 0 <= top < 37:
-            s[top + o, x] = CARH
-    # shading: warm-ish highlight shoulder, cool lower body
-    for x in range(118):
-        for y in range(28, 37):
-            if s[y + o, x] == CAR:
+    s = np.full((o + 38, CW_), T, np.uint8)
+    arch = lambda x, y, rr: any((x - wc) ** 2 + (y - 30) ** 2 < rr * rr for wc in WHEELS)
+    for x in range(CW_):
+        top = car_top(x)
+        bot = 33 if x < 6 or x > 113 else 35
+        for y in range(top, bot + 1):
+            if arch(x, y, 15.5):
+                continue
+            b = _belt(x)
+            if y <= b - 1 and 9 <= x <= 91:
+                c = GLS
+            elif y <= b + 1:
+                c = CARH
+            elif y <= 26:
+                c = CAR
+            elif y == 27:
+                c = CAR if (x % 2) else CARS                   # hand dither into the lower panel
+            else:
+                c = CARS
+            s[y + o, x] = c
+        if top <= bot:
+            s[top + o, x] = CARH                               # roof / pillar highlight
+            if top + 1 <= bot and s[top + o + 1, x] == GLS:
+                s[top + o + 1, x] = CAR                        # window frame
+    # pillars, trim, glass shading
+    for x in range(9, 92):
+        t0 = car_top(x) + 2
+        b = _belt(x)
+        if s[t0 + o, x] == GLS:
+            s[t0 + o, x] = ASPD                                # dark interior under the roof
+        if s[b + o, x] in (CARH, CAR):
+            s[b + o, x] = GY                                   # chrome beltline
+    for x0, x1 in ((9, 13), (29, 31), (56, 59)):               # C-, rear quarter, B-pillars
+        for x in range(x0, x1 + 1):
+            for y in range(car_top(x) + 1, _belt(x)):
+                s[y + o, x] = CARS if x == x1 else CAR
+    for x in range(74, 92):                                    # A-pillar follows the windscreen rake
+        y = car_top(x) + 1
+        s[y + o, x] = CAR; s[y + o + 1, x] = CAR
+    for x0 in (16, 35, 62):                                    # sky reflection bands on glass
+        for i in range(8):
+            for w in (0, 1, 3):
+                x, y = x0 + i + w, o + 15 - i * 2
+                if 0 <= y < s.shape[0] and s[y, x] == GLS:
+                    s[y, x] = GLH
+    # shoulder reflection streak, broken by hand
+    for x in range(8, 112):
+        if s[o + 22, x] == CAR and (x // 9) % 3 != 2 and x % 9 != 0:
+            s[o + 22, x] = CARH
+    for x in range(14, 106, 2):
+        if s[o + 23, x] == CAR and (x // 9) % 3 == 0:
+            s[o + 23, x] = WH
+    # door seams, handles, fuel cap, mirror
+    for x, y0, y1 in ((31, 17, 33), (59, 17, 34), (91, 16, 30)):
+        for y in range(y0, y1 + 1):
+            if s[y + o, x] not in (T, GLS):
                 s[y + o, x] = CARS
-        if s[18 + o, x] == CAR:
-            s[18 + o, x] = CARH
-    # greenhouse
-    for x in range(14, 93):
-        for y in range(_car_top(x) + 2, 17):
-            if s[y + o, x] in (CAR, CARH):
-                s[y + o, x] = GLS
-    R(s, 14, o + 2, 21, o + 16, CAR)                 # C-pillar
-    for x in range(14, 22):                           # keep the rear slope
-        for y in range(_car_top(x) + 2, _car_top(x) + 4):
-            if s[y + o, x] == GLS: s[y + o, x] = CAR
-    R(s, 50, o + 3, 53, o + 16, CAR); R(s, 53, o + 3, 53, o + 16, CARS)   # B-pillar
-    for x0 in (26, 58):                               # hand-placed window glints
-        for i in range(6):
-            P(s, x0 + i, o + 13 - i * 2, GLH); P(s, x0 + i + 1, o + 13 - i * 2, GLH)
-    R(s, 14, o + 17, 92, o + 17, CARS)               # beltline
-    R(s, 52, o + 18, 52, o + 33, CARS); R(s, 85, o + 18, 85, o + 30, CARS)   # door seams
-    R(s, 43, o + 21, 46, o + 21, GY); R(s, 76, o + 21, 79, o + 21, GY)       # handles
-    R(s, 88, o + 13, 92, o + 16, CAR); R(s, 88, o + 13, 92, o + 13, CARH)    # mirror
-    R(s, 110, o + 21, 115, o + 23, CRM); P(s, 114, o + 21, WH)              # headlight
-    R(s, 1, o + 21, 3, o + 25, RED)                                          # tail light
-    R(s, 106, o + 30, 117, o + 33, GY); R(s, 106, o + 33, 117, o + 33, FARS)  # bumpers
-    R(s, 0, o + 30, 9, o + 33, GY); R(s, 0, o + 33, 9, o + 33, FARS)
-    R(s, 36, o + 35, 80, o + 36, K)                  # sill shadow
-    for wc in WHEELS:                                 # dark wheel-arch lining
-        for x in range(wc - 16, wc + 17):
-            for y in range(16, 37):
-                d = (x - wc) ** 2 + (y - 31) ** 2
-                if 15 ** 2 <= d < 16.5 ** 2 and 0 <= x < 118 and s[y + o, x] != T:
+    for hx in (46, 80):
+        R(s, hx, o + 24, hx + 3, o + 24, GY); R(s, hx, o + 25, hx + 3, o + 25, CARS)
+    R(s, 14, o + 21, 16, o + 23, CARS); P(s, 15, o + 22, CAR)
+    R(s, 86, o + 12, 91, o + 15, CAR); R(s, 86, o + 12, 91, o + 12, CARH); R(s, 91, o + 13, 91, o + 15, CARS)
+    # rear spoiler, tail light, rear bumper
+    R(s, 9, o + 6, 17, o + 7, CAR); R(s, 8, o + 6, 12, o + 6, CARH)
+    R(s, 0, o + 19, 4, o + 24, RED); R(s, 0, o + 23, 4, o + 24, BRKS); P(s, 1, o + 20, CRM)
+    R(s, 0, o + 28, 7, o + 31, GY); R(s, 0, o + 31, 7, o + 31, FARS); R(s, 1, o + 32, 6, o + 33, ASPD)
+    # headlight, grille, front bumper, badge
+    for y, (a, b) in zip(range(19, 23), ((110, 116), (109, 117), (109, 117), (111, 116))):
+        R(s, a, o + y, b, o + y, CRM)
+    R(s, 113, o + 20, 115, o + 20, WH); R(s, 109, o + 22, 111, o + 22, CRMS)
+    R(s, 111, o + 26, 119, o + 29, K)
+    for x in range(112, 119, 2):
+        R(s, x, o + 27, x, o + 28, GY)
+    R(s, 108, o + 31, 119, o + 32, GY); R(s, 108, o + 33, 118, o + 33, ASPD)
+    P(s, 116, o + 24, GY)
+    # wheel arch flares (highlight on the upper lip, shadow below) + dark arch lining
+    for x in range(CW_):
+        for y in range(10, 36):
+            for wc in WHEELS:
+                d = math.hypot(x - wc, y - 30)
+                if 15.5 <= d < 16.6 and s[y + o, x] not in (T,):
+                    s[y + o, x] = CARH if y < 25 else CARS
+                if 13.6 <= d < 15.5 and y <= 33:
                     s[y + o, x] = K
+    # rocker panel
+    R(s, 40, o + 33, 80, o + 34, ASPD); R(s, 40, o + 32, 80, o + 32, CARS)
+    for x, y in pix._line((24, o + 3), (21, o - 1)):            # short antenna
+        P(s, x, y, FARS)
     return s
 
 
 def arm(s, pose, k):
-    """Presenter's arm out of the driver window (car-local, sprite coords)."""
-    if pose == 'point':                              # down toward the front tyre
-        pts = [(80, 24), (82, 25), (84, 26), (86, 27), (88, 28), (89, 29)]
-        R(s, 78, 22, 80, 24, WH)
-        for x, y in pts:
+    """Presenter's arm out of the driver window (sprite coords)."""
+    if pose == 'point':                                         # down at the front tyre
+        R(s, 80, 25, 82, 27, WH)
+        for x, y in pix._line((82, 27), (92, 30)):
             R(s, x, y, x + 1, y + 1, SK)
-        R(s, 89, 29, 91, 31, SK); R(s, 92, 31, 93, 31, SK)
-    elif pose in ('wave1', 'wave2'):                 # up over the roof
-        R(s, 82, 20, 84, 22, WH)
+        R(s, 91, 30, 93, 32, SK); R(s, 94, 32, 95, 32, SK); P(s, 92, 32, SS)
+    elif pose in ('wave1', 'wave2'):
+        R(s, 82, 21, 84, 23, WH)
         hx = 88 if pose == 'wave1' else 91
-        for x, y in pix._line((84, 18), (hx, 4)):
+        for x, y in pix._line((84, 19), (hx, 4)):
             R(s, x, y, x + 1, y + 1, SK)
-        R(s, hx - 1, 1, hx + 2, 4, SK)
+        R(s, hx - 1, 1, hx + 2, 4, SK); P(s, hx + 2, 1, T)
 
 
 def car_sprite(expr, pose, k):
     s = car_body().copy()
     hd = head(expr)
-    win = s[8 + 4:8 + 17, 60:84] == GLS
-    sub = np.full((13, 24), T, np.uint8)
-    blit(sub, hd, 8, 0)
-    s[12:25, 60:84][win & (sub != T)] = sub[win & (sub != T)]
+    y0, y1, x0, x1 = 8 + 6, 8 + 19, 60, 86
+    win = (s[y0:y1, x0:x1] == GLS) | (s[y0:y1, x0:x1] == GLH) | (s[y0:y1, x0:x1] == ASPD)
+    sub = np.full((y1 - y0, x1 - x0), T, np.uint8)
+    blit(sub, hd, 8, 1)
+    m = win & (sub != T)
+    s[y0:y1, x0:x1][m] = sub[m]
     if pose:
         arm(s, pose, k)
     return outline(s)
 
-# ------------------------------------------------------------------ the street (parallax layers)
+# ------------------------------------------------------------------ the street (parallax layers, textured)
 NW, FWD, CW = 420, 300, 400
 F_CLOUD, F_FAR, F_NEAR, F_ROAD, F_FRONT = 0.1, 0.3, 0.6, 1.0, 1.3
 SIDEWALK = 150
+HN = np.vectorize(h01)
 
 
 def _disc(a, cx, cy, r, c):
@@ -402,12 +456,13 @@ def _disc(a, cx, cy, r, c):
 def clouds():
     a = np.full((70, CW), T, np.uint8)
     for cx, cy, s in ((40, 30, 1.0), (150, 18, 0.8), (250, 40, 1.2), (340, 24, 0.9)):
-        for dx, dy, r in ((0, 0, 8), (-9, 3, 6), (10, 2, 7), (4, -4, 6)):
+        for dx, dy, r in ((0, 0, 8), (-9, 3, 6), (10, 2, 7), (4, -4, 6), (-15, 5, 4), (16, 5, 4)):
             _disc(a, cx + dx * s, cy + dy * s, r * s, CLD)
-        for x in range(int(cx - 16 * s), int(cx + 18 * s)):
-            for y in range(cy + 2, cy + 12):
-                if a[y, x % CW] == CLD and (y + 1 >= 70 or a[y + 1, x % CW] == T or y > cy + 5):
-                    a[y, x % CW] = GLH
+        for x in range(int(cx - 22 * s), int(cx + 24 * s)):
+            for y in range(cy - 2, min(70, cy + 12)):
+                xx = x % CW
+                if a[y, xx] == CLD and (y > cy + 3 or (y > cy and h01(x, y, 8) < 0.35)):
+                    a[y, xx] = GLH                             # ragged cool underside
     return a
 
 
@@ -417,44 +472,113 @@ def far_layer():
     rng = np.random.default_rng(3)
     x = 0
     while x < FWD:
-        w = int(rng.integers(16, 32)); top = int(rng.integers(66, 112))
-        R(a, x, top, min(FWD - 1, x + w - 2), SIDEWALK, FAR)
-        R(a, x + w - 4, top + 2, min(FWD - 1, x + w - 2), SIDEWALK, FARS)
-        if rng.random() < 0.6:
-            for yy in range(top + 6, SIDEWALK - 6, 9):
-                for xx in range(x + 3, x + w - 6, 6):
-                    R(a, xx, yy, xx + 2, yy + 3, FARS)
-        if rng.random() < 0.3:                       # antenna
-            R(a, x + w // 2, top - 6, x + w // 2, top - 1, FARS)
+        w = int(rng.integers(14, 30)); top = int(rng.integers(62, 110))
+        x1 = min(FWD - 1, x + w - 2)
+        R(a, x, top, x1, SIDEWALK, FAR)
+        R(a, x1 - 2, top + 2, x1, SIDEWALK, FARS)
+        R(a, x, top, x1, top, FARS)
+        for yy in range(top + 5, SIDEWALK - 4, 6):
+            for xx in range(x + 2, x1 - 3, 4):
+                if h01(xx, yy, 5) < 0.7:
+                    R(a, xx, yy, xx + 1, yy + 2, FARS if h01(xx, yy, 6) < 0.85 else GLH)
+        if rng.random() < 0.35:
+            R(a, x + w // 2, top - 7, x + w // 2, top - 1, FARS); P(a, x + w // 2 - 1, top - 5, FARS)
+        if rng.random() < 0.3:
+            R(a, x + 3, top - 4, x + 8, top - 1, FARS)
         x += w
     return a
+
+
+def _window(a, xx, yy, kind, seed):
+    R(a, xx - 1, yy - 1, xx + 7, yy + 9, CRM if kind != 'cream' else WH)   # frame
+    R(a, xx, yy, xx + 6, yy + 8, GLS)
+    R(a, xx, yy, xx + 6, yy + 1, ASPD)                                       # lintel shadow inside
+    for i in range(4):
+        P(a, xx + 1 + i, yy + 7 - i * 2, GLH); P(a, xx + 2 + i, yy + 7 - i * 2, GLH)
+    R(a, xx + 3, yy, xx + 3, yy + 8, CRM if kind != 'cream' else WH)        # mullion
+    R(a, xx, yy + 4, xx + 6, yy + 4, CRM if kind != 'cream' else WH)        # transom
+    v = h01(xx, yy, seed)
+    if v < 0.3:                                                              # curtains
+        R(a, xx, yy, xx, yy + 8, RED); R(a, xx + 6, yy, xx + 6, yy + 8, RED)
+    elif v < 0.45:
+        R(a, xx, yy + 2, xx + 6, yy + 3, CRMS)                               # half-drawn blind
+    R(a, xx - 2, yy + 10, xx + 8, yy + 10, CRMS if kind == 'cream' else CRM)  # sill
+    R(a, xx - 1, yy + 11, xx + 7, yy + 11, K)
+    if h01(xx, yy, seed + 1) < 0.3:                                          # flower box
+        R(a, xx, yy + 9, xx + 6, yy + 10, BRKS)
+        for i in range(0, 7, 2):
+            P(a, xx + i, yy + 8, RED if (i // 2) % 2 else GRN)
 
 
 def _facade(a, x, w, top, kind, rng):
     body, shade = {'brick': (BRK, BRKS), 'cream': (CRM, CRMS), 'teal': (TEAL, GLS)}[kind]
     x1 = min(NW - 1, x + w - 1)
     R(a, x, top, x1, SIDEWALK - 1, body)
-    R(a, x1 - 2, top + 3, x1, SIDEWALK - 1, shade)
-    R(a, x, top, x1, top + 2, CRMS if kind != 'cream' else BRKS)    # cornice
-    R(a, x - 1, top + 2, x1 + 1, top + 2, K)
-    for yy in range(top + 8, 116, 15):                              # upper windows
-        for xx in range(x + 4, x1 - 8, 12):
-            R(a, xx, yy, xx + 6, yy + 8, GLS)
-            P(a, xx + 1, yy + 1, GLH); P(a, xx + 2, yy + 1, GLH); P(a, xx + 1, yy + 2, GLH)
-            R(a, xx - 1, yy + 9, xx + 7, yy + 9, CRMS if kind == 'cream' else CRM)
+    # surface texture
+    for y in range(top + 3, 128):
+        for xx in range(x, x1 + 1):
+            if kind == 'brick':
+                row = (y - top) // 3
+                if (y - top) % 3 == 2 or (xx + (row % 2) * 3) % 6 == 0:
+                    a[y, xx] = BRKS                                          # mortar coursing
+                elif h01(xx // 6, row, 4) < 0.12:
+                    a[y, xx] = CRMS if h01(xx // 6, row, 5) < 0.3 else BRKS  # odd bricks
+            elif kind == 'cream':
+                if (y - top) % 7 == 6 and h01(xx // 9, y, 7) < 0.8:
+                    a[y, xx] = CRMS                                          # render joints
+                elif h01(xx, y, 3) < 0.035:
+                    a[y, xx] = CRMS                                          # weathering stains
+            else:
+                if (xx - x) % 7 == 0:
+                    a[y, xx] = GLS                                           # cladding seams
+                elif h01(xx, y, 2) < 0.03:
+                    a[y, xx] = CYAN
+    R(a, x1 - 2, top + 3, x1, SIDEWALK - 1, shade)                           # shadow side
+    # cornice with dentils
+    R(a, x, top, x1, top + 2, CRMS if kind != 'cream' else BRKS)
+    for xx in range(x, x1 + 1, 2):
+        P(a, xx, top + 2, K)
+    R(a, x - 1, top - 1, x1 + 1, top - 1, CRM)
+    # rooftop clutter
+    r = h01(x, top, 9)
+    if r < 0.35:
+        R(a, x + 5, top - 7, x + 12, top - 2, GY); R(a, x + 6, top - 6, x + 11, top - 6, K)
+        for xx in range(x + 6, x + 12, 2): R(a, xx, top - 5, xx, top - 3, FARS)
+    elif r < 0.65:
+        R(a, x1 - 10, top - 10, x1 - 6, top - 2, BRK); R(a, x1 - 11, top - 11, x1 - 5, top - 10, K)
+        for y in range(top - 9, top - 2, 3): R(a, x1 - 10, y, x1 - 6, y, BRKS)
+    else:
+        R(a, x + 8, top - 3, x + 8, top - 1, K); _disc(a, x + 9, top - 6, 3, GY); P(a, x + 9, top - 6, FARS)
+    for yy in range(top + 8, 112, 15):                                       # upper windows
+        for xx in range(x + 5, x1 - 9, 12):
+            _window(a, xx, yy, kind, x)
     # shopfront
-    R(a, x + 3, 128, x1 - 4, SIDEWALK - 1, GLS)
-    R(a, x + 3, 128, x1 - 4, 128, K)
-    R(a, x + w // 2 - 3, 132, x + w // 2 + 2, SIDEWALK - 1, ASPD)    # door
-    for i in range(5):
-        P(a, x + 6 + i, 140 - i * 2, GLH)
-    if kind != 'brick':                                              # striped awning
+    R(a, x + 1, 127, x1 - 1, 128, K)
+    R(a, x + 3, 129, x1 - 4, SIDEWALK - 1, GLS)
+    R(a, x + 3, 129, x1 - 4, 130, ASPD)
+    for xx in range(x + 3, x1 - 4, 9):                                        # display frames
+        R(a, xx, 129, xx, SIDEWALK - 1, K if kind == 'brick' else GY)
+    for i in range(6):
+        P(a, x + 7 + i, 145 - i * 2, GLH); P(a, x + 8 + i, 145 - i * 2, GLH)
+    for xx in range(x + 6, x1 - 6, 5):                                        # goods on display
+        if h01(xx, 1, x) < 0.5:
+            R(a, xx, 142, xx + 2, 146, [RED, CRM, TEAL, BO if False else GRN][int(h01(xx, 2, x) * 4)])
+    dx = x + w // 2 - 3
+    R(a, dx, 133, dx + 5, SIDEWALK - 1, ASPD); R(a, dx, 133, dx + 5, 133, K)   # door
+    R(a, dx + 1, 135, dx + 4, 140, GLS); P(a, dx + 4, 142, GY)
+    if kind != 'brick':                                                       # striped awning
         for xx in range(x + 1, x1):
             c = RED if (xx // 3) % 2 else WH
-            R(a, xx, 120, xx, 126 + ((xx // 3) % 2), c)
-        R(a, x + 1, 119, x1 - 1, 119, K)
+            R(a, xx, 119, xx, 124 + ((xx // 3) % 2), c)
+            if c == WH:
+                P(a, xx, 119, CLD)
+        R(a, x + 1, 118, x1 - 1, 118, K)
+        R(a, x + 1, 120, x1 - 1, 120, BRKS if kind == 'cream' else GLS)
     else:
-        R(a, x + 6, 121, x1 - 8, 125, K); R(a, x + 7, 122, x1 - 9, 124, CRM)   # blank sign board
+        R(a, x + 6, 120, x1 - 8, 125, K); R(a, x + 7, 121, x1 - 9, 124, CRM)   # sign board
+        for xx in range(x + 9, x1 - 11, 3):
+            R(a, xx, 122, xx + 1, 123, BRKS)                                  # pixel "lettering"
+        R(a, x1 - 4, 112, x1 - 4, 115, K); R(a, x1 - 7, 115, x1 - 1, 119, RED)   # hanging sign
 
 
 @lru_cache(None)
@@ -465,109 +589,173 @@ def near_layer():
     x, i = 0, 0
     while x < NW - 30:
         w = int(rng.integers(40, 58)) if NW - x - 58 > 40 else NW - x
-        _facade(a, x, w, int(rng.integers(64, 92)), kinds[i % len(kinds)], rng)
+        _facade(a, x, w, int(rng.integers(64, 90)), kinds[i % len(kinds)], rng)
         x += w; i += 1
-    for tx in (70, 205, 330):                                        # street trees
-        R(a, tx, 122, tx + 2, SIDEWALK - 1, BRKS)
-        for dx, dy, r in ((0, 0, 11), (-8, 6, 8), (9, 5, 8)):
-            _disc(a, tx + 1 + dx, 110 + dy, r, GRN)
-        for y in range(96, 124):
-            for xx in range(tx - 18, tx + 20):
-                if a[y, xx % NW] == GRN and ((xx - tx) + (y - 110) > 9 or y > 117):
-                    a[y, xx % NW] = GRNS
-    for lx in (138, 280, 400):                                       # lamp posts
-        R(a, lx, 98, lx, SIDEWALK - 1, GY); R(a, lx - 2, 96, lx + 3, 97, K); R(a, lx - 1, 98, lx + 2, 98, CRM)
-    R(a, 0, SIDEWALK, NW - 1, 157, SIDE)                             # sidewalk
-    for xx in range(0, NW, 16):
-        R(a, xx, SIDEWALK + 1, xx, 157, CRMS)
+    for tx in (70, 205, 330):                                                 # leafy street trees
+        R(a, tx, 120, tx + 2, SIDEWALK - 1, BRKS); P(a, tx, 128, K); P(a, tx + 2, 135, K)
+        R(a, tx - 2, SIDEWALK - 1, tx + 4, SIDEWALK - 1, K)
+        leaf = np.zeros((40, 44), bool)
+        for dx, dy, r in ((0, 0, 11), (-9, 6, 8), (10, 5, 8), (-4, -7, 7), (6, -6, 7), (0, 10, 7)):
+            yy, xx = np.mgrid[0:40, 0:44]
+            leaf |= (xx - 22 - dx) ** 2 + (yy - 20 - dy) ** 2 <= r * r
+        for yy, xx in zip(*np.nonzero(leaf)):
+            gx, gy = tx + 1 + xx - 22, 108 + yy - 20
+            edge = not (leaf[min(39, yy + 2), xx] and leaf[yy, min(43, xx + 2)])
+            lit = (xx - 22) + (yy - 20) < -4
+            n = h01(gx // 2, gy // 2, 11)
+            c = GRNS if (not lit and (n < 0.75 or edge)) else (GRNS if n < 0.18 else GRN)
+            if lit and n > 0.9:
+                c = CYAN if False else GRN
+            a[gy, gx % NW] = c
+        for k_ in range(10):                                                  # hand-placed leaf clumps
+            gx = tx + int((h01(k_, tx, 1) - 0.5) * 24); gy = 100 + int(h01(k_, tx, 2) * 14)
+            R(a, gx, gy, gx + 1, gy, GRN); P(a, gx, gy + 1, GRNS)
+    for lx in (138, 280, 400):                                                # lamp posts
+        R(a, lx, 98, lx, SIDEWALK - 1, GY); R(a, lx + 1, 100, lx + 1, SIDEWALK - 1, FARS)
+        R(a, lx - 2, 95, lx + 3, 97, K); R(a, lx - 1, 98, lx + 2, 98, CRM)
+        R(a, lx - 1, SIDEWALK - 3, lx + 2, SIDEWALK - 1, K)
+    # pavement tiles with joints, cracks and a drain
+    R(a, 0, SIDEWALK, NW - 1, 157, SIDE)
+    for xx in range(NW):
+        for yy in range(SIDEWALK, 158):
+            if (xx + (3 if yy > 153 else 0)) % 9 == 0 or yy == 153:
+                a[yy, xx] = CRMS
+            elif h01(xx, yy, 13) < 0.04:
+                a[yy, xx] = CRMS
     return outline(a)
+
+
+@lru_cache(None)
+def road_strip():
+    """Asphalt with grit, cracks, patches, worn lane paint and a manhole (wraps every 256 px)."""
+    rw = 256
+    a = np.full((46, rw), ASP, np.uint8)
+    yy, xx = np.mgrid[0:46, 0:rw]
+    n = HN(xx, yy, 17)
+    a[n < 0.07] = ASPD
+    a[(n > 0.985)] = SIDE
+    a[0:3] = ASPD                                                             # gutter
+    a[3, ::2] = ASPD
+    R(a, 150, 8, 176, 13, ASPD); R(a, 151, 9, 175, 12, ASP)                   # tar patch
+    for x, y in pix._line((30, 6), (44, 16)) + pix._line((44, 16), (52, 15)) + pix._line((200, 30), (214, 38)):
+        P(a, x, y, ASPD)
+    _disc(a, 92, 22, 5, ASPD); _disc(a, 92, 22, 4, FARS)                      # manhole
+    for i in range(-3, 4, 2):
+        R(a, 89, 22 + i, 95, 22 + i, ASPD)
+    for x0 in range(0, rw, 32):                                               # lane dashes (worn)
+        R(a, x0, 41, x0 + 11, 42, WH)
+        for x in range(x0, x0 + 12):
+            if h01(x, 41, 3) < 0.25: P(a, x, 41 + int(h01(x, 4, 3) * 2), CLD if False else SIDE)
+    return a
+
+
+@lru_cache(None)
+def front_strip():
+    fw = 280
+    a = np.full((33, fw), SIDE, np.uint8)
+    a[0] = GY; a[1:3] = CRMS
+    for x in range(0, fw, 5):
+        a[1, x] = K                                                           # kerb stone joints
+    for x in range(fw):
+        for y in range(3, 33):
+            if (x + (7 if y > 17 else 0)) % 14 == 0 or y == 17:
+                a[y, x] = CRMS
+            elif h01(x, y, 23) < 0.05:
+                a[y, x] = CRMS
+    for x, y in pix._line((60, 6), (66, 12)) + pix._line((66, 12), (64, 16)):
+        a[y, x] = ASPD                                                         # crack
+    R(a, 180, 4, 190, 9, K)
+    for x in range(181, 190, 2):
+        R(a, x, 5, x, 8, FARS)                                                 # drain grate
+    return a
 
 
 @lru_cache(None)
 def traffic_light(green):
     s = np.full((64, 7), T, np.uint8)
-    R(s, 3, 14, 3, 63, GY)
-    R(s, 0, 0, 6, 15, K)
-    R(s, 2, 2, 4, 4, RED if not green else R1)
+    R(s, 3, 14, 3, 63, GY); R(s, 4, 16, 4, 63, FARS)
+    R(s, 0, 0, 6, 15, K); R(s, 1, 1, 5, 14, ASPD)
+    R(s, 2, 2, 4, 4, RED if not green else BRKS)
     R(s, 2, 6, 4, 8, R1)
-    R(s, 2, 10, 4, 12, GRN if green else R1)
+    R(s, 2, 10, 4, 12, GRN if green else GRNS)
     if not green: P(s, 2, 2, WH)
     else: P(s, 2, 10, WH)
+    R(s, 1, 30, 5, 34, CRM); R(s, 2, 31, 4, 33, CYAN)                          # pedestrian button box
     return outline(s)
 
 
-# pedestrians: world x on the near layer, walking speed (px/s), colours
 PEOPLE = [(150, 9, RED, SK, K, False), (95, -7, TEAL, SS, BRK, True), (40, 11, CRM, SK, BRKS, False),
           (128, -10, GRN, SS, K, True)]
-LIGHT_WX = 178                  # traffic light sits ahead of the stopped car
+CIRC = 2 * math.pi * 13
+STOP_D = STOP_STEP / 16 * CIRC + CIRC     # wheel angle lands on STOP_STEP when stopped
+LIGHT_WX = int(126 + STOP_D * F_NEAR)
 
 
 def drive_dist(t):
-    v0 = 88 / 1.05              # stops at exactly 88 px: wheel angle returns to 0 (bar on top)
+    v0 = STOP_D / 1.05
     if t < 0.8: return v0 * t
     if t < 1.3:
         u = t - 0.8
         return v0 * 0.8 + v0 * u - v0 * u * u
-    if t < 11.9: return 88.0
+    if t < 11.9: return STOP_D
     u = t - 11.9
-    return 88.0 + 60 * u * u
+    return STOP_D + 60 * u * u
+
+
+def _hscroll(cv, strip, off, y0):
+    idx = (np.arange(W) + off) % strip.shape[1]
+    sub = strip[:, idx]
+    m = sub != T
+    cv[y0:y0 + strip.shape[0]][m] = sub[m]
 
 
 def street(t, k):
     d = drive_dist(t)
     cv = np.full((H, W), SKY1, np.uint8)
-    for x in range(W):                                # sky: two tones, staircase boundary
-        R(cv, x, 0, x, 30 + (x // 7) % 3, SKY2)
-    for layer, f, wrap, y0 in ((clouds(), F_CLOUD, CW, 0), (far_layer(), F_FAR, FWD, 0), (near_layer(), F_NEAR, NW, 0)):
-        off = int(d * f + (t * 3 if layer.shape[0] == 70 else 0))
-        idx = (np.arange(W) + off) % wrap
-        sub = layer[:, idx]
-        m = sub != T
-        cv[y0:y0 + layer.shape[0]][m] = sub[m]
+    for x in range(W):                                # sky: two tones with a hand-dithered seam
+        b = 30 + (x // 7) % 3
+        R(cv, x, 0, x, b, SKY2)
+        if x % 2 == 0: P(cv, x, b + 1, SKY2)
+        if x % 4 == 1: P(cv, x, b + 3, SKY2)
+    _hscroll(cv, clouds(), int(d * F_CLOUD + t * 3), 0)
+    _hscroll(cv, far_layer(), int(d * F_FAR), 0)
+    _hscroll(cv, near_layer(), int(d * F_NEAR), 0)
     near_off = int(d * F_NEAR)
     for i, (wx, sp, c, sk, hc, flip) in enumerate(PEOPLE):
-        x = int(wx + sp * t) - near_off
-        fr = (k + i) % 2
-        blit(cv, person(c, sk, hc, fr, flip), x, SIDEWALK - 10)
+        blit(cv, person(c, sk, hc, (k + i) % 2, flip), int(wx + sp * t) - near_off, SIDEWALK - 10)
     blit(cv, traffic_light(t >= 11.8), LIGHT_WX - near_off, 94)
     for i, (bx, by, sp) in enumerate(((20, 44, 16), (34, 50, 16), (90, 30, -12))):
-        x = int((bx + sp * t) % 170) - 20
-        blit(cv, BIRD[(k + i) % 2], x, by + (k + i) % 2)
-    # road
-    R(cv, 0, 158, W - 1, 158, GY); R(cv, 0, 159, W - 1, 159, ASPD)
-    R(cv, 0, 160, W - 1, 205, ASP)
-    R(cv, 0, 160, W - 1, 162, ASPD)
-    off = int(d * F_ROAD)
-    for x in range(-40, W + 40, 32):
-        xx = x - off % 32
-        R(cv, xx, 201, xx + 11, 202, WH)
-    R(cv, CAR_X + 6, GROUND - 1, CAR_X + 110, GROUND + 1, ASPD)       # car shadow
-    # front sidewalk (fastest layer)
-    R(cv, 0, 206, W - 1, 206, GY); R(cv, 0, 207, W - 1, H - 1, SIDE)
-    R(cv, 0, 207, W - 1, 208, CRMS)
+        blit(cv, BIRD[(k + i) % 2], int((bx + sp * t) % 170) - 20, by + (k + i) % 2)
+    R(cv, 0, 158, W - 1, 158, GY); R(cv, 0, 159, W - 1, 159, K)
+    _hscroll(cv, road_strip(), int(d * F_ROAD), 160)
+    # car shadow (ragged, under the sills)
+    R(cv, CAR_X + 8, GROUND - 1, CAR_X + 112, GROUND, K)
+    R(cv, CAR_X + 4, GROUND + 1, CAR_X + 116, GROUND + 1, ASPD)
+    _hscroll(cv, front_strip(), int(d * F_FRONT), 206)
     off = int(d * F_FRONT)
-    for x in range(-60, W + 60, 28):
-        R(cv, x - off % 28, 209, x - off % 28, H - 1, CRMS)
-    R(cv, 0, 224, W - 1, 224, CRMS)                  # paving course line
-    for px in (-30, 110, 250):                       # planters with shrubs (fast parallax)
-        x = px - int(d * F_FRONT)
-        R(cv, x, 226, x + 14, 233, BRKS); R(cv, x, 226, x + 14, 226, BRK)
+    for px in (-30, 110, 250):                        # planters with shrubs
+        x = px - off
+        R(cv, x, 226, x + 14, 233, BRKS); R(cv, x, 226, x + 14, 226, BRK); R(cv, x + 1, 234, x + 14, 234, ASPD)
+        for xx in range(x + 2, x + 14, 4): R(cv, xx, 228, xx, 232, BRK)
         for dx, r in ((3, 4), (8, 5), (12, 3)):
             for yy in range(223 - r, 227):
                 for xx in range(x + dx - r, x + dx + r + 1):
                     if (xx - x - dx) ** 2 + (yy - 223) ** 2 <= r * r:
-                        P(cv, xx, yy, GRNS if yy > 223 or xx > x + dx + 1 else GRN)
-        R(cv, x + 1, 234, x + 14, 234, ASPD)
-    wx = int(150 - 13 * t - d * F_FRONT)             # dog walker on the near pavement
+                        lit = (xx - x - dx) + (yy - 223) < -1 and h01(xx, yy, 2) < 0.7
+                        P(cv, xx, yy, GRN if lit else GRNS)
+            P(cv, x + dx, 220 - r + 3, RED)
+    wx = int(150 - 13 * t - d * F_FRONT)              # dog walker on the near pavement
     fr = k % 2
     blit(cv, person(BRK, SK, K, fr, True), wx, 214)
-    dog = _spr(['k  ', 'kbbbbb ', ' bbbbbt', ' b  b  ' if fr else '  bb   '], {'b': BRKS, 'k': K, 't': BRKS})
+    dog = _spr(['k      ', 'kbbbbb ', ' bbbbbt', ' b  b  ' if fr else '  bb   '], {'b': BRKS, 'k': K, 't': BRKS})
     blit(cv, outline(pad(dog)), wx - 12, 226)
-    R(cv, wx - 5, 223 + fr, wx, 223 + fr, K)          # lead
-    hx = 60 - int(d * F_FRONT)                       # hydrant
-    hyd = outline(pad(_spr([' gg ', 'rrrr', 'grrg', ' rr ', ' rr ', ' rr ', 'rrrr'], {'r': RED, 'g': GY})))
-    blit(cv, hyd, hx, 214)
+    R(cv, wx - 5, 223 + fr, wx, 223 + fr, K)
+    hyd = outline(pad(_spr([' gg ', 'rrrr', 'grrg', ' rr ', ' rB ', ' rB ', 'rrrr'], {'r': RED, 'g': GY, 'B': BRKS})))
+    blit(cv, hyd, 60 - off, 214)
     return cv
+
+
+BAR_POS = [0, 0]
 
 
 def car_layer(cv, t, k, expr, pose, lit=False):
@@ -575,10 +763,14 @@ def car_layer(cv, t, k, expr, pose, lit=False):
     moving = 0.0 < t < 1.3 or t > 11.9
     bob = 1 if moving and k % 2 else 0
     blit(cv, car_sprite(expr, pose, k), CAR_X, CAR_Y + bob)
-    ang = int(round(d / (2 * math.pi * 14) * 16)) % 16
+    ang = int(round(d / CIRC * 16)) % 16
     for i, wc in enumerate(WHEELS):
-        spr = tyre(WHEEL_N, lit and i == 1) if ang == 0 else tyre_rot(WHEEL_N, ang)
-        blit(cv, spr, CAR_X + wc - 14 - 1, CAR_Y + WHEEL_CY - 14 - 1)
+        spr = tyre_rot(WHEEL_N, ang, lit and i == 1 and not moving)
+        x0, y0 = CAR_X + wc - 13 - 1, CAR_Y + WHEEL_CY - 13 - 1
+        blit(cv, spr, x0, y0)
+        if i == 1:
+            ys, xs = np.nonzero(tyre_rot(WHEEL_N, STOP_STEP, True) == BY)
+            BAR_POS[:] = [x0 + int(xs.mean()), y0 + int(ys.mean())]
     return cv
 
 
@@ -755,13 +947,13 @@ def scene_hook(f, text=True):
     lit = t >= 1.5
     pose = 'point' if t >= 1.35 else None
     car_layer(cv, t, k, mouth(f), pose, lit)
-    bx, by = FRONT_WHEEL[0], FRONT_WHEEL[1] - 13
+    bx, by = BAR_POS
     if lit and text:
         for i, (sx, sy) in enumerate(((-5, -2), (5, -3), (-7, 2), (7, 1))):
             if (k + i) % 3 != 0:
                 P(cv, bx + sx, by + sy, BY)
         if t >= 1.7:
-            blit(cv, ARROW_DN, bx - 4, by - 12 + (k % 2))
+            blit(cv, ARROW_L, bx + 5 + (k % 2), by - 4)
     if text:
         box = (14, 10, 120, 53)
         if t < 0.07:
@@ -793,7 +985,7 @@ def scene_reveal(f):
         src = street(t, k); car_layer(src, t, k, 'smile', None, True)
         z = 2 if t < 3.55 else 4
         cw, ch = -(-W // z), H // z
-        bx, by = FRONT_WHEEL
+        bx, by = BAR_POS
         x0 = min(max(0, bx - cw // 2), W - cw); y0 = min(max(0, by - ch // 2), H - ch)
         crop = src[y0:y0 + ch, x0:x0 + cw]
         cv = np.repeat(np.repeat(crop, z, 0), z, 1)[:H, :W].copy()
