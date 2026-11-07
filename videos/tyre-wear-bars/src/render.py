@@ -1364,7 +1364,7 @@ def scene_hook(f):
                 P(cv, bx + sx, by + sy, BY)
     blit(cv, ARROW_DN, bx - 4, by - 18 + (k % 2))
     pose = 'point' if t >= 1.3 else 'talkR'
-    blit(cv, crouch(mouth(f), pose), 0, cy + 44 - 57)
+    blit(cv, outline(pad(stand(mouth(f), pose))), -1, cy + 44 - 61)
     text_box(cv, 'hook_headline', ['HIDDEN'], (14, 8, 120, 31), size=16)
     text_box(cv, 'hook_headline_2', ['BAR'], (38, 33, 96, 56), size=16, fg=BY if t >= 1.5 and k % 2 else WH)
     if 1.5 <= t < 1.6:
