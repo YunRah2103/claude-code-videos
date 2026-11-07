@@ -297,12 +297,13 @@ def person(shirt, skin, hair, frame, flip=False):
 BIRD = [_spr(['k   k', ' k k ', '  k  '], {'k': K}), _spr(['     ', 'kk kk', '  k  '], {'k': K})]
 
 # ------------------------------------------------------------------ the car (side view, faces right)
-CAR_X, CAR_Y = 8, 146           # sprite origin on screen (8 px headroom for the waving arm)
+CAR_X, CAR_Y = 8, 149           # sprite origin on screen (8 px headroom for the waving arm)
 CW_ = 120
-WHEEL_N = 26
-WHEELS = (24, 95)               # wheel centres, car-local x
+WHEEL_N = 20
+WHEELS = (20, 96)               # wheel centres, car-local x
 WHEEL_CY = 8 + 30               # car-local y (sprite coords)
-GROUND = CAR_Y + WHEEL_CY + 13
+GROUND = CAR_Y + WHEEL_CY + 9
+WR = WHEEL_N // 2            # wheel radius
 STOP_STEP = 5                   # front wheel stops turned 5 x 22.5 deg: the bar faces front-low, visible
 _TOP = [(0, 22), (2, 19), (5, 15), (9, 11), (13, 8), (20, 5.4), (30, 4), (44, 3.4), (58, 3.6), (68, 4.6),
         (74, 6), (82, 10), (90, 15.5), (94, 17), (104, 18), (112, 19), (116, 21), (119, 24)]
@@ -325,7 +326,7 @@ def car_body():
         top = car_top(x)
         bot = 33 if x < 6 or x > 113 else 35
         for y in range(top, bot + 1):
-            if arch(x, y, 15.5):
+            if arch(x, y, 11.6):
                 continue
             b = _belt(x)
             if y <= b - 1 and 9 <= x <= 91:
@@ -398,9 +399,9 @@ def car_body():
         for y in range(10, 36):
             for wc in WHEELS:
                 d = math.hypot(x - wc, y - 30)
-                if 15.5 <= d < 16.6 and s[y + o, x] not in (T,):
-                    s[y + o, x] = CARH if y < 25 else CARS
-                if 13.6 <= d < 15.5 and y <= 33:
+                if 11.6 <= d < 12.7 and s[y + o, x] not in (T,):
+                    s[y + o, x] = CARH if y < 27 else CARS
+                if 10.5 <= d < 11.6 and y <= 33:
                     s[y + o, x] = K
     # rocker panel
     R(s, 40, o + 33, 80, o + 34, ASPD); R(s, 40, o + 32, 80, o + 32, CARS)
@@ -413,9 +414,9 @@ def arm(s, pose, k):
     """Presenter's arm out of the driver window (sprite coords)."""
     if pose == 'point':                                         # down at the front tyre
         R(s, 80, 25, 82, 27, WH)
-        for x, y in pix._line((82, 27), (92, 30)):
+        for x, y in pix._line((82, 27), (89, 29)):
             R(s, x, y, x + 1, y + 1, SK)
-        R(s, 91, 30, 93, 32, SK); R(s, 94, 32, 95, 32, SK); P(s, 92, 32, SS)
+        R(s, 89, 29, 91, 31, SK); R(s, 92, 31, 93, 31, SK); P(s, 90, 31, SS)
     elif pose in ('wave1', 'wave2'):
         R(s, 82, 21, 84, 23, WH)
         hx = 88 if pose == 'wave1' else 91
@@ -686,7 +687,7 @@ def traffic_light(green):
 
 PEOPLE = [(150, 9, RED, SK, K, False), (95, -7, TEAL, SS, BRK, True), (40, 11, CRM, SK, BRKS, False),
           (128, -10, GRN, SS, K, True)]
-CIRC = 2 * math.pi * 13
+CIRC = 2 * math.pi * WR
 STOP_D = STOP_STEP / 16 * CIRC + CIRC     # wheel angle lands on STOP_STEP when stopped
 LIGHT_WX = int(126 + STOP_D * F_NEAR)
 
@@ -766,7 +767,7 @@ def car_layer(cv, t, k, expr, pose, lit=False):
     ang = int(round(d / CIRC * 16)) % 16
     for i, wc in enumerate(WHEELS):
         spr = tyre_rot(WHEEL_N, ang, lit and i == 1 and not moving)
-        x0, y0 = CAR_X + wc - 13 - 1, CAR_Y + WHEEL_CY - 13 - 1
+        x0, y0 = CAR_X + wc - WR - 1, CAR_Y + WHEEL_CY - WR - 1
         blit(cv, spr, x0, y0)
         if i == 1:
             ys, xs = np.nonzero(tyre_rot(WHEEL_N, STOP_STEP, True) == BY)
