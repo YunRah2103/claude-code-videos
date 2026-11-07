@@ -809,6 +809,9 @@ def near_layer():
                 a[yy, xx] = CRMS
             elif yy == SIDEWALK and h01(xx, 2, 41) < 0.18:
                 a[yy, xx] = CRMS
+    for xx in range(NW):                                           # buildings' shade on the pavement
+        if a[SIDEWALK, xx] == SIDE and (xx % 2 == 0 or h01(xx, 3, 42) < 0.3): a[SIDEWALK, xx] = CRMS
+        if a[SIDEWALK + 1, xx] == SIDE and (xx + 1) % 4 == 0: a[SIDEWALK + 1, xx] = CRMS
     for cx_ in range(15, NW, 37):                                  # cracks / oil stain clusters
         for j in range(4):
             P(a, cx_ + j, SIDEWALK + 2 + (j % 3), CRMS)
@@ -939,17 +942,122 @@ def _hscroll(cv, strip, off, y0):
 SKY_SENTINEL = 254
 
 
+# ------------------------------------------------------------------ street life (all stepped on key times)
+PIGEON = [_spr([' gk', 'ggg', ' k '], {'g': GY, 'k': K}), _spr(['   ', 'ggg', 'gkk'], {'g': GY, 'k': K})]
+TREES_WX = (70, 205, 330)
+STEAM_WX = ((58, 72), (176, 80), (300, 70))          # rooftop vents/chimneys (world x, y)
+
+
+def sun(cv, k):
+    cx, cy = 112, 66
+    for y in range(cy - 5, cy + 6):
+        for x in range(cx - 5, cx + 6):
+            d = (x - cx) ** 2 + (y - cy) ** 2
+            if d <= 25:
+                P(cv, x, y, WH if d <= 12 or (x + y) % 2 else CLD)
+    for i in range(8):                                # rays, two stepped lengths
+        ang = math.radians(i * 45 + (k % 2) * 22.5)
+        for rr in range(8, 10 + (i + k) % 2):
+            P(cv, int(round(cx + rr * math.cos(ang))), int(round(cy - rr * math.sin(ang))), CLD)
+
+
+def bunting(cv, near_off, k):
+    span = 60
+    for y0, sag, cols in ((110, 5, (RED, CRM, TEAL, GRN)),):
+        start = (near_off // span) * span - span
+        for wx0 in range(start, near_off + W + span, span):
+            for i in range(span + 1):
+                u = i / span
+                x = wx0 + i - near_off
+                y = int(round(y0 + 4 * sag * u * (1 - u) + (3 if (wx0 // span) % 2 else 0) * u))
+                P(cv, x, y, ASPD)
+                if i % 6 == 3 and 2 < i < span - 2:
+                    c = cols[(i // 6 + wx0 // span) % 4]
+                    fl = (k + i // 6) % 2
+                    R(cv, x - 1, y + 1, x + 1, y + 1, c)
+                    P(cv, x + (fl if fl else 0) - (0 if fl else 0), y + 2, c)
+                    P(cv, x - 1 + fl * 2, y + 2, c)
+                    P(cv, x - 1 + fl, y + 3, c)
+
+
+def leaves(cv, near_off, t):
+    for j, tx in enumerate(TREES_WX):
+        for n in range(3):
+            age = (t * 0.45 + n / 3 + j * 0.21) % 1.0
+            x = tx - near_off + int(math.sin((age + n) * 9) * 4) - 6 + n * 6
+            y = 104 + int(age * 46)
+            if y < SIDEWALK + 2:
+                P(cv, x, y, GRN if n % 2 else BRK); P(cv, x + 1, y + (1 if int(age * 12) % 2 else 0), GRNS)
+
+
+def steam(cv, near_off, t):
+    for j, (wx, wy) in enumerate(STEAM_WX):
+        for n in range(3):
+            age = (t * 0.8 + n / 3 + j * 0.3) % 1.0
+            x = wx - near_off + int(age * 6) + (n % 2)
+            y = wy - int(age * 14)
+            r = 1 if age < 0.4 else 2
+            for yy in range(y - r, y + r + 1):
+                for xx in range(x - r, x + r + 1):
+                    if (xx - x) ** 2 + (yy - y) ** 2 <= r * r and (age < 0.7 or (xx + yy) % 2):
+                        P(cv, xx, yy, CLD if age < 0.5 else GLH)
+
+
+def cyclist(cv, t, k):
+    if not 8.9 <= t < 12.6:
+        return
+    x = int(-14 + (t - 8.9) * 42)
+    s = np.full((13, 13), T, np.uint8)
+    fr = k % 2
+    for cx in (2, 10):
+        for a_ in range(0, 360, 45):
+            P(s, int(round(cx + 2 * math.cos(math.radians(a_)))), int(round(10 + 2 * math.sin(math.radians(a_)))), K)
+        P(s, cx + (1 if fr else 0), 10 - (0 if fr else 1), GY)
+    for p in pix._line((2, 10), (6, 7)) + pix._line((6, 7), (10, 10)) + pix._line((6, 7), (9, 6)):
+        P(s, *p, RED)
+    R(s, 5, 3, 7, 6, TEAL); R(s, 6, 0, 7, 2, SK); P(s, 6, 0, K); P(s, 7, 0, K)
+    R(s, 8, 4, 9, 5, SK)
+    P(s, 5 + fr, 7, GLS); P(s, 6 - fr, 8, GLS)
+    blit(cv, outline(s), x, SIDEWALK - 6)
+
+
+def pigeons(cv, near_off, k):
+    for j, wx in enumerate((112, 120, 250)):
+        blit(cv, outline(pad(PIGEON[(k + j) % 3 == 0])), wx - near_off, SIDEWALK + 1)
+
+
+def exhaust(cv, t, k, moving):
+    rate = 2.2 if moving else 1.1
+    for n in range(3):
+        age = (t * rate + n / 3) % 1.0
+        if not moving and age > 0.6:
+            continue
+        x = CAR_X + 1 - int(age * (16 if moving else 8)) - n
+        y = CAR_Y + 41 - int(age * 5)
+        r = 1 if age < 0.35 else 2
+        for yy in range(y - r, y + r + 1):
+            for xx in range(x - r, x + r + 1):
+                if (xx - x) ** 2 + (yy - y) ** 2 <= r * r and (age < 0.5 or (xx + yy + k) % 2):
+                    P(cv, xx, yy, CLD if age < 0.45 else GLH)
+
+
 def street(t, k, sentinel=False):
     """Background only. sentinel=True fills open sky with 254 so verify can skip it."""
     d = drive_dist(t)
     cv = np.full((H, W), SKY_SENTINEL, np.uint8) if sentinel else sky().copy()
+    if not sentinel:
+        sun(cv, k)                                    # behind the clouds and rooftops
     _hscroll(cv, clouds(), int(d * F_CLOUD + t * 3), 0)
     _hscroll(cv, far_layer(), int(d * F_FAR), 0)
     _hscroll(cv, near_layer(), int(d * F_NEAR), 0)
+    bunting(cv, int(d * F_NEAR), k)
+    leaves(cv, int(d * F_NEAR), t)
+    pigeons(cv, int(d * F_NEAR), k)
     near_off = int(d * F_NEAR)
     for i, (wx, sp, c, sk, hc, flip) in enumerate(PEOPLE):
         blit(cv, person(c, sk, hc, (k + i) % 2, flip), int(wx + sp * t) - near_off, SIDEWALK - 10)
     blit(cv, traffic_light(t >= 11.8), LIGHT_WX - near_off - 1, 94)
+    cyclist(cv, t, k)
     for i, (bx, by, sp) in enumerate(((20, 44, 16), (34, 50, 16), (90, 30, -12))):
         blit(cv, BIRD[(k + i) % 2], int((bx + sp * t) % 170) - 20, by + (k + i) % 2)
     _hscroll(cv, road_strip(), int(d * F_ROAD), ROAD_Y)
@@ -989,6 +1097,7 @@ def car_layer(cv, t, k, expr, pose, lit=False):
     d = drive_dist(t)
     moving = 0.0 < t < 1.3 or t > 11.9
     bob = 1 if moving and k % 2 else 0
+    exhaust(cv, t, k, moving)
     blit(cv, car_sprite(expr, pose, k), CAR_X, CAR_Y + bob)
     ang = int(round(d / CIRC * 16)) % 16
     for i, wc in enumerate(WHEELS):

@@ -11,6 +11,8 @@ front tyre's wear bar lights up. 3.0-3.9 s analysis: a beam sweeps the scene int
 (the wear bar keeps glowing), then a reticle locks onto the tyre (TYRE tag, progress bar, WEAR BAR
 callout). It punches in x2/x4 on the bar (3.9-4.1 s) and cuts to the tread close-up.
 
+Street life: one string of fluttering bunting, drifting leaves, pecking pigeons, a cyclist (9-12.6 s), exhaust puffs (idling at the light), a stepped-ray sun behind the rooftops.
+
 Background art: ragged parapets, chimneys, vents, aerials, dishes and rooftop signs; uneven windows
 with shutters, curtains, blinds and flower boxes; clustered brick courses, peeling paint, cracks and
 damp patches; drainpipes and sagging wires. Walls use a 3-tone ramp with hue shift (brick SK/BRK/BRKS,
