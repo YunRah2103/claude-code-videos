@@ -4,12 +4,20 @@
 H.264 + AAC 192k. Native art 135x240 (32-colour indexed, raised from 16 at your request),
 upscaled x8 nearest-neighbour only.
 
-Visuals: the presenter drives a pixel hatchback along a lively daytime town street. Parallax
-layers move in whole-pixel steps: clouds, far blocks, shops/trees/lamps, pedestrians, birds, the
-road and the front pavement with a dog-walker and planters. The car stops at a red light and the
-front tyre's wear bar lights up. 3.0-3.9 s analysis: a beam sweeps the scene into a blueprint grid
-(the wear bar keeps glowing), then a reticle locks onto the tyre (TYRE tag, progress bar, WEAR BAR
-callout). It punches in x2/x4 on the bar (3.9-4.1 s) and cuts to the tread close-up.
+Visuals (timeline):
+- 0-3 s hook: side-on hero tyre (~60% of frame width) with the bar already lit in the top groove,
+  presenter crouched beside it, "HIDDEN" / "BAR" stacked headline, hazy street behind.
+- 3-5 s zoom: stepped clean re-draws of the tyre (82 -> 124 -> 176 -> 248 -> 330 px), never upscales.
+  Navy outline, one rim-light colour (GLH), flat shadows, no speckle. Sipes and raised sidewall
+  lettering, TWI mark blinking from 4.4 s.
+- 5-6 s tread cross-section: chipped irregular blocks, grooves lighter than blocks, wear bar 30 px
+  tall (was 14) with a 2-step palette pulse, the brightest colour in frame.
+- 6-9 s fresh vs worn: two side-on tyres over the hazy street (no dark panel). The worn tyre wears
+  down to the bar. One white frame plus the click lands at 7.70 s (frame 231), on "bar" in "level
+  with the bar". That time is the syllable onset before the 7.95 s pause, measured from the VO
+  waveform.
+- 9-13 s: payoff strip and poll with the presenter in the car, big YES/NO buttons, NEXT EPISODE
+  card for the final second (pops in whole, no empty plates).
 
 Street life: one string of fluttering bunting, drifting leaves, pecking pigeons, a cyclist (9-12.6 s), exhaust puffs (idling at the light), a stepped-ray sun behind the rooftops.
 

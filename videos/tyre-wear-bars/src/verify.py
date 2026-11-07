@@ -40,6 +40,7 @@ def block_uniform(fr):
     return (rng.max(-1) <= TOL)
 
 
+CROP_FRAMES = (75, 165, r.FLUSH_F - 1, r.FLUSH_F, r.FLUSH_F + 1)
 MAX_STRAIGHT = 20   # native px: longest allowed perfectly straight edge in background structures
 FLAT = 13           # a single-colour square this size (i.e. larger than 12x12) fails
 
@@ -96,7 +97,7 @@ def main(out):
         if prev is not None and np.abs(fr.astype(np.int16) - prev).mean() < 0.5:
             same += 1
         prev = fr.astype(np.int16)
-        if n in (int(2.5 * 30), int(4.6 * 30)):
+        if n in CROP_FRAMES:
             decoded.append(fr.copy())
         n += 1
     check('Decoded frames: >=99% of 8px blocks uniform', min(uni) >= 0.99,
@@ -168,15 +169,49 @@ def main(out):
     else:
         check('Audio present', False, 'no audio stream (silent render)')
 
+    # flush moment: one white frame on the worn tyre, on the click, on "...level with the BAR"
+    cx, cy = r.PROG_C[1]
+    box = (slice(cy - 30, cy + 30), slice(cx - 30, cx + 30))
+    wf = [float((nat[f][box] == r.PAL[r.WH]).all(-1).mean()) for f in (r.FLUSH_F - 1, r.FLUSH_F, r.FLUSH_F + 1)]
+    tm = json.load(open(HERE / 'build' / 'timing.json'))
+    click = [t for nm, t in tm['sfx'] if nm == 'click'][0]
+    check('Flush: one-frame white flash exactly on the click', wf[1] > 0.4 and wf[0] < 0.1 and wf[2] < 0.1
+          and abs(click - r.FLUSH_T) < 1 / 30,
+          f'frame {r.FLUSH_F} ({r.FLUSH_T:.2f}s) white {wf[1]:.0%} vs {wf[0]:.0%}/{wf[2]:.0%} either side; click at {click:.2f}s')
+    # tread scene: the bar is the brightest colour in frame
+    lums = [r.lum(i) for i in range(32)]
+    bad = []
+    for f in range(150, 180):
+        idx = np.unique(r.frame_idx(f))
+        if max(idx, key=lambda i: lums[i]) != r.BY:
+            bad.append(f)
+    check('Tread scene: wear bar is the brightest colour', not bad, f'frames failing: {bad or "none"} (5.0-6.0 s)')
+    # no empty dark plates (UI); the zoom close-up's wheel-spoke holes are excluded
+    empty = None
+    for f in range(0, r.NF, 3):
+        if 90 <= f < 150:
+            continue
+        fl = flat_region((nat[f] == r.PAL[r.K]).all(-1).astype(np.uint8), 24, skip=(0,))
+        if fl:
+            empty = f'frame {f} at {fl[1]}'; break
+    check('No empty dark rectangle (24x24 navy area) in UI frames', empty is None, empty or 'none')
+
     # 4x crops (from the decoded final)
-    hook, rev = decoded
-    Image.fromarray(hook[1360:1640, 696:976]).resize((1120, 1120), Image.NEAREST).save(out / 'zoom4x_tyre.png')
-    Image.fromarray(rev[880:1240, 400:680]).resize((1120, 1440), Image.NEAREST).save(out / 'zoom4x_bar.png')
+    hook, rev, f0, f1, f2 = decoded
+    Image.fromarray(hook[1040:1720, 392:1072]).resize((2720, 2720), Image.NEAREST).save(out / 'zoom4x_tyre.png')
+    Image.fromarray(rev[880:1248, 400:672]).resize((1088, 1472), Image.NEAREST).save(out / 'zoom4x_bar.png')
+    fx, fy = cx * 8, cy * 8
+    tri = [Image.fromarray(fr_[fy - 296:fy - 40, fx - 168:fx + 168]).resize((1344, 1024), Image.NEAREST) for fr_ in (f0, f1, f2)]
+    sheet = Image.new('RGB', (1344 * 3 + 32, 1024), (23, 26, 46))
+    for i, im in enumerate(tri):
+        sheet.paste(im, (i * (1344 + 16), 0))
+    sheet.save(out / 'zoom4x_flush.png')
 
     ok = all(o for _, o, _ in res)
     md = ['# verify.py report', '', f'Overall: **{"PASS" if ok else "FAIL"}**', '', '| Check | Result | Detail |', '|---|---|---|']
     md += [f'| {n_} | {"PASS" if o else "FAIL"} | {d} |' for n_, o, d in res]
-    md += ['', 'Crops: zoom4x_tyre.png (2.5s), zoom4x_bar.png (4.6s).']
+    md += ['', 'Crops (4x of the 1080x1920 output): zoom4x_tyre.png (hook, 2.5s), zoom4x_bar.png (tread scene, 5.5s), '
+           f'zoom4x_flush.png (frames {r.FLUSH_F - 1}/{r.FLUSH_F}/{r.FLUSH_F + 1}: before / flash / after).']
     (out / 'verify_report.md').write_text('\n'.join(md) + '\n')
     print('\n'.join(md))
     return 0 if ok else 1

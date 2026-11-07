@@ -21,7 +21,7 @@ DUR = 13.0
 NF = int(DUR * FPS)
 T = 255  # transparent index
 
-PAL_HEX = ['#1a1424', '#a8d8ea', '#7fb8dc', '#c8d8e2', '#24202e', '#8c9cc0', '#6f7ea6', '#c8735a',
+PAL_HEX = ['#171a2e', '#a8d8ea', '#7fb8dc', '#c8d8e2', '#24202e', '#8c9cc0', '#6f7ea6', '#c8735a',
            '#94505a', '#e0c89a', '#b09a84', '#3f9a96', '#6cd8c8', '#d0504a', '#4a6488', '#9cc4dc',
            '#5a9a4a', '#35684a', '#4a4a5a', '#33333f', '#9a94a0', '#d8d4cc', '#4a78b8', '#34518a',
            '#86b0dc', '#3a3346', '#6a5d6e', '#c88a5e', '#8e5a4e', '#9aa3b8', '#ffe040', '#e0702a']
@@ -295,6 +295,57 @@ def person(shirt, skin, hair, frame, flip=False):
 
 
 BIRD = [_spr(['k   k', ' k k ', '  k  '], {'k': K}), _spr(['     ', 'kk kk', '  k  '], {'k': K})]
+
+# ------------------------------------------------------------------ presenter, full body (crouch by the tyre)
+GUY_MAP = {'#231a1c': K, '#4f3d42': R1, '#c08862': SK, '#a06b4b': SS, '#d4917a': SS, '#6e2f33': K,
+           '#12121c': K, '#ffffff': WH, '#a9b0bb': GY, '#d3d8e0': WH, '#7b8491': B2, '#f7f7fa': WH,
+           '#d6d9e2': GY, '#2b2d33': R1, '#1f2025': R0, '#454852': R2, '#16171b': K, '#f4f4f6': WH,
+           '#cfd2da': GY, '#b9bcc6': GY, '#1a1a2e': K, '#3a1418': K}
+_GM = {tuple(int(h[i:i + 2], 16) for i in (1, 3, 5)): v for h, v in GUY_MAP.items()}
+
+
+def to_idx(img):
+    a = np.array(img.convert('RGBA'))
+    out = np.full(a.shape[:2], T, np.uint8)
+    for y, x in zip(*np.nonzero(a[..., 3] > 0)):
+        c = tuple(int(v) for v in a[y, x, :3])
+        if c not in _GM:
+            _GM[c] = int(np.argmin(((PAL.astype(int) - c) ** 2).sum(1)))
+        out[y, x] = _GM[c]
+    return out
+
+
+@lru_cache(None)
+def stand(expr, pose):
+    return to_idx(pix.guy(expr, False, pose))
+
+
+@lru_cache(None)
+def crouch(expr, pose):
+    g = stand(expr, pose)
+    s = np.full((54, 48), T, np.uint8)
+    s[:40] = g[:40]
+    # knees up and spread (jeans), hands stay in front
+    for x0, x1 in ((13, 23), (25, 35)):
+        R(s, x0, 35, x1, 43, R1)
+        R(s, x0 + 1, 35, x1 - 1, 35, R2)
+        R(s, x0, 36, x0 + 1, 36, R2)
+        R(s, x1, 38, x1, 43, R0)
+        R(s, x0, 42, x1, 43, R0)
+        for x, y in ((x0, 35), (x1, 35), (x0, 43), (x1, 43)):
+            s[y, x] = T
+    R(s, 23, 41, 24, 43, R0)
+    for x0, x1 in ((15, 21), (27, 33)):
+        R(s, x0, 44, x1, 48, R1)
+        R(s, x1 - 1, 44, x1, 48, R0)
+    for x0, x1 in ((11, 21), (27, 37)):
+        R(s, x0, 49, x1, 51, WH)
+        R(s, x0, 51, x1, 51, GY)
+        R(s, x0 + 1, 49, x0 + 3, 49, GY)
+    hands = g[:46] == SK
+    hands[:35] = False
+    s[:46][hands] = SK
+    return outline(s)
 
 # ------------------------------------------------------------------ the car (side view, faces right)
 CAR_X, CAR_Y = 8, 149           # sprite origin on screen (8 px headroom for the waving arm)
@@ -1041,9 +1092,9 @@ def exhaust(cv, t, k, moving):
                     P(cv, xx, yy, CLD if age < 0.45 else GLH)
 
 
-def street(t, k, sentinel=False):
+def street(t, k, sentinel=False, dist=None):
     """Background only. sentinel=True fills open sky with 254 so verify can skip it."""
-    d = drive_dist(t)
+    d = drive_dist(t) if dist is None else dist
     cv = np.full((H, W), SKY_SENTINEL, np.uint8) if sentinel else sky().copy()
     if not sentinel:
         sun(cv, k)                                    # behind the clouds and rooftops
@@ -1120,7 +1171,7 @@ def hud_brackets(cv, x0, y0, x1, y1, c=CYAN, n=5):
 
 # ------------------------------------------------------------------ timeline / stepping
 HOLDS = [3, 2, 4, 3, 3, 2, 4, 3, 2]
-SYNC = [0, 45, 90, 104, 108, 113, 117, 120, 123, 180, 239, 270, 330, 360]   # frames that must start a new drawing
+SYNC = [0, 45, 90, 93, 96, 99, 101, 113, 150, 152, 180, 231, 232, 270, 330, 360]   # frames that must start a new drawing
 
 
 def key_frames():
@@ -1159,91 +1210,6 @@ def mouth(f):
         return 'blink'
     return 'smile'
 
-def tread_closeup(t, k):
-    cv = np.full((H, W), B0, np.uint8)
-    R(cv, 0, 0, W - 1, 6, K)
-    top, floor = 78, 146
-    grooves = [(14, 23), (60, 74), (111, 120)]
-    rng = np.random.default_rng(5)
-    edges = [-1] + [g for gg in grooves for g in gg] + [W]
-    blocks = [(edges[i] + 1, edges[i + 1] - 1) for i in range(0, len(edges), 2)]
-    for bi, (x0, x1) in enumerate(blocks):
-        R(cv, x0, top, x1, floor, R1)
-        # ragged top edge: 0-2 px steps every 3-5 px
-        x = x0
-        while x <= x1:
-            w = int(rng.integers(3, 6)); d = int(rng.integers(0, 3))
-            R(cv, x, top, min(x1, x + w - 1), top + d - 1, B0) if d else None
-            R(cv, x, top + d, min(x1, x + w - 1), top + d + 2, R2)
-            x += w
-        R(cv, x0, top, x0, top + 1, B0); R(cv, x1, top, x1, top + 2, B0)   # chipped corners
-        R(cv, x1 - 2, top + 4, x1, floor, R0)                                 # shadow side
-        R(cv, x0, top + 4, x0, floor - 6, R2)                                 # lit side
-        for yy in range(top + 6, floor, 2):                                   # texture in shadow only
-            if h01(bi, yy, 9) < 0.35:
-                P(cv, x1 - 1 - (yy // 2) % 2, yy, K)
-        cx = (x0 + x1) // 2                                                   # zig-zag sipe
-        if x1 - x0 > 12:
-            for i, yy in enumerate(range(top + 10, top + 46)):
-                P(cv, cx + (1 if (i // 3) % 2 else 0), yy, R0)
-        R(cv, x0 + 2, floor - 5, x1 - 3, floor - 4, R0)
-    for gx0, gx1 in grooves:
-        R(cv, gx0, top + 4, gx1, floor, R0)
-        R(cv, gx0, top + 4, gx0, floor, K)
-        for yy in range(top + 8, floor, 7):
-            if h01(gx0, yy, 2) < 0.5:
-                P(cv, gx1, yy, K)
-    # the bar, bottom of the middle groove (brightest, most saturated)
-    gx0, gx1 = grooves[1]
-    R(cv, gx0 + 1, floor - 14, gx1 - 1, floor, BO)
-    R(cv, gx0 + 1, floor - 14, gx1 - 1, floor - 9, BY)
-    R(cv, gx0 + 2, floor - 14, gx0 + 4, floor - 14, WH if (k % 4 == 0) else BY)  # hand-placed glint
-    P(cv, gx0 + 1, floor - 14, R0); P(cv, gx1 - 1, floor - 14, R0)
-    # sidewall below
-    R(cv, 0, floor + 1, W - 1, 214, R1)
-    R(cv, 0, floor + 1, W - 1, floor + 3, R0)
-    R(cv, 0, floor + 9, W - 1, floor + 9, R2)
-    R(cv, 0, 205, W - 1, 214, R0)
-    for x in range(0, W, 3):
-        if h01(x, 1, 4) < 0.5:
-            P(cv, x, 206 + (x % 4), K)
-    R(cv, 0, 215, W - 1, H - 1, B0)
-    return cv, (gx0 + gx1) // 2, floor
-
-
-def tread_panel(cv, x0, y0, w, depth, worn_frac, label, flush_flash, k):
-    """Cross-section: two blocks either side of a groove with the bar at the bottom."""
-    floor = y0 + 96
-    bar_h = 9
-    gx0, gx1 = x0 + w // 2 - 7, x0 + w // 2 + 6
-    R(cv, x0, y0, x0 + w - 1, floor + 8, B0)
-    top = floor - depth
-    rng = np.random.default_rng(x0)
-    rough = 2 if worn_frac < 0.6 else (1 if worn_frac < 0.95 else 0)
-    for bx0, bx1 in ((x0 + 3, gx0 - 1), (gx1 + 1, x0 + w - 4)):
-        R(cv, bx0, top, bx1, floor, R1)
-        x = bx0
-        while x <= bx1:
-            ww = int(rng.integers(3, 6)); d = int(rng.integers(0, rough + 1))
-            if d:
-                R(cv, x, top, min(bx1, x + ww - 1), top + d - 1, B0)
-            R(cv, x, top + d, min(bx1, x + ww - 1), top + d + 1, R2)
-            x += ww
-        R(cv, bx1 - 1, top + 3, bx1, floor, R0)
-        R(cv, bx0, top + 3, bx0, floor, R2)
-        for yy in range(top + 4, floor, 3):
-            if h01(bx0, yy, 7) < 0.4:
-                P(cv, bx1 - 1, yy, K)
-    R(cv, gx0, min(top + 2, floor - bar_h), gx1, floor, R0)
-    R(cv, gx0, min(top + 2, floor - bar_h), gx0, floor, K)
-    bar_c = BY if not flush_flash or k % 2 == 0 else BO
-    R(cv, gx0 + 1, floor - bar_h + 1, gx1 - 1, floor, BO)
-    R(cv, gx0 + 1, floor - bar_h + 1, gx1 - 1, floor - bar_h + 3, bar_c)
-    R(cv, x0, floor + 1, x0 + w - 1, floor + 8, R1)
-    R(cv, x0, floor + 1, x0 + w - 1, floor + 2, R0)
-    return floor - bar_h + 1
-
-
 def icon_twi(cv, x, y, k):
     R(cv, x, y, x + 21, y + 21, R1)
     R(cv, x, y, x + 21, y + 2, R2)
@@ -1275,181 +1241,296 @@ def icon_clock(cv, x, y, k):
     line(cv, (cx, cy), hand, BO)
 
 
+# ------------------------------------------------------------------ clean hero tyre (hook, zoom, fresh vs worn)
+@lru_cache(None)
+def tyre_clean(n, lit=True, depth=None, bar_h=None, wear=0.0, pulse=0, nb=18):
+    """Side-on tyre: chunky chipped tread blocks, navy outline, ONE rim-light colour (GLH),
+    flat shadow tones (no speckle), big wear bar in the top groove. wear=1 -> blocks level with bar."""
+    Rr = n / 2 - 1.0
+    D = depth or max(6, int(round(0.2 * Rr)))
+    Hb = bar_h or max(3, int(round(D * 0.42)))
+    c = (n - 1) / 2
+    yy, xx = np.mgrid[0:n, 0:n]
+    dx, dy = xx - c, yy - c
+    r = np.hypot(dx, dy)
+    th = np.arctan2(-dy, dx) % (2 * np.pi)
+    nrm = np.cos(th - 3 * np.pi / 4)
+    phase = ((th - np.pi / 2) / (2 * np.pi / nb)) % nb
+    blk = np.floor(phase).astype(int) % nb
+    fr = phase - np.floor(phase)
+    rng = np.random.default_rng(7 + n)
+    lo = 0.16 + rng.random(nb) * 0.06
+    hi = 0.84 - rng.random(nb) * 0.06
+    base = Rr - D                                         # groove floor radius
+    top = Rr - wear * (D - Hb)                            # block top radius (wears down to the bar)
+    chipL = rng.random(nb) < 0.6                          # chipped corners, different per block
+    chipR = rng.random(nb) < 0.6
+    dent = rng.random(nb) * 0.6 + 0.2                     # small bite out of the block face
+    in_blk = (fr > lo[blk]) & (fr < hi[blk])
+    edge_l, edge_r = fr - lo[blk], hi[blk] - fr
+    rtop = top - np.where((edge_l < 0.07) & chipL[blk], 1.2, 0) - np.where((edge_r < 0.07) & chipR[blk], 1.2, 0)
+    rtop = rtop - np.where((np.abs(fr - dent[blk]) < 0.04) & (wear < 0.9), 0.8, 0)
+    spr = np.full((n, n), T, np.uint8)
+    body = r <= base
+    tread = (r > base) & (r <= rtop) & in_blk
+    spr[tread] = R1
+    spr[tread & (nrm < -0.3)] = R0
+    spr[tread & (r > rtop - 1.2) & (nrm > -0.2)] = GLH          # the single rim light
+    g0 = ((phase < lo[0]) | (phase > nb - (1 - hi[nb - 1]))) & (r > base) & (r <= base + Hb)
+    g0 &= ~in_blk
+    side = body & (r >= 0.6 * Rr)
+    spr[side] = R1
+    spr[side & (nrm < -0.25)] = R0
+    spr[side & (r >= base - 1.2) & (nrm > -0.2)] = R2            # tread shoulder catches light
+    spr[side & (r < 0.62 * Rr + 0.6)] = R0                       # bead line
+    if n >= 120:                                                  # sipes + raised sidewall lettering
+        mid = (fr > lo[blk] + 0.3 * (hi[blk] - lo[blk])) & (fr < hi[blk] - 0.3 * (hi[blk] - lo[blk]))
+        zig = np.abs(((r - base) / 3) % 2 - 1) < 0.5
+        sip = tread & (np.abs(fr - 0.5) < 0.012 + 0.012 * zig) & (r < rtop - 2)
+        spr[sip] = R0
+        ring = side & (np.abs(r - 0.78 * Rr) < 1.6) & (((th * Rr * 0.78 / 5).astype(int) % 3) != 0)
+        spr[ring & (nrm > -0.25)] = R2
+        spr[ring & (nrm <= -0.25)] = R1
+        spr[side & (np.abs(r - 0.7 * Rr) < 0.6)] = R0
+    if n >= 40:                                                   # TWI triangle aimed at the bar groove
+        a0, a1 = base - 0.2 * Rr, base - 0.06 * Rr
+        tri = (dy < 0) & (r >= a0) & (r < a1) & (np.abs(dx) <= (a1 - r) * 0.8)
+        spr[tri] = GY
+    lip = (r >= 0.53 * Rr) & (r < 0.6 * Rr)
+    spr[lip] = GY
+    spr[lip & (nrm > 0.25)] = WH
+    spr[lip & (nrm < -0.3)] = FARS
+    dish = r < 0.53 * Rr
+    spr[dish] = FARS
+    sp = (np.degrees(th) - 18) % 72
+    hole = dish & (r > 0.16 * Rr) & (r < 0.46 * Rr) & (sp > 13) & (sp < 59)
+    spr[hole] = K
+    spr[dish & ~hole & (r >= 0.12 * Rr) & (nrm > 0.3)] = GY
+    hub = r < 0.13 * Rr + 0.5
+    spr[hub] = GY
+    spr[hub & (nrm > 0.2)] = WH
+    if lit:
+        a, b = (BY, BO) if pulse == 0 else (BO, BY)
+        spr[g0] = a
+        spr[g0 & (r <= base + max(1, Hb * 0.35))] = b if pulse == 0 else BY
+        if pulse == 1:
+            spr[g0 & (r > base + Hb - 1.0)] = BY
+    else:
+        spr[g0] = R1
+    return outline(pad(spr))
+
+
+def bar_xy(n, cx, cy, depth=None, bar_h=None):
+    """Screen position of the bar centre for a tyre_clean drawn centred at (cx, cy)."""
+    Rr = n / 2 - 1.0
+    D = depth or max(6, int(round(0.2 * Rr)))
+    Hb = bar_h or max(3, int(round(D * 0.42)))
+    return cx, int(round(cy - (Rr - D + Hb / 2)))
+
+
+def put_tyre(cv, spr, cx, cy):
+    blit(cv, spr, cx - spr.shape[1] // 2, cy - spr.shape[0] // 2)
+
+
+# haze: the street recedes into soft blues so the hero tyre reads first
+_HL = np.array([lum(i) for i in range(32)])
+HAZE = np.where(_HL > 0.5, GLH, np.where(_HL > 0.24, FAR, FARS)).astype(np.uint8)
+for _c in (SKY1, SKY2, CLD, GLH):
+    HAZE[_c] = _c
+
+
+def haze_bg(t, k, ground=True):
+    st = street(t, k, dist=STOP_D)
+    cv = HAZE[st]
+    if ground:
+        cv[FRONT_Y:] = st[FRONT_Y:]
+    return cv
+
 # ------------------------------------------------------------------ scenes
-def scene_hook(f, text=True):
+HOOK_N, HOOK_C = 82, (91, 173)          # tyre fills ~60% of the frame width
+FLUSH_F = 231                           # "...level with the BAR" (7.70 s, VO syllable onset) -> flash + click
+FLUSH_T = FLUSH_F / FPS
+
+
+def scene_hook(f):
     t = f / FPS
     k = KEY_IDX[KEY_OF[f]]
-    cv = street(t, k)
-    lit = t >= 1.5
-    pose = 'point' if t >= 1.35 else None
-    car_layer(cv, t, k, mouth(f), pose, lit)
-    bx, by = BAR_POS
-    if lit and text:
-        for i, (sx, sy) in enumerate(((-5, -2), (5, -3), (-7, 2), (7, 1))):
+    cv = haze_bg(t, k)
+    cx, cy = HOOK_C
+    pulse = 1 if (t >= 1.5 and k % 2) else 0
+    R(cv, cx - 34, cy + 40, cx + 34, cy + 42, ASPD)                 # contact shadow on the pavement
+    for x in range(cx - 38, cx + 39, 3):
+        P(cv, x, cy + 43, ASPD)
+    put_tyre(cv, tyre_clean(HOOK_N, True, pulse=pulse), cx, cy)
+    bx, by = bar_xy(HOOK_N, cx, cy)
+    if t >= 1.5:                                                    # ping: sparkle burst
+        for i, (sx, sy) in enumerate(((-7, -3), (7, -4), (-9, 1), (9, 0), (0, -8))):
             if (k + i) % 3 != 0:
                 P(cv, bx + sx, by + sy, BY)
-        if t >= 1.7:
-            blit(cv, ARROW_L, bx + 5 + (k % 2), by - 4)
-    if text:
-        box = (14, 10, 120, 53)
-        if t < 0.07:
-            grow_plate(cv, box, 0.5)
-        else:
-            text_box(cv, 'hook_headline', ['HIDDEN', 'BAR'], box, size=16)
-    if 1.5 <= t < 1.6:                     # whole-pixel camera nudge on the ping
+    blit(cv, ARROW_DN, bx - 4, by - 18 + (k % 2))
+    pose = 'point' if t >= 1.3 else 'talkR'
+    blit(cv, crouch(mouth(f), pose), 0, cy + 44 - 54)
+    text_box(cv, 'hook_headline', ['HIDDEN'], (14, 8, 120, 31), size=16)
+    text_box(cv, 'hook_headline_2', ['BAR'], (38, 33, 96, 56), size=16, fg=BY if t >= 1.5 and k % 2 else WH)
+    if 1.5 <= t < 1.6:
         cv = np.roll(cv, 1, axis=1)
-    elif 1.6 <= t < 1.7:
-        cv = np.roll(cv, -1, axis=0)
     return cv
 
 
-# ------------------------------------------------------------------ analysis (blueprint scan)
-_L = np.array([lum(i) for i in range(32)])
-BG_BP = np.where(_L > 0.42, GLS, np.where(_L > 0.18, CARS, np.where(_L > 0.06, ASPD, K))).astype(np.uint8)
-CAR_BP = np.where(_L > 0.42, GLH, np.where(_L > 0.18, GLS, CARS)).astype(np.uint8)
-CAR_BP[K] = CYAN
-CAR_BP[BY], CAR_BP[BO] = BY, BO                     # the wear bar keeps glowing in the scan
-BG_BP[BY], BG_BP[BO] = BY, BO
+ZOOM_STEPS = [(3.0, 124), (3.1, 176), (3.2, 248), (3.3, 330)]
 
 
-def blueprint(cv, car_mask, k):
-    bp = BG_BP[cv]
-    bp[car_mask] = CAR_BP[cv[car_mask]]
-    yy, xx = np.mgrid[0:H, 0:W]
-    bp[~car_mask & (xx % 8 == 3) & (yy % 8 == 3)] = GLH                   # measurement grid
-    major = ~car_mask & (xx % 32 == 19) & (yy % 32 == 19)
-    for dx, dy in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)):
-        bp[np.roll(np.roll(major, dy, 0), dx, 1)] = CYAN
-    return bp
-
-
-def scan_frame(f, hud=True):
-    """3.0-3.9 s: beam sweeps the car into blueprint view, then a reticle locks onto the front tyre."""
+def scene_zoom(f):
+    """3.0-5.0 s: clean stepped re-draws (not upscales) closing in on the barred groove."""
     t = f / FPS
     k = KEY_IDX[KEY_OF[f]]
-    cv = street(t, k)
-    mask_cv = np.full((H, W), T, np.uint8)
-    car_layer(mask_cv, t, k, mouth(f), None, True)
-    car_layer(cv, t, k, mouth(f), None, True)
-    car_mask = mask_cv != T
-    bp = blueprint(cv, car_mask, k)
-    sx = 4 + int(min(1.0, (t - 3.0) / 0.42) * 128)
-    out = cv.copy()
-    out[:, :sx] = bp[:, :sx]
-    if t < 3.42:                                         # the beam: bright core, dithered trail
-        R(out, sx, 0, sx, H - 1, CYAN); R(out, sx + 1, 0, sx + 1, H - 1, GLH)
-        for y in range(0, H, 2):
-            P(out, sx - 2, y, CYAN); P(out, sx - 4, y + 1, GLH)
-    if not hud:
-        return out
-    fx, fy = CAR_X + WHEELS[1], CAR_Y + WHEEL_CY
-    if t < 3.45:
-        text_box(out, 'reveal_scan', ['SCANNING'], (26, 10, 108, 26), border=CYAN)
-        b = [(4, 136, 130, 204), (30, 142, 130, 202), (60, 150, 128, 202)][min(2, int((t - 3.0) / 0.15))]
-        hud_brackets(out, *b)
-        return out
-    # target lock: crosshair, shrinking reticle, tag with leader, analysis bar (no numbers)
-    for x in range(0, W, 3):
-        P(out, x, fy, CYAN)
-    for y in range(40, H, 3):
-        P(out, fx, y, CYAN)
-    stage = min(2, int((t - 3.45) / 0.15))
-    rr = [22, 16, 13][stage]
-    hud_brackets(out, fx - rr, fy - rr, fx + rr, fy + rr, c=BY if stage == 2 and k % 2 else CYAN, n=4)
-    for i in range(16):                                  # rotating tick ring, 4 stepped positions
-        ang = math.radians(i * 22.5 + (k % 4) * 11)
-        if i % 2 == 0:
-            P(out, int(round(fx + (rr - 3) * math.cos(ang))), int(round(fy - (rr - 3) * math.sin(ang))), GLH)
-    bx, by = BAR_POS
-    if stage >= 1:                                       # target the bar itself
-        R(out, bx - 3, by - 3, bx + 3, by - 3, BY); R(out, bx - 3, by + 3, bx + 3, by + 3, BY)
-        P(out, bx - 3, by - 2, BY); P(out, bx + 3, by + 2, BY)
-    tag = (66, 112, 104, 126)
-    text_box(out, 'reveal_tag', ['TYRE'], tag, border=CYAN)
-    for x, y in pix._line((tag[2] - 4, tag[3] + 1), (fx - 4, fy - rr - 1)):
-        P(out, x, y, CYAN)
-    text_box(out, 'reveal_analysing', ['ANALYSING'], (26, 10, 108, 26), border=CYAN)
-    segs = 1 + int((t - 3.45) / 0.45 * 10)
-    for i in range(10):                                  # progress segments, no numbers
-        R(out, 28 + i * 8, 30, 33 + i * 8, 33, CYAN if i < segs else CARS)
-    if stage == 2:
-        text_box(out, 'reveal_lock', ['WEAR BAR'], (10, 214, 80, 230), border=BY, fg=BY)
-        for x, y in pix._line((81, 216), (bx - 4, by + 4)):
-            P(out, x, y, BY)
-    return out
+    n = [nn for ts, nn in ZOOM_STEPS if t >= ts][-1]
+    cv = haze_bg(t, k, ground=False)
+    Rr = n / 2 - 1
+    target_bar_y = 104
+    D = max(6, int(round(0.2 * Rr))); Hb = max(3, int(round(D * 0.42)))
+    cy = int(round(target_bar_y + (Rr - D + Hb / 2)))
+    pulse = k % 2 if t >= 3.3 else 0
+    put_tyre(cv, tyre_clean(n, True, pulse=pulse), 67, cy)
+    bx, by = bar_xy(n, 67, cy)
+    if n == 330:
+        blink = t >= 4.4 and (k % 3 != 2)
+        m = text_mask('TWI', 8)
+        ys, xs = np.nonzero(m)
+        w = int(m.any(0).nonzero()[0].max() + 1)
+        ty = by + 42
+        cv[ty + ys + 1, bx - w // 2 + xs + 1] = R0
+        cv[ty + ys, bx - w // 2 + xs] = BY if blink else R2
+        if blink:                                                   # triangle lights with the text
+            for i in range(6):
+                R(cv, bx - i, by + 30 + i, bx + i, by + 30 + i, BY)
+        TEXT_REPORT['zoom_twi_mark'] = dict(lines=['TWI'], plate='sidewall (embossed mark, not a caption)',
+                                            widths=[w], inner_w=W, fits=True,
+                                            contrast=round(float(contrast(BY, R1)), 2))
+        if 3.35 <= t < 3.75:                                        # one clean scan pass
+            sx = 4 + int((t - 3.35) / 0.4 * 126)
+            R(cv, sx, 60, sx, 200, CYAN)
+        hud_brackets(cv, bx - 14, by - 12, bx + 14, by + 12, c=CYAN, n=4)
+        a = k % 2
+        line(cv, (bx, 50), (bx, by - 16 - a), WH, 2)
+        for i in range(4):
+            R(cv, bx - i, by - 18 - a + i, bx + 1 + i, by - 18 - a + i, WH)
+        text_box(cv, 'reveal_label', ['TREAD WEAR', 'INDICATOR'], (8, 14, 126, 46))
+    return cv
 
 
-def scene_reveal(f):
+def tread_closeup(t, k):
+    """5.0-6.0 s cross-section: chipped irregular blocks, grooves lighter than blocks, big pulsing bar."""
+    cv = np.full((H, W), B0, np.uint8)
+    top, floor = 78, 150
+    grooves = [(16, 27), (55, 79), (108, 119)]
+    rng = np.random.default_rng(5)
+    edges = [-1] + [g for gg in grooves for g in gg] + [W]
+    blocks = [(edges[i] + 1, edges[i + 1] - 1) for i in range(0, len(edges), 2)]
+    lay = np.full((H, W), T, np.uint8)
+    for gx0, gx1 in grooves:                                        # grooves: lighter than the blocks
+        R(lay, gx0, top + 6, gx1, floor, R2)
+        R(lay, gx0, top + 6, gx0 + 1, floor, FAR)
+        R(lay, gx1, top + 10, gx1, floor, R1)
+    for bi, (x0, x1) in enumerate(blocks):
+        R(lay, x0, top, x1, floor, R1)
+        x = x0
+        while x <= x1:                                              # ragged top, 0-2 px steps
+            w = int(rng.integers(3, 7)); d = int(rng.integers(0, 3))
+            if d:
+                R(lay, x, top, min(x1, x + w - 1), top + d - 1, T)
+            R(lay, x, top + d, min(x1, x + w - 1), top + d, GLH)    # single rim light
+            x += w
+        for cy_ in (top, top + 1, top + 2):                         # chipped corners
+            if rng.random() < 0.7: lay[cy_, x0] = T
+            if rng.random() < 0.7: lay[cy_, x1] = T
+        for _ in range(2):                                          # bites out of the side walls
+            yy = int(rng.integers(top + 8, floor - 10))
+            side = x0 if rng.random() < 0.5 else x1
+            R(lay, side, yy, side, yy + int(rng.integers(1, 4)), T)
+        R(lay, x1 - 2, top + 4, x1 - 1, floor - 1, R0)              # flat shadow side, no speckle
+        if x1 - x0 > 12:
+            cx = (x0 + x1) // 2
+            for i, yy in enumerate(range(top + 10, top + 40)):      # zig-zag sipe
+                lay[yy, cx + ((i // 3) % 2)] = R0
+    gx0, gx1 = grooves[1]
+    bh = 30                                                         # 2-3x the old bar
+    pulse = k % 2
+    a, b = (BY, BO) if pulse == 0 else (BO, BY)
+    R(lay, gx0 + 2, floor - bh, gx1 - 2, floor, a)
+    R(lay, gx0 + 2, floor - 8, gx1 - 2, floor, b if pulse == 0 else BO)
+    R(lay, gx0 + 2, floor - bh, gx1 - 2, floor - bh + 2, BY)
+    lay[floor - bh, gx0 + 2] = T; lay[floor - bh, gx1 - 2] = T
+    lay = outline(lay)
+    m = lay != T
+    cv[m] = lay[m]
+    R(cv, 0, floor + 1, W - 1, 214, R1)                             # sidewall
+    R(cv, 0, floor + 1, W - 1, floor + 3, R0)
+    for x in range(0, W):
+        if (x // 5) % 3 != 1: P(cv, x, floor + 9, R2)
+    R(cv, 0, 205, W - 1, 214, R0)
+    R(cv, 0, 215, W - 1, H - 1, B0)
+    return cv, (gx0 + gx1) // 2, floor
+
+
+def scene_tread(f):
     t = f / FPS
     k = KEY_IDX[KEY_OF[f]]
-    if t < 3.9:
-        return scan_frame(f)
-    if t < 4.1:                             # stepped punch-in x2 then x4 on the glowing bar (integer nearest)
-        src = scan_frame(int(3.89 * FPS), hud=False)
-        z = 2 if t < 4.0 else 4
-        cw, ch = -(-W // z), H // z
-        bx, by = BAR_POS
-        x0 = min(max(0, bx - cw // 2), W - cw); y0 = min(max(0, by - ch // 2), H - ch)
-        crop = src[y0:y0 + ch, x0:x0 + cw]
-        cv = np.repeat(np.repeat(crop, z, 0), z, 1)[:H, :W].copy()
-        hud_brackets(cv, 10, 40, 124, 200, n=8)
-        return cv
     cv, gx, floor = tread_closeup(t, k)
-    settle = 3 if t < 4.17 else (1 if t < 4.25 else 0)
-    blink_on = t >= 4.5 and (k % 3 != 2)
-    tri_c = BY if blink_on else GY
+    settle = 2 if t < 5.07 else 0
+    blink = (k % 3 != 2)
     for i in range(5):
-        R(cv, gx - i, 160 + i, gx + i, 160 + i, tri_c)
+        R(cv, gx - i, 160 + i, gx + i, 160 + i, BY if blink else GY)
     m = text_mask('TWI', 8)
     ys, xs = np.nonzero(m)
     w = int(m.any(0).nonzero()[0].max() + 1)
     cv[168 + ys + 1, gx - w // 2 + xs + 1] = R0
-    cv[168 + ys, gx - w // 2 + xs] = BY if blink_on else R2
+    cv[168 + ys, gx - w // 2 + xs] = BY if blink else R2
     TEXT_REPORT['reveal_twi_mark'] = dict(lines=['TWI'], plate='sidewall (embossed mark, not a caption)',
-                                          widths=[w], inner_w=W, fits=True,
-                                          contrast=round(float(contrast(BY, R1)), 2))
-    if t >= 4.3:
-        a = 0 if k % 2 else 1
-        line(cv, (gx, 52), (gx, floor - 22 - a), WH, 2)
-        for i in range(4):
-            R(cv, gx - i, floor - 24 - a + i, gx + 1 + i, floor - 24 - a + i, WH)
+                                          widths=[w], inner_w=W, fits=True, contrast=round(float(contrast(BY, R1)), 2))
+    a = k % 2
+    line(cv, (gx, 50), (gx, floor - 36 - a), WH, 2)
+    for i in range(4):
+        R(cv, gx - i, floor - 38 - a + i, gx + 1 + i, floor - 38 - a + i, WH)
     hud_brackets(cv, 3, 50, 131, 222, n=8)
-    box = (8, 14, 126, 46)
-    if t < 4.25:
-        grow_plate(cv, box, 0.55)
-    else:
-        text_box(cv, 'reveal_label', ['TREAD WEAR', 'INDICATOR'], box)
+    text_box(cv, 'reveal_label', ['TREAD WEAR', 'INDICATOR'], (8, 14, 126, 46))
     if settle:
         cv = np.vstack([cv[settle:], np.full((settle, W), B0, np.uint8)])
     return cv
 
 
+PROG_N, PROG_D, PROG_HB, PROG_NB = 64, 12, 5, 10
+PROG_C = ((33, 132), (101, 132))
+WEAR_STEPS = [(6.0, 0.0), (6.35, 0.18), (6.7, 0.36), (7.0, 0.52), (7.3, 0.7), (7.5, 0.85), (FLUSH_T, 1.0)]
+
+
 def scene_progress(f):
     t = f / FPS
     k = KEY_IDX[KEY_OF[f]]
-    cv = street(t, k)
-    car_layer(cv, t, k, mouth(f), None)
-    R(cv, 2, 54, 132, 178, CYAN)            # HUD analysis panel over the live street
-    R(cv, 3, 55, 131, 177, K)
-    full = 72
-    steps = [(6.0, 72), (6.35, 63), (6.6, 52), (6.9, 43), (7.15, 35), (7.45, 26), (7.7, 17), (7.97, 9)]
-    depth = [d for ts, d in steps if t >= ts][-1]
-    worn_frac = (full - depth) / (full - 9)
-    flush = t >= 7.97
-    tread_panel(cv, 5, 72, 60, full, 0.0, 'NEW', False, k)
-    bar_y = tread_panel(cv, 70, 72, 60, depth, worn_frac, 'WORN', flush and t < 8.4, k)
-    if flush:
-        for x in range(71, 129, 3):
-            R(cv, x, bar_y - 2, x + 1, bar_y - 2, WH)
-    text_box(cv, 'prog_new', ['NEW'], (14, 58, 54, 72))
-    text_box(cv, 'prog_worn', ['WORN'], (80, 58, 120, 72), fg=BY if flush else WH)
-    box = (4, 186, 130, 228)
-    if flush and t < 8.05:
-        grow_plate(cv, box, 0.6)
-    elif flush:
-        text_box(cv, 'prog_caption', ['FLUSH = AT THE', 'LEGAL MINIMUM', 'WHERE YOU LIVE'], box, lead=4)
-    if 7.97 <= t < 8.04:
-        cv = np.roll(cv, 1, axis=0)
+    cv = haze_bg(t, k)
+    wear = [w for ts, w in WEAR_STEPS if t >= ts - 1e-6][-1]
+    flush = f >= FLUSH_F
+    for (cx, cy), wv in zip(PROG_C, (0.0, wear)):
+        R(cv, cx - 26, cy + 31, cx + 26, cy + 32, ASPD)
+        put_tyre(cv, tyre_clean(PROG_N, True, PROG_D, PROG_HB, wv, pulse=k % 2, nb=PROG_NB), cx, cy)
+    cx, cy = PROG_C[1]
+    bx, by = bar_xy(PROG_N, cx, cy, PROG_D, PROG_HB)
+    if f == FLUSH_F:                                                # the one-frame white flash
+        spr = tyre_clean(PROG_N, True, PROG_D, PROG_HB, 1.0, nb=PROG_NB)
+        ys, xs = np.nonzero(spr != T)
+        y0, x0 = cy - spr.shape[0] // 2, cx - spr.shape[1] // 2
+        cv[np.clip(y0 + ys, 0, H - 1), np.clip(x0 + xs, 0, W - 1)] = WH
+    for (tx, ty) in PROG_C:                                         # bar-top level guide on both tyres
+        if f == FLUSH_F and tx == cx:
+            continue
+        _, tby = bar_xy(PROG_N, tx, ty, PROG_D, PROG_HB)
+        ly = tby - PROG_HB // 2 - 1
+        for x in range(tx - 14, tx + 15, 3):
+            R(cv, x, ly, x + 1, ly, WH if (flush or tx != cx) else GLH)
+    text_box(cv, 'prog_new', ['NEW'], (4, 62, 61, 84), size=16)
+    text_box(cv, 'prog_worn', ['WORN'], (64, 62, 133, 84), size=16, fg=BY if flush else WH)
+    if t >= FLUSH_T + 0.1:
+        text_box(cv, 'prog_caption', ['FLUSH = AT THE', 'LEGAL MINIMUM', 'WHERE YOU LIVE'], (4, 186, 130, 228), lead=4)
     return cv
 
 
@@ -1464,9 +1545,6 @@ def scene_payoff(f):
     for i, (t0, name, lines, icon) in enumerate(rows):
         y = 12 + i * 38
         if t < t0:
-            continue
-        if t < t0 + 0.1:
-            grow_plate(cv, (4, y, 130, y + 31), 0.5)
             continue
         R(cv, 4, y, 130, y + 31, B2)
         R(cv, 5, y + 1, 129, y + 30, K)
@@ -1483,39 +1561,27 @@ def scene_end(f):
     pose = ('wave1' if k % 2 else 'wave2') if t >= 11.5 else None
     car_layer(cv, t, k, mouth(f), pose)
     text_box(cv, 'end_question', ['HAVE YOU EVER', 'LOOKED FOR', 'YOURS?'], (8, 8, 126, 52))
-    yes, no = (10, 60, 62, 84), (72, 60, 124, 84)
-    if t < 11.07:
-        grow_plate(cv, yes, 0.5, border=TL); grow_plate(cv, no, 0.5, border=MG)
-    else:
-        picked = t >= 11.75
-        text_box(cv, 'poll_yes', ['YES'], yes, border=TL, bg=K if not picked else B0)
-        text_box(cv, 'poll_no', ['NO'], no, border=MG)
-        for (x0, y0, x1, y1), c in ((yes, TL), (no, MG)):
-            R(cv, x0 + 4, y0 + 8, x0 + 9, y0 + 13, c); R(cv, x0 + 5, y0 + 9, x0 + 8, y0 + 12, K)
-        if picked:
-            R(cv, yes[0] + 5, yes[1] + 9, yes[0] + 8, yes[1] + 12, BY)
-        if t >= 11.3:
-            cx = [(110, 112), (80, 98), (56, 86), (40, 78)][min(3, int((t - 11.3) / 0.12))]
-            blit(cv, CURSOR, cx[0] - 10, cx[1] - 4)
-    if t >= 12.0:                           # NEXT EPISODE card, final 1.0 s only (slides in from the right)
-        x = [96, 40, 0][min(2, int((t - 12.0) / 0.07))]
-        y = 92
-        R(cv, 6 + x, y, 128 + x, y + 50, B2)
-        R(cv, 7 + x, y + 1, 127 + x, y + 49, K)
-        R(cv, 7 + x, y + 1, 127 + x, y + 3, MG)
-        if x == 0:
-            text_box(cv, 'next_title', ['NEXT EPISODE'], (10, y + 7, 124, y + 22), border=K)
-            text_box(cv, 'next_follow', ['FOLLOW'], (40, y + 27, 94, y + 44), border=TL, fg=WH)
+    yes, no = (4, 58, 66, 86), (69, 58, 131, 86)
+    picked = t >= 11.75
+    text_box(cv, 'poll_yes', ['YES'], yes, size=16, border=BY if picked else TL, fg=BY if picked else WH)
+    text_box(cv, 'poll_no', ['NO'], no, size=16, border=MG)
+    if t >= 11.3:
+        cx = [(110, 100), (80, 90), (56, 82), (38, 76)][min(3, int((t - 11.3) / 0.12))]
+        blit(cv, CURSOR, cx[0] - 2, cx[1] - 2)
+    if t >= 12.0:                                    # NEXT EPISODE card, final 1.0 s only (pops in whole)
+        text_box(cv, 'next_card', ['NEXT EPISODE', 'FOLLOW'], (6, 96, 128, 128), border=MG)
     return cv
 
 
 def frame_idx(f):
-    t = KEY_OF[f] / FPS
     k = KEY_OF[f]
+    t = k / FPS
     if t < 3.0:
         return scene_hook(k)
+    if t < 5.0:
+        return scene_zoom(k)
     if t < 6.0:
-        return scene_reveal(k)
+        return scene_tread(k)
     if t < 9.0:
         return scene_progress(k)
     if t < 11.0:
@@ -1554,7 +1620,7 @@ def encode(out):
     cmd = ['ffmpeg', '-v', 'error', '-y', '-i', str(master)]
     cmd += ['-i', str(mix)] if mix.exists() else ['-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=mono']
     cmd += ['-map', '0:v', '-map', '1:a', '-vf', 'scale=flags=neighbor+full_chroma_inp,format=yuv420p',
-            '-c:v', 'libx264', '-preset', 'slow', '-tune', 'animation', '-crf', '13', *color, '-r', str(FPS),
+            '-c:v', 'libx264', '-preset', 'slow', '-tune', 'animation', '-crf', '12', *color, '-r', str(FPS),
             '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-t', f'{DUR:.3f}', '-movflags', '+faststart', str(final)]
     if subprocess.run(cmd).returncode:
         raise SystemExit('final encode failed')

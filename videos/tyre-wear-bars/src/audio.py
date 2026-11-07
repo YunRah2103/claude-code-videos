@@ -27,7 +27,7 @@ SLOTS = [
 LEAD = 0.03         # VO starts this long after the slot start
 LATE_OK = 0.12      # a line may start up to this late (verify allows 0.15)
 GAP_MIN = 0.07      # shortest pause kept inside a line
-SFX_CUES = [('ping', 1.5), ('click', 7.97), ('blip', 11.0)]
+SFX_CUES = [('ping', 1.5), ('click', 7.70), ('blip', 11.0)]
 
 
 def gaps(x, sr, thr=0.012, hop_s=0.01, min_s=0.12):
