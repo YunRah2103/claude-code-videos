@@ -322,29 +322,24 @@ def stand(expr, pose):
 
 @lru_cache(None)
 def crouch(expr, pose):
+    """Front-view squat: full torso to the waist, thighs out to wide knees, shins down to the shoes."""
     g = stand(expr, pose)
-    s = np.full((54, 48), T, np.uint8)
-    s[:40] = g[:40]
-    # knees up and spread (jeans), hands stay in front
-    for x0, x1 in ((13, 23), (25, 35)):
-        R(s, x0, 35, x1, 43, R1)
-        R(s, x0 + 1, 35, x1 - 1, 35, R2)
-        R(s, x0, 36, x0 + 1, 36, R2)
-        R(s, x1, 38, x1, 43, R0)
-        R(s, x0, 42, x1, 43, R0)
-        for x, y in ((x0, 35), (x1, 35), (x0, 43), (x1, 43)):
-            s[y, x] = T
-    R(s, 23, 41, 24, 43, R0)
-    for x0, x1 in ((15, 21), (27, 33)):
-        R(s, x0, 44, x1, 48, R1)
-        R(s, x1 - 1, 44, x1, 48, R0)
-    for x0, x1 in ((11, 21), (27, 37)):
-        R(s, x0, 49, x1, 51, WH)
-        R(s, x0, 51, x1, 51, GY)
-        R(s, x0 + 1, 49, x0 + 3, 49, GY)
-    hands = g[:46] == SK
-    hands[:35] = False
-    s[:46][hands] = SK
+    s = np.full((57, 48), T, np.uint8)
+    s[:44] = g[:44]
+    R(s, 16, 44, 31, 46, R1); R(s, 16, 44, 31, 44, K)                # waistband + seat
+    R(s, 22, 46, 25, 48, R0)                                         # crotch shadow
+    for (hx, hy), (kx, ky) in (((19, 46), (8, 49)), ((28, 46), (39, 49))):
+        for x, y in pix._line((hx, hy), (kx, ky)):                   # thighs out to the knees
+            R(s, x - 2, y - 1, x + 2, y + 2, R1)
+        R(s, kx - 2, ky - 2, kx + 2, ky - 2, R2)                     # knee highlight (warm)
+        sx = kx + (2 if kx < 24 else -2)
+        for x, y in pix._line((kx, ky), (sx, 53)):                   # shins
+            R(s, x - 2, y, x + 1, y, R1)
+            P(s, x + (1 if kx < 24 else -2), y, R0)                  # cool shadow side
+        R(s, sx - 4, 53, sx + 4, 55, WH); R(s, sx - 4, 55, sx + 4, 55, GY); R(s, sx - 3, 53, sx - 1, 53, GY)
+    hands = g[:50] == SK                                             # hands stay in front of the knees
+    hands[:40] = False
+    s[:50][hands] = SK
     return outline(s)
 
 # ------------------------------------------------------------------ the car (side view, faces right)
@@ -1369,7 +1364,7 @@ def scene_hook(f):
                 P(cv, bx + sx, by + sy, BY)
     blit(cv, ARROW_DN, bx - 4, by - 18 + (k % 2))
     pose = 'point' if t >= 1.3 else 'talkR'
-    blit(cv, crouch(mouth(f), pose), 0, cy + 44 - 54)
+    blit(cv, crouch(mouth(f), pose), 0, cy + 44 - 57)
     text_box(cv, 'hook_headline', ['HIDDEN'], (14, 8, 120, 31), size=16)
     text_box(cv, 'hook_headline_2', ['BAR'], (38, 33, 96, 56), size=16, fg=BY if t >= 1.5 and k % 2 else WH)
     if 1.5 <= t < 1.6:
