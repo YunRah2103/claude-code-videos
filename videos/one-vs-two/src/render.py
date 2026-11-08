@@ -237,7 +237,7 @@ def draw_fx(e, age, c, g, v, tr):
     k = v.k; kw = e.kw; u = age/e.d
     acc = hexc(kw.get('col', '#ffffff')); kind = e.kind
     if kind in ('impact', 'spark'):
-        big = kind == 'impact'; x, y = v.ws(kw['x'], kw['y']); sz = kw.get('size', 1.0)*k*(1 if big else 0.6)
+        big = kind == 'impact'; x, y = v.ws(kw['x'], kw['y']); sz = kw.get('size', 1.0)*min(k, 2.2*SS)*(1 if big else 0.6)
         if age < 0.12:
             s = 1 - age/0.12; rr = 46*sz*(0.6 + 0.8*(1-s))
             c.drawCircle(x, y, rr, PT((255, 255, 255), 255, shader=radial(x, y, rr, [((255, 255, 255), int(255*s)), ((255, 255, 255), int(190*s)), (acc, 0)], [0, 0.35, 1])))
@@ -523,7 +523,7 @@ def frame(fi):
     v = View(CAM.at(ta, tr))
     HERO.look['eyeglow'] = ta >= 17.3
     arr = np.zeros((HO, WO, 4), np.uint8); c = skia.Surface(arr).getCanvas()
-    garr = np.zeros((HO//2, WO//2, 4), np.uint8); g = skia.Surface(garr).getCanvas(); g.scale(0.5, 0.5)
+    garr = np.zeros((HO//2, WO//2, 4), np.uint8); g = skia.Surface(garr, colorType=skia.kRGBA_8888_ColorType, alphaType=skia.kPremul_AlphaType).getCanvas(); g.scale(0.5, 0.5)
     draw_bg(c, g, v, tr)
     for kind, t0, dd, amt in POSTR:
         if kind == 'dark' and 0 <= tr - t0 < dd:
