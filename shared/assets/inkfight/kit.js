@@ -111,7 +111,7 @@ K.drawGuyHead = (c, h, p, s, o = {}) => {
   c.fillStyle = P.hair; c.beginPath();
   c.ellipse(hx, -r * .42, r * 1.06, r * .7, 0, Math.PI, 0); c.fill();
   c.beginPath(); c.ellipse(hx - f * r * .45 * (1 - tu), -r * .12, r * .55, r * .5, 0, 0, 7); c.fill();
-  for (let i = 0; i < 5; i++) { const a = -2.6 + i * .5; c.beginPath(); c.ellipse(hx + Math.cos(a) * r * .86, -r * .4 + Math.sin(a) * r * .62, r * .3, r * .2, a + 1.3, 0, 7); c.fill(); }
+  const lg = o.lag || [0, 0]; for (let i = 0; i < 5; i++) { const a = -2.6 + i * .5, w = .25 + i * .12; c.beginPath(); c.ellipse(hx + Math.cos(a) * r * .86 + lg[0] * w, -r * .4 + Math.sin(a) * r * .62 + lg[1] * w, r * .3, r * .2, a + 1.3, 0, 7); c.fill(); }   // tufts trail the motion
   c.beginPath(); c.moveTo(hx - r * .2, -r * 1.0); c.quadraticCurveTo(hx + r * .2, -r * 1.42, hx + r * .5, -r * 1.12); c.quadraticCurveTo(hx + r * .2, -r * 1.12, hx - r * .2, -r * 1.0); c.fill();
   // fringe edge
   c.beginPath(); c.moveTo(-r * .95, -r * .25); c.quadraticCurveTo(0, -r * .62, r * .95, -r * .3); c.lineTo(r * .9, -r * .7); c.lineTo(-r * .9, -r * .7); c.fill();
@@ -401,4 +401,120 @@ K.poll = (c, x, y, u, pick) => {
   if (u >= 1) { K.boxes.push({ s: 'YES', x: x + 32, y: y + 40, w: 250, h: 140 }); K.boxes.push({ s: 'NO', x: x + 318, y: y + 40, w: 250, h: 140 }); }
 };
 window.K = K;
+})();
+// ===================== v2 solid flat fighters + layered street (seatbelt-fight v4) =====================
+(function () {
+const K = window.K, D = Math.PI / 180;
+const tap = (c, a, b, wa, wb, col) => {   // tapered limb with round ends (wa, wb = half widths)
+  const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
+  c.fillStyle = col; c.beginPath(); c.moveTo(a[0] + nx * wa, a[1] + ny * wa); c.lineTo(b[0] + nx * wb, b[1] + ny * wb);
+  c.arc(b[0], b[1], wb, Math.atan2(ny, nx), Math.atan2(ny, nx) + Math.PI, true); c.lineTo(a[0] - nx * wa, a[1] - ny * wa);
+  c.arc(a[0], a[1], wa, Math.atan2(-ny, -nx), Math.atan2(-ny, -nx) + Math.PI, true); c.closePath(); c.fill(); };
+const disc = (c, p, r, col) => { c.fillStyle = col; c.beginPath(); c.arc(p[0], p[1], r, 0, 7); c.fill(); };
+const shoe2 = (c, k, f, s, top, sole) => { c.save(); c.translate(k[0], k[1]); c.scale(f * s, s);
+  c.fillStyle = top; c.beginPath(); c.moveTo(-16, -18); c.quadraticCurveTo(-18, 4, -12, 8); c.lineTo(44, 8); c.quadraticCurveTo(52, 6, 50, -2); c.quadraticCurveTo(40, -16, 14, -20); c.closePath(); c.fill();
+  c.fillStyle = sole; c.beginPath(); c.roundRect(-14, 4, 66, 10, 5); c.fill(); c.restore(); };
+K.PAL2 = {
+  guy: { skin: '#9a6440', skinF: '#7d4f33', tee: '#f5f2ec', teeF: '#d3d0ca', teeS: '#e2dfd8', shorts: '#191b22', shortsF: '#0f1015', shoe: '#f7f7f2', shoeF: '#d2d2cc', sole: '#15171c', rim: 'rgba(255,196,130,.55)' },
+  rival: { skin: '#84201f', skinF: '#5b1416', tee: '#84201f', teeF: '#5b1416', teeS: '#84201f', shorts: '#6e1a1b', shortsF: '#4a1012', shoe: '#6e1a1b', shoeF: '#4a1012', sole: '#320a0b', rim: 'rgba(255,140,120,.35)' },
+};
+// o: { kind:'guy'|'rival', lag:[x,y] (secondary motion px), mouth, blink, brow, thumb, smear:{prev joints} }
+K.drawFighter = (c, p, o = {}) => {
+  const J = K.joints(p), P = K.PAL2[o.kind || 'guy'], s = J.s, f = J.f, G = (o.kind || 'guy') === 'guy', lag = o.lag || [0, 0];
+  const W = { up: 15 * s, upE: 12 * s, fo: 12 * s, foE: 10 * s, hand: 15 * s, th: 21 * s, thE: 16 * s, sh: 15 * s, shE: 11 * s };
+  const sm = o.smear;
+  const smearSeg = (a, b, a0, b0, col) => { if (!a0) return; const d = Math.hypot(b[0] - b0[0], b[1] - b0[1]); if (d < 40 * s) return;
+    c.save(); c.globalAlpha = Math.min(.6, d / (220 * s)); c.fillStyle = col; c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); c.lineTo(b0[0], b0[1]); c.lineTo(a0[0], a0[1]); c.closePath(); c.fill(); c.restore(); };
+  // far leg
+  tap(c, J.hip, J.kb, W.th, W.thE, P.shortsF); tap(c, J.kb, J.fb, W.sh, W.shE, P.skinF); disc(c, J.kb, W.thE * .95, P.skinF);
+  shoe2(c, J.fb, f, s, P.shoeF, P.sole);
+  // far arm
+  if (sm) smearSeg(J.eb, J.hb, sm.eb, sm.hb, P.skinF);
+  tap(c, J.chest, J.eb, W.up, W.upE, P.skinF); tap(c, J.eb, J.hb, W.fo, W.foE, P.skinF); disc(c, J.hb, W.hand, P.skinF);
+  tap(c, J.chest, [K.lerp(J.chest[0], J.eb[0], .4), K.lerp(J.chest[1], J.eb[1], .4)], W.up * 1.35, W.up * 1.25, P.teeF);
+  // torso: tee with hem flutter (overlapping action), shorts block
+  const ux = J.chest[0] - J.hip[0], uy = J.chest[1] - J.hip[1], L = Math.hypot(ux, uy) || 1, nx = -uy / L, ny = ux / L;
+  const hw = 27 * s, cw = 33 * s, hem = [J.hip[0] + ux * .08 + lag[0] * .6, J.hip[1] + uy * .08 + lag[1] * .6];
+  c.fillStyle = P.tee; c.beginPath();
+  c.moveTo(hem[0] + nx * hw * 1.05, hem[1] + ny * hw * 1.05); c.lineTo(J.chest[0] + nx * cw, J.chest[1] + ny * cw);
+  c.quadraticCurveTo(J.chest[0] + ux * .12, J.chest[1] + uy * .12, J.chest[0] - nx * cw, J.chest[1] - ny * cw);
+  c.lineTo(hem[0] - nx * hw * 1.05, hem[1] - ny * hw * 1.05); c.quadraticCurveTo(hem[0] - ux * .06, hem[1] - uy * .06, hem[0] + nx * hw * 1.05, hem[1] + ny * hw * 1.05); c.fill();
+  if (G) { c.strokeStyle = P.teeS; c.lineWidth = 4 * s; c.beginPath(); c.moveTo(J.chest[0] - nx * cw * .2 - ux * .35, J.chest[1] - ny * cw * .2 - uy * .35); c.lineTo(J.chest[0] - nx * cw * .5 - ux * .75, J.chest[1] - ny * cw * .5 - uy * .75); c.stroke(); }
+  disc(c, [J.hip[0] - ux * .02, J.hip[1] - uy * .02], 29 * s, P.shorts);
+  // near leg: shorts to just above the knee, then skin
+  const kneeTop = [K.lerp(J.hip[0], J.ka[0], .86), K.lerp(J.hip[1], J.ka[1], .86)];
+  tap(c, J.ka, J.fa, W.sh, W.shE, P.skin); disc(c, J.ka, W.thE * .95, P.skin);
+  const hemL = [kneeTop[0] + lag[0] * .3, kneeTop[1] + lag[1] * .3];
+  tap(c, J.hip, hemL, W.th * 1.05, W.thE * 1.15, P.shorts);
+  shoe2(c, J.fa, f, s, P.shoe, P.sole);
+  // neck + head
+  tap(c, J.chest, [K.lerp(J.chest[0], J.head[0], .55), K.lerp(J.chest[1], J.head[1], .55)], 11 * s, 11 * s, P.skin);
+  if (G) K.drawGuyHead(c, J.head, Object.assign({}, p, { face: J.f }), s, Object.assign({ rim: null }, o, { lag }));
+  else { disc(c, J.head, K.BODY.head * s, P.skin); c.strokeStyle = P.rim; c.lineWidth = 6 * s; c.beginPath(); c.arc(J.head[0], J.head[1], K.BODY.head * s * .86, -1.3, -.2); c.stroke(); }
+  // near arm
+  if (sm) smearSeg(J.ea, J.ha, sm.ea, sm.ha, P.skin);
+  tap(c, J.chest, J.ea, W.up, W.upE, P.skin); tap(c, J.ea, J.ha, W.fo, W.foE, P.skin); disc(c, J.ea, W.upE * .9, P.skin); disc(c, J.ha, W.hand, P.skin);
+  if (o.thumb) tap(c, J.ha, [J.ha[0], J.ha[1] - 30 * s], 6 * s, 6 * s, P.skin);
+  tap(c, J.chest, [K.lerp(J.chest[0], J.ea[0], .42), K.lerp(J.chest[1], J.ea[1], .42)], W.up * 1.4, W.up * 1.3, P.tee);
+  return J;
+};
+// ---------- layered dusk street: 6 flat layers with parallax + per-layer blur ----------
+K.buildStreet2 = (x0, x1) => {
+  const r = K.rng(7), mk = (w, h) => { const cv = document.createElement('canvas'); cv.width = w; cv.height = h; return cv; };
+  const blurCopy = (cv, px) => { const o = mk(cv.width, cv.height), x = o.getContext('2d'); x.filter = `blur(${px}px)`; x.drawImage(cv, 0, 0); return o; };
+  const L = {};
+  // far skyline (parallax .15), drawn at 1/2 scale
+  { const p = .15, w = Math.ceil((x1 - x0) * p + 2400), cv = mk(w / 2, 700), g = cv.getContext('2d'); let x = 0;
+    while (x < cv.width) { const bw = 40 + r() * 70, bh = 120 + r() * 300; g.fillStyle = '#5e4a86'; g.fillRect(x, 700 - bh, bw, bh);
+      if (r() < .25) g.fillRect(x + bw * .45, 700 - bh - 40, 5, 40);
+      g.fillStyle = 'rgba(255,214,160,.55)'; for (let yy = 700 - bh + 14; yy < 690; yy += 22) for (let xx = x + 8; xx < x + bw - 8; xx += 16) if (r() < .18) g.fillRect(xx, yy, 6, 8);
+      x += bw + 2; }
+    L.far = { cv: blurCopy(cv, 3), p, x0: -1200, y: -2450, s: 2 }; }
+  // mid buildings / shopfronts (parallax .45)
+  { const p = .45, w = Math.ceil((x1 - x0) * p + 3000), cv = mk(w / 2, 800), g = cv.getContext('2d'); let x = 0;
+    const cols = ['#3b3266', '#43386f', '#352e5c'];
+    while (x < cv.width) { const bw = 120 + r() * 160, bh = 360 + r() * 360; g.fillStyle = cols[Math.floor(r() * 3)]; g.fillRect(x, 800 - bh, bw, bh);
+      g.fillStyle = '#2a2450'; g.fillRect(x, 800 - bh, bw, 10);
+      for (let yy = 800 - bh + 40; yy < 640; yy += 54) for (let xx = x + 18; xx < x + bw - 30; xx += 44) { const lit = r() < .45; g.fillStyle = lit ? 'rgba(255,200,130,.8)' : 'rgba(30,26,60,.9)'; g.fillRect(xx, yy, 22, 30); }
+      g.fillStyle = 'rgba(255,214,150,.35)'; g.fillRect(x + 10, 690, bw - 20, 90);                // lit shop window (no text)
+      g.fillStyle = r() < .5 ? '#7a3a5e' : '#2f5a6e'; g.fillRect(x + 6, 672, bw - 12, 16);              // awning
+      x += bw + 6 + r() * 20; }
+    L.mid = { cv: blurCopy(cv, 2), p, x0: -1600, y: -1620, s: 2 }; }
+  // near: lamp posts + small trees (parallax .75)
+  { const p = .75, w = Math.ceil((x1 - x0) * p + 3000), cv = mk(w / 2, 760), g = cv.getContext('2d');
+    for (let x = 200; x < cv.width; x += 520 + r() * 120) { g.fillStyle = '#231f3e'; g.fillRect(x, 60, 9, 700); g.beginPath(); g.moveTo(x, 66); g.quadraticCurveTo(x + 10, 30, x + 70, 34); g.lineTo(x + 70, 42); g.quadraticCurveTo(x + 14, 40, x + 9, 70); g.fill();
+      g.fillStyle = '#ffe2b0'; g.beginPath(); g.ellipse(x + 74, 44, 16, 6, 0, 0, 7); g.fill();
+      const gg = g.createRadialGradient(x + 74, 48, 2, x + 74, 48, 90); gg.addColorStop(0, 'rgba(255,200,130,.35)'); gg.addColorStop(1, 'rgba(255,200,130,0)'); g.fillStyle = gg; g.fillRect(x - 20, -40, 190, 190);
+      }
+    L.near = { cv: blurCopy(cv, 1), p, x0: -2000, y: -1500, s: 2 }; }
+  // foreground: a few big soft dark shapes (parallax 1.35)
+  { const p = 1.35, w = Math.ceil((x1 - x0) * p + 4000), cv = mk(w / 2, 500), g = cv.getContext('2d');
+    for (let x = 400; x < cv.width; x += 1500 + r() * 900) { g.fillStyle = '#0d0b1c'; if (r() < .5) { g.fillRect(x, 120, 30, 380); g.fillRect(x - 20, 110, 70, 26); } else { g.beginPath(); g.roundRect(x, 300, 90, 200, 30); g.fill(); } }
+    L.fg = { cv: blurCopy(cv, 7), p, x0: -3000, y: -380, s: 2 }; }
+  return L;
+};
+K.drawStreet2 = (c, L, cam, t) => {
+  const W = K.W, H = K.H;
+  // sky (screen-fixed gradient)
+  const g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#2a2a63'); g.addColorStop(.42, '#6b4a8c'); g.addColorStop(.62, '#d77a86'); g.addColorStop(.78, '#ffb978'); g.addColorStop(1, '#ffd8a0');
+  c.fillStyle = g; c.fillRect(0, 0, W, H);
+  const layer = (Ly) => { const z = 1 + (cam.z - 1) * Ly.p, ox = cam.x * Ly.p, oy = cam.y * Ly.p;
+    c.save(); c.translate(W / 2, H / 2); c.rotate((cam.r || 0) * Ly.p); c.scale(z, z); c.translate(-ox, -oy);
+    c.drawImage(Ly.cv, Ly.x0 - 2000, Ly.y, Ly.cv.width * Ly.s, Ly.cv.height * Ly.s); c.restore(); };
+  layer(L.far); layer(L.mid); layer(L.near);
+  // road (parallax 1): sidewalk, curb, asphalt, soft wet sheen, lane dashes
+  c.save(); K.apply(c, cam);
+  const vw = W / cam.z, Lx = cam.x - vw - 400, Rx = cam.x + vw + 400;
+  c.fillStyle = '#4a4170'; c.fillRect(Lx, -150, Rx - Lx, 110); c.fillStyle = '#5b5185'; c.fillRect(Lx, -48, Rx - Lx, 14);
+  const rg = c.createLinearGradient(0, -34, 0, 1400); rg.addColorStop(0, '#3a3358'); rg.addColorStop(.3, '#2b2645'); rg.addColorStop(1, '#1b1830');
+  c.fillStyle = rg; c.fillRect(Lx, -34, Rx - Lx, 1600);
+  c.fillStyle = 'rgba(255,190,140,.07)'; c.fillRect(Lx, 0, Rx - Lx, 140);
+  c.fillStyle = 'rgba(235,228,212,.8)'; for (let x = Math.floor(Lx / 600) * 600; x < Rx; x += 600) c.fillRect(x, 360, 300, 16);
+  c.restore();
+};
+K.drawFg = (c, L, cam) => { const Ly = L.fg, z = 1 + (cam.z - 1) * Ly.p; c.save(); c.translate(K.W / 2, K.H / 2); c.scale(z, z); c.translate(-cam.x * Ly.p, -cam.y * Ly.p);
+  c.globalAlpha = .9; c.drawImage(Ly.cv, Ly.x0 - 3000, Ly.y + 600, Ly.cv.width * Ly.s, Ly.cv.height * Ly.s); c.restore(); };
+K.barrier2 = (c, x) => { c.save(); c.translate(x, 0); c.fillStyle = '#d6cfc4'; c.beginPath(); c.moveTo(-70, 0); c.lineTo(-48, -150); c.lineTo(48, -150); c.lineTo(70, 0); c.closePath(); c.fill();
+  c.fillStyle = '#ffd23f'; c.fillRect(-58, -112, 116, 40); c.fillStyle = '#16161e'; for (let i = -3; i < 3; i++) { c.beginPath(); c.moveTo(-58 + i * 34 + 34, -112); c.lineTo(-58 + i * 34 + 50, -112); c.lineTo(-58 + i * 34 + 34, -72); c.lineTo(-58 + i * 34 + 18, -72); c.fill(); }
+  c.fillStyle = 'rgba(0,0,0,.25)'; c.fillRect(20, -150, 28, 150); c.restore(); };
 })();

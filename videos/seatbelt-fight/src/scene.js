@@ -1,217 +1,194 @@
-// seatbelt-fight scene (inkfight kit). Rendered by shared/assets/inkfight/render.mjs. One street, one continuous camera:
-// 0-3.4 fight (dash clash, spin kick + backflip, 3-hit combo, body blow, dive kick + ground crack, fist clash shockwave)
-// 3.5-4.3 a car skids in and stops abruptly right behind him | 4.55 freeze, push into the driver's locked belt
-// 4.8 "Quick pause." | 5.7-12.7 diagrams | 12.7-15.3 time resumes: force limiter eases the driver back, thumbs up,
-// car reverses away | 15.5-18 fight resumes, last hit, "Did you know that?" + poll, back to frame 1 for the loop.
+// seatbelt-fight v4 (2D): solid flat fighters on a 6-layer parallax dusk street, drawn at 2x and downsampled.
+// 0-3 fight (wide + big close-ups, one full-frame flash on the finishing back kick) | 2.78-3.55 knocked flying, whip pan,
+// dives into the parked car | 3.6-4.0 seated, buckles up | 4.0 launch | 5.0 hits the barrier: flash, freeze, record scratch,
+// push in to the locked belt | 5.25 "Quick pause." | 6.1-13.1 explainer (he keeps gesturing, slow push-in)
+// 13.1 time resumes: force limiter, airbag, he's fine | 16.2 whip pan back to the street | 16.55 last hit | 16.9 question + poll | 18 = frame 1.
 (function () {
-const S = {}; let ctx, wc, wx, street, post, WORDS = [], LOUD = [];
-const G0 = { x: -190, y: 0, face: 1, lean: 8, head: -6, a1: 38, a2: 112, b1: 58, b2: 118, l1: 24, l2: -20, m1: -18, m2: 14, turn: 0, s: 1, sx: 1, sy: 1, rot: 0 };
-const R0 = { x: 190, y: 0, face: -1, lean: 10, head: -4, a1: 42, a2: 108, b1: 60, b2: 114, l1: 24, l2: -20, m1: -18, m2: 14, s: 1, sx: 1, sy: 1, rot: 0 };
-const BLOCK = { a1: 78, a2: 128, b1: 88, b2: 122 };
-const CROUCH = { l1: 62, l2: -110, m1: -8, m2: -74 };
-const RUN = { l1: 60, l2: -30, m1: -55, m2: -60 };
-const HS = 1 / 60, T_STOP = 4.30, T_FREEZE = 4.55, T_RESUME = 12.72;
-const STOPX = -330 - 740;                       // car centre when stopped: bumper 70 px behind him
+const S = {}; let ctx, wc, wx, L, WORDS = [], LOUD = [];
+const HS = 1 / 60, SS = 2;                       // supersampling factor
 const hold = (t, n) => [t + n * HS, {}, 'l'];
-// ---------- fighters (hand-keyed; hit-stops = held keys) ----------
+const T_IN = 3.6, T_GO = 4.0, T_CRASH = 5.0, T_FREEZE = 5.05, T_RESUME = 13.1, T_BACK = 16.2;
+const CAR0 = -2350, BARX = -7600, CRASHX = BARX + 70 + 740;
+const G0 = { x: -250, y: 0, face: 1, lean: 8, head: -4, a1: 35, a2: 115, b1: 55, b2: 120, l1: 22, l2: -18, m1: -20, m2: 12, turn: 0, rot: 0, yaw: 0, sx: 1, sy: 1, ya: 0 };
+const R0 = Object.assign({}, G0, { x: 250, face: -1, lean: 10, a1: 40, a2: 110, b1: 58, b2: 116 });
+const BLOCK = { a1: 75, a2: 128, b1: 85, b2: 122 };
+const CROUCH = { l1: 62, l2: -110, m1: -8, m2: -74 };
+// ---------- fighters: hand-keyed (anticipation slower than the strike; hit-stops are held keys) ----------
 const g = K.track([
   [0, G0],
-  [.08, Object.assign({ x: -205, lean: -12, head: 0, a1: 20, a2: 130 }, CROUCH), 'io'],                      // anticipation
-  [.22, Object.assign({ x: -70, y: -20, lean: 30, a1: 105, a2: 55, b1: 70, b2: 100 }, RUN), 'o'], hold(.22, 3), // dash + parry
-  [.36, { x: -120, y: 0, lean: -8, l1: 24, l2: -20, m1: -18, m2: 14, a1: 50, a2: 100 }, 'o'],
-  [.44, { lean: 12, sx: 1, a1: 20, a2: 120, b1: 20, b2: 120 }, 'io'],                                            // spin heel kick
-  [.50, { sx: 0, x: -110, y: -40, l1: 50, l2: -60 }, 'l'], [.55, { sx: -1, y: -70 }, 'l'], [.59, { sx: 0 }, 'l'],
-  [.64, { sx: 1, y: -60, lean: -32, l1: 112, l2: 0, m1: -10, m2: -20, a1: -50, a2: 20, b1: 150, b2: 10 }, 'o'],
-  [.74, Object.assign({}, G0, { x: -120, y: 0 }), 'io'],
-  [.78, Object.assign({ lean: 20, a1: 10, a2: 60, b1: -10, b2: 40 }, CROUCH), 'i'],                               // backflip dodge
-  [.88, { x: -240, y: -280, rot: 180, l1: 95, l2: -140, m1: 85, m2: -140, a1: 120, a2: 60, b1: 110, b2: 60, lean: 0 }, 'o'],
-  [1.00, Object.assign({ x: -300, y: 0, rot: 360, lean: 22, a1: 40, a2: 100, b1: 60, b2: 110 }, CROUCH), 'i'], [1.001, { rot: 0 }, 'h'],
-  [1.06, Object.assign({}, G0, { x: -290 }), 'o'],
-  [1.12, Object.assign({ x: -295, lean: -6 }, BLOCK), 'o'], hold(1.12, 2),                                     // blocks the 3-hit combo
-  [1.20, { x: -300, lean: 2 }], [1.24, { x: -310, lean: -8, head: -8 }, 'o'], hold(1.24, 2),
-  [1.32, { lean: 2 }], [1.40, { x: -335, lean: -16, head: -14 }, 'o'], hold(1.40, 2),
-  [1.52, Object.assign({ x: -340, lean: 42, head: 10, a1: 10, a2: 120, b1: 40, b2: 110 }, CROUCH), 'io'],        // dips under, coils
-  [1.64, { x: -280, lean: 30, head: 0, a1: 76, a2: 14, b1: 20, b2: 120, l1: 48, l2: -12, m1: -46, m2: 8 }, 'o'], hold(1.64, 4), // body blow
-  [1.84, { x: -270, lean: 14, a1: 60, a2: 50 }, 'o'],
-  [2.06, Object.assign({}, G0, { x: -260 })],
-  [2.28, Object.assign({ x: -265, lean: -4 }, BLOCK, CROUCH), 'io'],                                             // braces for the dive kick
-  [2.42, { x: -285, sy: .84, sx: 1.12, lean: -10, head: -14, l1: 70, l2: -120, m1: -20, m2: -90 }, 'o'], hold(2.42, 3),
-  [2.62, Object.assign({ x: -420, sy: 1, sx: 1, lean: 6 }, BLOCK, { l1: 40, l2: -40, m1: -30, m2: 0 }), 'o'],     // skids back
-  [2.72, Object.assign({ x: -400, lean: -18, a1: -10, a2: 150, b1: 70, b2: 110 }, CROUCH), 'io'],                // charge
-  [2.90, Object.assign({ x: -150, lean: 30, a1: -20, a2: 140, b1: 80, b2: 80 }, RUN), 'l'],
-  [2.98, { x: -66, lean: 26, a1: 92, a2: 2, b1: 30, b2: 120, l1: 46, l2: -12, m1: -42, m2: 8 }, 'o'], hold(2.98, 4), // fist clash
-  [3.40, { x: -255, lean: -6, a1: 60, a2: 100, l1: 30, l2: -10, m1: -30, m2: 10 }, 'o'],                       // shockwave slide
-  [3.58, Object.assign({}, G0, { x: -255 })],
-  [3.75, { turn: .55, head: 14 }, 'io'],                                                                          // hears the screech
-  [4.12, { turn: .3, head: 8 }],
-  [T_STOP, { lean: 22, head: 14, turn: .4, a1: 160, a2: 40, b1: 150, b2: 50, sx: .94, l1: 40, l2: -40 }, 'o'],     // flinch
-  [T_FREEZE, { turn: .45 }], [4.58, {}],
-  [4.84, { x: -820, turn: 1, head: 0, lean: 2, sx: 1, a1: 20, a2: 30, b1: 14, b2: 20, l1: 12, l2: -6, m1: -12, m2: 6 }, 'back'],
-  // presenter gestures: points back at the driver's belt, then talks with his hands
-  [5.6, { a1: -95, a2: 10 }, 'o'], [6.6, { a1: -80, a2: 30 }], [7.3, { a1: 40, a2: 90, b1: 30, b2: 80 }],
-  [8.1, { a1: -100, a2: 5, b1: 14, b2: 20 }, 'o'], [9.2, { a1: 50, a2: 100 }], [9.9, { a1: -90, a2: 20 }, 'o'],
-  [10.8, { a1: 45, a2: 95, b1: 35, b2: 90 }], [11.6, { a1: -95, a2: 10, b1: 14, b2: 20 }, 'o'], [12.5, { a1: 20, a2: 30 }],
-  [13.2, { turn: .2, head: 10 }], [14.35, { a1: 160, a2: 30 }, 'back'],                                            // thumbs up back
-  [14.9, { a1: 120, a2: 80 }], [15.1, { a1: 150, a2: 30 }], [15.3, { a1: 120, a2: 80 }],                           // waves the car off
-  [15.55, Object.assign({}, G0, { x: -255 }), 'io'],
-  [15.78, Object.assign({ x: -270, lean: -14, a1: 18, a2: 140 }, CROUCH), 'io'],
-  [16.05, Object.assign({ x: -170, lean: 30, a1: -10, a2: 140 }, RUN), 'l'],
-  [16.15, { x: -140, lean: 26, a1: 70, a2: 2, b1: 30, b2: 120, l1: 46, l2: -12, m1: -42, m2: 8, head: -4 }, 'o'], hold(16.15, 4),
-  [16.32, { lean: 10, a1: 55, a2: 60 }, 'o'],
-  [16.55, { x: -160, lean: 0, head: 0, turn: 1, a1: 40, a2: 90, b1: 22, b2: 40, l1: 12, l2: -6, m1: -12, m2: 6 }, 'io'],
-  [16.8, { a1: 48, a2: 100 }], [17.1, { a1: 40, a2: 90 }], [17.45, {}],
-  [17.62, { turn: 0 }, 'io'], [17.92, Object.assign({}, G0)], [18.2, Object.assign({}, G0)],
+  [.25, { x: -232, lean: 12, l1: 30, l2: -24 }, 'io'],                                                   // weight onto the front foot
+  [.38, { x: -244, lean: -2, head: -8, l1: 22, l2: -18 }, 'io'],
+  [.46, { lean: -16, head: -18, a1: 62, a2: 122, b1: 72, b2: 120 }, 'o'],                                // slips the jab
+  [.62, Object.assign({}, G0, { x: -236, lean: 4 }), 'io'], [.70, { lean: 8 }, 'io'],                    // overshoot + settle
+  [.80, { lean: 0, a1: 20, a2: 132, l1: 26, l2: -26 }, 'io'],                                             // cocks the jab
+  [.86, { x: -150, lean: 24, a1: 88, a2: 6, l1: 40, l2: -10, m1: -36, m2: 6 }, 'o'], hold(.86, 2),       // jab (blocked)
+  [1.0, Object.assign({}, G0, { x: -170, lean: 6 }), 'io'],
+  [1.28, { x: -180, lean: -22, l1: 96, l2: -126, m1: -14, m2: 6, a1: 62, a2: 104, b1: -18, b2: 60 }, 'io'], // slow chamber
+  [1.40, { x: -120, lean: -30, l1: 98, l2: -2, m1: -6, m2: -8, a1: -38, a2: 30, b1: 118, b2: 22 }, 'o'], hold(1.40, 3), // roundhouse
+  [1.58, { l1: 62, l2: -104, lean: -4, a1: 40, a2: 110, b1: 55, b2: 120 }, 'io'],
+  [1.74, Object.assign({}, G0, { x: -130, lean: 12 }), 'io'], [1.84, { lean: 8 }, 'io'],
+  [1.97, { x: -120, lean: 14 }],
+  [2.07, Object.assign({ x: -110, lean: 38, head: 12, a1: 30, a2: 130, b1: 40, b2: 120 }, CROUCH), 'o'],  // ducks the hook
+  [2.18, { lean: 30, a1: 10, a2: 140 }, 'io'],
+  [2.28, { y: -14, lean: 2, head: -6, a1: 166, a2: 18, l1: 26, l2: -10, m1: -24, m2: 6 }, 'o'], hold(2.28, 2), // uppercut (blocked)
+  [2.44, Object.assign({}, G0, { x: -112, lean: 4 }), 'io'], [2.52, { lean: 8 }, 'io'],
+  [2.66, Object.assign({ x: -116, lean: 4 }, BLOCK), 'io'],
+  [2.78, { x: -128, lean: -34, head: -20, sx: .92, sy: 1.05 }, 'o'], hold(2.78, 3),                       // takes the back kick
+  [2.78 + 3 * HS + .001, { ya: 272 }, 'h'],
+  [3.04, { x: -760, ya: 470, sx: 1, sy: 1, lean: -55, head: -12, l1: 34, l2: -40, m1: 10, m2: -60, a1: 150, a2: 30, b1: 125, b2: 40 }, 'o'],
+  [3.16, { x: -1120, ya: 520, lean: -20, l1: 70, l2: -110, m1: 60, m2: -110, a1: 90, a2: 70, b1: 90, b2: 70 }, 'io'],
+  [3.28, { x: -1520, ya: 530, yaw: 180, lean: 60, head: -10, a1: 165, a2: 5, b1: 160, b2: 5, l1: -20, l2: -10, m1: -12, m2: -20 }, 'io'], // turns to dive
+  [3.56, { x: -2330, ya: 430, lean: 86, head: -14, sx: 1.08, sy: .94 }, 'i'],
+  [T_IN, { ya: 0 }, 'h'],
+  [16.16, Object.assign({}, G0, { x: -760, lean: 28, a1: -10, a2: 130, b1: 90, b2: 70, l1: 60, l2: -40, m1: -50, m2: -50 })],
+  [16.42, { x: -240, l1: -30, l2: -40, m1: 50, m2: -50, a1: 12, a2: 140, lean: 20 }, 'l'],
+  [16.55, { x: -40, lean: 26, a1: 82, a2: 4, b1: 30, b2: 120, l1: 46, l2: -12, m1: -42, m2: 8, head: -4 }, 'o'], hold(16.55, 3),
+  [16.72, { lean: 10, a1: 55, a2: 60 }, 'io'],
+  [16.95, { x: -150, lean: 0, head: 0, turn: 1, a1: 30, a2: 70, b1: 22, b2: 40, l1: 12, l2: -6, m1: -12, m2: 6 }, 'io'],
+  [17.2, { a1: 60, a2: 100 }], [17.5, {}],
+  [17.62, { turn: 0 }, 'io'], [17.93, Object.assign({}, G0)], [18.2, Object.assign({}, G0)],
 ]);
 const r = K.track([
   [0, R0],
-  [.08, Object.assign({ x: 215, lean: -10, a1: 30, a2: 120 }, CROUCH), 'io'],
-  [.22, { x: 60, y: -120, lean: 12, l1: 100, l2: -135, m1: -30, m2: -60, a1: -30, a2: 40, b1: 150, b2: 20 }, 'o'], hold(.22, 3), // flying knee
-  [.36, Object.assign({}, R0, { x: 175 }), 'o'],
-  [.52, Object.assign({ x: 150, lean: 62, head: 12, a1: 30, a2: 120 }, { l1: 80, l2: -112, m1: -40, m2: -80 }), 'o'], // ducks the heel
-  [.72, { lean: 46, a1: -20, a2: 130 }, 'io'],
-  [.84, { x: 30, y: -70, lean: -10, head: -8, a1: 172, a2: 12, l1: 26, l2: -10, m1: -26, m2: 6 }, 'o'],             // rising uppercut (whiffs)
-  [1.00, Object.assign({}, R0, { x: 60 }), 'io'],
-  [1.12, { x: 30, lean: 22, a1: 92, a2: 2 }, 'o'], hold(1.12, 2), [1.20, { a1: 45, a2: 100, lean: 10 }],       // jab
-  [1.24, { lean: 24, b1: 96, b2: 2 }, 'o'], hold(1.24, 2), [1.32, { b1: 60, b2: 114, lean: 8, x: 40 }],        // jab
-  [1.40, { x: 20, lean: 30, a1: 100, a2: 70, sx: .9 }, 'o'], hold(1.40, 2),                                      // hook
-  [1.52, { lean: 18, sx: 1 }],
-  [1.64, { x: 40, lean: 56, head: 22, sx: .85, sy: 1.04, a1: 10, a2: 40, b1: 20, b2: 30 }, 'o'], hold(1.64, 4),   // doubled over
-  [1.95, Object.assign({ x: 360, lean: 30, head: 10, sx: 1, sy: 1 }, CROUCH), 'o'],                                // slides back
-  [2.08, Object.assign({ x: 330, lean: 24, a1: 20, a2: 110 }, CROUCH), 'io'],
-  [2.26, { x: 120, y: -460, lean: -16, l1: 100, l2: -130, m1: 30, m2: -110, a1: 150, a2: 30, b1: 130, b2: 40 }, 'o'], // leap
-  [2.42, { x: -110, y: -170, lean: -42, l1: 52, l2: 0, m1: -20, m2: -60, a1: 170, a2: 0 }, 'i'], hold(2.42, 3),   // dive kick
-  [2.56, { x: 120, y: -330, rot: 200, l1: 90, l2: -140, m1: 80, m2: -140 }, 'o'],                                // backflips away
-  [2.70, Object.assign({ x: 560, y: 0, rot: 360, lean: 20, a1: 20, a2: 130 }, CROUCH), 'o'], [2.701, { rot: 0 }, 'h'],
-  [2.90, Object.assign({ x: 330, lean: 30, a1: -20, a2: 140, b1: 80, b2: 80 }, RUN), 'l'],
-  [2.98, { x: 410, lean: 26, a1: 92, a2: 2, b1: 30, b2: 120, l1: 46, l2: -12, m1: -42, m2: 8 }, 'o'], hold(2.98, 4),
-  [3.40, { x: 660, lean: -6, a1: 60, a2: 100, l1: 30, l2: -10, m1: -30, m2: 10 }, 'o'],
-  [3.6, Object.assign({}, R0, { x: 660 })], [T_RESUME, {}], [15.5, {}],
-  [15.78, Object.assign({ x: 640, lean: -10 }, CROUCH), 'io'], [16.05, Object.assign({ x: 290, lean: 28, a1: 92, a2: 40 }, RUN), 'l'],
-  [16.15, Object.assign({}, R0, { x: 205, lean: -30, head: -26, sx: .9, sy: 1.06 }), 'o'], hold(16.15, 4),
-  [16.40, { x: 560, y: -170, rot: -140, sx: 1, sy: 1, l1: 80, l2: -90, m1: 60, m2: -100, a1: 160, a2: 20, b1: 140, b2: 30 }, 'o'],
-  [16.62, { x: 650, y: 0, rot: 0, lean: -18, head: 6, l1: 86, l2: -8, m1: 80, m2: -14, a1: -30, a2: 10, b1: -40, b2: 10 }, 'o'],
-  [17.10, { head: -6 }], [17.30, Object.assign({ lean: 30, x: 640, a1: 10, a2: 60 }, CROUCH), 'io'],
-  [17.50, { x: 420, y: -200, lean: 0, l1: 50, l2: -80, m1: 20, m2: -70, a1: 130, a2: 20, b1: 120, b2: 20 }, 'o'],
-  [17.76, Object.assign({}, R0, { x: 196 }), 'io'], [17.92, Object.assign({}, R0)], [18.2, Object.assign({}, R0)],
+  [.25, { x: 236, lean: 4 }, 'io'],
+  [.38, { x: 240, lean: 0, a1: 20, a2: 132, l1: 26, l2: -26 }, 'io'],                                     // winds the jab
+  [.46, { x: 120, lean: 24, a1: 88, a2: 4, l1: 40, l2: -10, m1: -36, m2: 6 }, 'o'],
+  [.64, Object.assign({}, R0, { x: 200, lean: 6 }), 'io'], [.74, { lean: 10 }, 'io'],
+  [.86, Object.assign({ x: 210, lean: -6 }, BLOCK), 'o'], hold(.86, 2),
+  [1.05, Object.assign({}, R0, { x: 214 }), 'io'],
+  [1.30, Object.assign({ x: 216, lean: 0 }, BLOCK), 'io'],
+  [1.40, { x: 226, lean: -18, head: -16, sx: .95 }, 'o'], hold(1.40, 3),                                 // eats the roundhouse
+  [1.62, { x: 300, lean: -8, head: -4, sx: 1, l1: 40, l2: -30, m1: -34, m2: 6 }, 'o'],                   // steps back (legs open, no slide)
+  [1.80, Object.assign({}, R0, { x: 300 }), 'io'],
+  [1.97, { x: 250, lean: 4, a1: 30, a2: 124 }, 'io'],                                                     // loads the hook
+  [2.08, { x: 130, lean: 28, a1: 98, a2: 80 }, 'o'],
+  [2.22, { lean: 8, a1: 42, a2: 108 }, 'io'],
+  [2.28, Object.assign({ x: 135, lean: -10, head: -8 }, BLOCK), 'o'], hold(2.28, 2),
+  [2.44, Object.assign({}, R0, { x: 150 }), 'io'],
+  [2.56, { x: 152, lean: 6, yaw: 70, l1: 40, l2: -60 }, 'i'],                                             // spins
+  [2.68, { yaw: 180, lean: 26, l1: -60, l2: -110, a1: 20, a2: 90, b1: 30, b2: 90 }, 'l'],
+  [2.78, { x: 140, yaw: 182, lean: 42, l1: -98, l2: -2, m1: 14, m2: -14 }, 'o'], hold(2.78, 3),           // back kick
+  [3.0, { yaw: 300, lean: 10, l1: 30, l2: -40, m1: -18, m2: 12, x: 160 }, 'io'],
+  [3.16, Object.assign({}, R0, { x: 170, yaw: 360 }), 'io'], [3.161, { yaw: 0 }, 'h'],
+  [T_RESUME, {}], [16.3, Object.assign({}, R0, { x: 210 })],
+  [16.55, { lean: -32, head: -26, sx: .94, x: 225 }, 'o'], hold(16.55, 3),
+  [16.85, { x: 640, y: -130, rot: -40, lean: -30, sx: 1, l1: 60, l2: -80, m1: 40, m2: -60, a1: 160, a2: 20, b1: 140, b2: 30 }, 'o'],
+  [17.1, { x: 760, y: 0, rot: 0, lean: -18, head: 6, l1: 86, l2: -8, m1: 80, m2: -14, a1: -30, a2: 10, b1: -40, b2: 10 }, 'o'],
+  [17.35, Object.assign({ x: 740, lean: 30, a1: 10, a2: 60 }, CROUCH), 'io'],
+  [17.6, { x: 480, y: -170, lean: 0, l1: 50, l2: -80, m1: 20, m2: -70, a1: 130, a2: 20, b1: 120, b2: 20 }, 'o'],
+  [17.82, Object.assign({}, R0, { x: 262 }), 'io'], [17.93, Object.assign({}, R0)], [18.2, Object.assign({}, R0)],
 ]);
-// driver (car-local coords, faces the car's front): neutral stickman, cap
-const DRV = { abs: 1, x: 30, y: -200, face: 1, lean: -12, head: 4, a1: 82, a2: 12, b1: 78, b2: 18, l1: 84, l2: -82, m1: 80, m2: -78, s: .9, sx: 1, sy: 1 };
-const drv = K.track([
-  [0, DRV], [4.08, {}], [4.14, { lean: -2 }], [T_STOP, { lean: 26, head: 18, a1: 98, a2: 0, b1: 92, b2: 4 }, 'o'], [T_FREEZE, { lean: 27, head: 19 }],
-  [T_RESUME, {}], [T_RESUME + .5, { lean: 31, head: 20 }, 'io'],                 // force limiter: belt pays out a little
-  [T_RESUME + 1.2, { lean: -8, head: 2 }, 'io'], [14.2, { a1: 150, a2: 30 }, 'back'], [14.75, { a1: 82, a2: 12 }], [16, {}],
+// him in the car (car-local coords, faces the car's front)
+const SIT = { abs: 1, x: 30, y: -200, face: 1, lean: -12, head: 4, a1: 82, a2: 12, b1: 78, b2: 18, l1: 84, l2: -82, m1: 80, m2: -78, s: .9, sx: 1, sy: 1, turn: 0 };
+const seat = K.track([
+  [T_IN, Object.assign({}, SIT, { y: -250, lean: 30, sy: .88 })], [T_IN + .16, SIT, 'o'],
+  [3.74, { a1: 150, a2: 60, head: -10 }, 'io'], [3.86, { a1: 60, a2: 40, head: 4 }, 'o'], [3.96, { a1: 82, a2: 12 }],    // pulls the belt across, click
+  [T_GO, {}], [T_GO + .12, { lean: -20, head: 8 }, 'o'], [4.7, { lean: -16, head: 4 }],
+  [T_CRASH, {}], [T_FREEZE, { lean: 22, head: 16, a1: 96, a2: 0, b1: 90, b2: 6 }, 'o'],
+  [5.12, {}], [5.36, { turn: 1, head: 0, lean: 6 }, 'back'],
+  [5.9, { lean: -2, a1: 60, a2: 40 }, 'io'],
+  [6.6, { a1: 105, a2: 30, head: -4 }, 'o'], [7.1, { a1: 45, a2: 70, head: 4, lean: 2 }], [7.9, { a1: 110, a2: 20, head: -5, lean: -3 }, 'o'],
+  [8.4, { a1: 50, a2: 90, head: 4 }], [9.2, { a1: 112, a2: 10, head: -6, lean: -4 }, 'o'], [9.9, { a1: 40, a2: 80, head: 5, lean: 3 }],
+  [10.6, { a1: 108, a2: 25, head: -4 }, 'o'], [11.4, { a1: 45, a2: 85, head: 4, lean: 2 }], [12.0, { a1: 110, a2: 15, head: -5, lean: -4 }, 'o'], [12.8, { a1: 82, a2: 12, head: 2, lean: 0 }],
+  [T_RESUME, { lean: -4, turn: 1 }],
+  [13.45, { lean: 26, head: 18, turn: .1 }, 'io'], [13.75, { lean: 32, head: 22 }, 'o'],
+  [14.4, { lean: -8, head: 0 }, 'io'], [14.9, { turn: .5, head: 12 }], [15.1, { head: -10 }], [15.3, { head: 10 }], [15.5, { head: 0, turn: 1 }],
+  [15.75, { a1: 150, a2: 30 }, 'back'], [16.2, {}],
 ]);
-// ---------- car: skids in from the left, stops abruptly 70 px behind him; reverses away after the explainer ----------
-const carX = t => {
-  if (t < T_STOP - .2) return STOPX - 420 - 4200 * (T_STOP - .2 - t);
-  if (t < T_STOP) { const u = (t - (T_STOP - .2)) / .2; return STOPX - 420 * (1 - u) * (1 - u); }
-  if (t < 14.85) return STOPX;
-  return STOPX - 3200 * Math.pow((t - 14.85) / .7, 2);
-};
+// ---------- car ----------
+const carX = t => t < T_GO ? CAR0 : t < T_CRASH ? CAR0 - (CAR0 - CRASHX) * Math.pow((t - T_GO) / (T_CRASH - T_GO), 1.7) : CRASHX;
 const simT = t => t >= T_FREEZE && t < T_RESUME ? T_FREEZE : t;
-const pitch = t => { t = simT(t); if (t < T_STOP - .2) return 0; if (t < T_STOP) return 4 * K.sm((t - T_STOP + .2) / .2);
-  if (t < T_RESUME) return 4 * Math.exp(-(t - T_STOP) * 7) * Math.cos((t - T_STOP) * 26);
-  if (t < 14.85) return 4 * Math.exp(-(T_FREEZE - T_STOP) * 7) * Math.cos((T_FREEZE - T_STOP) * 26) * Math.exp(-(t - T_RESUME) * 5);
-  return -1.5 * K.sm((t - 14.85) / .2); };
+const crushAt = t => K.ease.o(K.clamp((simT(t) - T_CRASH) / .06, 0, 1));
+const pitchAt = t => { const s = simT(t); if (s < T_GO) return 0; if (s < T_CRASH) return -2.2 * Math.sin(Math.min(1, (s - T_GO) / .35) * Math.PI);
+  if (s < T_RESUME) return 3 * K.ease.o(K.clamp((s - T_CRASH) / .05, 0, 1)); return 3 * Math.exp(-(s - T_RESUME) * 3) * Math.cos((s - T_RESUME) * 9); };
+const airbagAt = t => t < 13.42 ? 0 : t < 13.62 ? (t - 13.42) / .2 : t < 14.6 ? 1 : Math.max(.001, 1 - (t - 14.6) / .55);
 // ---------- impacts ----------
 const IMP = [
-  { t: .22, p: [-10, -500], sh: 22, fl: .6, s: 'block', zp: .08 },
-  { t: 1.12, p: [-190, -470], sh: 8, fl: .25, s: 'block', sm: 1 },
-  { t: 1.24, p: [-190, -455], sh: 8, fl: .25, s: 'block', sm: 1 },
-  { t: 1.40, p: [-200, -500], sh: 14, fl: .4, s: 'punch', zp: .05 },
-  { t: 1.64, p: [-30, -360], sh: 32, fl: .9, s: 'punch_big', zp: .12 },
-  { t: 2.42, p: [-230, -560], sh: 40, fl: .9, inv: 1, s: 'clash', zp: .12, crack: -285 },
-  { t: 2.98, p: [180, -500], sh: 48, fl: 1, inv: 1, s: 'clash', zp: .16, wave: 1 },
-  { t: T_STOP, p: [-420, -150], sh: 30, fl: .5, s: 'stop', zp: .06 },
-  { t: 16.15, p: [150, -560], sh: 34, fl: 1, inv: 1, s: 'punch_big', zp: .12 },
+  { t: .86, p: [-10, -480], k: 'small', s: 'block' }, { t: 1.40, p: [120, -520], k: 'mid', s: 'punch_big' },
+  { t: 2.28, p: [40, -560], k: 'small', s: 'block' }, { t: 2.78, p: [-60, -430], k: 'big', s: 'punch_big' },
+  { t: T_CRASH, p: [BARX + 60, -260], k: 'big', s: 'crash' }, { t: 16.55, p: [170, -560], k: 'big', s: 'punch_big' },
 ];
-const WHOOSH = [.12, .46, .56, .80, .86, 1.36, 1.58, 2.18, 2.36, 2.84, 3.08, 15.98, 16.38, 17.42];
-// ---------- camera: one continuous move through the car stop ----------
+const STRIKES = [.46, .86, 1.40, 2.08, 2.28, 2.78, 3.0, 3.3, 16.55];
+const WHOOSH = [.42, .84, 1.36, 2.05, 2.26, 2.62, 2.74, 3.1, 16.24, 16.5];
+// ---------- camera (shot lengths ~0.5-0.7 s in the fight, like the reference) ----------
 const shots = [
-  { t0: 0, t1: .22, a: { x: 0, y: -380, z: 1.32 }, b: { x: 20, y: -420, z: 1.45 }, e: 'i' },
-  { t0: .22, t1: .46, a: { x: 20, y: -440, z: 1.75, r: .02 }, b: { x: -30, y: -430, z: 1.6, r: .02 }, e: 'o' },
-  { t0: .46, t1: 1.04, a: { x: -60, y: -330, z: 1.55, r: -.04 }, b: { x: -150, y: -360, z: 1.35, r: -.03 } },
-  { t0: 1.04, t1: 1.58, a: { x: -150, y: -450, z: 1.9 }, b: { x: -130, y: -450, z: 2.05 } },
-  { t0: 1.58, t1: 2.12, a: { x: -120, y: -420, z: 1.5, r: .025 }, b: { x: 20, y: -400, z: 1.35, r: .02 }, e: 'o' },
-  { t0: 2.12, t1: 2.62, a: { x: -40, y: -560, z: .95 }, b: { x: -200, y: -420, z: 1.15 }, e: 'io' },
-  { t0: 2.62, t1: 2.92, a: { x: -20, y: -420, z: 1.2 }, b: { x: 130, y: -470, z: 1.6 }, e: 'i' },
-  { t0: 2.92, t1: 3.06, a: { x: 175, y: -500, z: 3.0 }, b: { x: 175, y: -500, z: 3.3 } },
-  { t0: 3.06, t1: 3.62, a: { x: 175, y: -500, z: 3.3 }, b: { x: -300, y: -440, z: 1.15 }, e: 'o' },
-  { t0: 3.62, t1: T_STOP, a: { x: -300, y: -440, z: 1.15 }, b: { x: -700, y: -560, z: .78 }, e: 'io' },
-  { t0: T_STOP, t1: 4.58, a: { x: -700, y: -560, z: .78 }, b: { x: -1030, y: -420, z: 2.3 }, e: 'io' },
-  { t0: 4.58, t1: 4.72, a: { x: -1030, y: -420, z: 2.3 }, b: { x: -1010, y: -410, z: 2.45 }, e: 'o' },
-  { t0: 4.72, t1: 5.4, a: { x: -1010, y: -410, z: 2.45 }, b: { x: -760, y: -947, z: .95 }, e: 'io' },
-  { t0: 5.4, t1: T_RESUME, a: { x: -760, y: -947, z: .95 }, b: { x: -770, y: -940, z: .99 }, e: 'l' },
-  { t0: T_RESUME, t1: 15.2, a: { x: -770, y: -940, z: .99 }, b: { x: -700, y: -900, z: 1.02 }, e: 'io' },
-  { t0: 15.2, t1: 15.9, a: { x: -700, y: -900, z: 1.02 }, b: { x: -20, y: -430, z: 1.25 }, e: 'io' },
-  { t0: 15.9, t1: 16.32, a: { x: -20, y: -430, z: 1.25 }, b: { x: 20, y: -460, z: 1.6 }, e: 'i' },
-  { t0: 16.32, t1: 17.5, a: { x: -60, y: -440, z: 1.35 }, b: { x: -80, y: -450, z: 1.45 }, e: 'io' },
-  { t0: 17.5, t1: 17.92, a: { x: -80, y: -450, z: 1.45 }, b: { x: 0, y: -380, z: 1.32 }, e: 'io' },
-  { t0: 17.92, t1: 18.1, a: { x: 0, y: -380, z: 1.32 } },
+  { t0: 0, t1: .62, a: { x: 0, y: -330, z: 1.3 }, b: { x: -10, y: -340, z: 1.36 } },
+  { t0: .62, t1: 1.22, a: { x: -90, y: -450, z: 2.2 }, b: { x: -70, y: -450, z: 2.32 } },
+  { t0: 1.22, t1: 1.80, a: { x: 0, y: -360, z: 1.45, r: .02 }, b: { x: 30, y: -360, z: 1.5, r: .02 } },
+  { t0: 1.80, t1: 2.36, a: { x: 10, y: -420, z: 2.0 }, b: { x: 20, y: -430, z: 2.12 } },
+  { t0: 2.36, t1: 2.84, a: { x: 0, y: -340, z: 1.32 }, b: { x: -30, y: -340, z: 1.38 } },
+  { t0: 2.84, t1: 3.56, relG: 1, a: { x: 90, y: -400, z: 1.35 }, b: { x: 80, y: -470, z: 1.3 }, e: 'io' },
+  { t0: 3.56, t1: T_GO, rel: 1, a: { x: 120, y: -420, z: 2.0 }, b: { x: 110, y: -410, z: 1.9 }, e: 'o' },
+  { t0: T_GO, t1: T_CRASH, rel: 1, a: { x: 110, y: -410, z: 1.9 }, b: { x: -420, y: -380, z: .74 }, e: 'io' },
+  { t0: T_CRASH, t1: T_FREEZE, rel: 1, a: { x: -420, y: -380, z: .74 } },
+  { t0: T_FREEZE, t1: 5.34, rel: 1, a: { x: -420, y: -380, z: .74 }, b: { x: 20, y: -380, z: 2.9 }, e: 'io' },
+  { t0: 5.34, t1: 5.95, rel: 1, a: { x: 20, y: -380, z: 2.9 }, b: { x: 40, y: -640, z: 1.85 }, e: 'io' },
+  { t0: 5.95, t1: T_RESUME, rel: 1, a: { x: 40, y: -640, z: 1.85 }, b: { x: -30, y: -610, z: 2.15 }, e: 'l' },
+  { t0: T_RESUME, t1: 16.0, rel: 1, a: { x: -30, y: -610, z: 2.15 }, b: { x: 0, y: -600, z: 2.2 }, e: 'io' },
+  { t0: 16.0, t1: 16.3, a: { x: CRASHX, y: -560, z: 2.0 }, b: { x: -150, y: -420, z: 1.35 }, e: 'io' },
+  { t0: 16.3, t1: 16.66, a: { x: 40, y: -440, z: 1.7 }, b: { x: 60, y: -450, z: 1.8 } },
+  { t0: 16.66, t1: 17.55, a: { x: -90, y: -440, z: 1.4 }, b: { x: -110, y: -450, z: 1.48 }, e: 'io' },
+  { t0: 17.55, t1: 17.93, a: { x: -110, y: -450, z: 1.48 }, b: { x: 0, y: -330, z: 1.3 }, e: 'io' },
+  { t0: 17.93, t1: 18.2, a: { x: 0, y: -330, z: 1.3 } },
 ];
-const camRaw = K.camera(shots, IMP.map(i => ({ t: i.t, shake: i.sh })));
-const camAt = t => { const c = camRaw(t);
-  for (const im of IMP) if (im.zp) { const a = simT(t) - im.t; if (a >= 0 && a < .35) c.z *= 1 + im.zp * Math.exp(-a * 12); }   // impact punch-in
+const camRaw = K.camera(shots, []);
+const camAt = t => { const c = camRaw(t); if (c.shot.rel) c.x += carX(simT(t)); if (c.shot.relG) { let gx = 0; for (let k = 0; k < 6; k++) gx += ground(g(t - k * .025)).x; c.x += gx / 6; }   // follows his hips, slightly lagged
+  for (const im of IMP) if (im.k !== 'small') { const s = simT(t) - im.t; if (s > 0 && s < .3) { const e = Math.exp(-s * 14) * (im.k === 'big' ? 22 : 10) / c.z; c.x += Math.sin(s * 70) * e; c.y += Math.cos(s * 55) * e * .7; } }
   return c; };
 // ---------- drawing ----------
-function ground(p) { if (p.abs) return p; const q = Object.assign({}, p, { y: 0 }); const J = K.joints(q); const low = Math.max(J.fa[1], J.fb[1]); return Object.assign(p, { y: -low - 9 + p.y }); }
-const blinkAt = t => ((t * 1000) % 2900) < 110;
-const mouthAt = t => LOUD[Math.round(t * 60)] || 0;
-function fighter(c, trk, t, isG) {
-  const p = ground(trk(t)), J = K.joints(p);
-  if (!(t > T_FREEZE && t < T_RESUME)) for (const key of ['ha', 'hb', 'fa', 'fb']) {
-    const pts = []; for (let k = 0; k < 8; k++) pts.push(K.joints(ground(trk(t - k / 60)))[key]);
-    K.smear(c, pts, 40, isG ? 'rgba(255,240,220,.9)' : 'rgba(255,90,70,.9)');
-  }
-  K.shadow(c, J.hip[0], 130, .5 * K.clamp(1 + p.y / 300, 0, 1));
-  if (isG) K.drawGuy(c, p, { mouth: p.turn > .6 ? mouthAt(t) : 0, blink: blinkAt(t), thumb: t > 14.3 && t < 14.9, brow: p.turn > .6 ? .5 : 0 });
-  else K.drawRival(c, p, { t });
+function ground(p) {
+  const q = Object.assign({}, p); q.sx = (p.sx || 1) * Math.cos((p.yaw || 0) * Math.PI / 180); if (Math.abs(q.sx) < .32) q.sx = .32 * Math.sign(q.sx || 1);   // turn never goes paper-thin
+  if (p.ya > 0) { q.y = -p.ya; return q; }
+  const z = Object.assign({}, q, { y: 0 }), J = K.joints(z); q.y = -Math.max(J.fa[1], J.fb[1]) - 9 + (p.y || 0); return q;
 }
-function occupant(c, t) {   // car-local coords (x forward): seat, pillar + retractor, wheel, driver, belt
-  const p = Object.assign({}, drv(simT(t)));
-  const pay = t < T_RESUME ? 0 : K.sm((t - T_RESUME - .1) / .5) * 18;
+const lagOf = (trk, t) => { let lx = 0, ly = 0; for (let k = 1; k <= 10; k++) { const a = ground(trk(t - k / 60)), b = ground(trk(t - k / 60 - 1 / 60));
+  const w = Math.exp(-k / 4) * Math.cos(k * .7) * .06; lx -= (a.x - b.x) * 60 * w * .1; ly -= (a.y - b.y) * 60 * w * .1; } return [K.clamp(lx, -40, 40), K.clamp(ly, -40, 40)]; };
+const blinkAt = t => ((t * 1000) % 3100) < 110;
+const mouthAt = t => LOUD[Math.round(t * 60)] || 0;
+function fighter(c, trk, t, kind) {
+  const p = ground(trk(t)), prev = ground(trk(t - 2 / 60));
+  const sm = K.joints(prev);
+  K.shadow(c, p.x, 120, .45 * K.clamp(1 + (p.y + 270) / 400, 0, 1));
+  K.drawFighter(c, p, { kind, lag: lagOf(trk, t), smear: sm, mouth: kind === 'guy' && p.turn > .6 ? mouthAt(t) : 0, blink: blinkAt(t), brow: p.turn > .6 ? .5 : 0 });
+}
+function occupant(c, t) {
+  const p = Object.assign({}, seat(t)), pay = t < T_RESUME ? 0 : K.sm((t - T_RESUME - .1) / .5) * 16;
   c.fillStyle = '#2c3760'; c.beginPath(); c.roundRect(-150, -235, 260, 70, 26); c.fill();
   c.save(); c.translate(-110, -210); c.rotate(-.2); c.fillStyle = '#3c4a78'; c.beginPath(); c.roundRect(-40, -300, 80, 320, 34); c.fill(); c.beginPath(); c.roundRect(-34, -375, 66, 80, 22); c.fill(); c.restore();
-  c.fillStyle = '#4a4f66'; c.fillRect(-196, -480, 28, 360);
-  c.fillStyle = '#7f8696'; c.beginPath(); c.roundRect(-214, -170, 60, 60, 12); c.fill();
-  c.strokeStyle = '#1c1f2c'; c.lineWidth = 16; c.lineCap = 'round'; c.beginPath(); c.moveTo(250, -390); c.lineTo(205, -270); c.stroke();
-  c.beginPath(); c.moveTo(232, -330); c.lineTo(300, -300); c.stroke();
-  const J = K.joints(p);
-  K.drawRival(c, p, { pal: { red: '#e9dcc4', redD: '#b9a98f' }, band: false, cap: '#3b4a7a', rim: 'rgba(255,190,110,.7)', thumb: t > 14.2 && t < 14.8 });
-  const locked = t >= T_STOP - .02 && t < T_RESUME + 1.2, slack = t < T_STOP - .1 ? .3 : 0;
+  c.fillStyle = '#4a4f66'; c.fillRect(-196, -480, 28, 360); c.fillStyle = '#7f8696'; c.beginPath(); c.roundRect(-214, -170, 60, 60, 12); c.fill();
+  c.strokeStyle = '#1c1f2c'; c.lineWidth = 16; c.lineCap = 'round'; c.beginPath(); c.moveTo(250, -390); c.lineTo(205, -270); c.stroke(); c.beginPath(); c.moveTo(232, -330); c.lineTo(300, -300); c.stroke();
+  const J = K.drawFighter(c, p, { kind: 'guy', mouth: p.turn > .5 ? mouthAt(t) : 0, blink: blinkAt(t), thumb: t > 15.75 && t < 16.2, brow: t > 5.2 && t < 13 ? .5 : 0, lag: [0, 0] });
+  const bag = airbagAt(t); if (bag > 0) K.airbag(c, 228, -340, bag, 1);
+  const buckled = t >= 3.9, locked = t >= T_CRASH && t < T_RESUME + .7;
   const sh = [J.chest[0] + 6, J.chest[1] + 16], hp = [J.hip[0] + 34, J.hip[1] + 6];
-  c.save(); if (locked && t > T_FREEZE) { c.shadowColor = '#ffb347'; c.shadowBlur = 34; }
+  c.save(); if (locked && t > T_FREEZE) { c.shadowColor = '#ffb347'; c.shadowBlur = 26; }
   c.strokeStyle = '#ffb347'; c.lineWidth = 17; c.lineCap = 'round'; c.lineJoin = 'round';
-  c.beginPath(); c.moveTo(-182, -440 - pay); c.lineTo(sh[0], sh[1]);
-  c.quadraticCurveTo((sh[0] + hp[0]) / 2 + 26 + slack * 40, (sh[1] + hp[1]) / 2, hp[0], hp[1]); c.lineTo(-120, -205); c.stroke();
-  c.beginPath(); c.moveTo(-182, -440 - pay); c.lineTo(-182, -150); c.stroke(); c.restore();
-  c.fillStyle = '#c9ced8'; c.beginPath(); c.roundRect(-196, -456 - pay, 30, 26, 6); c.fill(); c.beginPath(); c.roundRect(hp[0] - 12, hp[1] - 14, 30, 22, 6); c.fill();
+  c.beginPath(); c.moveTo(-182, -440 - pay); c.lineTo(-182, -150); c.stroke();
+  if (buckled) { c.beginPath(); c.moveTo(-182, -440 - pay); c.lineTo(sh[0], sh[1]); c.quadraticCurveTo((sh[0] + hp[0]) / 2 + 26, (sh[1] + hp[1]) / 2, hp[0], hp[1]); c.lineTo(-120, -205); c.stroke(); }
+  else if (t >= 3.74) { const u = K.clamp((t - 3.74) / .16, 0, 1), hx = K.lerp(-182, J.ha[0], 1), hy = J.ha[1]; c.beginPath(); c.moveTo(-182, -440); c.lineTo(hx, hy); c.stroke(); }
+  c.restore();
+  c.fillStyle = '#c9ced8'; c.beginPath(); c.roundRect(-196, -456 - pay, 30, 26, 6); c.fill(); if (buckled) { c.beginPath(); c.roundRect(hp[0] - 12, hp[1] - 14, 30, 22, 6); c.fill(); }
+}
+function impactShape(c, im, a) {   // clean flat impact star, 4 frames, no rings
+  if (a < 0 || a > 4 / 60) return; const u = a / (4 / 60), R = (im.k === 'small' ? 70 : 120) * (1 + .4 * u);
+  c.save(); c.translate(im.p[0], im.p[1]); c.globalAlpha = 1 - u * .7; c.fillStyle = '#fff6e4'; c.beginPath();
+  for (let i = 0; i < 16; i++) { const ang = i / 16 * Math.PI * 2, rr = i % 2 ? R * .35 : R; c.lineTo(Math.cos(ang) * rr, Math.sin(ang) * rr); } c.closePath(); c.fill(); c.restore();
 }
 function world(c, t, cm) {
   const st = simT(t);
-  K.drawStreet(c, street, cm, st);
-  const cx = carX(t), carOn = cx > -6000;
-  // headlight glare sweeping in before the car
-  if (st > 3.5 && st < T_STOP + .3) { const a = K.clamp((st - 3.5) / .4, 0, 1) * .55, hx = cx + 740;
-    const gg = c.createRadialGradient(hx, -260, 10, hx, -260, 900); gg.addColorStop(0, `rgba(255,244,210,${a})`); gg.addColorStop(1, 'rgba(255,244,210,0)'); c.fillStyle = gg; c.fillRect(hx - 900, -1160, 1800, 1800); }
-  // skid marks + tyre smoke while braking
-  if (carOn && st > T_STOP - .22) { c.fillStyle = 'rgba(8,8,14,.6)'; c.fillRect(STOPX - 450 + 160, 6, 420, 9); c.fillRect(STOPX + 430 - 420, 6, 420, 9);
-    for (let k = 0; k < 16; k++) { const a = st - (T_STOP - .2) - k * .015; if (a < 0) continue; const u = Math.min(a / 1.2, 1);
-      for (const wx of [STOPX - 440, STOPX + 430]) { c.fillStyle = `rgba(200,205,220,${.4 * (1 - u)})`; c.beginPath(); c.arc(wx - 60 - k * 18 - a * 120, -50 - a * 140 - k * 4, 40 + a * 160, 0, 7); c.fill(); } } }
-  if (carOn && cx > -3800) {
-    const cut = t >= T_STOP + .1 && t < 15.2;
-    K.drawCar(c, cx, 1, { pitch: pitch(t), spin: (cx - STOPX) / K.CAR.wheel, doorOff: cut, glass: cut ? .08 : .25, col: '#2a9fb4', col2: '#7fe0ea', occupant: cc => occupant(cc, t) });
-    if (cut) { c.save(); c.translate(cx, 0); c.strokeStyle = 'rgba(127,224,234,.55)'; c.setLineDash([16, 12]); c.lineWidth = 5; c.strokeRect(-340, -395, 640, 225); c.restore(); }
-    if (st < T_STOP) K.speedLines(c, cx, -300, st, 9, 1, 500);
-  }
-  fighter(c, r, st, false); fighter(c, g, t, true);
-  IMP.forEach((im, k) => { const a = st - im.t;
-    if (im.s !== 'stop') { K.burst(c, im.p[0], im.p[1], a, im.sm ? 110 : 190, 11 + k); K.sparks(c, im.p[0], im.p[1], a, im.sm ? 10 : 22, 31 + k, 900); }
-    else K.dust(c, STOPX + 600, -20, a, 14, 5, 80, 1);
-    if (im.crack !== undefined) { K.crack(c, im.crack, a, 4); K.dust(c, im.crack, -10, a, 12, 9, 70); }
-    if (im.wave) { K.shockwave(c, im.p[0], im.p[1], a, 900); K.dust(c, -66, -10, a, 10, 21, 60, -1); K.dust(c, 410, -10, a, 10, 22, 60, 1); }
-  });
-  [[.36, -120], [1.00, -300], [2.62, -420], [2.70, 560], [16.62, 650]].forEach(([tt, x], k) => K.dust(c, x, -10, st - tt, 8, 70 + k, 50));
+  K.drawStreet2(c, L, cm, st);
+  c.save(); K.apply(c, cm);
+  K.barrier2(c, BARX);
+  const inCar = t >= T_IN && t < T_BACK;
+  const cx = carX(st);
+  K.drawCar(c, cx, -1, { crush: crushAt(t), pitch: pitchAt(t), spin: (CAR0 - cx) / K.CAR.wheel, doorOff: t >= T_FREEZE && t < T_BACK, glass: .22, col: '#2a9fb4', col2: '#7fe0ea', col3: '#1d5f73',
+    occupant: inCar ? (cc => occupant(cc, t)) : null });
+  if (t >= T_FREEZE && t < T_BACK) { c.save(); c.translate(cx, 0); c.scale(-1, 1); c.strokeStyle = 'rgba(127,224,234,.5)'; c.setLineDash([16, 12]); c.lineWidth = 5; c.strokeRect(-340, -395, 640, 225); c.restore(); }
+  if (!(t > 4.3 && t < 16.0)) fighter(c, r, st, 'rival');
+  if (!inCar) fighter(c, g, t, 'guy');
+  for (const im of IMP) if (im.k !== 'big') impactShape(c, im, st - im.t);
+  c.restore();
+  K.drawFg(c, L, cm);
 }
 // ---------- overlays: diagrams, headline, captions ----------
 const wordAt = w => (WORDS.find(x => x.w.toLowerCase().replace(/[^a-z']/g, '') === w) || {}).s;
@@ -232,7 +209,7 @@ function captions(c, t) {
   c.restore();
 }
 function headline(c, t) {
-  const H = [[S.T.v1, S.T.v2, 'MEET THE PRETENSIONER'], [S.T.v2, S.T.v3, 'IT FIRES IN A CRASH'], [S.T.v3, S.T.v4, 'WHY SNUG MATTERS'], [S.T.v4, 15.3, 'THE FORCE LIMITER']];
+  const H = [[S.T.v1, S.T.v2, 'MEET THE PRETENSIONER'], [S.T.v2, S.T.v3, 'IT FIRES IN A CRASH'], [S.T.v3, S.T.v4, 'WHY SNUG MATTERS'], [S.T.v4, 15.35, 'THE FORCE LIMITER']];
   for (const [a, b, s] of H) if (t >= a && t < b) {
     const u = K.clamp((t - a) / .18, 0, 1), v = K.clamp((b - t) / .15, 0, 1);
     K.text(c, s, 459, 312 + (1 - K.ease.o(u)) * -20, { center: 1, size: 54, plate: '#ffd35f', color: '#0d1424', pad: 24, alpha: Math.min(u, v) });
@@ -248,10 +225,6 @@ function panel(c, t, a) {
   c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = a;
   const g = c.createLinearGradient(0, 200, 0, 1250); g.addColorStop(0, 'rgba(10,14,32,.92)'); g.addColorStop(.75, 'rgba(10,14,32,.85)'); g.addColorStop(1, 'rgba(10,14,32,0)');
   c.fillStyle = g; c.fillRect(0, 0, K.W, 1250);
-  const rr = K.rng(3); c.globalCompositeOperation = 'screen'; t *= 3.4;      // slow drifting bokeh keeps the panel alive
-  for (let i = 0; i < 22; i++) { const sp = 60 + rr() * 140, x = (rr() * 1300 + t * sp * (rr() < .5 ? .5 : -.5)) % 1300 - 110, y = 1150 - ((rr() * 1000 + t * sp) % 1000), R = 30 + rr() * 80;
-    const col = rr() < .5 ? '95,227,255' : '255,179,71', gg = c.createRadialGradient(x, y, 0, x, y, R); gg.addColorStop(0, `rgba(${col},${.4 * a})`); gg.addColorStop(1, `rgba(${col},0)`);
-    c.fillStyle = gg; c.fillRect(x - R, y - R, 2 * R, 2 * R); }
   c.restore();
 }
 function belt(c, pts, slack, glow) { c.save(); if (glow) { c.shadowColor = '#ffb347'; c.shadowBlur = 26; } c.strokeStyle = K.DG.belt; c.lineWidth = 16; c.lineCap = 'round'; c.lineJoin = 'round';
@@ -319,42 +292,36 @@ function limiterCard(c, t) {
   c.restore();
   if (a > .5) { K.text(c, 'Belt pays out', 110, 750, { size: 38, weight: 800, color: '#5fe3ff' }); K.text(c, 'Chest load', 560, 760, { size: 38, weight: 800, color: col }); }
 }
-function pauseIcon(c, t) {
-  if (t < T_FREEZE || t > 5.5) return; const a = K.clamp((t - T_FREEZE) / .06, 0, 1) * K.clamp((5.5 - t) / .2, 0, 1);
-  c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = a * .95; c.fillStyle = '#fff';
-  c.beginPath(); c.roundRect(80, 330, 34, 100, 10); c.roundRect(136, 330, 34, 100, 10); c.fill();
-  c.strokeStyle = 'rgba(255,255,255,.35)'; c.lineWidth = 3; for (let i = 0; i < 5; i++) { const y = (i * 397 + t * 2100) % 1920; c.beginPath(); c.moveTo(0, y); c.lineTo(1080, y + 6); c.stroke(); }
-  c.restore();
-}
-// ---------- frame ----------
+const blink2 = 0;
+let vig = null;
+function makeVig() { const v = document.createElement('canvas'); v.width = K.W; v.height = K.H; const x = v.getContext('2d');
+  const g = x.createRadialGradient(K.W / 2, K.H * .5, K.H * .3, K.W / 2, K.H * .5, K.H * .75); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(8,6,20,.5)'); x.fillStyle = g; x.fillRect(0, 0, K.W, K.H); return v; }
 S.init = d => {
   const cv = document.getElementById('c'); ctx = cv.getContext('2d');
-  wc = document.createElement('canvas'); wc.width = K.W; wc.height = K.H; wx = wc.getContext('2d');
-  street = K.buildStreet(-6200, 1800); post = K.makePost();
+  wc = document.createElement('canvas'); wc.width = K.W * SS; wc.height = K.H * SS; wx = wc.getContext('2d');
+  L = K.buildStreet2(-9500, 2500); vig = makeVig();
   WORDS = d.words; LOUD = d.loud; CH = chunks();
   S.T = { v1: wordAt('your'), tighten: wordAt('tighten'), v2: wordAt('in'), crashW: wordAt('crash'), charge: wordAt('charge'), motor: wordAt('motor'), v3: wordAt('snug') - .3, v4: wordAt('then') };
-  S.events = { impacts: IMP.map(i => ({ t: i.t, s: i.s })), whoosh: WHOOSH, stop: T_STOP, freeze: T_FREEZE, screech: [3.62, 4.08], reverse: 14.85,
-    land: [.36, 1.00, 2.70, 16.62], scratch: T_FREEZE, resume: T_RESUME, T: S.T };
+  S.events = { impacts: IMP.map(i => ({ t: i.t, s: i.s })), whoosh: WHOOSH, crash: T_CRASH, freeze: T_FREEZE, go: T_GO, click: 3.9, plop: T_IN + .1, airbag: 13.42, land: [17.1], resume: T_RESUME, T: S.T };
 };
+const fastAt = t => STRIKES.some(s => t > s - .12 && t < s + .04) || (t > 2.84 && t < 3.6) || (t > T_GO && t < T_CRASH + .02) || (t > 16.0 && t < 16.32);
 S.frame = (f, fps) => {
-  const t = f / fps, cm = camAt(t), cp = camAt(t - 1 / fps);
-  wx.setTransform(1, 0, 0, 1, 0, 0); wx.fillStyle = '#0d1424'; wx.fillRect(0, 0, K.W, K.H);
-  wx.save(); K.apply(wx, cm); world(wx, t, cm); wx.restore();
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  const vx = (cm.x - cp.x) * cm.z, vy = (cm.y - cp.y) * cm.z, sp = Math.hypot(vx, vy), cut = cm.shot !== cp.shot;
-  const frozen = t >= T_FREEZE && t < T_RESUME, sat = frozen ? (t < 4.75 ? .25 : .55) : 1;
-  ctx.filter = sat < 1 ? `saturate(${sat}) brightness(.92)` : 'none';
-  if (!cut && sp > 30) { const n = 8, L = Math.min(sp, 260); ctx.drawImage(wc, 0, 0); ctx.globalAlpha = .5; for (let k = 1; k < n; k++) ctx.drawImage(wc, -vx / sp * L * k / n, -vy / sp * L * k / n); ctx.globalAlpha = 1; }
-  else ctx.drawImage(wc, 0, 0);
-  ctx.filter = 'none';
-  for (const im of IMP) { const k = Math.round((t - im.t) * fps);
-    if (k === 0 && im.inv) { ctx.filter = 'grayscale(1) invert(1) contrast(3)'; ctx.drawImage(ctx.canvas, 0, 0); ctx.filter = 'none'; }
-    const fl = k === 0 ? (im.inv ? .25 : .75) : k === 1 ? .55 : k === 2 ? .25 : k === 3 ? .1 : 0;
-    if (fl > 0) { ctx.fillStyle = `rgba(255,248,232,${fl * im.fl})`; ctx.fillRect(0, 0, K.W, K.H); } }
-  if (frozen) { ctx.fillStyle = 'rgba(40,90,140,.12)'; ctx.fillRect(0, 0, K.W, K.H); }
-  post(ctx, f, { bloom: frozen ? .2 : .34 });
-  pauseIcon(ctx, t); diagrams(ctx, t); limiterCard(ctx, t); headline(ctx, t); captions(ctx, t);
-  if (t >= 16.66 && t < 17.5) K.poll(ctx, 160, 300, Math.min((t - 16.66) / .2, (17.5 - t) / .14), t > 17.0 ? 1 : 0);
+  const t = f / fps, n = fastAt(t) ? 4 : 1, frozen = t >= T_FREEZE && t < T_RESUME;
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.filter = 'none';
+  for (let k = 0; k < n; k++) {
+    const ts = n === 1 ? t : t + ((k + .5) / n - .5) * .5 / fps, cm = camAt(ts);
+    wx.setTransform(SS, 0, 0, SS, 0, 0); world(wx, ts, cm);
+    ctx.globalAlpha = 1 / (k + 1); ctx.filter = frozen ? 'saturate(.85) brightness(.97)' : 'none';
+    ctx.imageSmoothingQuality = 'high'; ctx.drawImage(wc, 0, 0, K.W, K.H);
+  }
+  ctx.globalAlpha = 1; ctx.filter = 'none';
+  // ONE full-frame colour flash per big hit (4 frames)
+  for (const im of IMP) if (im.k === 'big') { const k = Math.round((t - im.t) * fps); if (k >= 0 && k < 4) { ctx.fillStyle = `rgba(255,236,200,${[.72, .42, .18, .06][k]})`; ctx.fillRect(0, 0, K.W, K.H); } }
+  ctx.drawImage(vig, 0, 0);
+  if (t >= T_FREEZE && t < 5.6) { ctx.save(); ctx.globalAlpha = K.clamp((t - T_FREEZE) / .08, 0, 1) * K.clamp((5.6 - t) / .25, 0, 1) * .95; ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.roundRect(80, 330, 34, 100, 10); ctx.roundRect(136, 330, 34, 100, 10); ctx.fill(); ctx.restore(); }
+  diagrams(ctx, t); limiterCard(ctx, t); headline(ctx, t); captions(ctx, t);
+  if (t >= 16.92 && t < 17.62) K.poll(ctx, 160, 300, Math.min((t - 16.92) / .2, (17.62 - t) / .14), t > 17.25 ? 1 : 0);
   tag(ctx);
 };
 window.SCENE = S;
