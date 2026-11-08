@@ -90,10 +90,10 @@ const seat = K.track([
   [T_CRASH, {}], [T_FREEZE, { lean: 22, head: 18, a1: 80, a2: 6, b1: 78, b2: 8 }, 'o'],
   // presenter (time frozen around him): turns to camera, breathes, gestures on the words
   [5.12, {}], [5.36, { turn: 1, head: 0, lean: 6 }, 'back'],
-  [5.9, { lean: -4, b1: 120, b2: 40 }, 'io'],
-  [6.6, { b1: 70, b2: 70 }], [7.1, { b1: 135, b2: 20, head: -4 }, 'o'], [7.9, { b1: 60, b2: 90, head: 3 }],
-  [8.4, { b1: 120, b2: 50 }, 'o'], [9.2, { b1: 150, b2: 10, head: -5 }, 'o'], [9.9, { b1: 100, b2: 80, head: 4 }],
-  [10.6, { b1: 135, b2: 30, a1: 66 }, 'o'], [11.4, { b1: 70, b2: 60, head: -3 }], [12.0, { b1: 140, b2: 20 }, 'o'], [12.8, { b1: 64, b2: 28, head: 2 }],
+  [5.9, { lean: -4, b1: 78, b2: 38 }, 'io'],
+  [6.6, { b1: 40, b2: 100, head: 6, lean: 2 }], [7.1, { b1: 78, b2: 38, head: -6, lean: -6 }, 'o'], [7.9, { b1: 30, b2: 110, head: 5, lean: 2 }],
+  [8.4, { b1: 78, b2: 38, head: -4 }, 'o'], [9.2, { b1: 78, b2: 38, head: -7, lean: -8 }, 'o'], [9.9, { b1: 35, b2: 105, head: 6, lean: 4 }],
+  [10.6, { b1: 78, b2: 38, head: -5 }, 'o'], [11.4, { b1: 30, b2: 100, head: 5, lean: 3 }], [12.0, { b1: 78, b2: 38, head: -6, lean: -6 }, 'o'], [12.8, { b1: 64, b2: 28, head: 2, lean: 0 }],
   [T_RESUME, { lean: -4, turn: 1 }],
   [13.45, { lean: 24, head: 16, turn: .2 }, 'io'], [13.75, { lean: 30, head: 22 }, 'o'],                 // into the airbag (belt eases a little)
   [14.4, { lean: -6, head: 0 }, 'io'], [14.9, { turn: .5, head: 12 }], [15.1, { head: -10 }], [15.3, { head: 10 }], [15.5, { head: 0, turn: 1 }],
@@ -126,8 +126,8 @@ const camKeys = [
   CAM(3.02, -2.2, 1.5, -.6, 4.6, 18, 5, 40, 'o', false, 5), CAM(3.32, -4.3, 1.5, -1.6, 4.4, 14, 6, 40, 'io', false, 5), CAM(3.66, -6.0, 1.2, -2.7, 2.8, 8, 4, 38, 'io', false, 6),
   CAM(4.0, 'car', 0, 0, 2.3, 6, 3, 38, 'io', false, 7), CAM(4.55, 'car', 0, 0, 6.0, -38, 8, 40, 'io', false, 5),
   CAM(T_CRASH, 'car', 0, 0, 6.2, -44, 9, 40, 'io', false, 5), CAM(T_FREEZE, 'car', 0, 0, 6.2, -44, 9, 40),
-  CAM(5.32, 'chest', 0, 0, 1.9, 4, 2, 36, 'io', false, 8), CAM(5.95, 'present', 0, 0, 3.7, -14, 4, 40, 'io', false, 7),
-  CAM(T_RESUME, 'present', 0, 0, 3.3, 14, 4, 40, 'l', false, 7), CAM(16.0, 'present', 0, 0, 3.1, 2, 4, 40, 'io', false, 7),
+  CAM(5.32, 'chest', 0, 0, 1.9, 4, 2, 36, 'io', false, 8), CAM(5.95, 'present', 0, 0, 4.0, -62, 2, 40, 'io', false, 4), CAM(8.4, 'present', 0, 0, 2.9, -20, 7, 40, 's', false, 4),
+  CAM(10.8, 'present', 0, 0, 3.7, 10, 2, 40, 's', false, 4), CAM(T_RESUME, 'present', 0, 0, 3.0, 32, 6, 40, 's', false, 4), CAM(16.0, 'present', 0, 0, 3.1, 2, 4, 40, 'io', false, 7),
   CAM(16.42, -.1, 1.1, 0, 4.4, 14, 5, 38, 'io', false, 5), CAM(16.62, .3, 1.15, 0, 3.4, -14, 2, 36, 'o', false, 6),
   CAM(17.05, -.7, 1.25, 0, 3.9, 0, 4, 38, 'io', false, 6), CAM(17.55, -.75, 1.25, 0, 3.9, 4, 4, 38),
   CAM(17.93, 0, 1.0, 0, 6.2, 0, 6, 38), CAM(18.5, 0, 1.0, 0, 6.2, 0, 6, 38),
@@ -138,7 +138,7 @@ function camAt(t) {
     if (k.tx === 'car') return [c - 1.3, 1.0, CARZ]; if (k.tx === 'chest') return [c + .25, .98, CARZ + .42]; return [c + .25, 1.75, CARZ + .42]; };
   let i = 0; while (i < camKeys.length - 1 && camKeys[i + 1].t <= t) i++;
   const a = camKeys[i], b = camKeys[Math.min(i + 1, camKeys.length - 1)];
-  const u = b === a || b.cut ? 0 : K.ease[b.e]((t - a.t) / Math.max(b.t - a.t, 1e-6));
+  const u = b === a || b.cut ? 0 : (b.e === 's' ? (x => x)(K.clamp((t - a.t) / Math.max(b.t - a.t, 1e-6), 0, 1)) : K.ease[b.e]((t - a.t) / Math.max(b.t - a.t, 1e-6)));
   const pa = res(a), pb = res(b), c = {};
   ['tx', 'ty', 'tz'].forEach((k, j) => c[k] = K.lerp(pa[j], pb[j], u));
   for (const k of ['dist', 'az', 'el', 'fov', 'blur', 'roll']) c[k] = K.lerp(a[k], b[k], u);
@@ -190,8 +190,8 @@ function diagrams(c, t) {
   const fade = K.clamp((t - (T.v1 - .3)) / .3, 0, 1) * K.clamp((T.v4 - t) / .25, 0, 1);
   panel(c, t, fade);
   c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = fade;
-  const vs = t < T.v2 ? T.v1 : t < T.v3 ? T.v2 : T.v3, kb = .95 + .1 * K.sm((t - vs) / 2.4);
-  c.translate(480, 760); c.scale(kb, kb); c.rotate(Math.sin(t * 1.3) * .012); c.translate(-480, -760);
+  const vs = t < T.v2 ? T.v1 : t < T.v3 ? T.v2 : T.v3, kb = .9 + .2 * K.clamp((t - vs) / 2.4, 0, 1);
+  c.translate(480, 760); c.scale(kb, kb); c.rotate(Math.sin(t * 1.3) * .02); c.translate(Math.sin(t * 2.1) * 14, 0); c.translate(-480, -760);
   if (t < T.v2) {          // V1: cutaway of belt, retractor, pretensioner
     const u = K.clamp((t - T.v1) / .35, 0, 1), sl = 1 - K.ease.o(K.clamp((t - T.tighten) / .35, 0, 1));
     c.translate(0, (1 - K.ease.o(u)) * 40 - 70);

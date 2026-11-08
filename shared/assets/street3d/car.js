@@ -22,7 +22,7 @@ export function makeCar(o = {}) {
   const door = box(2.1, .62, .08, paint, 0, .6, s * (hw - .04)); g.add(door);                            // near door (cut away)
   const sill = box(2.1, .14, .1, paint, 0, .3, s * (hw - .05)); g.add(sill);
   // roof, pillars, glass
-  g.add(box(1.55, .07, W * .92, paint, -.35, 1.46, 0));
+  const roof = box(1.55, .07, W * .92, paint, -.35, 1.46, 0); g.add(roof);
   const pillar = (x0, y0, x1, y1, z) => { const len = Math.hypot(x1 - x0, y1 - y0), p = box(len, .08, .08, paint, (x0 + x1) / 2, (y0 + y1) / 2, z); p.rotation.z = Math.atan2(y1 - y0, x1 - x0); return p; };
   let bNear = null; for (const z of [-1, 1]) { g.add(pillar(1.0, .93, .42, 1.46, z * hw * .9)); g.add(pillar(-1.12, 1.46, -1.95, .9, z * hw * .9)); const bp = box(.09, .55, .08, paint, -.25, 1.2, z * hw * .9); g.add(bp); if (z === s) bNear = bp; }
   const ws = new THREE.Mesh(new THREE.PlaneGeometry(.8, W * .86), glass); ws.position.set(.71, 1.2, 0); ws.rotation.set(0, Math.PI / 2, 0); ws.rotateX(0); ws.rotation.z = 0;
@@ -51,7 +51,7 @@ export function makeCar(o = {}) {
   let beltMesh = null;
   const car = { group: g, front, door, nearGlass, wheels, dring: dring.position.clone(), retr: retr.position.clone(), seatPos: seat.position, wheelPos: wheelG.position, side: s,
     setCrush(c) { front.scale.x = 1 - .38 * c; front.position.x = 1.05; front.rotation.z = -.06 * c; },
-    setDoor(cut) { door.visible = !cut; nearGlass.visible = !cut; bNear.visible = !cut; },
+    setDoor(cut) { door.visible = !cut; nearGlass.visible = !cut; bNear.visible = !cut; roof.visible = !cut; },   // x-ray cutaway: near door, B-pillar and roof off
     setAirbag(u) { const k = Math.max(.001, u); airbag.scale.set(k * .9, k * 1.1, k * 1.05); airbag.position.x = .32 - .2 * u; },
     spin(a) { for (const w of wheels) w.rotation.z = -a; },
     belt(pts, glow) { if (beltMesh) { g.remove(beltMesh); beltMesh.geometry.dispose(); }
