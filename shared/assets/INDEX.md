@@ -248,3 +248,18 @@ start. Example: `videos/seatbelt-stickman` (style test against the pixel `seatbe
 | Crash hall + barrier | Muted grey test hall strip (windows, light shafts, roller doors, hazard edges, track dashes; seamless scroll via `view()`), vignette, barrier with chevrons + honeycomb crush face | `stickman/stage.py` | seatbelt-stickman | look after the user's reference clip |
 | FX | Impact starburst + ring, smoke puffs, debris, speed lines, spark pop | `stickman/fx.py` | seatbelt-stickman | - |
 | Poll sticker | Flat 'Did you know that? YES / NO' card with tap ripple | `stickman/poll.py` `poll_img()` | seatbelt-stickman | - |
+
+## Cinematic illustrated kit (`cinematic/`)
+
+Layered 2.5D dusk look in pure PIL + numpy (no Blender in the cloud box): depth layers with parallax and per-layer
+depth-of-field, gradient shading, glows, then a filmic finish (grade, bloom, vignette, grain). Builds on `stickman/`
+(vector pen, car geometry + cutaway, crash ragdoll, FX). Example: `videos/seatbelt-cinematic`.
+
+| Asset | What it is | Path | Used by | Credit |
+|---|---|---|---|---|
+| Main guy, illustrated rig | `characters/main-guy` redrawn smooth: dark messy hair + 2 cowlicks, brown skin, silver square glasses, white tee, black shorts, white/black trainers; jointed arms/legs, poses neutral / point / surprised / thumbs / ask / hips, `blend_pose`, `aim`, mouth from voice loudness, brows, blink, look, turn, step | `cinematic/guy.py` | seatbelt-cinematic | original character |
+| Glossy hatchback | Lit version of the stickman hatchback: body gradient, teal sky reflection, speculars, rim light, wheel motion blur, headlight beam + glow, tail glow, retractor glow; glass / cutaway / crumple | `cinematic/car.py` | seatbelt-cinematic | original design |
+| Dusk proving ground + camera | Sky (gradient, sun glow, stars, clouds), far hills/city, floodlight towers + grandstand, track with kerbs/dashes/light pools, blurred foreground cones; `Cam` (scroll, zoom, focus, shake) with parallax depths 0.04-1.7 | `cinematic/scene.py` | seatbelt-cinematic | - |
+| Post pipeline | Teal/navy shadows + warm highlights grade, soft bloom, vignette, deterministic fine grain | `cinematic/post.py` `finish()` | seatbelt-cinematic | - |
+| Paint helpers | Linear-gradient polygon fill, radial glow sprites, edge-safe composite, cheap big blur | `cinematic/paint.py` | seatbelt-cinematic | - |
+| Photo card, poll, pills | Framed photo card (illustrated retractor fallback), gradient YES / NO poll with tap ripple, glossy pills with optional tick | `cinematic/cards.py` | seatbelt-cinematic | - |

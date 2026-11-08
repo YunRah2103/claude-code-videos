@@ -92,13 +92,13 @@ class Pen:
         for t in q: self._dot(t, ww / 2 * SS, fill)
 
     def circle(self, c, r, fill, ow=5, oc=INK):
-        x, y = self.p(c); R = r * self.s * SS
-        if ow: self.d.ellipse((x - R - ow * SS, y - R - ow * SS, x + R + ow * SS, y + R + ow * SS), fill=oc)
-        self.d.ellipse((x - R, y - R, x + R, y + R), fill=fill)
+        self.ellipse(c, r, r, fill, ow, oc)
 
     def ellipse(self, c, rx, ry, fill, ow=0, oc=INK):
         x, y = self.p(c); X, Y = rx * self.s * SS, ry * self.s * SS; o = ow * SS
         if ow: self.d.ellipse((x - X - o, y - Y - o, x + X + o, y + Y + o), fill=oc)
+        if len(fill) == 4 and fill[3] < 255:
+            return self._blend([(x - X, y - Y), (x + X, y + Y)], 1, lambda d, q: d.ellipse((q[0][0], q[0][1], q[1][0], q[1][1]), fill=fill))
         self.d.ellipse((x - X, y - Y, x + X, y + Y), fill=fill)
 
     def arc(self, c, r, a0, a1, w, col):        # degrees, PIL convention (clockwise from +x)
@@ -109,6 +109,9 @@ class Pen:
 
     def rrect(self, box, rad, fill, ow=5, oc=INK):
         x0, y0 = self.p(box[:2]); x1, y1 = self.p(box[2:])
+        if fill is not None and len(fill) == 4 and fill[3] < 255:
+            self._blend([(x0, y0), (x1, y1)], ow * SS + 1, lambda d, q: d.rounded_rectangle((q[0][0], q[0][1], q[1][0], q[1][1]), rad * self.s * SS, fill=fill))
+            fill = None
         self.d.rounded_rectangle((x0, y0, x1, y1), rad * self.s * SS, fill=fill, outline=oc if ow else None, width=int(ow * SS))
 
     def text(self, xy, s, font, fill, anchor='mm', stroke=0, sc=INK):
