@@ -19,7 +19,7 @@ R = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(R)   # Skia
 from engine import Warp, EASE, hexc, shade, mix, clamp, lerp
 import sim
 
-DUR = 34.0
+DUR = 28.5
 FPS = 60
 W, H, SS = R.W, R.H, R.SS
 WO, HO = R.WO, R.HO
@@ -44,7 +44,7 @@ def slow_ramp(t, d, low=0.3):
 RANGE = {'jab': 78, 'cross': 82, 'hook': 74, 'upper': 66, 'kick': 92, 'highkick': 88, 'sidekick': 98, 'slash': 100, 'cut': 108}
 FT = sim.Fight()
 SH = FT.add('hero', 0, 1); SA = FT.add('oni', -760, 1); SB = FT.add('kage', 560, -1)
-SH.ko_threshold = 3.6; SA.ko_threshold = SB.ko_threshold = 3.0
+SH.ko_threshold = 9; SA.ko_threshold = SB.ko_threshold = 9
 SH.team, SA.team, SB.team = 1, 2, 2
 def cmd(t, who, fn): FT.at(t, who, fn)
 def go(t, who, x): cmd(t, who, lambda f, tt: setattr(f, 'x_target', x))
@@ -52,14 +52,18 @@ def attack(t, who, move, victim, ko=False, lead=0.55, down=1.5):
     """Approach to the right range for `move`, face the victim, strike at time t."""
     def approach(f, tt):
         v = FT.f[victim]; d = 1 if v.hip()[0] > f.hip()[0] else -1
-        f.lock_face = True; f.set_face(d); f.x_target = v.hip()[0] - d*RANGE[move]
+        f.lock_face = True; f.set_face(d); f.x_target = v.hip()[0] - d*RANGE[move]; f.chase = (victim, RANGE[move] - 8)
     def strike(f, tt):
         v = FT.f[victim]; d = 1 if v.hip()[0] > f.hip()[0] else -1
-        f.set_face(d); f.x_target = v.hip()[0] - d*(RANGE[move] - 22); f.force_ko = ko; f.scripted = True; f.assist = 22
+        f.set_face(d); f.x_target = v.hip()[0] - d*(RANGE[move] - 22); f.force_ko = ko; f.scripted = True; f.assist = 22; f.chase = (victim, RANGE[move] - 24)
         if ko: v.down_time = down
         f.start_action(move, tt)
-    def release(f, tt): f.lock_face = False; f.force_ko = False; f.scripted = False
+    def release(f, tt): f.lock_face = False; f.force_ko = False; f.scripted = False; f.chase = None
     cmd(t - lead, who, approach); cmd(t, who, strike); cmd(t + 0.45, who, release)
+    if ko:   # the victim is caught: no dodge or counter in that instant
+        def hold_v(f, tt): f.scripted = True; f.action = None; f.combo = []
+        def free_v(f, tt): f.scripted = False
+        cmd(t - lead*0.6, victim, hold_v); cmd(t + 0.2, victim, free_v)
 def hover(t0, t1, who, around, off):
     for k, tt in enumerate(np.arange(t0, t1, 0.45)):
         cmd(tt, who, lambda f, t_, k=k: setattr(f, 'x_target', FT.f[around].hip()[0] + off + 25*math.sin(k*1.7)))
@@ -68,53 +72,67 @@ def spar(t0, t1, a, b, rate=2.2, dist=84):
     for k, tt in enumerate(np.arange(t0, t1, 0.3)):
         def press(f, t_, k=k, b=b):
             v = FT.f[b]; d = 1 if v.hip()[0] > f.hip()[0] else -1
-            if f.mode == 'stand' and f.action is None: f.x_target = v.hip()[0] - d*(dist + 14*math.sin(k*1.3))
+            if f.mode == 'stand' and f.action is None and not getattr(f, 'scripted', False): f.x_target = v.hip()[0] - d*(dist + 14*math.sin(k*1.3))
         cmd(tt, a, press)
 
-# --- intro: Kaze alone; Oni runs in; Kage flips in
-go(2.4, 'oni', -210)
-cmd(3.75, 'kage', lambda f, t: f.jump(t, -330, 640, flip=(0.8, 1)))
-TEXT += [('title', 0.4, 2.3), ('card', 3.5, 1.1, 'AKA ONI', 'oni'), ('card', 4.85, 1.1, 'KAGE', 'kage'), ('card', 5.7, 0.7, 'KAZE', 'hero')]
-# --- exchange 1: Oni vs Kaze, Kage circles
-spar(5.6, 9.0, 'oni', 'hero', rate=2.6)
-hover(5.6, 9.0, 'kage', 'hero', 230)
-# --- Kage cuts in with a high kick; Kaze replies with a side kick that drops him
-attack(9.3, 'kage', 'highkick', 'hero', lead=0.55)
-hover(9.0, 10.3, 'oni', 'hero', -200)
-attack(10.05, 'hero', 'sidekick', 'kage', ko=True, lead=0.35, down=1.4)
-# --- exchange 2, then Kaze's uppercut floors Oni
-spar(10.6, 13.3, 'oni', 'hero', rate=3.0)
-attack(13.65, 'hero', 'upper', 'oni', ko=True, lead=0.3, down=1.6)
-# --- the two-on-one: Kage's cross, Oni's high kick sends Kaze down
-attack(14.6, 'kage', 'cross', 'hero', lead=0.4)
-attack(16.2, 'oni', 'highkick', 'hero', ko=True, lead=0.45, down=2.6)
-hover(16.8, 19.4, 'oni', 'hero', -190); hover(16.8, 19.4, 'kage', 'hero', 190)
-for tt in (17.4, 18.0, 18.6): sfx(tt, 'heart', 1.0)
+def track(t, who, target, dist=84, amp=22):
+    cmd(t, who, lambda f, tt: setattr(f, 'track', (target, dist, amp)))
+# --- intro: Kaze shadow-boxes; Oni runs in; Kage flips in
+cmd(0.3, 'hero', lambda f, t: f.start_action(['jab', 'jab', 'cross'], t))
+cmd(1.4, 'hero', lambda f, t: f.start_action(['hook', 'kick'], t))
+go(2.2, 'oni', -230)
+cmd(3.4, 'kage', lambda f, t: f.jump(t, -330, 640, flip=(0.8, 1)))
+TEXT += [('title', 0.4, 2.3), ('card', 3.3, 1.0, 'AKA ONI', 'oni'), ('card', 4.5, 1.0, 'KAGE', 'kage'), ('card', 5.2, 0.7, 'KAZE', 'hero')]
+track(3.4, 'oni', 'hero', 150, 30); track(4.4, 'kage', 'hero', 220, 35); track(3.4, 'hero', 'oni', 150, 25)
+# --- exchange 1: Oni and Kaze trade combos; Kage stalks
+track(5.0, 'oni', 'hero', 82, 18); track(5.0, 'hero', 'oni', 82, 18)
+spar(5.2, 8.6, 'oni', 'hero', rate=3.2)
+# --- Kage cuts in with a high kick; Kaze's side kick drops him
+attack(8.9, 'kage', 'highkick', 'hero', lead=0.5)
+track(8.6, 'oni', 'hero', 190, 25)
+attack(9.6, 'hero', 'sidekick', 'kage', ko=True, lead=0.55, down=0.9)
+track(10.0, 'hero', 'oni', 84, 18); track(10.0, 'oni', 'hero', 82, 18); track(10.8, 'kage', 'hero', 200, 30)
+# --- exchange 2, Kaze's uppercut floors Oni
+spar(10.0, 12.6, 'oni', 'hero', rate=3.6)
+attack(12.9, 'hero', 'upper', 'oni', ko=True, lead=0.3, down=0.9)
+# --- Kage presses; Oni's high kick sends Kaze down
+track(12.9, 'kage', 'hero', 82, 16); track(13.0, 'hero', 'kage', 82, 16)
+spar(13.0, 14.6, 'kage', 'hero', rate=3.6)
+track(14.0, 'oni', 'hero', 90, 18)
+attack(15.0, 'oni', 'highkick', 'hero', ko=True, lead=0.45, down=1.2)
+track(15.2, 'oni', 'hero', 150, 30); track(15.2, 'kage', 'hero', 150, 30)
 # --- awakening: shockwave, the sword is drawn
-up = 19.75
+up = 17.4
 def burst(f, t):
     for v in (SA, SB):
         d = 1 if v.hip()[0] > f.hip()[0] else -1
-        v.impulse_all((d*420, 160)); v.stun = 1.0; v.x_target += d*120
+        v.impulse_all((d*280, 140)); v.stun = 1.0; v.x_target += d*50
 cmd(up, 'hero', burst)
 def draw_sword(f, t): f.sword = True; f.set_pose(sim.P('swguard'), t, 0.2)
-cmd(up + 0.3, 'hero', draw_sword)
-# --- sword: through Oni, then Kage
-attack(up + 1.0, 'hero', 'slash', 'oni', ko=True, lead=0.4, down=1.9)
-attack(up + 1.9, 'hero', 'cut', 'kage', ko=True, lead=0.4, down=1.6)
-spar(up + 3.9, up + 5.6, 'kage', 'hero', rate=2.4, dist=96)
-hover(up + 3.9, up + 5.6, 'oni', 'hero', -210)
+cmd(up + 0.25, 'hero', draw_sword)
+for tt in (16.1, 16.6, 17.1): sfx(tt, 'heart', 1.0)
+# --- sword: cut through both, they keep coming
+track(up + 0.4, 'oni', 'hero', 100, 20); track(up + 0.4, 'kage', 'hero', 100, 20)
+attack(up + 1.0, 'hero', 'slash', 'oni', ko=True, lead=0.6, down=0.9)
+attack(up + 1.85, 'hero', 'cut', 'kage', ko=True, lead=0.6, down=0.9)
+track(up + 1.8, 'hero', 'kage', 96, 18)
+spar(up + 2.9, up + 3.6, 'kage', 'hero', rate=3.0, dist=96)
+spar(up + 2.9, up + 3.6, 'oni', 'hero', rate=2.4, dist=96)
 # --- final: both charge, two cuts
-tf = up + 6.3
-attack(tf, 'hero', 'cut', 'kage', ko=True, lead=0.45, down=9)
-attack(tf + 0.55, 'hero', 'slash', 'oni', ko=True, lead=0.25, down=9)
-attack(tf + 1.0, 'hero', 'cut', 'kage', ko=True, lead=0.35, down=9)
-cmd(tf - 0.9, 'kage', lambda f, t: setattr(f, 'x_target', SH.hip()[0] + 95))
-cmd(tf - 0.6, 'oni', lambda f, t: setattr(f, 'x_target', SH.hip()[0] - 95))
-def sheathe(f, t): f.sword = False; f.set_pose(sim.P('stand'), t, 0.4)
-cmd(tf + 2.4, 'hero', sheathe)
-ANIM_END = tf + 5.6
-TEXT.append(('fin', tf + 3.2, 2.4))
+tf = up + 5.7
+def flank(f, t, side, who):
+    f.scripted = True; f.combo = []; f.action = None; f.track = None
+    f.chase = None; f.x_target = SH.hip()[0] + side*95
+cmd(tf - 1.95, 'hero', lambda f, t: (setattr(f, 'track', None), setattr(f, 'scripted', True), setattr(f, 'x_target', f.hip()[0])))
+cmd(tf - 1.95, 'kage', lambda f, t: flank(f, t, 1, 'kage'))
+cmd(tf - 1.95, 'oni', lambda f, t: flank(f, t, -1, 'oni'))
+attack(tf, 'hero', 'cut', 'kage', ko=True, lead=0.3, down=9)
+attack(tf + 0.55, 'hero', 'slash', 'oni', ko=True, lead=0.3, down=9)
+attack(tf + 1.15, 'hero', 'cut', 'oni', ko=True, lead=0.35, down=9)
+def sheathe(f, t): f.sword = False; f.track = None; f.set_pose(sim.P('stand'), t, 0.4)
+cmd(tf + 2.2, 'hero', sheathe)
+ANIM_END = tf + 5.0
+TEXT.append(('fin', tf + 2.8, 2.2))
 
 _key = hashlib.md5(open(os.path.join(HERE, 'sim.py'), 'rb').read() + open(__file__, 'rb').read().split(b'# ===== end fight')[0]).hexdigest()
 _cache = os.path.join(HERE, '..', '..', '..', 'out', 'one-vs-two', f'sim_{_key[:10]}.pkl')
@@ -162,7 +180,6 @@ for t, k, d in EVENTS:
             fx('slash', t - 0.01, 0.32, x=d['x'], y=d['y'], r=105, a0=200, a1=340, w=32, squash=0.55, col=ACC['hero'])
         sfx(t, 'cut' if d['blade'] else ('bighit' if heavy else 'block'), 1.0)
         post('shake', t, 0.45 if heavy else 0.25, 16 if heavy else 5)
-        if heavy: WARP.stop(t, 0.05)
     elif k == 'slam':
         fx('dust', t, 1.0, layer='back', x=d['x'], n=14, size=1.1); fx('ring', t, 0.5, layer='back', x=d['x'], r=150)
         fx('debris', t, 0.9, x=d['x'], n=8); post('shake', t, 0.4, 9); sfx(t, 'slam', 0.8)
@@ -173,13 +190,13 @@ for t, k, d in EVENTS:
         pass
 for t, k, d in EVENTS:   # the big beats get slow motion / impact frames
     if k == 'ko' and d['victim'] == 'hero':
-        slow_ramp(t - 0.2, 0.7, 0.3); post('iframe', t, 0.07); post('chroma', t, 0.5, 7)
+        post('iframe', t, 0.05); post('chroma', t, 0.4, 6)
 post('flash', up, 0.35); post('shake', up, 0.7, 18); sfx(up, 'boom', 1.0); sfx(up - 1.2, 'rumble', 1.0)
-fx('ring', up, 0.7, layer='back', actor=H_, r=380, col=ACC['hero']); fx('aura', up - 1.0, ANIM_END - up, actor=H_, col=ACC['hero'])
+fx('ring', up, 0.7, layer='back', actor=H_, r=380, col=ACC['hero']); fx('aura', up - 0.8, tf + 2.2 - up, actor=H_, col=ACC['hero'])
 fx('glint', up - 0.4, 0.4, actor=H_, joint='head', col='#7ff7ff', size=40); sfx(up + 0.3, 'shing', 0.9)
-slow_ramp(tf - 0.15, 0.8, 0.3); post('dark', tf - 0.1, 1.0, 0.7); fx('speedlines', tf - 0.1, 0.5, mode='horiz')
-post('flash', tf + 0.55, 0.4); post('iframe', tf + 0.55, 0.08); post('chroma', tf + 0.55, 0.6, 8); WARP.stop(tf + 0.55, 0.2)
-sfx(tf + 2.4, 'chin', 0.9); post('fade', tf + 4.6, 1.0)
+slow_ramp(tf + 0.3, 0.45, 0.5); post('dark', tf - 0.1, 1.0, 0.7); fx('speedlines', tf - 0.1, 0.5, mode='horiz')
+post('flash', tf + 0.45, 0.4); post('chroma', tf + 0.45, 0.6, 8)
+sfx(tf + 2.2, 'chin', 0.9); post('fade', tf + 4.0, 1.0)
 tc = tf - 0.6
 
 # ================================================================= resolve timing
@@ -205,10 +222,10 @@ REAL_END = WARP.R(ANIM_END)
 
 # ================================================================= camera (auto framing, precomputed)
 SHAKES = [(t, a, d) for k, t, d, a in POSTR if k == 'shake']
-CUTS = sorted(WARP.R(t) for t in (3.6, 17.0) if t < ANIM_END)
-FOCUS = [(0, 'hero'), (2.4, 'hero oni'), (3.7, 'hero kage'), (5.5, 'oni hero'), (9.0, 'hero kage'), (10.6, 'hero oni'),
-         (14.3, 'hero oni kage'), (17.0, 'hero'), (up - 0.3, 'hero oni kage'), (up + 0.6, 'hero oni'), (up + 1.5, 'hero kage'),
-         (up + 3.8, 'hero kage'), (tf - 0.6, 'hero oni kage'), (tf + 1.5, 'hero')]
+CUTS = []
+FOCUS = [(0, 'hero'), (2.2, 'hero oni'), (3.4, 'hero kage'), (5.0, 'oni hero'), (8.5, 'hero kage'), (10.0, 'hero oni'),
+         (12.9, 'hero kage'), (14.8, 'hero oni'), (15.8, 'hero'), (up - 0.2, 'hero oni kage'), (up + 0.7, 'hero oni'),
+         (up + 1.4, 'hero kage'), (tf - 0.5, 'hero oni kage'), (tf + 1.4, 'hero')]
 def cam_target(ta):
     names = [f for t, f in FOCUS if t <= ta][-1].split()
     pts = []

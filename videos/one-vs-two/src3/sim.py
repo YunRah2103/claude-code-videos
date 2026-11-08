@@ -44,7 +44,9 @@ ACTIONS = {
     'kick':    [(0.12, 'chamber', None, 0), (0.12, 'kick', 'fft', 2.2), (0.22, 'guard', None, 0)],
     'highkick':[(0.13, 'chamber2', None, 0), (0.14, 'highkick', 'rft', 2.8), (0.25, 'guard', None, 0)],
     'sidekick':[(0.13, 'chamber2', None, 0), (0.13, 'sidekick', 'rft', 3.2), (0.25, 'guard', None, 0)],
-    'duck':    [(0.10, 'duck', None, 0), (0.22, 'duck', None, 0), (0.15, 'guard', None, 0)],
+    'duck':    [(0.10, 'duck', None, 0), (0.18, 'duck', None, 0), (0.12, 'guard', None, 0)],
+    'block':   [(0.06, 'block', None, 0), (0.22, 'block', None, 0), (0.10, 'guard', None, 0)],
+    'slip':    [(0.08, 'backstep', None, 0), (0.14, 'backstep', None, 0), (0.10, 'guard', None, 0)],
     'slash':   [(0.12, 'slash1', None, 0), (0.12, 'slash2', 'blade', 3.0), (0.22, 'swguard', None, 0)],
     'cut':     [(0.10, 'slashb', None, 0), (0.12, 'slashf', 'blade', 3.4), (0.25, 'swguard', None, 0)],
 }
@@ -153,11 +155,19 @@ class Fighter:
             out[k] = v if (v is None or a is None) else a + (v - a)*u
         return out
     def start_action(s, name, t):
+        if isinstance(name, (list, tuple)):
+            s.combo = list(name[1:]); name = name[0]
+        else:
+            s.combo = []
         s.action = name; s.act_t = t; s.act_hit = False; s.act_phase = -1
     def update_action(s, t):
         if s.action is None: return None
         ph = ACTIONS[s.action]; tt = t - s.act_t; acc = 0.0
+        last = len(ph) - 1
         for i, (d, pose, limb, power) in enumerate(ph):
+            if i == last and getattr(s, 'combo', None) and pose in ('guard', 'swguard') and tt >= acc + d*0.15:
+                nxt = s.combo.pop(0); s.action = nxt; s.act_t = t; s.act_hit = False; s.act_phase = -1
+                return s.update_action(t)
             if tt < acc + d:
                 if i != s.act_phase:
                     s.act_phase = i; kw = {'sw': 160} if s.sword else {}
@@ -170,7 +180,8 @@ class Fighter:
 
     def target_angles(s, t, vx):
         p = s.cur_pose(t); f = s.face
-        lean = p['t'] + s.lean_extra
+        sd = (sum(map(ord, s.name)) % 13)*0.7
+        lean = p['t'] + s.lean_extra + (5*math.sin(t*2.6 + sd) + 3*math.sin(t*4.1 + 2*sd) if s.mode == 'stand' else 0)
         ang = {'torso': -math.radians(lean)*f, 'head': -math.radians(lean + p['h'])*f}
         for side in 'rf':
             ang[side + 'ua'] = math.radians(p[side + 'a1'])*f; ang[side + 'fa'] = math.radians(p[side + 'a2'])*f
@@ -182,7 +193,9 @@ class Fighter:
                 for side, sg in (('f', 1), ('r', -1)):
                     ang[side + 'th'] += math.radians(24*A*sn*sg)*f
                     ang[side + 'sn'] += math.radians(24*A*sn*sg - 34*A*max(0, cs*sg))*f
-            bob = math.sin(t*7.5 + hash(s.name) % 7)*0.06
+            ang['fua'] += 0.10*math.sin(t*3.3 + sd)*f; ang['ffa'] += 0.14*math.sin(t*3.3 + sd + 0.6)*f
+            ang['rua'] += 0.08*math.sin(t*2.9 + sd + 1.3)*f; ang['rfa'] += 0.12*math.sin(t*2.9 + sd + 1.9)*f
+            bob = math.sin(t*7.5 + sd)*0.07
             ang['fth'] += bob*f; ang['fsn'] -= bob*0.8*f; ang['rth'] += bob*0.6*f; ang['rsn'] -= bob*f
         return ang
 
@@ -218,7 +231,7 @@ class Fighter:
                 fy = mt*G*sup + 9000*(target_h - hip_h)*sup - 260*tor.velocity[1]*sup
                 tor.force += (0, fy)
                 fx = (2400*(s.x_target - tor.position[0]) - 170*vx)*sup
-                fx = max(-60000, min(60000, fx))
+                fx = max(-130000, min(130000, fx))
                 tor.force += (fx, 0)
                 for key in ('rsn', 'fsn'):
                     b = s.parts[key][0]; b.force += (-b.velocity[0]*6*sup, 0)
@@ -265,6 +278,10 @@ class Fight:
     def on_hit(s, t, F, V, limb, power, pt):
         heavy = power >= getattr(V, 'ko_threshold', 2.6) or getattr(F, 'force_ko', False)
         dirn = 1 if V.hip()[0] > F.hip()[0] else -1
+        if V.action == 'block' and not heavy:
+            s.events.append((t, 'block', dict(x=pt[0], y=-pt[1], power=power, attacker=F.name, victim=V.name)))
+            V.impulse_all((dirn*(40 + 25*power), 0)); V.x_target += dirn*(8 + 6*power); V.lean_extra = 8*power
+            return
         s.events.append((t, 'hit', dict(x=pt[0], y=-pt[1], power=power, attacker=F.name, victim=V.name, heavy=heavy, blade=limb == 'blade')))
         if heavy:
             V.mode = 'down'; V.down_until = t + getattr(V, 'down_time', 1.4); V.action = None
@@ -277,17 +294,44 @@ class Fight:
             V.action = None; V.set_pose(P('flinch'), t, 0.05)
             s.later(t + 0.18, V.name, lambda F_, tt: F_.set_pose(P('guard' if not F_.sword else 'swguard'), tt, 0.15))
 
+    COMBOS = [['jab', 'cross'], ['jab', 'jab', 'cross'], ['jab', 'cross', 'hook'], ['cross', 'hook', 'kick'],
+              ['jab', 'kick'], ['hook', 'upper'], ['jab', 'cross', 'highkick'], ['kick', 'cross']]
+    SWORD_COMBOS = [['slash', 'cut'], ['cut', 'slash'], ['slash'], ['cut']]
     def step_ai(s, t):
         for t0, t1, an, dn, rate in s.spar:
             if not (t0 <= t < t1): continue
             A, D = s.f[an], s.f[dn]
-            if A.mode != 'stand' or A.action is not None: continue
+            if A.mode != 'stand' or A.action is not None or getattr(A, 'scripted', False): continue
+            if t < getattr(A, 'cool', 0): continue
             dist = abs(D.hip()[0] - A.hip()[0])
-            if s.rng.random() < rate*DT and dist < 120:
-                mv = s.rng.choice(['jab', 'jab', 'cross', 'hook', 'cross', 'kick'] if not A.sword else ['slash', 'cut'])
-                A.start_action(mv, t)
-                if D.mode == 'stand' and D.action is None and s.rng.random() < 0.35:
-                    s.later(t + 0.04, dn, lambda F_, tt: F_.start_action('duck', tt))
+            if dist < 125 and s.rng.random() < rate*DT*3:
+                combo = s.rng.choice(s.SWORD_COMBOS if A.sword else s.COMBOS)
+                A.start_action(combo, t); A.cool = t + 0.25
+                d = 1 if D.hip()[0] > A.hip()[0] else -1
+                A.x_target = D.hip()[0] - d*70
+                if D.mode == 'stand' and D.action is None and not getattr(D, 'scripted', False):
+                    r = s.rng.random()
+                    react = 'block' if r < 0.45 else ('duck' if r < 0.62 else ('slip' if r < 0.78 else None))
+                    if react:
+                        s.later(t + 0.05, dn, lambda F_, tt, react=react: F_.start_action(react, tt))
+                    # counter attack right after
+                    cc = s.rng.choice(s.SWORD_COMBOS if D.sword else s.COMBOS)
+                    s.later(t + 0.45 + 0.1*len(combo), dn,
+                            lambda F_, tt, cc=cc: F_.start_action(cc, tt) if F_.mode == 'stand' and F_.action is None and not getattr(F_, 'scripted', False) else None)
+    def footwork(s, t):
+        """Continuous circling / pressure: idle fighters never stand still."""
+        for F in s.f.values():
+            ch = getattr(F, 'chase', None)
+            if ch and F.mode == 'stand':
+                V = s.f[ch[0]]; d = 1 if V.hip()[0] > F.hip()[0] else -1
+                if F.action is None: F.set_face(d)
+                F.x_target = V.hip()[0] - d*ch[1]; continue
+            if F.mode != 'stand' or F.action is not None or getattr(F, 'scripted', False) or getattr(F, 'free', False): continue
+            tgt = getattr(F, 'track', None)
+            if not tgt: continue
+            name, dist, amp = tgt; V = s.f[name]; d = 1 if V.hip()[0] > F.hip()[0] else -1
+            sd = (sum(map(ord, F.name)) % 13)*0.9
+            F.x_target = V.hip()[0] - d*(dist + amp*math.sin(t*1.9 + sd) + 0.5*amp*math.sin(t*3.7 + 2*sd))
 
     def run(s, T):
         cmds = sorted(s.cmds, key=lambda c: c[0]); ci = 0
@@ -300,7 +344,7 @@ class Fight:
                 cmds = cmds  # list already sorted; late inserts handled below
             if s._pending:
                 cmds += s._pending; s._pending = []; cmds[ci:] = sorted(cmds[ci:], key=lambda c: c[0])
-            s.step_ai(t)
+            s.step_ai(t); s.footwork(t)
             for F in s.f.values():
                 if F.mode == 'stand' and F.action is None and not getattr(F, 'lock_face', False):
                     o = s.nearest(F); nf = 1 if o.hip()[0] > F.hip()[0] else -1
