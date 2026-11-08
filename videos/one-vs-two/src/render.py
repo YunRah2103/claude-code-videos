@@ -206,11 +206,34 @@ def build(F, st, v, ta, vel):
         items.append(('sword', S('pommel'), S('guardp'), S('tip'), F.glow_from is not None and ta >= F.glow_from))
     return items
 
+
+STICK = {'hero': (238, 242, 250), 'oni': (204, 40, 58), 'shade': (128, 78, 200)}
+
+def build_plain(F, st, v, ta, vel):
+    """Plain stick figure: one flat colour, round head, thick rounded limbs."""
+    Wd, tf = F.world(st); kind = F.look['kind']; k = v.k
+    col = STICK[kind]; rear = shade(col, 0.72)
+    S = lambda n: v.ws(*Wd[n])
+    lw, tw = 11*k, 14*k
+    items = []
+    def limb(a, b, c_, cl):
+        items.append(('fill', shape(S(a), S(b), lambda t: lw), cl))
+        items.append(('fill', shape(S(b), S(c_), lambda t: lw), cl))
+    limb('sh', 'rel', 'rhand', rear); limb('hip', 'rkn', 'rft', rear)
+    limb('hip', 'fkn', 'fft', col)
+    items.append(('fill', shape(S('hip'), S('neck'), lambda t: tw), col))
+    hc = S('head'); hp = skia.Path(); hp.addCircle(hc[0], hc[1], 15*k)
+    items.append(('fill', hp, col))
+    limb('sh', 'fel', 'fhand', col)
+    if 'tip' in Wd:
+        items.append(('sword', S('pommel'), S('guardp'), S('tip'), F.glow_from is not None and ta >= F.glow_from))
+    return items
+
 def render_items(c, g, items, k, flat=None):
     for it in items:
         kind = it[0]
         if flat is not None:
-            if kind == 'cel': c.drawPath(it[1], flat)
+            if kind in ('cel', 'fill'): c.drawPath(it[1], flat)
             elif kind == 'sword': c.drawPath(shape(it[2], it[3], lambda t: (3.4 - 2.6*t)*k), flat)
             continue
         if kind == 'cel': cel(c, it[1], it[2], it[3], k)
@@ -225,11 +248,8 @@ def render_items(c, g, items, k, flat=None):
             pm, gp, tp, gl = it[1:]
             dx, dy = tp[0]-gp[0], tp[1]-gp[1]; L = math.hypot(dx, dy) or 1; nx, ny = -dy/L, dx/L
             pts = [(gp[0] + dx*i/12 + nx*math.sin(math.pi*i/12)*3*k, gp[1] + dy*i/12 + ny*math.sin(math.pi*i/12)*3*k) for i in range(13)]
-            blade = shape(gp, tp, lambda t: (3.6 - 2.9*t)*k)
-            c.drawPath(blade, PT((214, 224, 242))); c.drawPath(blade, PT((30, 26, 44), 255, stroke=1.3*k))
-            c.drawPath(poly([(x + nx*1.0*k, y + ny*1.0*k) for x, y in pts[1:-2]], False), PT((255, 255, 255), 230, stroke=1.1*k))
-            cel(c, shape(pm, gp, lambda t: 4.6*k), pal('#2a1e33', 0.6, 2.4), 4*k, k)
-            c.drawCircle(gp[0], gp[1], 4.4*k, PT((216, 182, 96))); c.drawCircle(gp[0], gp[1], 4.4*k, PT(INKC, 230, stroke=1.0*k))
+            c.drawPath(shape(gp, tp, lambda t: (3.4 - 2.4*t)*k), PT((236, 242, 255)))
+            c.drawPath(shape(pm, gp, lambda t: 4.2*k), PT((60, 60, 80)))
             if gl: g.drawPath(poly(pts, False), PT(hexc(LOOK_H['acc']), 200, stroke=9*k, add=True, blur=4*k))
 
 # ---------------------------------------------------------------- effects
@@ -544,18 +564,18 @@ def frame(fi):
         acc = hexc(F.look['acc'])
         if spd > 700:
             for j, a in ((3, 50), (2, 85)):
-                render_items(c, g, build(F, F.anim(ta - j*0.025), v, ta, vel), v.k,
+                render_items(c, g, build_plain(F, F.anim(ta - j*0.025), v, ta, vel), v.k,
                              flat=PT(mix(acc, (255, 255, 255), 0.25), int(a*min(1, spd/1400)), blur=2*v.k))
         Wn, _ = F.world(st); Wp, _ = F.world(F.anim(ta - 1/40))
         rel = lambda Wd, j: (Wd[j][0] - Wd['hip'][0], Wd[j][1] - Wd['hip'][1])
         for root, end in (('fel', 'fhand'), ('rel', 'rhand'), ('fkn', 'ftoe'), ('rkn', 'rtoe')):
             if math.dist(rel(Wn, end), rel(Wp, end))*v.k < 16*SS: continue
             q = [v.ws(*Wp[root]), v.ws(*Wp[end]), v.ws(*Wn[end]), v.ws(*Wn[root])]
-            c.drawPath(poly(q), PT(shade(hexc(F.look['top']), 0.95), 120, blur=2.2*v.k))
+            c.drawPath(poly(q), PT(STICK[F.look['kind']], 110, blur=2.2*v.k))
             for o in (-0.15, 0.15):
                 p0, p1 = mix(q[1], q[0], 0.1 + o), mix(q[2], q[3], 0.1 + o)
                 c.drawLine(*p0, *p1, PT((255, 255, 255), 90, stroke=1.2*v.k))
-        render_items(c, g, build(F, st, v, ta, vel), v.k)
+        render_items(c, g, build_plain(F, st, v, ta, vel), v.k)
     blade_trail(c, g, v, ta)
     for e, age in active:
         if e.layer != 'back': draw_fx(e, age, c, g, v, tr)

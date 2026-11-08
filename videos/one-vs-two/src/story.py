@@ -272,6 +272,7 @@ def follow(t0, t1, Fs, z, dy=-30, rot=0, rot1=None, z1=None, step=0.08):
         CAM.key(t, cx, cy, lerp(z, z1, i/n), 'hold' if i == 0 else 'lin', lerp(rot, rot1, i/n))
 
 def close(t, F, joint, z, until, z1=None, dx=0, dy=0, rot=0):
+    z = min(z, 3.0); z1 = min(z1 or z*1.08, 3.3); joint = 'chest'
     x, y = at(F, (t + until)/2, joint)
     cut(t, (x + dx, y + dy, z, rot), until, (x + dx, y + dy, z1 or z*1.08, rot))
 
