@@ -1,0 +1,12 @@
+<!doctype html><html><head><meta charset="utf-8">
+<style>html,body{margin:0;background:#000}</style>
+<script type="importmap">{"imports":{"three":"../vendor/three-0.160.0.module.min.js"}}</script>
+<script src="../inkfight/kit.js"></script>
+</head><body><canvas id="c" width="1080" height="1920"></canvas>
+<script type="module">
+// ?scene=<episode module url>. The module exports build(canvas2d, data) -> { frame(i, fps) -> text boxes, events }.
+const url = new URLSearchParams(location.search).get('scene');
+window.BUILD = async (data) => { const mod = await import(url); await document.fonts.load('900 64px "Inter Display"'); window.EP = await mod.build(document.getElementById('c'), data); return window.EP.events || null; };
+window.renderAt = (i, fps) => { K.boxes = []; window.EP.frame(i, fps); return { u: document.getElementById('c').toDataURL('image/png'), b: K.boxes }; };
+window.READY = true;
+</script></body></html>

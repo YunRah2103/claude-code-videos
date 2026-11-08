@@ -288,3 +288,19 @@ Example: `videos/seatbelt-fight`.
 | Text + poll | Safe-zone text with plates / strokes / per-word colours, logged boxes; YES / NO poll card | `inkfight/kit.js` `K.text`, `K.poll` | seatbelt-fight | own work |
 | Fight sfx | Punch, guarded block, record scratch, airbag pop (synthesised) | `../audio/sfx.py` `punch()`, `block()`, `scratch()`, `airbag_pop()` | seatbelt-fight | own work |
 | VO placement | Places one TTS take on a timeline in segments, shortens long gaps, maps real word timings, per-frame loudness for the mouth | `videos/seatbelt-fight/src/build_vo.py` | seatbelt-fight | own work |
+
+## Street 3D kit (`street3d/`)
+
+Real 3D dusk street in Three.js r160 (vendored), rendered in Chromium (SwiftShader WebGL) at 1080x1920, deterministic.
+Episode module exports `build(canvas2d, data) -> { frame(i, fps), events }` and uses `inkfight/kit.js` (`K.track`, text, poll,
+diagram parts) for 2D overlays. Render: `node shared/assets/street3d/render.mjs <scene.js> <data.json> <out_dir> 60 0 <dur> 4`
+(or `--times a,b`). Example: `videos/seatbelt-fight/src/scene3d.js`.
+
+| Asset | What it is | Path | Used by | Credit |
+|---|---|---|---|---|
+| Renderer + page | Playwright page with import map + kit.js; parallel pages; PNG frames, text boxes, events | `street3d/render.mjs`, `street3d/page.html` | seatbelt-fight | own work |
+| Stage | Offscreen WebGL + 2D compositor: blurred far layer (depth of field), 4 sub-frame motion blur, vignette, fixed grain, flash; spherical camera rig `aim()` | `street3d/stage.js` | seatbelt-fight | own work |
+| Dusk street | Road, lane dashes, sidewalks, curbs, two rows of flat-shaded buildings with emissive window textures (far layer), lamp posts with glow sprites, sky gradient, fog, lights | `street3d/world.js` `buildStreet()` | seatbelt-fight | own work |
+| Barrier | Concrete barrier with yellow/black stripe band | `street3d/world.js` `barrier()` | seatbelt-fight | own work |
+| 3D figure rig | Solid capsule-limb figure, same pose fields as the 2D kit (lean, a1/a2, l1/l2, rot, yaw, turn, squash), ground contact, blob shadow; `guy` = main guy (dark hair, glasses, brown skin, white tee, black shorts, white/black trainers, talking mouth, blink, brows, breathing), `rival` = solid dark red | `street3d/figure.js` `makeFigure()` | seatbelt-fight | characters/main-guy identity, own model |
+| Generic car | Unbadged hatchback, blank plates, crumple zone, removable near door / B-pillar (cutaway), seat, wheel, retractor, D-ring, airbag, tube seatbelt through any points | `street3d/car.js` `makeCar()` | seatbelt-fight | own work |
