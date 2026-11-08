@@ -330,8 +330,12 @@ BLACK = dict(body="#25262a", gear="#383a3e", gear_d="#1b1c1e", boots="#111213",
 def draw_leg(cv, hip, ankle, mode, f, pal, back, toe=None):
     k = 0.8 if back else 1.0
     body, gear_d, boots = rgb(pal["body"], k), rgb(pal["gear_d"], k), rgb(pal["boots"], k)
-    if mode == "down":
+    if callable(mode):
+        knee = ik(hip, ankle, THIGH, SHIN, mode)
+    elif mode == "down":
         knee = ik(hip, ankle, THIGH, SHIN, lambda q: q[1])
+    elif mode == "up":
+        knee = ik(hip, ankle, THIGH, SHIN, lambda q: -q[1])
     else:
         knee = ik(hip, ankle, THIGH, SHIN, lambda q: f * q[0])
     cv.capsule(hip, knee, 36, body)
@@ -415,10 +419,11 @@ def draw_figure(cv, pose, pal, f):
         cv.line([on_arc(a, HEAD_R - 2) for a in np.linspace(a0 + 0.1, a1 - 0.1, 16)], pal["helmet_d"], 5)
 
     out = {}
-    grip, ang = pose["rifle"]
-    draw_rifle(cv, grip, ang, f, pal["rifle"])
-    T = rifle_tf(grip, ang, f)
-    out["muzzle"], out["port"] = T(*MUZZLE), T(*PORT)
+    if pose.get("rifle"):
+        grip, ang = pose["rifle"]
+        draw_rifle(cv, grip, ang, f, pal["rifle"])
+        T = rifle_tf(grip, ang, f)
+        out["muzzle"], out["port"] = T(*MUZZLE), T(*PORT)
     draw_arm(cv, sh, hands[0], f, pal, False)
     return out
 
@@ -755,10 +760,6 @@ def make_frame(i, bg, font, vig):
     arr = (np.asarray(band, dtype=np.float32) * vig).clip(0, 255).astype(np.uint8)
     frame = Image.new("RGB", (W, H), "black")
     frame.paste(Image.fromarray(arr), (0, BY))
-    d = ImageDraw.Draw(frame)
-    pos = (W // 2, BY + BH - 64)
-    d.text((pos[0] + 2, pos[1] + 3), "Noahh", font=font, fill=(40, 40, 40), anchor="mm")
-    d.text(pos, "Noahh", font=font, fill="white", anchor="mm")
     return frame
 
 
