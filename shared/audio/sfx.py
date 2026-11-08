@@ -246,3 +246,37 @@ def alert(d=0.5):
     return fade(s) * 0.22
 
 LIB.update(power_down=power_down, clack=clack, alert=alert, tick=click)
+
+
+def punch(d=0.22):
+    """Cartoon punch: short low thud + bright noise slap (seatbelt-fight)."""
+    s = sweep(180, 55, d) * dec(d, 16)
+    n = lp(rng.standard_normal(len(s)), 2) * dec(d, 60)
+    return fade(s * 1.1 + n * 0.7, a=0.001)
+
+
+def block(d=0.16):
+    """Guarded hit: dull thud with a little clack."""
+    s = sweep(240, 90, d) * dec(d, 22) + lp(rng.standard_normal(int(SR*d)), 4) * dec(d, 45) * 0.4
+    return fade(s, a=0.001) * 0.8
+
+
+def scratch(d=0.42):
+    """Record scratch: band-limited noise with a fast pitch wobble (freeze frame)."""
+    t = T(d)
+    n = rng.standard_normal(len(t))
+    hi = n - lp(n, 6)
+    f = 0.5 + 0.5 * np.sin(2*np.pi*(6 + 10*t/d)*t)
+    s = lp(hi, 2) * (0.4 + f) * np.sin(np.pi*t/d) ** 0.5 + sweep(900, 300, d) * 0.15 * f
+    return fade(s, a=0.002, r=0.05) * 0.8
+
+
+def airbag_pop(d=0.5):
+    """Airbag deploy: sharp burst + soft low boom."""
+    s = boom(d) * 0.6
+    c = rng.standard_normal(int(SR*0.05)) * dec(0.05, 50)
+    s[:len(c)] += c * 0.9
+    return fade(s, a=0.001)
+
+
+LIB.update(punch=punch, block=block, scratch=scratch, airbag_pop=airbag_pop)

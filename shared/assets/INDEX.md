@@ -263,3 +263,28 @@ depth-of-field, gradient shading, glows, then a filmic finish (grade, bloom, vig
 | Post pipeline | Teal/navy shadows + warm highlights grade, soft bloom, vignette, deterministic fine grain | `cinematic/post.py` `finish()` | seatbelt-cinematic | - |
 | Paint helpers | Linear-gradient polygon fill, radial glow sprites, edge-safe composite, cheap big blur | `cinematic/paint.py` | seatbelt-cinematic | - |
 | Photo card, poll, pills | Framed photo card (illustrated retractor fallback), gradient YES / NO poll with tap ripple, glossy pills with optional tick | `cinematic/cards.py` | seatbelt-cinematic | - |
+
+## Inkfight kit (`inkfight/`)
+
+Flat-colour, silhouette-led stickman fight animation drawn on a Chromium canvas (Playwright), 1080x1920 at 60 fps,
+deterministic per-frame (`frame(i)`), rendered in 4 parallel pages. Scene = classic script defining
+`window.SCENE = {init(data), frame(i, fps), events}`. Render:
+`node shared/assets/inkfight/render.mjs <scene.js> <data.json> <out_dir> 60 0 <dur> 4` (or `--times a,b`); writes PNG frames,
+`boxes.json` (every text box per frame, for the safe-zone check) and `events.json` (impact / sfx cue times).
+Example: `videos/seatbelt-fight`.
+
+| Asset | What it is | Path | Used by | Credit |
+|---|---|---|---|---|
+| Frame renderer | Playwright canvas renderer, parallel pages, PNG frames + text boxes + events | `inkfight/render.mjs` | seatbelt-fight | own work |
+| Keyframe tracks | Hand-keyed pose tracks with per-key easing (`io`, snap-out `o`, anticipation `i`, overshoot `back`, hold `h`); hit-stops = repeated keys | `inkfight/kit.js` `K.track`, `K.ease` | seatbelt-fight | own work |
+| Main guy, stickman rig | The main guy as a stickman: messy dark hair, grey square glasses, brown skin, white tee, black shorts, white/black trainers; FK pose (lean, head, arms, legs, squash/stretch), profile-to-camera `turn`, mouth from voice loudness, blink, brows, thumbs-up, warm rim light | `inkfight/kit.js` `K.drawGuy`, `K.drawGuyHead`, `K.joints` | seatbelt-fight | characters/main-guy identity, own drawing |
+| Rival stickman | Vermilion faceless stickman with fluttering headband, cyan rim light | `inkfight/kit.js` `K.drawRival` | seatbelt-fight | own work |
+| Smear + impact FX | Limb smear ribbons, starburst + rings, sparks, dust puffs, speed lines, ground shadow | `inkfight/kit.js` `K.smear`, `K.burst`, `K.sparks`, `K.dust`, `K.speedLines`, `K.shadow` | seatbelt-fight | own work |
+| Camera | Shot list with hard cuts, eased moves, decaying impact shake; `K.apply` | `inkfight/kit.js` `K.camera` | seatbelt-fight | own work |
+| Dusk city street | Parallax dusk sky + blurred skyline with lit windows, streetlights, blank neon sign shapes (no text/logos), bokeh, wet road with light reflections, lane dashes | `inkfight/kit.js` `K.buildStreet`, `K.drawStreet` | seatbelt-fight | own work |
+| Generic car | Unbadged side-view hatch (blank plate), any colour, crumple, pitch, spinning wheels, glass tint, x-ray door-off cutaway with an occupant callback | `inkfight/kit.js` `K.drawCar` | seatbelt-fight | own work |
+| Seatbelt diagram parts | Seat, crash dummy, retractor spool, pyro cartridge (with firing puff), electric motor, arrows, airbag | `inkfight/kit.js` `K.seatShape`, `K.dummy`, `K.spool`, `K.cartridge`, `K.motor`, `K.arrow`, `K.airbag` | seatbelt-fight | own work |
+| Post finish | Bloom, warm/cool split grade, vignette, animated grain | `inkfight/kit.js` `K.makePost` | seatbelt-fight | own work |
+| Text + poll | Safe-zone text with plates / strokes / per-word colours, logged boxes; YES / NO poll card | `inkfight/kit.js` `K.text`, `K.poll` | seatbelt-fight | own work |
+| Fight sfx | Punch, guarded block, record scratch, airbag pop (synthesised) | `../audio/sfx.py` `punch()`, `block()`, `scratch()`, `airbag_pop()` | seatbelt-fight | own work |
+| VO placement | Places one TTS take on a timeline in segments, shortens long gaps, maps real word timings, per-frame loudness for the mouth | `videos/seatbelt-fight/src/build_vo.py` | seatbelt-fight | own work |
