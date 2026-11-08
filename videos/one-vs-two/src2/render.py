@@ -17,7 +17,7 @@ import motion
 from motion import Actor, fk, clip
 from mocap import IDX
 
-DUR = 38.0
+DUR = 36.0
 FPS = 60
 W, H, SS = R.W, R.H, R.SS
 WO, HO = R.WO, R.HO
@@ -72,99 +72,96 @@ def knock(v, t, vx, up=200, lie='faceup', dur=0.55, spin=0.0, slam=1.0):
 def X(a, t): return a.pose(t)[0][0]
 
 # ================================================================= choreography (anim time)
-# --- intro: Kaze walks in, the two attackers arrive
-H_.play(0.0, 'walk', loop=True, x=-170, face=1, a=0, b=1.3, speed=0.9).hold(2.3, 'walk', 0.0, blend=0.35, bob=0.3)
-stance(H_, 3.0)
+TK = {'hero': 'cmu:14_02', 'oni': 'cmu:14_01', 'kage': 'cmu:13_17'}
+def box(a, t, face, keys=(), u0=None, blend=0.28):
+    a.box(t, TK[a.name], face, keys=keys, u0=u0, blend=blend)
+def slow_ramp(t, d, low=0.3):
+    n = 6
+    for i in range(n):
+        r = low + (1 - low)*abs((i + 0.5)/n*2 - 1)**1.5
+        WARP.slow(t + d*i/n, d/n, r)
+
+# --- intro: Kaze warms up; Oni runs in, Kage flips in
+box(H_, 0.0, 1, keys=[(0.0, 0.0)], u0=0.6)
 TEXT.append(('title', 0.4, 2.3))
-A_.play(2.7, 'run', loop=True, x=-760, face=1, a=0, b=0.8, speed=1.05)
-stance(A_, 4.0, blend=0.3); fx('dust', 4.0, 0.9, layer='back', actor=A_, n=10, dir=-1)
+A_.play(2.6, 'run', loop=True, x=-760, face=1, a=0, b=0.8, speed=1.05)
+box(A_, 3.85, 1, keys=[(4.6, -200)])
+fx('dust', 3.9, 0.9, layer='back', actor=A_, n=10, dir=-1)
 B_.play(3.9, 'sideflip', a=0.25, x=430, face=-1, speed=1.25)
-stance(B_, 5.65, blend=0.3); fx('dust', 5.55, 0.8, layer='back', actor=B_, n=10)
+box(B_, 5.5, -1, keys=[(6.0, 240)]); fx('dust', 5.5, 0.8, layer='back', actor=B_, n=10)
 sfx(4.6, 'whoosh', 0.9)
-stance(H_, 4.15, face=-1, blend=0.15); stance(H_, 5.4, face=1, blend=0.15)
+box(H_, 4.1, -1, keys=[(5.0, 10)])
 TEXT += [('card', 4.05, 1.1, 'AKA ONI', 'oni'), ('card', 5.6, 1.1, 'KAGE', 'kage'), ('card', 6.3, 0.7, 'KAZE', 'hero')]
-stance(H_, 6.35, face=-1, blend=0.15)
 
-# --- Oni charges with a punch combo; Kaze backflips over it and catches him with the flip kick
-A_.play(6.3, 'run', loop=True, a=0, b=0.8, speed=1.1)
-strike(A_, 6.95, 'punch', 0.83, 'rhand', X(H_, 6.9) - 10, ua=0.45, hit=False)
-H_.play(6.5, 'backflip', a=0.05, speed=1.15)
-strike_face = None
-HITS.append((6.5 + (0.81 - 0.05)/1.15, H_, 'rtoe', True, ACC['hero'], None, 1.2))
-tflip = 6.5 + (0.81 - 0.05)/1.15
-WARP.slow(tflip - 0.2, 0.35, 0.35); WARP.stop(tflip, 0.08); post('shake', tflip, 0.4, 12)
-A_.flinch(tflip, 0.55).shove(tflip, -80, 0.35); stance(A_, tflip + 0.05, blend=0.25)
-stance(H_, 6.5 + 1.6/1.15, blend=0.25)
+# --- first exchange: Oni and Kaze trade in close (punches come from the real sparring takes)
+box(A_, 5.9, 1, keys=[(6.7, -68), (7.6, -62), (8.0, -95), (8.6, -66), (9.2, -70)], u0=4.1)
+box(H_, 6.3, -1, keys=[(6.8, 8), (7.7, 14), (8.3, -8), (9.2, 4)], u0=5.1)
+box(B_, 6.6, -1, keys=[(7.8, 205), (9.3, 165)])
 
-# --- Kaze counters with a front kick: Oni goes down
-t = 8.75
-strike(H_, t, 'kick', 0.67, 'rtoe', X(A_, t - 0.6), ua=0.15, shake=12, size=1.2)
-knock(A_, t, -330, up=150, lie='faceup', dur=0.6)
-stance(H_, t + 0.75, blend=0.3)
-A_.getup(t + 1.6, 'faceup', speed=1.9)
-stance(A_, t + 1.6 + 3.77/1.9 - 0.15, blend=0.3)
+# --- Kage cuts in with a spin kick; Kaze answers with a spinning high kick
+t = 10.0
+strike(B_, t, 'spinkick', 0.8, 'rtoe', X(H_, t - 0.3), ua=0.3, col=ACC['kage'], stop=0.04, shake=12, size=1.2, blend=0.22)
+H_.flinch(t, 0.7, 0.4).shove(t, -85, 0.4)
+box(H_, t + 0.05, 1, keys=[(t + 0.6, X(H_, t) - 85)])
+box(B_, t + 0.55, -1, keys=[(t + 1.0, X(B_, t + 0.5) + 30)])
+box(A_, 9.3, 1, keys=[(10.2, -170), (11.6, -150)])
+t2 = 11.25
+strike(H_, t2, 'spin', 1.75, 'rtoe', X(B_, t2 - 0.4), ua=1.3, ub=2.2, speed=1.2, stop=0.05, shake=14, size=1.3, blend=0.22)
+knock(B_, t2, 260, up=220, lie='facedown', dur=0.7, spin=1.0)
+B_.getup(t2 + 1.0, 'facedown', speed=2.0)
+box(B_, t2 + 1.0 + 3.03/2.0 - 0.2, -1)
+box(H_, t2 + 0.5, -1, keys=[(t2 + 1.2, X(H_, t2 + 0.5) - 20)])
 
-# --- Kage's spin kick from behind lands; Kaze answers with a spinning high kick
-t = 10.2
-B_.play(9.55, 'run', loop=True, a=0, b=0.8, speed=1.0)
-strike(B_, t, 'spinkick', 0.8, 'rtoe', X(H_, t), ua=0.25, col=ACC['kage'], shake=14, size=1.3)
-H_.flinch(t, 0.7, 0.4).shove(t, -95, 0.35); stance(H_, t + 0.05, blend=0.25)
-stance(B_, t + 0.5, blend=0.35)
-t2 = 11.5
-strike(H_, t2, 'spin', 1.75, 'rtoe', X(B_, t2 - 0.5), ua=1.15, ub=2.35, speed=1.15, shake=14, size=1.3)
-knock(B_, t2, 260, up=240, lie='facedown', dur=0.7, spin=1.2)
-stance(H_, t2 + 0.6, blend=0.3)
-B_.getup(t2 + 1.2, 'facedown', speed=1.8)
-stance(B_, t2 + 1.2 + 3.03/1.8 - 0.1, blend=0.3)
+# --- Oni presses again; Kaze front-kicks him away
+xh = X(H_, 12.4)
+box(A_, 11.7, 1, keys=[(12.5, xh - 72), (13.4, xh - 64), (14.0, xh - 76)], u0=9.7)
+box(H_, 12.4, -1, keys=[(13.3, xh + 5), (14.0, xh - 5)], u0=12.0)
+t = 14.55
+strike(H_, t, 'kick', 0.67, 'rtoe', X(A_, t - 0.4), ua=0.22, stop=0.04, shake=12, size=1.2, blend=0.22)
+A_.flinch(t, 0.7, 0.45).shove(t, -120, 0.5)
+box(A_, t + 0.05, 1, keys=[(t + 0.8, X(A_, t) - 120)])
+box(H_, t + 0.6, -1)
 
-# --- Oni rushes back: Kaze leaps clean over the kick
-t = 13.55
-A_.play(12.55, 'run', loop=True, a=0, b=0.8, speed=1.1)
-strike(A_, t, 'kick', 0.67, 'rtoe', X(H_, 13.0), ua=0.2, hit=False)
-H_.play(12.95, 'jump', a=0.2, speed=1.2, rm=1.6, face=-1)
-stance(H_, 12.95 + 1.45/1.2, blend=0.3, face=1)
-stance(A_, t + 0.6, blend=0.3)
-
-# --- Kage double punch, Oni spin kick: Kaze is smashed down
-t = 15.2
-strike(B_, t, 'punch', 0.83, 'rhand', X(H_, t - 0.3), ua=0.35, ub=1.7, col=ACC['kage'], big=False, stop=0.04, shake=6)
-H_.flinch(t, 0.5, 0.3).shove(t, -30, 0.25)
-HITS.append((t + 0.67, B_, 'rhand', False, ACC['kage'], None, 1.0)); H_.flinch(t + 0.67, 0.6, 0.3).shove(t + 0.67, -40, 0.25)
-t = 16.45
-strike(A_, t, 'spinkick', 0.8, 'rtoe', X(H_, t - 0.2), ua=0.25, col=ACC['oni'], stop=0.16, shake=22, size=1.6)
-post('iframe', t, 0.07); post('chroma', t, 0.5, 7); WARP.slow(t - 0.15, 0.4, 0.3)
+# --- Kage punches from behind, Oni's spin kick sends Kaze down
+t = 15.75
+strike(B_, t, 'punch', 0.83, 'rhand', X(H_, t - 0.3), ua=0.45, ub=1.1, col=ACC['kage'], big=False, stop=0, shake=6, blend=0.22)
+H_.flinch(t, 0.55, 0.3).shove(t, -25, 0.25)
+t = 16.5
+strike(A_, t, 'spinkick', 0.8, 'rtoe', X(H_, t - 0.2), ua=0.3, col=ACC['oni'], stop=0.08, shake=22, size=1.6, blend=0.22)
+post('iframe', t, 0.07); post('chroma', t, 0.5, 7); slow_ramp(t - 0.25, 0.7, 0.3)
 land = knock(H_, t, 300, up=220, lie='faceup', dur=0.75, spin=-1.0, slam=1.6)
-stance(B_, 16.3, blend=0.3); B_.shove(16.3, -110 if X(B_, 16.3) < X(A_, 16.3) else 110, 0.8); stance(A_, t + 0.6, blend=0.35)
+xd = X(H_, land + 0.2)
+box(B_, 16.4, -1, keys=[(17.4, xd + 170)]); box(A_, t + 0.5, 1, keys=[(17.6, xd - 175)])
 for tt in (17.6, 18.2, 18.8): sfx(tt, 'heart', 1.0)
 
 # --- awakening
 tg = 18.6
 H_.getup(tg, 'faceup', speed=1.5)
 up = tg + 3.77/1.5
-fx('aura', tg + 0.6, SWORD[1] - tg - 0.4, actor=H_, col=ACC['hero']); sfx(tg + 0.3, 'rumble', 1.0)
-stance(H_, up - 0.1, blend=0.3)
+fx('aura', tg + 0.6, 30 - tg, actor=H_, col=ACC['hero']); sfx(tg + 0.3, 'rumble', 1.0)
+box(H_, up - 0.15, 1, keys=[(up + 0.3, X(H_, up - 0.15))])
 fx('glint', up - 0.4, 0.4, actor=H_, joint='head', col='#7ff7ff', size=40); sfx(up - 0.4, 'shing', 0.6)
 post('flash', up + 0.05, 0.35); post('shake', up + 0.05, 0.7, 18); fx('ring', up + 0.05, 0.7, layer='back', actor=H_, r=380, col=ACC['hero'])
-WARP.stop(up + 0.05, 0.1); sfx(up + 0.05, 'boom', 1.0)
-for v, d in ((A_, -1), (B_, 1)):
-    v.flinch(up + 0.05, 0.5, 0.4).shove(up + 0.05, 80*d if X(v, up) > X(H_, up) else -80*d, 0.4)
-SWORD = (up + 0.25, 30.0)
-sfx(SWORD[0], 'shing', 0.9)
+WARP.stop(up + 0.05, 0.06); sfx(up + 0.05, 'boom', 1.0)
+for v in (A_, B_):
+    d = 1 if X(v, up) > X(H_, up) else -1
+    v.flinch(up + 0.05, 0.55, 0.4).shove(up + 0.05, 90*d, 0.5)
+SWORD = (up + 0.25, 30.0); sfx(SWORD[0], 'shing', 0.9)
 
 # --- sword: slash through Oni, spinning cut on Kage
-t = up + 1.3
-H_.play(up + 0.6, 'run', loop=True, a=0, b=0.8, speed=1.15)
-strike(H_, t, 'punch', 0.83, 'rhand', X(A_, t - 0.5), ua=0.45, ub=1.2, shake=14, size=1.3, sound='cut')
+t = up + 1.35
+strike(H_, t, 'punch', 0.83, 'rhand', X(A_, t - 0.5), ua=0.45, ub=1.15, shake=14, size=1.3, sound='cut', stop=0.04, blend=0.2)
 fx('slash', t - 0.01, 0.3, actor=A_, joint='chest', r=95, a0=200, a1=340, w=30, squash=0.5, col=ACC['hero'])
 knock(A_, t, -380 if X(A_, t) < X(H_, t) else 380, up=200, lie='faceup', dur=0.65)
-t2 = t + 1.15
-strike(H_, t2, 'spin', 1.75, 'rtoe', X(B_, t2 - 0.4), ua=1.1, ub=2.35, speed=1.3, shake=16, size=1.4, sound='cut')
+t2 = t + 1.1
+strike(H_, t2, 'spin', 1.75, 'rtoe', X(B_, t2 - 0.4), ua=1.2, ub=2.25, speed=1.3, shake=16, size=1.4, sound='cut', stop=0.04, blend=0.2)
 fx('slash', t2 - 0.01, 0.32, actor=B_, joint='chest', r=110, a0=-100, a1=80, w=32, col=ACC['hero'])
-knock(B_, t2, 360 if X(B_, t2) > X(H_, t2) else -360, up=260, lie='facedown', dur=0.75, spin=1.4)
-stance(H_, t2 + 0.6, blend=0.3)
+knock(B_, t2, 360 if X(B_, t2) > X(H_, t2) else -360, up=260, lie='facedown', dur=0.75, spin=1.2)
+fh = -1 if X(A_, t2 + 0.6) < X(H_, t2 + 0.6) else 1
+box(H_, t2 + 0.55, fh)
 
-# --- final: both rise and charge from both sides; one spinning draw-cut
-tg2 = t2 + 1.4
+# --- final: both rise and charge; one spinning draw-cut
+tg2 = t2 + 1.3
 A_.getup(tg2, 'faceup', speed=2.1); B_.getup(tg2 + 0.15, 'facedown', speed=2.0)
 tc = tg2 + 2.0
 xh = X(H_, tc)
@@ -172,10 +169,9 @@ tf = tc + 1.15
 for v, gap, dt in ((B_, 75, 0.0), (A_, 165, 0.12)):
     x0 = X(v, tc); d = 1 if x0 > xh else -1
     dist = abs(x0 - (xh + d*gap)); sp_ = max(0.2, dist/((tf - tc - dt)*374))
-    v.play(tc + dt, 'run', loop=True, a=0, b=0.8, speed=sp_, x=x0, face=-d)
-H_.hold(tc + 0.3, 'spin', 1.2, blend=0.3, bob=0.2)
-H_.play(tf - 0.12, 'spin', a=1.55, b=2.4, speed=2.2, x=xh)
-WARP.slow(tf - 0.05, 0.22, 0.3); WARP.stop(tf, 0.35)
+    v.play(tc + dt, 'run', loop=True, a=0, b=0.8, speed=sp_, x=x0, face=-d, blend=0.25)
+H_.play(tf - 0.12, 'spin', a=1.55, b=2.4, speed=2.2, x=xh, blend=0.25)
+slow_ramp(tf - 0.2, 0.55, 0.3); WARP.stop(tf, 0.2)
 fx('speedlines', tf - 0.1, 0.4, mode='horiz'); post('dark', tf - 0.1, 0.8, 0.75)
 for v in (A_, B_):
     d = 1 if X(v, tf) > xh else -1
@@ -185,11 +181,33 @@ for v in (A_, B_):
     knock(v, tf + 0.02, (380 if v is B_ else 280)*d, up=170, lie='faceup' if v is A_ else 'facedown', dur=0.8, slam=1.2)
 post('flash', tf, 0.4); post('iframe', tf, 0.08); post('shake', tf, 0.8, 22); post('chroma', tf, 0.6, 8)
 sfx(tf, 'cut', 1.0); sfx(tf + 0.05, 'boom', 1.0)
-stance(H_, tf + 0.7, blend=0.5)
-H_.hold(tf + 2.2, 'walk', 0.0, blend=0.8, bob=0.25)
+box(H_, tf + 0.55, 1, blend=0.4)
+H_.play(tf + 2.3, 'walk', loop=True, a=0, b=1.3, speed=0.8, face=1, blend=0.5)
 SWORD = (SWORD[0], tf + 2.0); sfx(tf + 2.0, 'chin', 0.9)
 TEXT.append(('fin', tf + 3.0, 2.6)); post('fade', tf + 4.6, 1.0)
 ANIM_END = tf + 5.7
+
+# --- automatic hits from the sparring takes: a punch that reaches an opponent's torso lands
+def auto_hits():
+    for a in ACT.values():
+        for g in [q for q in a.segs if q.kind == 'box']:
+            nxt = [q.t for q in a.segs if q.t > g.t]; t_end = min(nxt) if nxt else ANIM_END
+            ts = np.arange(g.t + g.blend, t_end - 0.05, 1/60)
+            for j in ('rhand', 'lhand'):
+                reach = []
+                for t in ts:
+                    J, _ = a.joints(t); reach.append(abs(J[IDX[j]][0] - J[0][0]))
+                for i in range(6, len(ts) - 6):
+                    if reach[i] < 56 or reach[i] < max(reach[i-6:i+7]): continue
+                    t = ts[i]; J, _ = a.joints(t); hx, hy = J[IDX[j]]
+                    for v in ACT.values():
+                        if v is a: continue
+                        Jv, _ = v.joints(t)
+                        if abs(Jv[IDX['chest']][0] - hx) < 32 and Jv[IDX['head']][1] - 10 < hy < Jv[0][1]:
+                            HITS.append((t, a, j, False, ACC[a.name], None, 0.9))
+                            v.flinch(t, 0.32, 0.25).shove(t, 14*(1 if Jv[0][0] > J[0][0] else -1), 0.2)
+                            post('shake', t, 0.25, 4)
+auto_hits()
 
 # ================================================================= resolve timing
 def jpos(a, t, j):
@@ -214,10 +232,10 @@ REAL_END = WARP.R(ANIM_END)
 
 # ================================================================= camera (auto framing, precomputed)
 SHAKES = [(t, a, d) for k, t, d, a in POSTR if k == 'shake']
-CUTS = sorted(WARP.R(t) for t in (3.95, 5.5, 6.4, 8.6, 10.0, 12.9, 16.2, 18.5, 21.2, 24.0, 26.0) if t < ANIM_END)
-FOCUS = [(0, 'hero'), (2.6, 'hero oni'), (3.9, 'hero kage'), (5.6, 'oni hero kage'), (6.3, 'oni hero'), (9.4, 'hero kage'),
-         (12.4, 'hero oni'), (14.4, 'hero kage'), (16.0, 'hero oni'), (17.2, 'hero'), (19.2, 'hero oni kage'),
-         (21.6, 'hero oni'), (22.9, 'hero kage'), (23.6, 'hero oni kage'), (24.9, 'hero')]
+CUTS = sorted(WARP.R(t) for t in (3.95, 5.5, 18.5) if t < ANIM_END)
+FOCUS = [(0, 'hero'), (2.6, 'hero oni'), (3.9, 'hero kage'), (5.8, 'oni hero'), (9.5, 'hero kage'), (12.0, 'hero oni'),
+         (15.3, 'hero oni kage'), (17.2, 'hero'), (up - 0.3, 'hero oni kage'), (up + 0.8, 'hero oni'), (up + 1.9, 'hero kage'),
+         (tc - 0.2, 'hero oni kage'), (tf + 0.8, 'hero')]
 def cam_target(ta):
     names = [f for t, f in FOCUS if t <= ta][-1].split()
     pts = []

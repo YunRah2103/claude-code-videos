@@ -12,13 +12,15 @@ UPPER = [0, 1, 2, 3, 4, 5, 6, 7, 8]          # bones rotated by a flinch
 
 class Clip2D:
     """Mocap clip projected to a side view: per-frame hip xy, bone angles/lengths, joint depth."""
-    def __init__(s, name):
-        fps, P = mocap.load(name)
-        lat = (P[:6, IDX['lhp']] - P[:6, IDX['rhp']]).mean(0)
+    def __init__(s, name, ref=None):
+        fps, P = _raw(name)
+        i0 = 0 if ref is None else max(0, min(len(P) - 1, int(ref*fps)))
+        win = P[max(0, i0 - 15):i0 + 16]
+        lat = (win[:, IDX['lhp']] - win[:, IDX['rhp']]).mean(0)
         th = math.atan2(lat[0], lat[2])            # rotate about y so lateral axis -> z
         c, n = math.cos(th), math.sin(th)
         X = P[:, :, 0]*c - P[:, :, 2]*n; Z = P[:, :, 0]*n + P[:, :, 2]*c
-        fwd = (X[:, IDX['ltoe']] - X[:, IDX['lft']] + X[:, IDX['rtoe']] - X[:, IDX['rft']])[:6].mean()
+        fwd = (X[:, IDX['ltoe']] - X[:, IDX['lft']] + X[:, IDX['rtoe']] - X[:, IDX['rft']])[max(0, i0 - 15):i0 + 16].mean()
         if fwd < 0: X, Z = -X, -Z
         s.fps, s.T = fps, len(P); s.dur = (s.T - 1)/fps
         s.x = X*mocap.S; s.y = -P[:, :, 1]*mocap.S; s.z = Z
@@ -28,6 +30,22 @@ class Clip2D:
         ang = np.array([math.atan2(y[b] - y[a], x[b] - x[a]) for a, b in BI])
         ln = np.array([math.hypot(x[b] - x[a], y[b] - y[a]) for a, b in BI])
         return (np.array([x[0], y[0]]), ang, ln, s.z[i].copy())
+    def detr(s, u):
+        """Root x minus its 0.8 s moving average: keeps footwork bounce, removes drift."""
+        if not hasattr(s, '_sm'):
+            k = max(3, int(0.8*s.fps)) | 1; pad = k//2
+            xs = np.pad(s.x[:, 0], pad, mode='edge'); s._sm = np.convolve(xs, np.ones(k)/k, mode='valid')
+        f = max(0.0, min(s.T - 1.0, u*s.fps)); i = min(int(f), s.T - 2); w = f - i
+        return (s.x[i, 0] - s._sm[i])*(1 - w) + (s.x[i+1, 0] - s._sm[i+1])*w
+    def match(s, p, face, a=0.0, b=None, step=1/30):
+        """Clip time whose pose best matches pose p (bone angles), for seamless returns."""
+        b = s.dur if b is None else b; best = (1e9, a); u = a
+        while u < b:
+            q = mirror(s.at(u), face)
+            d = np.abs((q[1] - p[1] + np.pi) % (2*np.pi) - np.pi)[[1, 3, 4, 5, 6, 7, 8, 10, 11, 14, 15]].sum()
+            if d < best[0]: best = (d, u)
+            u += step
+        return best[1]
     def at(s, u):
         f = max(0.0, min(s.T - 1.0, u*s.fps)); i = min(int(f), s.T - 2); w = f - i
         return blend(s.pose[i], s.pose[i+1], w)
@@ -52,10 +70,15 @@ def fk(p):
 def ground_y(p):
     J = fk(p); return J[:, 1].max()
 
-_clips = {}
-def clip(name):
-    if name not in _clips: _clips[name] = Clip2D(name)
-    return _clips[name]
+_raws, _clips = {}, {}
+def _raw(name):
+    if name not in _raws:
+        _raws[name] = mocap.load_cmu(name[4:]) if name.startswith('cmu:') else mocap.load(name)
+    return _raws[name]
+def clip(name, ref=None):
+    key = (name, None if ref is None else round(ref, 1))
+    if key not in _clips: _clips[key] = Clip2D(name, key[1])
+    return _clips[key]
 
 def ease(u): u = max(0.0, min(1.0, u)); return u*u*(3 - 2*u)
 def ease_out(u): u = max(0.0, min(1.0, u)); return 1 - (1 - u)**3
@@ -72,6 +95,14 @@ class Actor:
         g = Seg(); g.kind = 'clip'; g.t = t; g.c = clip(name); g.a = a; g.b = g.c.dur if b is None else b
         g.speed = speed; g.rm = rm; g.blend = blend; g.loop = loop; g.ground = ground
         g.x = s._endx(t) if x is None else x; g.face = s._endface(t) if face is None else face
+        s._add(g); return s
+    def box(s, t, name, face, keys=(), u0=None, speed=1.0, blend=0.25, ref=None, amp=0.8):
+        """Continuous sparring take: real footwork, position follows smooth path keys [(t, x), ...]."""
+        g = Seg(); g.kind = 'box'; g.t = t; g.c = clip(name, ref); g.face = face; g.speed = speed; g.blend = blend; g.amp = amp
+        x0 = s._endx(t) if s.segs else (keys[0][1] if keys else 0.0)
+        if u0 is None:
+            u0 = g.c.match(s.pose_raw(t - 1e-4), face, 2.0, g.c.dur - 5.0) if s.segs else 2.0
+        g.u0 = u0; g.keys = [(t, x0)] + list(keys)
         s._add(g); return s
     def hold(s, t, name, u, x=None, face=None, blend=0.18, bob=1.0):
         g = Seg(); g.kind = 'hold'; g.t = t; g.c = clip(name); g.u = u; g.blend = blend; g.bob = bob
@@ -110,6 +141,14 @@ class Actor:
             hip = np.array([(p[0][0] - p0[0][0] + off)*g.rm, p[0][1]])
             p = (hip, p[1], p[2], p[3]); p = mirror(p, g.face)
             return (np.array([g.x + p[0][0], p[0][1]]), p[1], p[2], p[3])
+        if g.kind == 'box':
+            L = g.c.dur - 1.0; u = 0.5 + ((g.u0 - 0.5) + (t - g.t)*g.speed) % L
+            p = mirror(g.c.at(u), g.face)
+            ks = g.keys; x = ks[-1][1]
+            for (t0, x0), (t1, x1) in zip(ks, ks[1:]):
+                if t <= t1: x = x0 + (x1 - x0)*ease((t - t0)/max(1e-6, t1 - t0)); break
+            if t < ks[0][0]: x = ks[0][1]
+            return (np.array([x + g.face*g.amp*g.c.detr(u), p[0][1]]), p[1], p[2], p[3])
         if g.kind == 'hold':
             p = mirror(g.c.at(g.u), g.face)
             bob = g.bob*(1 - math.cos((t - g.t)*7.0))*2.2
