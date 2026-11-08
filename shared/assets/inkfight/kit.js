@@ -39,11 +39,11 @@ K.track = keys => {
 // ---------- rig ----------
 // pose: x,y = hip (world, ground y=0, up negative); face +1 right / -1 left; lean (deg, + forward); head (deg);
 // a1/a2 near arm (absolute shoulder angle from down, + forward; elbow bend), b1/b2 far arm; l1/l2 near leg (hip from down, knee bend, - = back), m1/m2 far leg;
-// turn 0 profile .. 1 facing camera; sx/sy squash-stretch; s scale
+// turn 0 profile .. 1 facing camera; sx/sy squash-stretch (sx < 0 = turned around, animate 1..-1..1 for a spin); rot = whole-body rotation (deg, + = backflip); s scale
 K.BODY = { torso: 190, neck: 26, head: 54, up: 112, fore: 104, thigh: 138, shin: 132 };
 K.joints = p => {
   const B = K.BODY, s = p.s || 1, f = p.face || 1, sx = p.sx || 1, sy = p.sy || 1;
-  const v = (a, len) => [Math.sin(a * D) * f * len * s * sx, Math.cos(a * D) * len * s * sy];
+  const rot = p.rot || 0, v = (a, len) => [Math.sin((a + rot) * D) * f * len * s * sx, Math.cos((a + rot) * D) * len * s * sy];
   const hip = [p.x, p.y], ln = p.lean || 0;
   const up = v(180 - ln, B.torso); const chest = [hip[0] + up[0], hip[1] + up[1]];
   const hv = v(180 - ln - (p.head || 0), B.neck + B.head); const head = [chest[0] + hv[0], chest[1] + hv[1]];
@@ -52,7 +52,7 @@ K.joints = p => {
   const [eb, hb] = limb(chest, p.b1 || 0, p.b2 || 0, B.up, B.fore, 0);
   const [ka, fa] = limb(hip, p.l1 || 0, p.l2 || 0, B.thigh, B.shin, 0);
   const [kb, fb] = limb(hip, p.m1 || 0, p.m2 || 0, B.thigh, B.shin, 0);
-  return { hip, chest, head, ea, ha, eb, hb, ka, fa, kb, fb, s, f };
+  return { hip, chest, head, ea, ha, eb, hb, ka, fa, kb, fb, s, f: f * Math.sign(sx || 1) };
 };
 const seg = (c, a, b, w, col, rim) => {
   c.lineCap = 'round'; c.lineJoin = 'round'; c.strokeStyle = col; c.lineWidth = w;
@@ -78,7 +78,7 @@ const shoe = (c, k, f, s, P, far) => {
 };
 // main guy: dark messy hair, grey square glasses, brown skin, white tee, black shorts, white/black trainers
 K.drawGuy = (c, p, o = {}) => {
-  const J = K.joints(p), P = K.PAL, s = J.s, f = J.f, w = 21 * s, rim = o.rim === undefined ? P.rim : o.rim;
+  const J = K.joints(p), P = K.PAL, s = J.s, f = J.f, w = 24 * s, rim = o.rim === undefined ? P.rim : o.rim;
   // far limbs (darker)
   seg(c, J.hip, J.kb, w * 1.25, '#24272e'); seg(c, J.kb, J.fb, w, P.skinD); shoe(c, J.fb, f, s, P, 1);
   seg(c, J.chest, J.eb, w * 1.05, P.skinD); seg(c, J.eb, J.hb, w, P.skinD); c.fillStyle = P.skinD; c.beginPath(); c.arc(J.hb[0], J.hb[1], w * .78, 0, 7); c.fill();
@@ -92,7 +92,7 @@ K.drawGuy = (c, p, o = {}) => {
   const kneeMid = [K.lerp(J.hip[0], J.ka[0], .9), K.lerp(J.hip[1], J.ka[1], .9)];
   seg(c, J.ka, J.fa, w, P.skin, rim); seg(c, J.hip, kneeMid, w * 1.35, P.shorts); shoe(c, J.fa, f, s, P);
   // head
-  K.drawGuyHead(c, J.head, p, s, o);
+  K.drawGuyHead(c, J.head, Object.assign({}, p, { face: J.f }), s, o);
   // near arm: sleeve + skin
   const sl = [K.lerp(J.chest[0], J.ea[0], .42), K.lerp(J.chest[1], J.ea[1], .42)];
   seg(c, J.ea, J.ha, w * .95, P.skin, rim); seg(c, sl, J.ea, w, P.skin, rim); seg(c, J.chest, sl, w * 1.35, P.tee);
@@ -101,7 +101,7 @@ K.drawGuy = (c, p, o = {}) => {
   return J;
 };
 K.drawGuyHead = (c, h, p, s, o = {}) => {
-  const P = K.PAL, r = K.BODY.head * s, f = p.face || 1, tu = K.clamp(p.turn || 0, 0, 1), ang = ((p.lean || 0) + (p.head || 0)) * D * f * (1 - tu * .7);
+  const P = K.PAL, r = K.BODY.head * s, f = p.face || 1, tu = K.clamp(p.turn || 0, 0, 1), ang = (((p.lean || 0) + (p.head || 0)) * (1 - tu * .7) - (p.rot || 0)) * D * f;
   c.save(); c.translate(h[0], h[1]); c.rotate(ang);
   c.fillStyle = P.skin; c.beginPath(); c.arc(0, 0, r, 0, 7); c.fill();
   // ear (profile only)
@@ -142,7 +142,7 @@ K.drawGuyHead = (c, h, p, s, o = {}) => {
 };
 // opponent: vermilion stickman silhouette, no face, white headband tails
 K.drawRival = (c, p, o = {}) => {
-  const J = K.joints(p), P = K.PAL, s = J.s, w = 21 * s, rim = P.rimC;
+  const J = K.joints(p), P = Object.assign({}, K.PAL, o.pal || {}), s = J.s, w = 24 * s, rim = o.rim || P.rimC;
   seg(c, J.hip, J.kb, w, P.redD); seg(c, J.kb, J.fb, w, P.redD);
   seg(c, J.chest, J.eb, w, P.redD); seg(c, J.eb, J.hb, w, P.redD);
   c.fillStyle = P.redD; c.beginPath(); c.arc(J.hb[0], J.hb[1], w * .85, 0, 7); c.arc(J.fb[0], J.fb[1], w * .7, 0, 7); c.fill();
@@ -152,14 +152,16 @@ K.drawRival = (c, p, o = {}) => {
   c.fillStyle = P.red; c.beginPath(); c.arc(J.fa[0], J.fa[1], w * .7, 0, 7); c.fill();
   const r = K.BODY.head * s; c.save(); c.translate(J.head[0], J.head[1]);
   c.fillStyle = P.red; c.beginPath(); c.arc(0, 0, r, 0, 7); c.fill();
-  c.fillStyle = '#fff4ea'; c.fillRect(-r, -r * .38, 2 * r, r * .2);
+  if (o.cap) { c.fillStyle = o.cap; c.beginPath(); c.arc(0, -r * .1, r * 1.02, Math.PI * 1.05, Math.PI * 1.95); c.fill(); c.fillRect(J.f > 0 ? 0 : -r * 1.5, -r * .5, r * 1.5, r * .22); }
+  if (o.band !== false) c.fillStyle = '#fff4ea', c.fillRect(-r, -r * .38, 2 * r, r * .2);
   const tt = o.t || 0, bx = -J.f * r;
   c.strokeStyle = '#fff4ea'; c.lineWidth = r * .14; c.lineCap = 'round';
-  for (let i = 0; i < 2; i++) { c.beginPath(); c.moveTo(bx, -r * .28); c.quadraticCurveTo(bx - J.f * r * .6, -r * (.25 - i * .3) + Math.sin(tt * 18 + i) * r * .15, bx - J.f * r * (1.1 + i * .2), -r * (.1 - i * .4) + Math.sin(tt * 21 + i) * r * .25); c.stroke(); }
+  for (let i = 0; i < (o.band === false ? 0 : 2); i++) { c.beginPath(); c.moveTo(bx, -r * .28); c.quadraticCurveTo(bx - J.f * r * .6, -r * (.25 - i * .3) + Math.sin(tt * 18 + i) * r * .15, bx - J.f * r * (1.1 + i * .2), -r * (.1 - i * .4) + Math.sin(tt * 21 + i) * r * .25); c.stroke(); }
   c.strokeStyle = rim; c.lineWidth = r * .12; c.beginPath(); c.arc(0, 0, r * .93, -1.2, .1); c.stroke();
   c.restore();
   seg(c, J.chest, J.ea, w, P.red, rim); seg(c, J.ea, J.ha, w, P.red, rim);
   c.fillStyle = P.red; c.beginPath(); c.arc(J.ha[0], J.ha[1], w * .9, 0, 7); c.fill();
+  if (o.thumb) { c.fillRect(J.ha[0] - 6 * s, J.ha[1] - 34 * s, 13 * s, 30 * s); }
   return J;
 };
 // smear ribbon: pts newest first [[x,y],...]
@@ -173,6 +175,14 @@ K.smear = (c, pts, w, col) => {
   c.beginPath(); c.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) c.lineTo(pts[i][0] + (i % 2 ? 3 : -3), pts[i][1]); c.stroke();
   c.restore();
 };
+K.crack = (c, x, age, seed, size = 260) => { if (age < 0 || age > 1.6) return; const r = K.rng(seed); c.save(); c.globalAlpha = Math.min(1, (1.6 - age) / .4);
+  c.strokeStyle = '#05060c'; c.lineWidth = 7; c.lineCap = 'round';
+  for (let i = 0; i < 7; i++) { let px = x, py = 4; const dir = i < 3.5 ? -1 : 1; c.beginPath(); c.moveTo(px, py);
+    for (let k = 0; k < 4; k++) { px += dir * (20 + r() * size * .3); py += (r() - .3) * 26; c.lineTo(px, py); } c.stroke(); }
+  c.strokeStyle = 'rgba(255,190,110,.6)'; c.lineWidth = 3; c.beginPath(); c.ellipse(x, 6, size * K.ease.o(Math.min(age / .3, 1)), 24, 0, 0, 7); c.stroke(); c.restore(); };
+K.shockwave = (c, x, y, age, size) => { if (age < 0 || age > .6) return; const u = age / .6; c.save();
+  c.globalAlpha = 1 - u; c.strokeStyle = '#ffffff'; c.lineWidth = 26 * (1 - u); c.beginPath(); c.ellipse(x, y, size * K.ease.o(u), size * .55 * K.ease.o(u), 0, 0, 7); c.stroke();
+  c.strokeStyle = '#ffb347'; c.lineWidth = 10 * (1 - u); c.beginPath(); c.ellipse(x, y, size * .7 * K.ease.o(u), size * .38 * K.ease.o(u), 0, 0, 7); c.stroke(); c.restore(); };
 K.shadow = (c, x, w, a = .45) => { c.fillStyle = `rgba(5,8,18,${a})`; c.beginPath(); c.ellipse(x, 4, w, w * .12, 0, 0, 7); c.fill(); };
 // ---------- FX ----------
 K.burst = (c, x, y, age, size, seed, col = '#fff6dc') => {

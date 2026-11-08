@@ -1,5 +1,5 @@
 """Place the one-take voiceover on the 16 s timeline (no re-request; tempo stays 1.0x: 0.95x would pass 18 s):
-  A "Quick pause."  -> speech starts at 5.20 s (freeze frame after the crash)
+  A "Quick pause."  -> speech starts at 4.80 s (freeze after the car stops abruptly)
   B explanation     -> right after A; silent gaps longer than 0.2 s are shortened to 0.2 s (cut around the quietest point)
   C "Did you know that?" -> back in the street, after the last hit lands
 Writes out/seatbelt-fight/vo_track.wav (48 kHz mono, 18 s), loud.json (per-frame 60 fps loudness 0..1) and
@@ -10,7 +10,7 @@ import numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.join(HERE, '..', '..', '..')
 OUT = os.path.join(ROOT, 'out', 'seatbelt-fight')
 SR, DUR, FPS = 48000, 18.0, 60
-A_AT, C_AT, GAP = 5.2, 16.86, 0.2
+A_AT, C_AT, GAP = 4.8, 16.6, 0.2
 
 
 def load(p):

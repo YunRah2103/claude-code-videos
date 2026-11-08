@@ -7,16 +7,17 @@ HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.join(HERE, '..
 sys.path.insert(0, os.path.join(ROOT, 'shared', 'audio')); import sfx
 OUT = os.path.join(ROOT, 'out', 'seatbelt-fight'); DUR = 18.0; SR = sfx.SR
 ev = json.load(open(os.path.join(OUT, 'frames', 'events.json')))
-HIT = {'block': ('block', .8), 'punch': ('punch', .9), 'punch_big': ('punch', 1.1), 'clash': ('boom', .9), 'crash': ('crash', 1.0)}
+sfx.LIB['screech_long'] = lambda: sfx.screech(0.7)
+HIT = {'block': ('block', .8), 'punch': ('punch', .9), 'punch_big': ('punch', 1.1), 'clash': ('boom', .9), 'stop': ('thump', 1.0)}
 cues = []
 for im in ev['impacts']:
     n, v = HIT[im['s']]; cues.append((im['t'], n, v))
     if im['s'] in ('punch_big', 'clash'): cues.append((im['t'], 'thump', .7))
-    if im['s'] == 'crash': cues += [(im['t'], 'glass_crack', .55), (im['t'], 'clack', .6), (im['t'] + .02, 'thump', .9)]
+    if im['s'] == 'stop': cues += [(im['t'], 'clack', .7), (im['t'] + .01, 'clink', .4)]       # body rocks, belt latch locks
 cues += [(t - .12, 'whoosh', .55) for t in ev['whoosh']]
 cues += [(t, 'thump', .35) for t in ev['land']]
-cues += [(ev['screech'][0], 'screech', .45), (ev['screech'][1], 'screech', .6), (ev['click'], 'click', .6), (3.48, 'vroom', .5),
-         (ev['scratch'], 'scratch', .8), (ev['airbag'], 'airbag_pop', .7), (17.5, 'boing', .25)]
+cues += [(ev['screech'][0], 'vroom', .5), (ev['screech'][1], 'screech_long', .7), (ev['scratch'], 'scratch', .8),
+         (ev['reverse'], 'vroom', .45), (17.42, 'boing', .25)]
 fx = sfx.render(cues, DUR)
 def load(p):
     raw = subprocess.run(['ffmpeg', '-v', 'error', '-i', p, '-ar', str(SR), '-ac', '1', '-f', 'f32le', '-'], capture_output=True, check=True).stdout
