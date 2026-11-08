@@ -230,3 +230,21 @@ deterministically with `pix3d/render3d.mjs` at 30 fps and held x2 in the 60 fps 
 | Signature presenter on the pixel grid | The main guy sprite rig (`pixanim/presenter`, characters/main-guy) drawn at size 2 on a 270x480 layer, halved nearest and composited into the 135x240 art, so 1 sprite pixel = 1 scene pixel (8x8 on screen); points at the projected `_pt` anchor, shrugs for the poll | `videos/rear-engine-3d/src/render.py` `GUY`, `shot()` | rear-engine-3d | characters/main-guy |
 | Pinned pills | Pill in the safe zone with a leader line + dot to a moving 3D anchor; `icon_pill_img` with a chip glyph (ELECTRONICS) | `overlays.py` `pin(..., grid=8)` (leader drawn as hard pixels on the art grid), `icon_pill_img()`, `chip_icon()` | rear-engine-3d | Inter font (SIL OFL) |
 | Three.js addons | GLTFExporter, TextureUtils, RoundedBoxGeometry (r160, same build as the vendored core) | `vendor/jsm/` | rear-engine-3d | MIT, `vendor/THREE_LICENSE` |
+
+## Stickman flat-vector kit (`stickman/`)
+
+Flat vector shapes, thick dark outlines, soft greys + warm tones with yellow/red highlights, no pixelation. Pure PIL,
+drawn on a 2x supersampled layer and box-filtered (anti-aliased); physics via pymunk. Composed for 1080x1920 from the
+start. Example: `videos/seatbelt-stickman` (style test against the pixel `seatbelt-pretensioner`). No earlier stickman /
+"warehouse shootout" code existed in the repo, so this kit was built from scratch.
+
+| Asset | What it is | Path | Used by | Credit |
+|---|---|---|---|---|
+| Vector pen | 2x supersampled layer, world->px pen with squash/stretch (`kx`, `ky`), outlined polys, capsule limbs, arcs, pills, translucent blending, soft contact shadows | `stickman/vec.py` | seatbelt-stickman | - |
+| Stickman rig | FK skeleton (`Pose`, `presenter_joints`, `point_angle`) for an original presenter: round cream head, dot eyes, brows, talking mouth, signature red cap, thick charcoal limbs | `stickman/rig.py` `draw_presenter()` | seatbelt-stickman | original |
+| Crash dummy + marker | Stick crash-test dummy (sand limbs, joint discs) with yellow/black crash-test markers on head and chest; `marker()` on its own | `stickman/rig.py` `draw_dummy()`, `marker()` | seatbelt-stickman | - |
+| Vector hatchback | Original 3-door sports hatchback, side view, no badge; `mode='glass'` (cabin seen through tint) or `'cut'` (door + glass removed), `crumple=0..1` front crush, spinning wheels; seat, steering wheel, belt (with slack bow + glow), retractor with charge cartridge / motor | `stickman/car.py` | seatbelt-stickman | original |
+| Crash ragdoll | pymunk seated dummy in the car frame: frontal pulse, lap + shoulder belt as slide joints; `crash(pretensioner=True/False)` -> 1 ms joint frames, `sample()` | `stickman/physics.py` | seatbelt-stickman | pymunk (MIT) |
+| Crash hall + barrier | Muted grey test hall strip (windows, light shafts, roller doors, hazard edges, track dashes; seamless scroll via `view()`), vignette, barrier with chevrons + honeycomb crush face | `stickman/stage.py` | seatbelt-stickman | look after the user's reference clip |
+| FX | Impact starburst + ring, smoke puffs, debris, speed lines, spark pop | `stickman/fx.py` | seatbelt-stickman | - |
+| Poll sticker | Flat 'Did you know that? YES / NO' card with tap ripple | `stickman/poll.py` `poll_img()` | seatbelt-stickman | - |
