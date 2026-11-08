@@ -134,7 +134,7 @@ t = 16.45
 strike(A_, t, 'spinkick', 0.8, 'rtoe', X(H_, t - 0.2), ua=0.25, col=ACC['oni'], stop=0.16, shake=22, size=1.6)
 post('iframe', t, 0.07); post('chroma', t, 0.5, 7); WARP.slow(t - 0.15, 0.4, 0.3)
 land = knock(H_, t, 300, up=220, lie='faceup', dur=0.75, spin=-1.0, slam=1.6)
-stance(B_, 16.3, blend=0.3); stance(A_, t + 0.6, blend=0.35)
+stance(B_, 16.3, blend=0.3); B_.shove(16.3, -110 if X(B_, 16.3) < X(A_, 16.3) else 110, 0.8); stance(A_, t + 0.6, blend=0.35)
 for tt in (17.6, 18.2, 18.8): sfx(tt, 'heart', 1.0)
 
 # --- awakening
@@ -182,7 +182,7 @@ for v in (A_, B_):
     fx('slash', tf, 0.45, actor=v, joint='chest', r=110, a0=200, a1=330, w=36, col=ACC['hero'])
     fx('slash', tf + 0.04, 0.45, actor=v, joint='chest', r=110, a0=-30, a1=110, w=36, col=ACC['hero'])
     fx('impact', tf, 0.5, actor=v, joint='chest', col=ACC['hero'], size=1.4)
-    knock(v, tf + 0.02, (420 if v is B_ else 300)*d, up=300, lie='faceup' if d < 0 else 'facedown', dur=0.9, spin=1.6*d, slam=1.2)
+    knock(v, tf + 0.02, (380 if v is B_ else 280)*d, up=170, lie='faceup' if v is A_ else 'facedown', dur=0.8, slam=1.2)
 post('flash', tf, 0.4); post('iframe', tf, 0.08); post('shake', tf, 0.8, 22); post('chroma', tf, 0.6, 8)
 sfx(tf, 'cut', 1.0); sfx(tf + 0.05, 'boom', 1.0)
 stance(H_, tf + 0.7, blend=0.5)
@@ -217,7 +217,7 @@ SHAKES = [(t, a, d) for k, t, d, a in POSTR if k == 'shake']
 CUTS = sorted(WARP.R(t) for t in (3.95, 5.5, 6.4, 8.6, 10.0, 12.9, 16.2, 18.5, 21.2, 24.0, 26.0) if t < ANIM_END)
 FOCUS = [(0, 'hero'), (2.6, 'hero oni'), (3.9, 'hero kage'), (5.6, 'oni hero kage'), (6.3, 'oni hero'), (9.4, 'hero kage'),
          (12.4, 'hero oni'), (14.4, 'hero kage'), (16.0, 'hero oni'), (17.2, 'hero'), (19.2, 'hero oni kage'),
-         (21.6, 'hero oni'), (22.9, 'hero kage'), (23.6, 'hero oni kage')]
+         (21.6, 'hero oni'), (22.9, 'hero kage'), (23.6, 'hero oni kage'), (24.9, 'hero')]
 def cam_target(ta):
     names = [f for t, f in FOCUS if t <= ta][-1].split()
     pts = []
