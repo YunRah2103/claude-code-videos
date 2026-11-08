@@ -21,7 +21,8 @@ def smooth(s): s = clamp(s); return s*s*(3-2*s)
 
 EASE = {'lin': lambda s: s, 'out': lambda s: 1-(1-s)**3, 'in': lambda s: s**3,
         'io': lambda s: s*s*(3-2*s), 'snap': lambda s: 1-(1-s)**6,
-        'hold': lambda s: 0.0 if s < 1 else 1.0}
+        'hold': lambda s: 0.0 if s < 1 else 1.0,
+        'back': lambda s: 1 + 2.4*(s-1)**3 + 1.4*(s-1)**2}
 
 # ---------------------------------------------------------------- time warp
 class Warp:
@@ -43,17 +44,17 @@ class Warp:
         return lo
 
 # ---------------------------------------------------------------- skeleton
-LEN = dict(torso=50, neck=8, head=13, ua=28, fa=27, th=38, sn=38)
-BASE = dict(t=5, h=0, ra1=-10, ra2=5, fa1=10, fa2=25, rl1=-6, rl2=-12, fl1=10, fl2=2, sw=None)
+LEN = dict(torso=48, neck=7, head=16, ua=28, fa=27, th=38, sn=38)
+BASE = dict(t=5, h=0, ra1=-10, ra2=5, fa1=10, fa2=25, rl1=-6, rl2=-12, fl1=10, fl2=2, sw=None, bob=0, run=0)
 POSES = {
-    'stand':  {},
-    'look':   dict(h=-14, t=0),
-    'guard':  dict(t=12, h=-4, ra1=35, ra2=150, fa1=55, fa2=140, rl1=-20, rl2=-34, fl1=34, fl2=4),
-    'guard2': dict(t=16, h=-6, ra1=45, ra2=155, fa1=70, fa2=150, rl1=-26, rl2=-40, fl1=40, fl2=6),
+    'stand':  dict(bob=0.4),
+    'look':   dict(bob=0.4, h=-14, t=0),
+    'guard':  dict(bob=1, t=12, h=-4, ra1=35, ra2=150, fa1=55, fa2=140, rl1=-20, rl2=-34, fl1=34, fl2=4),
+    'guard2': dict(bob=1, t=16, h=-6, ra1=45, ra2=155, fa1=70, fa2=150, rl1=-26, rl2=-40, fl1=40, fl2=6),
     'jab':    dict(t=22, ra1=30, ra2=150, fa1=88, fa2=90, rl1=-36, rl2=-48, fl1=50, fl2=14),
     'cross':  dict(t=30, ra1=90, ra2=90, fa1=40, fa2=150, rl1=-40, rl2=-52, fl1=52, fl2=14),
     'elbow':  dict(t=32, h=-8, fa1=96, fa2=205, ra1=25, ra2=140, rl1=-42, rl2=-54, fl1=55, fl2=12),
-    'block':  dict(t=6, h=6, fa1=70, fa2=170, ra1=40, ra2=160, rl1=-24, rl2=-38, fl1=30, fl2=4),
+    'block':  dict(bob=0.5, t=6, h=6, fa1=70, fa2=170, ra1=40, ra2=160, rl1=-24, rl2=-38, fl1=30, fl2=4),
     'chamber':dict(t=-6, ra1=40, ra2=150, fa1=50, fa2=140, fl1=100, fl2=8, rl1=-4, rl2=-8),
     'kick':   dict(t=-30, h=12, fa1=-35, fa2=15, ra1=60, ra2=125, fl1=112, fl2=114, rl1=-8, rl2=-10),
     'upkick': dict(t=-42, h=18, fa1=-60, fa2=-30, ra1=80, ra2=130, fl1=160, fl2=165, rl1=-6, rl2=-10),
@@ -65,16 +66,20 @@ POSES = {
     'flyback':dict(t=-48, h=-30, fa1=128, fa2=118, ra1=108, ra2=98, fl1=62, fl2=40, rl1=30, rl2=8),
     'lying':  dict(t=0, h=-8, fa1=150, fa2=170, ra1=-160, ra2=-175, fl1=12, fl2=4, rl1=-10, rl2=-14),
     'kneel':  dict(t=18, h=22, fa1=60, fa2=8, ra1=-8, ra2=4, fl1=86, fl2=0, rl1=2, rl2=-88),
-    'power':  dict(t=-8, h=-18, fa1=26, fa2=12, ra1=-26, ra2=-14, fl1=26, fl2=14, rl1=-26, rl2=-16),
-    'horse':  dict(t=4, h=-4, fa1=95, fa2=128, ra1=-95, ra2=-128, fl1=46, fl2=-2, rl1=-46, rl2=2),
+    'power':  dict(bob=0.3, t=-8, h=-18, fa1=26, fa2=12, ra1=-26, ra2=-14, fl1=26, fl2=14, rl1=-26, rl2=-16),
+    'horse':  dict(bob=0.4, t=4, h=-4, fa1=95, fa2=128, ra1=-95, ra2=-128, fl1=46, fl2=-2, rl1=-46, rl2=2),
     'push':   dict(t=0, h=-10, fa1=92, fa2=92, ra1=-92, ra2=-92, fl1=48, fl2=4, rl1=-48, rl2=-4),
-    'iai':    dict(t=26, h=-10, fa1=42, fa2=-30, ra1=20, ra2=-40, fl1=62, fl2=6, rl1=-48, rl2=-62),
+    'iai':    dict(bob=0.5, t=26, h=-10, fa1=42, fa2=-30, ra1=20, ra2=-40, fl1=62, fl2=6, rl1=-48, rl2=-62),
     'swup':   dict(t=-6, h=-6, fa1=150, fa2=172, ra1=140, ra2=165, fl1=34, fl2=6, rl1=-24, rl2=-36, sw=185),
     'swdown': dict(t=34, h=-10, fa1=70, fa2=78, ra1=60, ra2=75, fl1=58, fl2=12, rl1=-42, rl2=-56, sw=35),
     'swfwd':  dict(t=28, h=-8, fa1=90, fa2=92, ra1=-40, ra2=-20, fl1=56, fl2=10, rl1=-44, rl2=-56, sw=92),
     'swback': dict(t=10, h=-6, fa1=-60, fa2=-80, ra1=-30, ra2=-10, fl1=40, fl2=8, rl1=-30, rl2=-44, sw=-110),
-    'swguard':dict(t=14, h=-6, fa1=40, fa2=118, ra1=50, ra2=128, fl1=36, fl2=4, rl1=-22, rl2=-36, sw=150),
+    'swguard':dict(bob=1, t=14, h=-6, fa1=40, fa2=118, ra1=50, ra2=128, fl1=36, fl2=4, rl1=-22, rl2=-36, sw=150),
     'swlow':  dict(t=34, h=10, fa1=100, fa2=90, ra1=-40, ra2=-30, fl1=86, fl2=0, rl1=2, rl2=-88, sw=150),
+    'run':    dict(run=1, t=34, h=-14, fa1=60, fa2=150, ra1=-20, ra2=60, fl1=30, fl2=-10, rl1=-30, rl2=-50),
+    'axeup':  dict(t=-28, h=10, fa1=-50, fa2=10, ra1=70, ra2=120, fl1=175, fl2=178, rl1=-6, rl2=-10),
+    'axedown':dict(t=30, h=-10, fa1=60, fa2=20, ra1=-40, ra2=0, fl1=60, fl2=40, rl1=-30, rl2=-40),
+    'swhigh': dict(bob=0.5, t=4, h=-8, fa1=150, fa2=120, ra1=140, ra2=110, fl1=40, fl2=6, rl1=-28, rl2=-40, sw=200),
     'dash':   dict(t=48, h=-24, fa1=-64, fa2=-44, ra1=-74, ra2=-56, fl1=72, fl2=18, rl1=-42, rl2=-74),
     'land':   dict(t=34, h=-12, fa1=112, fa2=92, ra1=-62, ra2=-30, fl1=84, fl2=-6, rl1=-10, rl2=-84),
     'dive':   dict(t=40, h=-16, fa1=150, fa2=165, ra1=-30, ra2=10, fl1=60, fl2=18, rl1=-22, rl2=-44),
@@ -113,7 +118,7 @@ class Key:
 class Fighter:
     def __init__(s, name, look):
         s.name, s.look, s.keys = name, look, []
-        s.sheath_from = None; s.glow_from = None
+        s.sheath_from = None; s.glow_from = None; s.seed = (sum(map(ord, name)) % 17) * 0.7
     def key(s, t, pose, x=None, alt=0, face=None, ease='out', arc=0, rot=None, **kw):
         prev = s.keys[-1] if s.keys else None
         pz = P(pose, **kw) if isinstance(pose, str) else pose
@@ -141,6 +146,34 @@ class Fighter:
         alt = lerp(a.alt, b.alt, e) + b.arc*4*u*(1-u)
         face = b.face if u > 0.12 else a.face
         return dict(pose=pose, x=lerp(a.x, b.x, e), alt=alt, face=face, rot=lerp(a.rot, b.rot, e))
+
+    def anim(s, ta):
+        """Interpolated pose plus overlap/follow-through, stance bounce and footwork."""
+        st = s.state(ta); lag = s.state(ta - 0.035); lag2 = s.state(ta - 0.07)
+        p = st['pose']
+        for k_, src, w in (('fa2', lag, .55), ('ra2', lag, .55), ('h', lag2, .6), ('fl2', lag, .35),
+                           ('rl2', lag, .35), ('sw', lag, .3), ('t', lag, .25)):
+            a_, b_ = p[k_], src['pose'][k_]
+            if a_ is not None and b_ is not None: p[k_] = lerp(a_, b_, w)
+        ph = s.seed
+        ground = st['alt'] < 2 and abs(st['rot']) % 360 < 1
+        prev = s.state(ta - 0.05); vx = (st['x'] - prev['x'])/0.05
+        if ground and p['bob'] > 0:
+            c = p['bob'] * (3 + 3*math.sin(ta*7.5 + ph))
+            p['fl1'] += c; p['fl2'] -= c*0.8; p['rl1'] += c*0.6; p['rl2'] -= c*1.1; p['t'] += c*0.4
+            p['fa1'] += math.sin(ta*7.5 + ph + 1)*3; p['ra1'] += math.sin(ta*7.5 + ph + 2)*3
+            A = clamp(abs(vx)/200) * min(1, p['bob']*1.5)
+            if A > 0.02:
+                q = st['x']/38*st['face']; sn, cs = math.sin(q), math.cos(q)
+                p['fl1'] += 20*A*sn; p['rl1'] -= 20*A*sn
+                p['fl2'] += 20*A*sn - 26*A*max(0, cs); p['rl2'] -= 20*A*sn + 26*A*max(0, -cs)
+        if ground and p['run'] > 0:
+            A = p['run'] * clamp(abs(vx)/350)
+            q = st['x']/62*st['face']; sn, cs = math.sin(q), math.cos(q)
+            p['fl1'] += 48*A*sn; p['rl1'] -= 48*A*sn
+            p['fl2'] += 30*A*sn - 60*A*max(0, cs); p['rl2'] -= 30*A*sn + 60*A*max(0, -cs)
+            p['fa1'] -= 55*A*sn; p['ra1'] += 55*A*sn
+        return st
 
     def world(s, st):
         """Return joints in world coords plus helper transform."""
@@ -181,9 +214,13 @@ class View:
     def __init__(s, cam):
         s.cx, s.cy, s.z, s.sx, s.sy, s.rot = cam
         s.k = s.z * SS
+        s.cr, s.sr = math.cos(math.radians(s.rot)), math.sin(math.radians(s.rot))
     def ws(s, x, y, p=1.0):
         zp = 1 + (s.z - 1)*p
-        return ((W/2 + (x - s.cx*p)*zp + s.sx)*SS, (H*HZ + (y - s.cy*p)*zp + s.sy)*SS)
+        X, Y = (x - s.cx*p)*zp + s.sx, (y - s.cy*p)*zp + s.sy
+        if s.rot:
+            c, n = s.cr, s.sr; X, Y = X*c - Y*n, X*n + Y*c
+        return ((W/2 + X)*SS, (H*HZ + Y)*SS)
 
 # ---------------------------------------------------------------- drawing helpers
 def seg(d, a, b, w, col):
@@ -210,133 +247,138 @@ def ribbon(d, pts, w0, w1, col, outline=None, ow=0):
             seg(d, pts[i], pts[i+1], w, c)
 
 # ---------------------------------------------------------------- fighter rendering
+def bez(a, b, c, bend=0.8, n=9):
+    m = ((a[0]+c[0])/2, (a[1]+c[1])/2)
+    q = (b[0] + (b[0]-m[0])*bend, b[1] + (b[1]-m[1])*bend)
+    out = []
+    for i in range(n):
+        t = i/(n-1); u = 1-t
+        out.append((u*u*a[0] + 2*u*t*q[0] + t*t*c[0], u*u*a[1] + 2*u*t*q[1] + t*t*c[1]))
+    return out
+
+def tube(d, pts, w0, w1, col):
+    n = len(pts); L, R = [], []
+    for i, p in enumerate(pts):
+        a, b = pts[max(0, i-1)], pts[min(n-1, i+1)]
+        dx, dy = b[0]-a[0], b[1]-a[1]; ln = math.hypot(dx, dy) or 1
+        w = lerp(w0, w1, i/(n-1))/2
+        L.append((p[0] - dy/ln*w, p[1] + dx/ln*w)); R.append((p[0] + dy/ln*w, p[1] - dx/ln*w))
+    d.polygon(L + R[::-1], fill=col)
+    dot(d, pts[0], w0/2, col); dot(d, pts[-1], w1/2, col)
+
 def fighter_parts(F, st, v, ta, vel):
-    """Yield drawable primitives in back-to-front order."""
+    """Drawable primitives, back to front. Thick bendy limbs with mass."""
     Wd, tf = F.world(st); lk = F.look; f = st['face']; k = v.k
     S = lambda name: v.ws(*Wd[name])
     out = []
     ang_head = math.radians(st['pose']['t'] + st['pose']['h'] + st['rot'])
     hc = Wd['head']
-    def hl(lx, ly):   # head-local (facing right, y up negative) -> screen
+    def hl(lx, ly):
         x = lx*math.cos(ang_head) - ly*math.sin(ang_head)
         y = lx*math.sin(ang_head) + ly*math.cos(ang_head)
         return v.ws(hc[0] + x*f, hc[1] + y)
-    # trailing cloth (scarf / ponytail) direction from velocity + wind
     tx, ty = -vel[0]*0.6 - 60, -vel[1]*0.4 + 25
     base_ang = math.atan2(ty, tx)
     wiggle = 0.25 + min(0.5, math.hypot(*vel)/900)
     if lk['kind'] == 'hero':
         nk = v.ws(*Wd['neck'])
-        pts = chain(nk, 10, 10*k, base_ang, ta + 0.0, wiggle, speed=11)
-        out.append(('ribbon', pts, 9*k, 3*k, hexc(lk['acc']), 3*k))
-        pts2 = chain(nk, 8, 9*k, base_ang + 0.25, ta + 0.6, wiggle*1.2, speed=12)
-        out.append(('ribbon', pts2, 7*k, 2*k, shade(hexc(lk['acc']), 0.75), 3*k))
+        out.append(('ribbon', chain(nk, 10, 11*k, base_ang, ta, wiggle, speed=11), 11*k, 3*k, hexc(lk['acc'])))
+        out.append(('ribbon', chain(nk, 8, 10*k, base_ang + 0.25, ta + 0.6, wiggle*1.2, speed=12), 8*k, 2*k, shade(hexc(lk['acc']), 0.7)))
     if lk['kind'] == 'shade':
-        pb = hl(-11, -4)
-        pts = chain(pb, 8, 9*k, base_ang + 0.35, ta + 0.3, wiggle*1.1, speed=10)
-        out.append(('ribbon', pts, 8*k, 2*k, hexc(lk['hair']), 3*k))
+        out.append(('ribbon', chain(hl(-13, -4), 9, 10*k, base_ang + 0.35, ta + 0.3, wiggle*1.1, speed=10), 10*k, 2*k, hexc(lk['hair'])))
     top, pants, skin = hexc(lk['top']), hexc(lk['pants']), hexc(lk['skin'])
-    aw, lw, tw = 9.5*k, 12*k, 17*k
-    out.append(('limb', [S('sh'), S('rel'), S('rhand')], aw, shade(top, 0.62), shade(skin, 0.7)))
-    out.append(('leg', [S('hip'), S('rkn'), S('rft'), S('rtoe')], lw, shade(pants, 0.62)))
-    out.append(('leg', [S('hip'), S('fkn'), S('fft'), S('ftoe')], lw, pants))
-    out.append(('torso', S('hip'), S('chest'), tw, top, hexc(lk['acc']), tf, v))
+    aw, lw, tw = 12*k, 15*k, 24*k
+    def arm(s, col, hand):
+        pts = bez(S('sh'), S(s+'el'), S(s+'hand'))
+        return ('tube', pts, aw*1.15, aw*0.8, col, hand, aw*0.66)
+    def leg(s, col):
+        pts = bez(S('hip'), S(s+'kn'), S(s+'ft'))
+        return ('leg', pts, lw*1.25, lw*0.75, col, [S(s+'ft'), S(s+'toe')])
+    out.append(arm('r', shade(top, 0.6), shade(skin, 0.65)))
+    out.append(leg('r', shade(pants, 0.62)))
+    out.append(leg('f', pants))
+    out.append(('torso', S('hip'), S('chest'), S('neck'), tw, top, hexc(lk['acc']), pants))
     out.append(('head', S('head'), LEN['head']*k, skin, lk, hl, ta))
     if F.sheath_from is not None and ta >= F.sheath_from:
-        a = tf(-6, -6); b = tf(-62, 24)
-        out.append(('sheath', v.ws(*a), v.ws(*b), k))
-    out.append(('limb', [S('sh'), S('fel'), S('fhand')], aw, top, skin))
+        out.append(('sheath', v.ws(*tf(-6, -6)), v.ws(*tf(-66, 26)), k))
+    out.append(arm('f', top, skin))
     if 'tip' in Wd:
         glow = F.glow_from is not None and ta >= F.glow_from
         out.append(('sword', S('pommel'), S('guardp'), S('tip'), k, glow, hexc(lk['acc'])))
     return out
 
 def draw_parts(d, glow, parts, ghost=None):
-    """ghost: RGBA tuple -> flat silhouette on an RGBA layer."""
     for p in parts:
         kind = p[0]
-        if ghost:
-            g = ghost
-            if kind == 'ribbon': ribbon(d, p[1], p[2], p[3], g)
-            elif kind in ('limb', 'leg'):
-                for a, b in zip(p[1], p[1][1:]): seg(d, a, b, p[2], g)
-            elif kind == 'torso': seg(d, p[1], p[2], p[3], g)
-            elif kind == 'head': dot(d, p[1], p[2]*1.1, g)
-            elif kind == 'sword': seg(d, p[1], p[3], 3*p[4], g)
-            continue
         if kind == 'ribbon':
-            ribbon(d, p[1], p[2], p[3], p[4], INK, p[5])
-        elif kind == 'limb':
-            pts, w, col, hand = p[1], p[2], p[3], p[4]
-            o = w*0.36
-            for a, b in zip(pts, pts[1:]): seg(d, a, b, w + o, INK)
-            dot(d, pts[-1], w*0.62 + o/2, INK)
-            for a, b in zip(pts, pts[1:]): seg(d, a, b, w, col)
-            hc = shade(col, 1.35)
-            for a, b in zip(pts, pts[1:]):
-                seg(d, (a[0]-w*0.18, a[1]-w*0.18), (b[0]-w*0.18, b[1]-w*0.18), w*0.28, hc)
-            dot(d, pts[-1], w*0.62, hand)
+            ribbon(d, p[1], p[2], p[3], ghost or p[4]); continue
+        if kind == 'tube':
+            pts, w0, w1, col, hand, hr = p[1:]
+            tube(d, pts, w0, w1, ghost or col)
+            dot(d, pts[-1], hr, ghost or hand)
+            if not ghost:
+                hcol = shade(col, 1.3)
+                rim = [(x - w0*0.2, y - w0*0.22) for x, y in pts[1:-1]]
+                d.line(rim, fill=hcol, width=max(1, int(w0*0.2)))
         elif kind == 'leg':
-            pts, w, col = p[1], p[2], p[3]
-            o = w*0.32
-            for a, b in zip(pts, pts[1:]): seg(d, a, b, w + o, INK)
-            for i, (a, b) in enumerate(zip(pts, pts[1:])): seg(d, a, b, w*(0.75 if i == 2 else 1), col)
-            hc = shade(col, 1.6)
-            for a, b in list(zip(pts, pts[1:]))[:2]:
-                seg(d, (a[0]-w*0.2, a[1]-w*0.15), (b[0]-w*0.2, b[1]-w*0.15), w*0.22, hc)
+            pts, w0, w1, col, foot = p[1:]
+            tube(d, pts, w0, w1, ghost or col)
+            tube(d, [foot[0], mix(foot[0], foot[1], 0.5), foot[1]], w1*1.05, w1*0.8, ghost or shade(col, 0.8))
+            if not ghost:
+                rim = [(x - w0*0.2, y - w0*0.12) for x, y in pts[1:-2]]
+                d.line(rim, fill=shade(col, 1.7), width=max(1, int(w0*0.16)))
         elif kind == 'torso':
-            a, b, w, col, acc, tf, v = p[1:]
-            o = w*0.28
-            seg(d, a, b, w + o, INK); seg(d, a, b, w, col)
-            seg(d, (a[0]-w*0.2, a[1]-w*0.1), (b[0]-w*0.2, b[1]-w*0.1), w*0.25, shade(col, 1.25))
-            # belt
-            dx, dy = b[0]-a[0], b[1]-a[1]; L = math.hypot(dx, dy) or 1
-            ux, uy = dx/L, dy/L; c0 = (a[0]+ux*w*0.45, a[1]+uy*w*0.45)
-            px, py = -uy*w*0.62, ux*w*0.62
-            d.line([(c0[0]-px, c0[1]-py), (c0[0]+px, c0[1]+py)], fill=acc, width=max(1, int(w*0.28)))
+            hip, chest, neck, w, col, acc, pants = p[1:]
+            mid = mix(hip, chest, 0.5)
+            pts = [hip, mid, chest]
+            tube(d, [neck, mix(neck, chest, 0.5), chest], w*0.35, w*0.45, ghost or col)
+            tube(d, pts, w*0.88, w*1.08, ghost or col)
+            if ghost: continue
+            tube(d, [hip, mix(hip, chest, 0.12), mix(hip, chest, 0.24)], w*0.95, w*0.92, pants)
+            rim = [(x - w*0.25, y - w*0.1) for x, y in pts]
+            d.line(rim, fill=shade(col, 1.25), width=max(1, int(w*0.16)))
+            dx, dy = chest[0]-hip[0], chest[1]-hip[1]; L = math.hypot(dx, dy) or 1
+            ux, uy = dx/L, dy/L; c0 = (hip[0]+ux*w*0.55, hip[1]+uy*w*0.55)
+            px, py = -uy*w*0.5, ux*w*0.5
+            d.line([(c0[0]-px, c0[1]-py), (c0[0]+px, c0[1]+py)], fill=acc, width=max(1, int(w*0.22)))
         elif kind == 'head':
             c, r, skin, lk, hl, ta = p[1:]
             kk = r/LEN['head']
-            if lk['kind'] == 'shade':   # hood
-                hood = [hl(*q) for q in ((14, -2), (12, -12), (2, -18), (-10, -16), (-22, -8), (-14, 4), (-6, 14), (8, 13))]
-                d.polygon(hood, fill=INK)
-                dot(d, c, r + 2.5*kk, INK)
-                d.polygon([hl(x*0.86, y*0.86) for x, y in ((14, -2), (12, -12), (2, -18), (-10, -16), (-22, -8), (-14, 4), (-6, 14), (8, 13))], fill=hexc(lk['hair']))
-                dot(d, c, r, hexc(lk['hair']))
-                d.polygon([hl(13, -3), hl(4, -6), hl(3, 6), hl(12, 7)], fill=skin)
+            if ghost:
+                dot(d, c, r*1.1, ghost); continue
+            if lk['kind'] == 'shade':
+                hood = [(14, -2), (12, -12), (2, -18), (-10, -16), (-22, -8), (-14, 4), (-6, 14), (8, 13)]
+                d.polygon([hl(x*1.12, y*1.12) for x, y in hood], fill=hexc(lk['hair']))
+                dot(d, c, r*1.05, hexc(lk['hair']))
+                d.polygon([hl(15, -3), hl(4, -7), hl(3, 7), hl(13, 8)], fill=skin)
             else:
-                dot(d, c, r + 2.5*kk, INK); dot(d, c, r, skin)
+                dot(d, c, r, skin)
+                d.chord([c[0]-r, c[1]-r, c[0]+r, c[1]+r], 200, 340, fill=shade(skin, 1.15)) if False else None
             if lk['kind'] == 'hero':
                 sw = math.sin(ta*7)*1.5
-                hair = [(12, -3), (10, -11), (3, -16), (6, -24), (-3, -18), (-8, -27+sw), (-11, -17),
-                        (-22, -21+sw), (-17, -11), (-29, -9+sw), (-17, -3), (-25, 4+sw), (-13, 4), (-12, 11), (-4, 6), (2, -5)]
-                pts = [hl(x, y) for x, y in hair]
-                d.polygon([hl(x*1.08, y*1.08) for x, y in hair], fill=INK)
-                d.polygon(pts, fill=hexc(lk['hair']))
-                d.line([hl(-4, -14), hl(-18, -12), hl(-22, -4)], fill=hexc(lk['hair_hl']), width=max(1, int(2*kk)))
-                # headband
-                d.line([hl(13, -4), hl(-12, -6)], fill=hexc(lk['acc']), width=max(1, int(3*kk)))
+                hair = [(13, -3), (11, -12), (3, -18), (7, -27), (-3, -20), (-9, -30+sw), (-12, -19),
+                        (-25, -24+sw), (-19, -12), (-33, -10+sw), (-19, -3), (-28, 5+sw), (-14, 5), (-13, 12), (-4, 7), (2, -6)]
+                d.polygon([hl(x, y) for x, y in hair], fill=hexc(lk['hair']))
+                d.line([hl(-4, -16), hl(-20, -13), hl(-25, -4)], fill=hexc(lk['hair_hl']), width=max(1, int(2.2*kk)))
+                d.line([hl(15, -9), hl(-13, -11)], fill=hexc(lk['acc']), width=max(1, int(3.5*kk)))
             if lk['kind'] == 'oni':
-                for hp in (((3, -11), (9, -27), (11, -9)), ((-5, -12), (-8, -28), (1, -13))):
-                    d.polygon([hl(x*1.12, y*1.08) for x, y in hp], fill=INK)
+                for hp in (((3, -12), (10, -31), (12, -10)), ((-6, -13), (-9, -32), (1, -14))):
                     d.polygon([hl(*q) for q in hp], fill=hexc(lk['hair']))
-                d.line([hl(2, 6), hl(12, 6)], fill=hexc(lk['acc']), width=max(1, int(2*kk)))
-            e = hl(8, -2)
-            d.line([hl(5, -3), hl(11, -2)], fill=hexc(lk['eye']), width=max(1, int(2.6*kk)))
+                d.line([hl(3, 7), hl(14, 7)], fill=hexc(lk['acc']), width=max(1, int(2.4*kk)))
+            e = hl(9, -2)
+            d.line([hl(5, -3), hl(13, -2)], fill=hexc(lk['eye']), width=max(1, int(3*kk)))
             if lk['kind'] != 'hero' or lk.get('eyeglow'):
-                dot(glow, e, 6*kk, shade(hexc(lk['eye']), 0.9))
+                dot(glow, e, 7*kk, shade(hexc(lk['eye']), 0.9))
         elif kind == 'sheath':
             a, b, k = p[1:]
-            seg(d, a, b, 7*k, INK); seg(d, a, b, 4.5*k, (40, 30, 50))
-            seg(d, a, mix(a, b, 0.12), 5*k, (200, 170, 90))
+            if ghost: continue
+            seg(d, a, b, 5.5*k, (44, 30, 54)); seg(d, a, mix(a, b, 0.12), 6*k, (200, 170, 90))
         elif kind == 'sword':
             pm, gp, tip, k, gl, acc = p[1:]
-            seg(d, pm, gp, 6.5*k, INK); seg(d, pm, gp, 4*k, (60, 40, 70))
-            seg(d, gp, tip, 5.5*k, INK); seg(d, gp, tip, 3*k, (232, 240, 255))
-            ux, uy = gp[0]-pm[0], gp[1]-pm[1]; L = math.hypot(ux, uy) or 1
-            dot(d, gp, 3.5*k, (220, 190, 100))
-            if gl:
-                seg(glow, gp, tip, 9*k, shade(acc, 0.8))
+            if ghost: seg(d, gp, tip, 3*k, ghost); continue
+            seg(d, pm, gp, 5*k, (60, 40, 70))
+            seg(d, gp, tip, 3.4*k, (236, 242, 255)); dot(d, gp, 4*k, (220, 190, 100))
+            if gl: seg(glow, gp, tip, 10*k, shade(acc, 0.8))
 
 # ---------------------------------------------------------------- effects
 class FX:
@@ -444,7 +486,7 @@ def draw_fx(e, age, L, v, fi):
             sp = [v.ws(*q) for q in pts]
             back.line(sp, fill=(10, 6, 18, int(240*fadeg)), width=max(1, int(4*k)))
             if kw.get('hot'):
-                glow.line(sp, fill=shade(acc, 0.9*fadeg), width=max(1, int(5*k)))
+                glow.line(sp, fill=shade(acc, 0.35*fadeg), width=max(1, int(3*k)))
     elif e.kind == 'speedlines':
         r2 = random.Random(fi*7 + 1)
         cx, cy = v.ws(*kw['focus']) if kw.get('focus') else (W*SS/2, H*SS*0.5)
@@ -467,22 +509,23 @@ def draw_fx(e, age, L, v, fi):
         on = clamp(age/0.4) * clamp((e.d-age)/0.5)
         hip, head = Wd['hip'], Wd['head']
         r2 = random.Random(e.seed+6)
-        for i in range(34):
+        ka = min(k, 2.4*SS)
+        for i in range(20):
             ph = r2.random(); life = r2.uniform(0.35, 0.7)
             q = ((age/life) + ph) % 1.0
             ox = r2.uniform(-40, 40); base_y = r2.uniform(-10, 30)
             x = hip[0] + ox*(1-q*0.4) + math.sin(q*9 + i)*8
             y = hip[1] + base_y - q*170
-            rr = (16*(1-q) + 4)*k
+            rr = (11*(1-q) + 3)*ka
             p = v.ws(x, y)
-            col = shade(acc, (1-q)*on*0.75)
+            col = shade(acc, (1-q)*on*0.5)
             glow.polygon([(p[0]-rr*0.6, p[1]), (p[0], p[1]-rr*2.2), (p[0]+rr*0.6, p[1]), (p[0], p[1]+rr*0.7)], fill=col)
             if i % 3 == 0:
-                back.polygon([(p[0]-rr*0.3, p[1]), (p[0], p[1]-rr*1.5), (p[0]+rr*0.3, p[1])], fill=(230, 255, 255, int(200*(1-q)*on)))
+                back.polygon([(p[0]-rr*0.3, p[1]), (p[0], p[1]-rr*1.5), (p[0]+rr*0.3, p[1])], fill=(230, 255, 255, int(120*(1-q)*on)))
         # lightning
         r3 = random.Random(fi//2*31 + 5)
-        if on > 0.3:
-            for j in range(2):
+        if on > 0.3 and (fi // 3) % 3 == 0:
+            for j in range(1):
                 p = (hip[0] + r3.uniform(-50, 50), hip[1] + r3.uniform(-120, 20)); pts = [v.ws(*p)]
                 for s in range(6):
                     p = (p[0] + r3.uniform(-22, 22), p[1] + r3.uniform(-26, 14)); pts.append(v.ws(*p))
@@ -502,7 +545,7 @@ def draw_fx(e, age, L, v, fi):
 def blade_trail(F, v, ta, L, steps=10, dt=1/140):
     pts = []
     for i in range(steps):
-        st = F.state(ta - i*dt)
+        st = F.anim(ta - i*dt)
         if st['pose']['sw'] is None: break
         Wd, _ = F.world(st)
         pts.append((v.ws(*Wd['guardp']), v.ws(*Wd['tip'])))
