@@ -86,10 +86,24 @@ const seat = K.track([
   [T_GO, {}], [T_GO + .12, { lean: -20, head: 8 }, 'o'], [4.7, { lean: -16, head: 4 }],
   [T_CRASH, {}], [T_FREEZE, { lean: 22, head: 16, a1: 96, a2: 0, b1: 90, b2: 6 }, 'o'],
   [5.12, {}], [5.36, { turn: 1, head: 0, lean: 6 }, 'back'],
-  [5.9, { lean: -2, a1: 60, a2: 40 }, 'io'],
-  [6.6, { a1: 105, a2: 30, head: -4 }, 'o'], [7.1, { a1: 45, a2: 70, head: 4, lean: 2 }], [7.9, { a1: 110, a2: 20, head: -5, lean: -3 }, 'o'],
-  [8.4, { a1: 50, a2: 90, head: 4 }], [9.2, { a1: 112, a2: 10, head: -6, lean: -4 }, 'o'], [9.9, { a1: 40, a2: 80, head: 5, lean: 3 }],
-  [10.6, { a1: 108, a2: 25, head: -4 }, 'o'], [11.4, { a1: 45, a2: 85, head: 4, lean: 2 }], [12.0, { a1: 110, a2: 15, head: -5, lean: -4 }, 'o'], [12.8, { a1: 82, a2: 12, head: 2, lean: 0 }],
+  [6.1, { a1: 38, a2: 95, head: 5, lean: 4 }, 'io'],
+  [6.55, { a1: 118, a2: 22, head: -6, lean: -5 }, 'o'],
+  [6.95, { a1: 38, a2: 95, head: 5, lean: 4 }, 'io'],
+  [7.35, { a1: 118, a2: 22, head: -6, lean: -5 }, 'o'],
+  [7.75, { a1: 38, a2: 95, head: 5, lean: 4 }, 'io'],
+  [8.15, { a1: 118, a2: 22, head: -6, lean: -5 }, 'o'],
+  [8.55, { a1: 38, a2: 95, head: 5, lean: 4 }, 'io'],
+  [8.95, { a1: 118, a2: 22, head: -6, lean: -5 }, 'o'],
+  [9.35, { a1: 38, a2: 95, head: 5, lean: 4 }, 'io'],
+  [9.75, { a1: 118, a2: 22, head: -6, lean: -5 }, 'o'],
+  [10.15, { a1: 38, a2: 95, head: 5, lean: 4 }, 'io'],
+  [10.55, { a1: 118, a2: 22, head: -6, lean: -5 }, 'o'],
+  [10.95, { a1: 38, a2: 95, head: 5, lean: 4 }, 'io'],
+  [11.35, { a1: 118, a2: 22, head: -6, lean: -5 }, 'o'],
+  [11.75, { a1: 38, a2: 95, head: 5, lean: 4 }, 'io'],
+  [12.15, { a1: 118, a2: 22, head: -6, lean: -5 }, 'o'],
+  [12.6, { a1: 38, a2: 95, head: 5, lean: 4 }, 'io'],
+  [12.9, { a1: 82, a2: 12, head: 2, lean: 0 }],
   [T_RESUME, { lean: -4, turn: 1 }],
   [13.45, { lean: 26, head: 18, turn: .1 }, 'io'], [13.75, { lean: 32, head: 22 }, 'o'],
   [14.4, { lean: -8, head: 0 }, 'io'], [14.9, { turn: .5, head: 12 }], [15.1, { head: -10 }], [15.3, { head: 10 }], [15.5, { head: 0, turn: 1 }],
@@ -122,9 +136,9 @@ const shots = [
   { t0: T_GO, t1: T_CRASH, rel: 1, a: { x: 110, y: -410, z: 1.9 }, b: { x: -420, y: -380, z: .74 }, e: 'io' },
   { t0: T_CRASH, t1: T_FREEZE, rel: 1, a: { x: -420, y: -380, z: .74 } },
   { t0: T_FREEZE, t1: 5.34, rel: 1, a: { x: -420, y: -380, z: .74 }, b: { x: 20, y: -380, z: 2.9 }, e: 'io' },
-  { t0: 5.34, t1: 5.95, rel: 1, a: { x: 20, y: -380, z: 2.9 }, b: { x: 40, y: -640, z: 1.85 }, e: 'io' },
-  { t0: 5.95, t1: T_RESUME, rel: 1, a: { x: 40, y: -640, z: 1.85 }, b: { x: -30, y: -610, z: 2.15 }, e: 'l' },
-  { t0: T_RESUME, t1: 16.0, rel: 1, a: { x: -30, y: -610, z: 2.15 }, b: { x: 0, y: -600, z: 2.2 }, e: 'io' },
+  { t0: 5.34, t1: 5.95, rel: 1, a: { x: 20, y: -380, z: 2.9 }, b: { x: 170, y: -600, z: 1.8 }, e: 'io' },
+  { t0: 5.95, t1: T_RESUME, rel: 1, a: { x: 170, y: -600, z: 1.8 }, b: { x: -150, y: -690, z: 2.4 }, e: 'l' },          // one slow monotonic dolly across the car
+  { t0: T_RESUME, t1: 16.0, rel: 1, a: { x: -150, y: -690, z: 2.4 }, b: { x: 130, y: -600, z: 2.0 }, e: 'io' },
   { t0: 16.0, t1: 16.3, a: { x: CRASHX, y: -560, z: 2.0 }, b: { x: -150, y: -420, z: 1.35 }, e: 'io' },
   { t0: 16.3, t1: 16.66, a: { x: 40, y: -440, z: 1.7 }, b: { x: 60, y: -450, z: 1.8 } },
   { t0: 16.66, t1: 17.55, a: { x: -90, y: -440, z: 1.4 }, b: { x: -110, y: -450, z: 1.48 }, e: 'io' },
@@ -132,7 +146,7 @@ const shots = [
   { t0: 17.93, t1: 18.2, a: { x: 0, y: -330, z: 1.3 } },
 ];
 const camRaw = K.camera(shots, []);
-const camAt = t => { const c = camRaw(t); if (c.shot.rel) c.x += carX(simT(t)); if (c.shot.relG) { let gx = 0; for (let k = 0; k < 6; k++) gx += ground(g(t - k * .025)).x; c.x += gx / 6; }   // follows his hips, slightly lagged
+const camAt = t => { const c = camRaw(t); if (t > 5.95 && t < 16.0) { const w = K.sm((t - 5.95) / .6) * K.sm((16.0 - t) / .6); c.y += Math.sin((t - 5.95) * 2.4) * 22 * w; c.x += Math.sin((t - 5.95) * 1.7) * 30 * w; }   /* slow float */ if (c.shot.rel) c.x += carX(simT(t)); if (c.shot.relG) { let gx = 0; for (let k = 0; k < 6; k++) gx += ground(g(t - k * .025)).x; c.x += gx / 6; }   // follows his hips, slightly lagged
   for (const im of IMP) if (im.k !== 'small') { const s = simT(t) - im.t; if (s > 0 && s < .3) { const e = Math.exp(-s * 14) * (im.k === 'big' ? 22 : 10) / c.z; c.x += Math.sin(s * 70) * e; c.y += Math.cos(s * 55) * e * .7; } }
   return c; };
 // ---------- drawing ----------
