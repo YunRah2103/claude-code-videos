@@ -434,18 +434,42 @@ def gait(dist, A, stance, lift, phase0):
     return -A + 2 * A * e, lift * math.sin(math.pi * v)
 
 
-def locomotion(hx, dist, f, run):
-    if run:
-        A, st, lift, hip_h, lean, bob = 68, 0.4, 66, 168, 0.27, 10
-    else:
-        A, st, lift, hip_h, lean, bob = 56, 0.6, 28, 185, 0.04, 4
+GAITS = {  # A, stance, lift, hip height, lean, bob
+    "run": (68, 0.4, 66, 168, 0.27, 10),
+    "walk": (56, 0.6, 28, 185, 0.04, 4),
+}
+
+
+def locomotion(hx, dist, f, kind):
+    A, st, lift, hip_h, lean, bob = GAITS[kind]
     u = dist / (2 * A / st)
     feet = []
     for ph in (0.0, 0.5):
         dx, ly = gait(dist, A, st, lift, ph)
         feet.append((hx + f * dx, FLOOR - ANKLE - ly))
-    hy = FLOOR - hip_h - bob * abs(math.cos(2 * math.pi * u))
-    return dict(hip=(hx, hy), lean=lean, feet=feet, bob=math.cos(4 * math.pi * u))
+    # hip is lowest just after each foot plants (weight acceptance)
+    step = (2 * u) % 1.0
+    dip = 0.5 * (1 + math.cos(2 * math.pi * (step - 0.12)))
+    hy = FLOOR - hip_h - bob * (1 - dip)
+    return dict(hip=(hx, hy), lean=lean, feet=feet, u=u, step=step,
+                bob=math.cos(2 * math.pi * step), sway=math.sin(2 * math.pi * u))
+
+
+def footfalls(xfn, f, kind, t0, t1, dist0):
+    """Times/positions where each foot plants (for dust puffs)."""
+    A, st = GAITS[kind][:2]
+    cycle = 2 * A / st
+    ev, prev = [], None
+    for t in np.arange(t0, t1, 1 / 240):
+        x = xfn(t)
+        u = abs(x - dist0) / cycle
+        cur = (int(u), int(u + 0.5))
+        if prev is not None:
+            for i in range(2):
+                if cur[i] != prev[i]:
+                    ev.append((t, x + f * A))
+        prev = cur
+    return ev
 
 
 def held_rifle(sh, f, offx, offy, ang):
@@ -461,9 +485,28 @@ def kick(t, rate, window):
     return k
 
 
+class Spring:
+    """Damped spring following a target signal; precomputed so any t can be sampled."""
+    def __init__(self, target, omega, zeta, t0=-0.5, t1=DUR + 0.5, dt=1 / 600):
+        ts = np.arange(t0, t1, dt)
+        x = np.array(target(t0), dtype=float)
+        v = np.zeros_like(x)
+        out = np.empty((len(ts), len(x)))
+        for i, t in enumerate(ts):
+            g = np.array(target(t), dtype=float)
+            v += (omega * omega * (g - x) - 2 * zeta * omega * v) * dt
+            x += v * dt
+            out[i] = x
+        self.ts, self.out = ts, out
+
+    def __call__(self, t):
+        return [float(np.interp(t, self.ts, self.out[:, j])) for j in range(self.out.shape[1])]
+
+
 # ---------------------------------------------------------------- green soldier
-G_START, G_X0, G_XK, RUN_V, DECEL = 0.7, -270.0, 245.0, 420.0, 0.55
+G_START, G_X0, G_XK, RUN_V, DECEL = 0.7, -270.0, 245.0, 420.0, 0.6
 G_RUN_END = G_START + ((G_XK - RUN_V * DECEL / 2) - G_X0) / RUN_V
+AIM_T0, AIM_T1 = G_RUN_END + 0.95, G_RUN_END + 1.5
 
 
 def green_x(t):
@@ -476,52 +519,67 @@ def green_x(t):
 
 
 def kneel_w(t):
-    return smooth(G_RUN_END + 0.1, G_RUN_END + 0.8, t)
+    """Knee slide into cover: starts while still moving, so the body skids down."""
+    return smooth(G_RUN_END - 0.08, G_RUN_END + 0.42, t)
+
+
+def green_targets(t):
+    x = green_x(t)
+    loc = locomotion(x, x - G_X0, 1, "run")
+    w = kneel_w(t)
+    a = smooth(AIM_T0, AIM_T1, t)
+    dip = math.sin(math.pi * smooth(AIM_T0 - 0.25, AIM_T0 + 0.2, t)) * (1 - a)   # anticipation
+    breathe = math.sin(t * 2.3)
+    # aim tracks the black stickman's chest
+    if t > 4.6:
+        bx, by = black_x(t - 0.2), FLOOR - 189 - TORSO * 0.75
+    else:
+        bx, by = 900, FLOOR - 300
+    sh_y = FLOOR - 104 - TORSO * 0.86
+    aim_ang = max(-0.25, min(0.12, math.atan2(by - sh_y, bx - (G_XK + 70))))
+    run_r = (22, 60 + 8 * loc["bob"], -0.62 + 0.07 * loc["bob"])
+    ready_r = (30, 64, 0.42)
+    aim_r = (62, 20 + 1.2 * breathe, aim_ang + 0.012 * math.sin(t * 1.7))
+    r = [lerp(lerp(run_r[i], ready_r[i], w), aim_r[i], a) for i in range(3)]
+    r[1] += 10 * dip
+    r[2] += 0.18 * dip
+    lean = lerp(loc["lean"] + 0.04 * loc["bob"], lerp(0.2, 0.1, a), w) + 0.1 * dip
+    head = lerp(-0.18 - 0.03 * loc["bob"], lerp(0.0, 0.1, a), w)
+    return dict(loc=loc, w=w, hipy=lerp(loc["hip"][1], FLOOR - 104 + 2 * breathe, w),
+                lean=lean, head=head, r=r, x=x)
 
 
 def green_pose(t):
-    f = 1
-    x = green_x(t)
-    loc = locomotion(x, x - G_X0, f, run=True)
-    w = kneel_w(t)
-    a = smooth(G_RUN_END + 1.0, G_RUN_END + 1.7, t)          # ready -> aim
-    breathe = math.sin(t * 2.3) * 2.0 * w
+    g = green_targets(t)
+    loc, w, x = g["loc"], g["w"], g["x"]
+    lean, = G_LEAN(t)
+    head, = G_HEAD(t)
+    hipy, = G_HIPY(t)
+    r = G_RIFLE(t)
+    k = kick(t, 26, 0.2)
+    lean -= 0.05 * k
+    head -= 0.1 * k
+    r = [r[0] - 13 * k, r[1] + 2 * k, r[2] - 0.11 * k]
 
-    hip = lerp2(loc["hip"], (G_XK, FLOOR - 104 + breathe), w)
-    k = kick(t, 20, 0.2)
-    lean = lerp(loc["lean"], lerp(0.2, 0.1, a), w) - 0.04 * k
-    kneel_feet = [(G_XK + 88, FLOOR - ANKLE), (G_XK - 80, FLOOR - 26)]
-    feet = [lerp2(loc["feet"][i], kneel_feet[i], w) for i in range(2)]
+    hip = (x, hipy)
+    kneel_feet = [(x + 88, FLOOR - ANKLE), (x - 80, FLOOR - 26)]
+    feet = [lerp2(loc["feet"][i], kneel_feet[i], smooth(0.0, 0.7, w)) for i in range(2)]
     sh = (hip[0] + math.sin(lean) * TORSO * 0.86, hip[1] - math.cos(lean) * TORSO * 0.86)
-
-    # aim tracks the black stickman's chest with a little lag
-    if t > 4.6:
-        bp = black_pose(t - 0.35)
-        tgt = (bp["hip"][0] + 6, bp["hip"][1] - TORSO * 0.75)
-    else:
-        tgt = (900, FLOOR - 300)
-    bore = (sh[0] + 62, sh[1] - 2)
-    aim_ang = max(-0.25, min(0.12, math.atan2(tgt[1] - bore[1], tgt[0] - bore[0])))
-    run_r = (22, 62 + 4 * loc["bob"], -0.62)
-    ready_r = (30, 64, 0.42)
-    aim_r = (62, 20, aim_ang)
-    r = [lerp(lerp(run_r[i], ready_r[i], w), aim_r[i], a) for i in range(3)]
-    r[0] -= 10 * k
-    r[2] -= 0.08 * k
-    grip, ang, front = held_rifle(sh, f, *r)
+    grip, ang, front = held_rifle(sh, 1, *r)
     return dict(hip=hip, lean=lean, feet=feet, hands=[front, grip], rifle=(grip, ang),
-                knee_modes=("fwd", "down") if w > 0.5 else ("fwd", "fwd"),
-                toes=(None, (lerp(30, -14, w), lerp(4, 12, w))),
-                head_tilt=lerp(-0.1, 0.1, a) * w)
+                toes=(None, (lerp(30, -14, w), lerp(4, 12, w))), head_tilt=head)
+
+
+G_LEAN = G_HEAD = G_HIPY = G_RIFLE = None
 
 
 # ---------------------------------------------------------------- black stickman
-B_START, B_STOP, B_X0, B_X1 = 4.3, 7.2, 1270.0, 830.0
+B_START, B_STOP, B_X0, B_X1 = 4.3, 7.25, 1270.0, 830.0
 
 
 def black_x(t):
     tt = max(0.0, min(t, B_STOP)) - B_START
-    T, D = B_STOP - B_START, 0.8
+    T, D = B_STOP - B_START, 0.9
     v = (B_X0 - B_X1) / (T - D / 2)
     if tt <= 0:
         return B_X0
@@ -531,21 +589,51 @@ def black_x(t):
     return B_X0 - v * (T - D) - v * (s - s * s / (2 * D))
 
 
-def black_pose(t):
-    f = -1
+def black_targets(t):
     x = black_x(t)
-    loc = locomotion(x, B_X0 - x, f, run=False)
-    w = smooth(B_STOP - 0.4, B_STOP + 0.3, t)
-    breathe = math.sin(t * 2.0) * 1.6
-    k = kick(t, 10, 0.35)
-    hip = lerp2(loc["hip"], (x, FLOOR - 189 + breathe), w)
-    hip = (hip[0] + 9 * k, hip[1])
-    idle = ((x - 22, FLOOR - ANKLE), (x + 20, FLOOR - ANKLE))
-    feet = [lerp2(loc["feet"][i], idle[i], w) for i in range(2)]
-    lean = lerp(loc["lean"], 0.0, w) - 0.1 * k
+    loc = locomotion(x, B_X0 - x, -1, "walk")
+    w = smooth(B_STOP - 0.3, B_STOP + 0.2, t)
+    k = kick(t, 7, 0.6)
+    look = smooth(B_STOP - 0.2, B_STOP + 0.6, t)
+    lean = lerp(loc["lean"] + 0.02 * loc["bob"], 0.0, w) - 0.2 * k + 0.05 * look
+    head = lerp(-0.04 * loc["bob"], 0.12 * look, w) - 0.25 * k
+    ang = 0.62 + 0.06 * loc["sway"] * (1 - w) - 0.25 * k
+    return dict(loc=loc, w=w, x=x, lean=lean, head=head, ang=ang,
+                hipy=lerp(loc["hip"][1], FLOOR - 191 + 1.6 * math.sin(t * 2.0), w) + 10 * k)
+
+
+def black_pose(t):
+    b = black_targets(t)
+    loc, w, x = b["loc"], b["w"], b["x"]
+    lean, head, ang = B_SPR(t)
+    hipy, = B_HIPY(t)
+    k = kick(t, 14, 0.4)
+    hip = (x + 10 * k, hipy)
+    stop_feet = B_STOP_FEET
+    feet = [lerp2(loc["feet"][i], stop_feet[i], w) for i in range(2)]
     sh = (hip[0] - math.sin(lean) * TORSO * 0.86, hip[1] - math.cos(lean) * TORSO * 0.86)
-    grip, ang, front = held_rifle(sh, f, 24, 70 + 3 * loc["bob"] * (1 - w), 0.62 - 0.1 * k)
-    return dict(hip=hip, lean=lean, feet=feet, hands=[front, grip], rifle=(grip, ang), head_tilt=-0.15 * k)
+    grip, ang, front = held_rifle(sh, -1, 24, 70 + 4 * loc["bob"] * (1 - w), ang)
+    return dict(hip=hip, lean=lean, feet=feet, hands=[front, grip], rifle=(grip, ang), head_tilt=head)
+
+
+B_SPR = B_HIPY = None
+B_STOP_FEET = None
+
+
+def init_motion():
+    global G_LEAN, G_HEAD, G_HIPY, G_RIFLE, B_SPR, B_HIPY, B_STOP_FEET, FOOTFALLS
+    G_LEAN = Spring(lambda t: [green_targets(t)["lean"]], 13, 0.42)
+    G_HEAD = Spring(lambda t: [green_targets(t)["head"]], 9, 0.45)
+    G_HIPY = Spring(lambda t: [green_targets(t)["hipy"]], 22, 0.5)
+    G_RIFLE = Spring(lambda t: green_targets(t)["r"], 15, 0.5)
+    B_SPR = Spring(lambda t: [black_targets(t)[k] for k in ("lean", "head", "ang")], 11, 0.32)
+    B_HIPY = Spring(lambda t: [black_targets(t)["hipy"]], 20, 0.45)
+    loc = locomotion(B_X1, B_X0 - B_X1, -1, "walk")
+    B_STOP_FEET = [(B_X1 + 0.6 * (fx - B_X1), FLOOR - ANKLE) for fx, _ in loc["feet"]]
+    FOOTFALLS = footfalls(green_x, 1, "run", G_START, G_RUN_END + 0.1, G_X0)
+
+
+FOOTFALLS = []
 
 
 # ---------------------------------------------------------------- effects
@@ -600,6 +688,24 @@ def draw_fx_overlays(img, t, muzzle):
                 stamp(img, SMOKE, (px, py), 0.45 + 1.1 * life + 0.1 * j, 0.55 * (1 - life) ** 1.6)
 
 
+DUST = soft_sprite(56 * SS, 40 * SS, (196, 192, 182), 190, 8 * SS)
+SLIDE_DUST = []
+
+
+def draw_dust(img, t):
+    for te, x in FOOTFALLS:
+        dt = t - te
+        if 0 <= dt < 0.55:
+            life = dt / 0.55
+            stamp(img, DUST, (x - 30 * dt, FLOOR - 6 - 26 * dt), 0.3 + 0.7 * life, 0.45 * (1 - life) ** 1.5)
+    for te, x, big in SLIDE_DUST:
+        dt = t - te
+        if 0 <= dt < 0.9:
+            life = dt / 0.9
+            stamp(img, DUST, (x - 40 * dt, FLOOR - 8 - 40 * dt), (0.4 + 1.2 * life) * big,
+                  0.5 * (1 - life) ** 1.4)
+
+
 # ---------------------------------------------------------------- frame assembly
 def render_scene(t, bg):
     img = bg.copy()
@@ -613,6 +719,7 @@ def render_scene(t, bg):
         dt = t - s
         if -1e-6 <= dt < 2.5 / FPS:
             muzzle_flash(cv, g["muzzle"], gp["rifle"][1], 1, 1.0 if dt < 0.5 / FPS else 0.6)
+    draw_dust(img, t)
     draw_figure(cv, bp, BLACK, -1)
     draw_casings(cv, t)
     draw_fx_overlays(img, t, g["muzzle"])
@@ -620,10 +727,11 @@ def render_scene(t, bg):
 
 
 def camera(t, i):
-    z = 1.0 + 0.035 * smooth(0.0, DUR, t)
+    z = 1.03 + 0.05 * smooth(0.0, DUR, t) + 0.012 * kick(t, 6, 0.6)
+    pan = lerp(-55, -25, smooth(0.6, 2.6, t)) + 65 * smooth(4.0, 7.8, t)
     amp = 9 * kick(t, 13, 0.3)
     rng = random.Random(i * 7919)
-    return z, rng.uniform(-amp, amp), rng.uniform(-amp, amp)
+    return z, pan + rng.uniform(-amp, amp), rng.uniform(-amp, amp)
 
 
 def vignette():
@@ -660,6 +768,11 @@ def setup():
     stamp(bg, soft_sprite(200 * SS, 22 * SS, (20, 20, 22), 110, 6 * SS), (405, 668))
     stamp(bg, soft_sprite(320 * SS, 18 * SS, (20, 20, 22), 90, 5 * SS), (660, HORIZON + 4))
     stamp(bg, soft_sprite(230 * SS, 18 * SS, (20, 20, 22), 90, 5 * SS), (932, HORIZON + 4))
+    init_motion()
+    for te in np.arange(G_RUN_END - 0.05, G_RUN_END + 0.45, 0.05):
+        SLIDE_DUST.append((te, green_x(te) - 15, 1.0))
+        SLIDE_DUST.append((te, green_x(te) + 85, 0.7))
+    SLIDE_DUST.append((G_RUN_END + 0.5, G_XK + 100, 1.6))
     for s in SHOTS:
         grip, ang = green_pose(s)["rifle"]
         CASING_SPAWN.append(rifle_tf(grip, ang, 1)(*PORT))
@@ -674,7 +787,9 @@ def main():
         make_frame(int(sys.argv[sys.argv.index("--frame") + 1]), bg, font, vig).save(out)
         return
     if "--preview" in sys.argv:
-        idx = [int(s * FPS) for s in (0.9, 1.3, 1.8, 2.4, 3.6, 5.2, 6.4, 8.0)] + [SHOT_FRAMES[0], 296]
+        times = [float(v) for v in sys.argv[sys.argv.index("--preview") + 1].split(",")] \
+            if len(sys.argv) > 3 else (0.9, 1.3, 1.8, 2.4, 3.6, 5.2, 6.4, 8.0, 8.2, 9.9)
+        idx = [int(round(s * FPS)) for s in times]
         sheet = Image.new("RGB", (1080, 360 * 5), "black")
         for k, i in enumerate(idx):
             th = make_frame(i, bg, font, vig).crop((0, BY, W, BY + BH)).resize((540, 360))
