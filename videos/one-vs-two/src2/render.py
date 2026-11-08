@@ -47,7 +47,14 @@ def strike(a, t_hit, name, u_hit, joint, tx, ua=None, ub=None, speed=1.0, rm=1.0
     cur = a._endx(t0); fdir = 1 if tx >= cur else -1
     face = fdir*(1 if jdx >= 0 else -1)
     x = tx - fdir*contact - face*(dr + jdx)
+    gap = x - cur
+    if abs(gap) > 60:                      # run in from where the fighter really is
+        trun = max(0.25, abs(gap)/420); t_run = t0 - trun
+        a.play(t_run, 'run', loop=True, a=0, b=0.8, speed=1.12, x=a._endx(t_run), face=1 if gap > 0 else -1, blend=0.15)
     a.play(t0, name, a=ua, b=ub, speed=speed, x=x, face=face, rm=rm, blend=blend)
+    seg = [q for q in a.segs if q.t == t0][-1]
+    for _ in range(3):                     # correct so the contact really lands at tx
+        J, _z = a.joints(t_hit); seg.x += (tx - fdir*contact) - J[IDX[joint]][0]
     sfx(t0 + 0.05, 'whoosh', 0.7)
     if hit:
         HITS.append((t_hit, a, joint, big, col or ACC[a.name], sound, size))
@@ -161,18 +168,21 @@ tg2 = t2 + 1.4
 A_.getup(tg2, 'faceup', speed=2.1); B_.getup(tg2 + 0.15, 'facedown', speed=2.0)
 tc = tg2 + 2.0
 xh = X(H_, tc)
-A_.play(tc, 'run', loop=True, a=0, b=0.8, speed=1.2, x=xh - 520, face=1)
-B_.play(tc + 0.05, 'run', loop=True, a=0, b=0.8, speed=1.2, x=xh + 520, face=-1)
 tf = tc + 1.15
+for v, gap, dt in ((B_, 75, 0.0), (A_, 165, 0.12)):
+    x0 = X(v, tc); d = 1 if x0 > xh else -1
+    dist = abs(x0 - (xh + d*gap)); sp_ = max(0.2, dist/((tf - tc - dt)*374))
+    v.play(tc + dt, 'run', loop=True, a=0, b=0.8, speed=sp_, x=x0, face=-d)
 H_.hold(tc + 0.3, 'spin', 1.2, blend=0.3, bob=0.2)
 H_.play(tf - 0.12, 'spin', a=1.55, b=2.4, speed=2.2, x=xh)
 WARP.slow(tf - 0.05, 0.6, 0.3); WARP.stop(tf, 0.35)
 fx('speedlines', tf - 0.1, 0.4, mode='horiz'); post('dark', tf - 0.1, 0.8, 0.75)
-for v, d in ((A_, -1), (B_, 1)):
+for v in (A_, B_):
+    d = 1 if X(v, tf) > xh else -1
     fx('slash', tf, 0.45, actor=v, joint='chest', r=110, a0=200, a1=330, w=36, col=ACC['hero'])
     fx('slash', tf + 0.04, 0.45, actor=v, joint='chest', r=110, a0=-30, a1=110, w=36, col=ACC['hero'])
     fx('impact', tf, 0.5, actor=v, joint='chest', col=ACC['hero'], size=1.4)
-    knock(v, tf + 0.02, 420*d, up=300, lie='faceup' if d < 0 else 'facedown', dur=0.9, spin=1.6*d, slam=1.2)
+    knock(v, tf + 0.02, (420 if v is B_ else 300)*d, up=300, lie='faceup' if d < 0 else 'facedown', dur=0.9, spin=1.6*d, slam=1.2)
 post('flash', tf, 0.4); post('iframe', tf, 0.08); post('shake', tf, 0.8, 22); post('chroma', tf, 0.6, 8)
 sfx(tf, 'cut', 1.0); sfx(tf + 0.05, 'boom', 1.0)
 stance(H_, tf + 0.7, blend=0.5)
@@ -205,16 +215,19 @@ REAL_END = WARP.R(ANIM_END)
 # ================================================================= camera (auto framing, precomputed)
 SHAKES = [(t, a, d) for k, t, d, a in POSTR if k == 'shake']
 CUTS = sorted(WARP.R(t) for t in (3.95, 5.5, 6.4, 8.6, 10.0, 12.9, 16.2, 18.5, 21.2, 24.0, 26.0) if t < ANIM_END)
+FOCUS = [(0, 'hero'), (2.6, 'hero oni'), (3.9, 'hero kage'), (5.6, 'oni hero kage'), (6.3, 'oni hero'), (9.4, 'hero kage'),
+         (12.4, 'hero oni'), (14.4, 'hero kage'), (16.0, 'hero oni'), (17.2, 'hero'), (19.2, 'hero oni kage'),
+         (21.6, 'hero oni'), (22.9, 'hero kage'), (23.6, 'hero oni kage')]
 def cam_target(ta):
+    names = [f for t, f in FOCUS if t <= ta][-1].split()
     pts = []
-    for a in ACT.values():
-        J, _ = a.joints(ta); pts.append((J[:, 0].mean(), J[:, 1].min(), J[:, 1].max()))
-    hx = X(H_, ta)
-    near = [p for p in pts if abs(p[0] - hx) < 420] or pts
+    for n in names:
+        J, _ = ACT[n].joints(ta); pts.append((J[:, 0].mean(), J[:, 1].min(), J[:, 1].max()))
+    near = pts
     x0 = min(p[0] for p in near); x1 = max(p[0] for p in near)
     y0 = min(p[1] for p in near); y1 = max(p[2] for p in near)
-    spread = max(x1 - x0 + 170, (y1 - y0 + 120)*0.62)
-    z = clamp(560/spread, 0.95, 2.6)
+    spread = max(x1 - x0 + 150, (y1 - y0 + 110)*0.6)
+    z = clamp(640/spread, 1.25, 3.0)
     return ((x0 + x1)/2, (y0 + y1)/2 - 10, z)
 NF = int(DUR*FPS) + 1
 CAMS = []
