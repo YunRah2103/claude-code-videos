@@ -51,7 +51,7 @@ export function makeCar(o = {}) {
   let beltMesh = null;
   const car = { group: g, front, door, nearGlass, wheels, dring: dring.position.clone(), retr: retr.position.clone(), seatPos: seat.position, wheelPos: wheelG.position, side: s,
     setCrush(c) { front.scale.x = 1 - .38 * c; front.position.x = 1.05; front.rotation.z = -.06 * c; },
-    setDoor(cut) { door.visible = !cut; nearGlass.visible = !cut; bNear.visible = !cut; roof.visible = !cut; },   // x-ray cutaway: near door, B-pillar and roof off
+    setDoor(cut, roofOff = cut) { door.visible = !cut; nearGlass.visible = !cut; bNear.visible = !cut; roof.visible = !roofOff; },   // x-ray cutaway: near door, B-pillar (and roof) off
     setAirbag(u) { const k = Math.max(.001, u); airbag.scale.set(k * .9, k * 1.1, k * 1.05); airbag.position.x = .32 - .2 * u; },
     spin(a) { for (const w of wheels) w.rotation.z = -a; },
     belt(pts, glow) { if (beltMesh) { g.remove(beltMesh); beltMesh.geometry.dispose(); }

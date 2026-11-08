@@ -124,7 +124,7 @@ const camKeys = [
   CAM(1.95, 0, 1.0, 0, 4.6, 30, 8, 38, 'io', true, 5), CAM(2.6, 0, 1.0, 0, 4.0, 18, 4, 38, 'io', false, 5),
   CAM(2.6, -.2, 1.15, 0, 3.2, -22, 1, 36, 'io', true, 7), CAM(2.84, -.4, 1.15, 0, 3.0, -18, 1, 36),
   CAM(3.02, -2.2, 1.5, -.6, 4.6, 18, 5, 40, 'o', false, 5), CAM(3.32, -4.3, 1.5, -1.6, 4.4, 14, 6, 40, 'io', false, 5), CAM(3.66, -6.0, 1.2, -2.7, 2.8, 8, 4, 38, 'io', false, 6),
-  CAM(4.0, 'car', 0, 0, 2.3, 6, 3, 38, 'io', false, 7), CAM(4.55, 'car', 0, 0, 6.0, -38, 8, 40, 'io', false, 5),
+  CAM(4.0, 'chest', 0, 0, 3.3, 12, 4, 38, 'io', false, 7), CAM(4.55, 'car', 0, 0, 6.0, -38, 8, 40, 'io', false, 5),
   CAM(T_CRASH, 'car', 0, 0, 6.2, -44, 9, 40, 'io', false, 5), CAM(T_FREEZE, 'car', 0, 0, 6.2, -44, 9, 40),
   CAM(5.32, 'chest', 0, 0, 1.9, 4, 2, 36, 'io', false, 8), CAM(5.95, 'present', 0, 0, 4.0, -62, 2, 40, 'io', false, 4), CAM(8.4, 'present', 0, 0, 2.9, -20, 7, 40, 's', false, 4),
   CAM(10.8, 'present', 0, 0, 3.7, 10, 2, 40, 's', false, 4), CAM(T_RESUME, 'present', 0, 0, 3.0, 32, 6, 40, 's', false, 4), CAM(16.0, 'present', 0, 0, 3.1, 2, 4, 40, 'io', false, 7),
@@ -270,7 +270,7 @@ function pose(t) {
   const s = simT(t);
   // car
   const cx = carX(s); car.group.position.set(cx, 0, CARZ); car.group.rotation.set(0, Math.PI, -pitchAt(t) * Math.PI / 180);
-  car.setCrush(crushAt(t)); car.setDoor(t >= T_IN - .02); car.spin((CAR0 - cx) / .34); car.setAirbag(airbagAt(t));
+  car.setCrush(crushAt(t)); car.setDoor(t >= T_IN - .02, t >= T_FREEZE && t < 16.18); car.spin((CAR0 - cx) / .34); car.setAirbag(airbagAt(t));
   // fighters
   const inCar = t >= T_IN && t < 16.18;
   gS.root.visible = gS.shadow.visible = !inCar; gC.root.visible = inCar;
