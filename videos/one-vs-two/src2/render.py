@@ -175,7 +175,7 @@ for v, gap, dt in ((B_, 75, 0.0), (A_, 165, 0.12)):
     v.play(tc + dt, 'run', loop=True, a=0, b=0.8, speed=sp_, x=x0, face=-d)
 H_.hold(tc + 0.3, 'spin', 1.2, blend=0.3, bob=0.2)
 H_.play(tf - 0.12, 'spin', a=1.55, b=2.4, speed=2.2, x=xh)
-WARP.slow(tf - 0.05, 0.6, 0.3); WARP.stop(tf, 0.35)
+WARP.slow(tf - 0.05, 0.22, 0.3); WARP.stop(tf, 0.35)
 fx('speedlines', tf - 0.1, 0.4, mode='horiz'); post('dark', tf - 0.1, 0.8, 0.75)
 for v in (A_, B_):
     d = 1 if X(v, tf) > xh else -1
@@ -353,7 +353,8 @@ def frame(fi):
     for a in (A_, B_, H_):
         J, _ = a.joints(ta); Jp, _ = a.joints(ta - 1/40)
         vx = (J[0][0] - Jp[0][0])*40
-        if abs(vx) > 650:
+        falling = any(g.kind == 'fall' and g.t <= ta < g.t + g.dur + 0.3 for g in a.segs)
+        if abs(vx) > 650 and not falling:
             for j, al in ((3, 45), (2, 80)):
                 draw_actor(c, g, a, ta - j*0.025, v, flat=PT(mix(hexc(ACC[a.name]), (255, 255, 255), 0.3), int(al*min(1, abs(vx)/1300)), blur=2*v.k))
         rel = lambda Jx, j: Jx[IDX[j]] - Jx[0]
