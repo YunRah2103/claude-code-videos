@@ -13,10 +13,9 @@ import sfx  # noqa: E402  (reuse whoosh/boom/thump)
 DUR = 10.1
 FPS, W, H, PX = 30, 1280, 720, 4
 ACTION = 5.1              # reference cuts to near-black here; music keeps running
-GROUND = 632
-INK = (16, 16, 18)
-GREEN, GREEN_D = (46, 150, 96), (30, 110, 70)
-RED, RED_D = (200, 72, 60), (150, 48, 42)
+INK = (18, 24, 32)
+GREEN, GREEN_D = (40, 122, 82), (28, 92, 64)
+RED, RED_D = (178, 72, 62), (130, 50, 46)
 WHITE = (250, 250, 246)
 
 
@@ -37,85 +36,114 @@ def piece(t, pts):
 
 # ---------------------------------------------------------------- background (320x180 pixel art)
 def build_bg():
-    w, h = W // PX, H // PX
+    """120x68 pixel painting matching the reference layout, upscaled ~10.7x."""
+    w, h = 120, 68
     rnd = np.random.default_rng(3)
     img = Image.new('RGB', (w, h))
-    px = img.load()
-    for y in range(h):                                   # sky gradient
-        k = min(1, y / 95)
-        c = tuple(int(lerp(a, b, k)) for a, b in zip((132, 196, 236), (222, 240, 244)))
-        for x in range(w): px[x, y] = c
     d = ImageDraw.Draw(img)
-    # cumulus clouds: shade layer then lit layer offset up-left, blocky
-    blobs = [(120, 40, 26), (100, 55, 22), (145, 30, 22), (160, 52, 20), (80, 66, 16), (130, 62, 20),
-             (235, 40, 22), (262, 28, 24), (290, 44, 22), (310, 30, 18), (250, 62, 18), (205, 66, 14),
-             (60, 74, 12), (180, 70, 12)]
-    blobs = [(x + rnd.normal(0, r * .5), y + rnd.normal(0, r * .4), r * rnd.uniform(.5, .8)) for x, y, r in blobs for _ in range(3)] + blobs
-    for x, y, r in blobs: d.ellipse([x - r, y - r * .8, x + r, y + r * .8], fill=(196, 208, 214))
-    for x, y, r in blobs: d.ellipse([x - r * .82 - 3, y - r * .7 - 4, x + r * .7 - 3, y + r * .55 - 4], fill=(246, 248, 246))
-    for x, y, r in blobs[::3]: d.ellipse([x - r * .3, y - r * .2, x + r * .5, y + r * .5], fill=(220, 228, 232))
-    # far mountains
-    for x in range(w):
-        m = 70 + 12 * math.sin(x / 26) + 6 * math.sin(x / 9 + 1) + 3 * math.sin(x / 4.3) - 10 * math.exp(-((x - 25) / 30) ** 2)
-        m2 = 86 + 7 * math.sin(x / 17 + 2) + 3 * math.sin(x / 6)
-        for y in range(int(m), h):
-            c = (128, 186, 164) if y < m + 2 else ((96, 160, 140) if rnd.random() > .08 else (112, 174, 152))
-            if y > m + 4 and math.sin(x / 7 + y / 5) > .7: c = (80, 140, 124)
-            px[x, y] = c
-        for y in range(int(m2), h):
-            c = (88, 156, 124) if y < m2 + 2 else ((66, 132, 108) if rnd.random() > .08 else (76, 146, 116))
-            px[x, y] = c
-    # right bush hills with curl outlines
-    for cx, cy, r in [(250, 92, 26), (285, 84, 30), (318, 90, 26), (226, 100, 18), (300, 100, 22)]:
-        d.ellipse([cx - r, cy - r * .7, cx + r, cy + r * .7], fill=(70, 160, 70))
-    for cx, cy, r in [(250, 92, 26), (285, 84, 30), (318, 90, 26), (226, 100, 18)]:
-        d.arc([cx - r * .6, cy - r * .5, cx + r * .4, cy + r * .3], 180, 330, fill=(46, 120, 52))
-        d.ellipse([cx - r * .6, cy - r * .62, cx + r * .1, cy - r * .3], fill=(120, 200, 90))
-    for cx, cy, r in [(40, 100, 20), (10, 104, 16), (80, 104, 14)]:
-        d.ellipse([cx - r, cy - r * .6, cx + r, cy + r * .6], fill=(68, 146, 96))
-    # tree
-    d.rectangle([202, 40, 211, 116], fill=(98, 72, 44)); d.rectangle([202, 40, 204, 116], fill=(126, 94, 58))
-    d.line([(206, 70), (220, 58)], fill=(98, 72, 44), width=2); d.line([(206, 80), (192, 70)], fill=(98, 72, 44), width=2)
-    for cx, cy, r, c in [(206, 20, 15, (40, 120, 40)), (190, 32, 13, (40, 120, 40)), (222, 34, 13, (40, 120, 40)),
-                         (206, 44, 14, (40, 120, 40)), (194, 70, 10, (40, 120, 40)), (220, 62, 10, (40, 120, 40)),
-                         (206, 84, 8, (40, 120, 40)),
-                         (204, 16, 11, (70, 168, 56)), (190, 28, 9, (70, 168, 56)), (220, 30, 9, (70, 168, 56)),
-                         (206, 40, 10, (70, 168, 56)), (194, 66, 7, (70, 168, 56)), (219, 58, 7, (70, 168, 56)),
-                         (201, 12, 6, (110, 204, 76)), (187, 25, 5, (110, 204, 76)), (216, 26, 5, (110, 204, 76)),
-                         (202, 36, 5, (110, 204, 76)), (191, 63, 4, (110, 204, 76)), (216, 55, 4, (110, 204, 76))]:
-        d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=c)
-    for _ in range(160):  # leaf speckle
-        x, y = rnd.integers(178, 236), rnd.integers(4, 92)
-        if px[x, y][1] > 110 and px[x, y][0] < 120: px[x, y] = (34, 104, 36) if rnd.random() < .5 else (140, 220, 96)
-    # meadow
-    for y in range(104, h):
-        k = (y - 104) / (h - 104)
+    px = img.load()
+    for y in range(h):
+        k = min(1, y / 34)
+        d.line([(0, y), (w, y)], fill=tuple(int(lerp(a, b, k)) for a, b in zip((196, 227, 248), (212, 233, 248))))
+
+    def blob(cx, cy, r, c, sy=1.0): d.ellipse([cx - r, cy - r * sy, cx + r, cy + r * sy], fill=c)
+    SH, LT, HL = (224, 225, 228), (243, 244, 242), (252, 252, 250)
+    left = [(43, 4, 6), (40, 11, 7), (47, 13, 7), (37, 19, 7), (52, 19, 7), (58, 11, 5), (61, 21, 6), (33, 27, 6),
+            (45, 26, 8), (56, 28, 7), (28, 31, 5), (64, 30, 4), (38, 33, 5)]
+    right = [(96, 2, 6), (90, 9, 6), (100, 9, 7), (85, 17, 6), (96, 18, 8), (106, 15, 7), (114, 8, 7), (119, 17, 6),
+             (81, 25, 5), (92, 26, 7), (104, 25, 7), (116, 26, 6), (110, 3, 5)]
+    small = [(12, 33, 3), (18, 32, 3), (24, 34, 3), (7, 35, 2)]
+    m = Image.new('L', (w, h)); md = ImageDraw.Draw(m)
+    for cx, cy, r in left + right + small: md.ellipse([cx - r, cy - r, cx + r, cy + r], fill=255)
+    M = np.asarray(m) > 0
+    for y in range(h):                                       # cumulus shading: lit top-left rims, grey undersides
         for x in range(w):
-            c = (lerp(132, 70, k), lerp(206, 160, k), lerp(74, 52, k))
-            band = 150 + x * 0.03 + 3 * math.sin(x / 30)          # light dirt path
-            if band < y < band + 8 - 4 * abs(math.sin(x / 50)):
-                c = (206, 222, 140) if (x + y) % 7 else (184, 168, 112)
-            px[x, y] = tuple(int(v) for v in c)
-    for x in range(w):                                     # hedge row hides horizon seam
-        top = 100 + 3 * math.sin(x / 5) + 2 * math.sin(x / 13)
-        for y in range(int(top), 109): px[x, y] = (58, 140, 62) if y < top + 2 else (44, 118, 54)
-    for _ in range(1300):                                  # grass blades
-        x, y = rnd.integers(0, w), rnd.integers(106, h)
-        c = (90, 170, 56) if rnd.random() < .6 else (176, 230, 112)
-        if y > 162: c = (52, 132, 48) if rnd.random() < .6 else (110, 190, 70)
-        px[x, y] = c
-        if y + 1 < h: px[x, y + 1] = c
-    for _ in range(260):                                   # flowers, denser near the bottom
-        x, y = rnd.integers(0, w), int(h - abs(rnd.normal(0, 22)))
-        if 108 < y < h:
-            px[x, y] = [(230, 70, 60), (250, 210, 80), (236, 150, 200), (250, 250, 240), (180, 120, 230)][rnd.integers(5)]
-    for _ in range(140):
-        x, y = rnd.integers(0, w), rnd.integers(160, h)
-        px[x, y] = (40, 120, 46)
+            if not M[y, x]: continue
+            up = M[max(0, y - 2), max(0, x - 1)]
+            dn = M[min(h - 1, y + 3), x]
+            c = LT if rnd.random() > .12 else SH
+            if not up: c = HL
+            elif not dn or y > 27: c = SH if rnd.random() > .15 else LT
+            px[x, y] = c
+    # mountains: back light ridge + front darker ridge, slopes shaded by facing
+    def ridge(xs, ys, light, mid, dark, rim):
+        top = np.interp(np.arange(w), xs, ys)
+        for x in range(w):
+            slope = top[min(w - 1, x + 1)] - top[max(0, x - 1)]
+            for y in range(int(top[x]), 52):
+                c = mid
+                if y < top[x] + 1: c = rim
+                elif slope > 0.3 and y < top[x] + 6: c = dark
+                elif slope < -0.3 and y < top[x] + 4: c = light
+                elif (x * 2 + y * 5) % 17 < 2: c = dark
+                px[x, y] = c
+        return top
+    t1 = ridge([0, 9, 17, 24, 30, 40, 52, 66, 76, 86, 100, 112, 120], [37, 33, 30, 33, 36, 35, 34, 33, 35, 32, 29, 27, 27],
+               (128, 184, 150), (100, 158, 128), (68, 124, 98), (150, 200, 166))
+    for _ in range(12):                                      # snow clumps near the middle peaks
+        x = int(rnd.uniform(30, 54)); y = int(t1[x] + rnd.uniform(2, 6))
+        d.rectangle([x, y, x + rnd.integers(0, 3), y + rnd.integers(0, 2)], fill=(248, 250, 247))
+    ridge([0, 6, 14, 22, 34, 44, 54, 62, 72, 120], [44, 41, 43, 40, 44, 41, 43, 42, 45, 45],
+          (90, 156, 120), (72, 134, 106), (50, 104, 80), (104, 170, 132))
+    for x0, ht in [(1, 8), (3, 6), (5, 9)]:                  # cypress trees far left
+        d.rectangle([x0, 51 - ht, x0 + 1, 51], fill=(29, 92, 73))
+    d.rectangle([14, 47, 30, 51], fill=(44, 120, 70)); d.rectangle([16, 46, 26, 47], fill=(44, 120, 70))
+    # right bushes: lumpy cloud-shaped mass with dark outlines and curl strokes
+    rr = np.random.default_rng(9)
+    bush = [(int(rr.uniform(90, 121)), int(rr.uniform(30, 50)), int(rr.uniform(3, 6))) for _ in range(26)]
+    bush = [b for b in bush if b[1] > 26 + (120 - b[0]) * 0.3] + [(118, 28, 5), (112, 31, 5), (105, 35, 5), (98, 40, 5), (92, 45, 4), (110, 46, 6)]
+    for cx, cy, r in bush: blob(cx, cy, r + 1, (36, 95, 60))
+    for cx, cy, r in bush: blob(cx, cy, r, (82, 195, 91))
+    for cx, cy, r in bush: blob(cx - 1, cy - 1, r * .5, (110, 212, 112))
+    for cx, cy, r in bush[::2]: d.arc([cx - r, cy - r, cx + r, cy + r], 200, 320, fill=(36, 95, 60))
+    d.rectangle([86, 49, 120, 51], fill=(68, 160, 76))
+    # tree: irregular leafy canopies
+    d.rectangle([76, 27, 80, 52], fill=(110, 82, 48)); d.rectangle([79, 27, 80, 52], fill=(88, 64, 38))
+    d.rectangle([74, 51, 82, 52], fill=(88, 64, 38))
+    for (x0, x1, y0, y1, n) in [(67, 87, 18, 31, 44), (72, 84, 36, 45, 22)]:
+        lv = []
+        for _ in range(n):
+            a, q = rr.uniform(0, 2 * math.pi), math.sqrt(rr.uniform(0, 1))
+            lv.append(((x0 + x1) / 2 + math.cos(a) * q * (x1 - x0) / 2, (y0 + y1) / 2 + math.sin(a) * q * (y1 - y0) / 2, rr.uniform(1.3, 2.6)))
+        for cx, cy, r in lv: blob(cx, cy, r + 1, (36, 95, 60))
+        for cx, cy, r in lv: blob(cx, cy, r, (67, 171, 58))
+        for cx, cy, r in lv[::2]: blob(cx - .8, cy - .8, r * .5, (92, 200, 80))
+    for _ in range(40):
+        x, y = rnd.integers(64, 90), rnd.integers(14, 47)
+        if px[x, y][1] > 160 and px[x, y][0] < 100: px[x, y] = (36, 95, 60)
+    # meadow
+    rows = [(150, 194, 110), (162, 205, 112), (169, 207, 111), (156, 200, 98), (149, 192, 90), (140, 190, 86), (132, 190, 80),
+            (124, 195, 78), (120, 196, 76), (118, 194, 74), (112, 186, 70), (106, 178, 66), (100, 170, 62), (96, 166, 60),
+            (92, 160, 58), (86, 152, 56), (80, 146, 54)]
+    for y in range(51, h):
+        for x in range(w):
+            px[x, y] = rows[min(len(rows) - 1, y - 51)]
+    for x in range(w):                                       # light path, wavy, rising to the right
+        c = 57.5 - x * 0.045 + 1.2 * math.sin(x / 9)
+        hw = 1.6 + 1.0 * math.sin(x / 14 + 1)
+        for y in range(int(c - hw), int(c + hw) + 1):
+            if 51 <= y < h: px[x, y] = (237, 238, 209) if abs(y - c) < hw * .5 else (214, 230, 170)
+    for x in range(88, 120):
+        y = int(53 - (x - 88) * 0.05)
+        px[x, y] = (237, 250, 177)
+    for x in range(39, 76):                                  # dirt patch
+        for y in range(58, 61):
+            if abs(x - 57) / 18 + abs(y - 59) / 2 < 1.2 and rnd.random() < .85:
+                px[x, y] = (196, 178, 128) if rnd.random() < .7 else (168, 140, 96)
+    for _ in range(160):                                     # grass tufts
+        x, y = rnd.integers(0, w), rnd.integers(56, h)
+        px[x, y] = (68, 148, 76) if y > 62 else (124, 200, 90)
+    for x in range(w):                                       # dark grass fringe at bottom
+        for y in range(h - 2 - int(1.5 + 1.5 * math.sin(x / 3)), h): px[x, y] = (60, 136, 60)
+    for _ in range(70):                                      # flowers, mostly lower corners
+        x = int(rnd.choice([rnd.uniform(0, 30), rnd.uniform(85, 120), rnd.uniform(0, 120)]))
+        y = rnd.integers(59, h - 1)
+        px[min(w - 1, x), y] = [(230, 60, 50), (250, 220, 60), (236, 160, 210)][rnd.integers(3)]
     big = np.asarray(img.resize((W, H), Image.Resampling.NEAREST)).astype(np.float32)
     lum = big.mean(axis=2, keepdims=True)
-    dark = (big * 0.18 + lum * 0.10) + np.array([16, 22, 34], np.float32)   # desaturated night tint
+    dark = big * 0.07 + lum * 0.06 + np.array([18, 26, 36], np.float32)
     return big, dark
+
 
 
 # ---------------------------------------------------------------- fighters
@@ -131,22 +159,36 @@ P = {  # hip-relative joints, facing right: head neck eF hF eB hB kF fF kB fB, s
     'jump':   [(6, -44), (4, -34), (4, -48), (-4, -60), (-10, -26), (-18, -18), (14, 2), (4, 14), (-6, 6), (-16, 16), -120],
     'knock':  [(-22, -30), (-16, -22), (4, -30), (14, -40), (-28, -18), (-34, -6), (14, 4), (28, 12), (4, 10), (18, 22), -60],
 }
-SCALE = 1.75
+SCALE = 1.85
+GROUND = 622            # world y of feet; converted to screen via camera
 
-#        t     x     yoff  pose      face
-GK = [(0.00, 240, 0, 'windup', 1), (0.12, 270, 0, 'slash', 1), (0.20, 330, 0, 'dash', 1), (0.32, 470, 0, 'dash', 1),
-      (0.48, 420, 0, 'slash', 1), (0.66, 380, 0, 'crouch', 1), (0.80, 80, 0, 'crouch', 1), (1.10, 100, 0, 'stand', 1),
-      (1.25, 150, 0, 'run', 1), (1.80, 400, 0, 'windup', 1), (1.98, 440, 0, 'slash', 1), (2.14, 470, 0, 'dash', 1),
-      (2.45, 470, 0, 'slash', 1), (2.65, 500, 0, 'crouch', 1), (2.85, 490, 0, 'spin', 1), (3.40, 560, 0, 'spin', 1),
-      (3.48, 600, -100, 'jump', 1), (3.66, 640, -40, 'slash', 1), (3.82, 760, 0, 'crouch', -1), (4.36, 780, 0, 'crouch', -1),
-      (4.46, 580, 0, 'dash', -1), (4.62, 560, 0, 'slash', -1), (4.80, 510, 0, 'windup', -1), (4.95, 490, 0, 'dash', -1),
-      (5.10, 470, 0, 'slash', -1)]
-RK = [(0.00, 820, 0, 'crouch', -1), (0.30, 700, 0, 'crouch', -1), (0.50, 660, 0, 'windup', -1), (0.66, 640, 0, 'slash', -1),
-      (0.80, 980, 0, 'crouch', -1), (1.10, 960, 0, 'stand', -1), (1.25, 920, 0, 'run', -1), (1.70, 700, 0, 'windup', -1),
-      (1.90, 560, 0, 'dash', -1), (1.98, 520, 0, 'slash', -1), (2.20, 600, 0, 'crouch', -1), (2.40, 540, 0, 'windup', -1),
-      (2.52, 500, 0, 'slash', -1), (2.80, 680, 0, 'crouch', -1), (3.40, 760, 0, 'crouch', -1), (3.50, 720, -150, 'jump', -1),
-      (3.64, 640, -20, 'slash', -1), (3.80, 680, -40, 'knock', -1), (4.00, 650, -110, 'knock', -1), (4.36, 610, -30, 'knock', -1),
-      (4.46, 360, 0, 'crouch', 1), (4.62, 390, 0, 'slash', 1), (4.80, 430, 0, 'dash', 1), (5.10, 460, 0, 'slash', 1)]
+# keyframes measured from the reference every 0.1 s, in SCREEN x
+GK = [(0.0, 267, 0, 'windup', 1), (0.1, 240, 0, 'slash', 1), (0.2, 413, 0, 'dash', 1), (0.3, 507, 0, 'dash', 1),
+      (0.42, 507, 0, 'dash', 1), (0.5, 533, 0, 'slash', 1), (0.62, 560, 0, 'dash', 1), (0.7, 320, 0, 'crouch', 1),
+      (0.8, 307, 0, 'crouch', 1), (0.9, 267, 0, 'crouch', 1), (1.0, 240, 0, 'stand', 1), (1.15, 235, 0, 'stand', 1),
+      (1.2, 227, 0, 'crouch', 1), (1.3, 267, 0, 'crouch', 1), (1.4, 307, 0, 'stand', 1), (1.5, 320, 0, 'windup', 1),
+      (1.65, 325, 0, 'windup', 1), (1.7, 347, 0, 'slash', 1), (1.8, 347, 0, 'crouch', 1), (1.9, 427, 0, 'windup', 1),
+      (2.0, 453, 0, 'dash', 1), (2.1, 480, 0, 'dash', 1), (2.2, 500, 0, 'dash', 1), (2.3, 453, 0, 'slash', 1),
+      (2.4, 587, 0, 'dash', 1), (2.5, 453, 0, 'crouch', 1), (2.6, 480, 0, 'slash', 1), (2.7, 533, 0, 'dash', 1),
+      (2.8, 587, 0, 'spin', 1), (2.9, 533, 0, 'crouch', 1), (3.0, 587, 0, 'windup', 1), (3.1, 693, 0, 'spin', 1),
+      (3.3, 693, 0, 'slash', 1), (3.4, 720, 0, 'windup', 1), (3.5, 720, -30, 'windup', 1), (3.6, 747, -70, 'jump', 1),
+      (3.7, 853, -40, 'slash', 1), (3.8, 880, 0, 'crouch', -1), (3.9, 880, 0, 'crouch', -1), (4.0, 827, 0, 'crouch', -1),
+      (4.1, 773, 0, 'crouch', -1), (4.2, 693, 0, 'crouch', -1), (4.3, 773, 0, 'slash', -1), (4.4, 720, 0, 'crouch', -1),
+      (4.5, 720, 0, 'crouch', -1), (4.6, 667, 0, 'windup', -1), (4.7, 693, 0, 'slash', -1), (4.8, 693, 0, 'crouch', -1),
+      (4.9, 667, 0, 'dash', -1), (5.0, 667, 0, 'slash', -1), (5.1, 660, 0, 'slash', -1)]
+RK = [(0.0, 800, 0, 'crouch', -1), (0.1, 773, 0, 'crouch', -1), (0.2, 747, 0, 'dash', -1), (0.3, 747, 0, 'slash', -1),
+      (0.4, 747, 0, 'crouch', -1), (0.6, 760, 0, 'crouch', -1), (0.7, 880, 0, 'slash', -1), (0.8, 933, 0, 'crouch', -1),
+      (0.9, 933, 0, 'crouch', -1), (1.0, 960, 0, 'stand', -1), (1.1, 987, 0, 'stand', -1), (1.2, 987, 0, 'crouch', -1),
+      (1.3, 1000, 0, 'slash', -1), (1.4, 1000, 0, 'stand', -1), (1.5, 987, 0, 'crouch', -1), (1.6, 960, 0, 'windup', -1),
+      (1.7, 1000, 0, 'crouch', -1), (1.8, 960, 0, 'dash', -1), (1.9, 747, 0, 'dash', -1), (2.0, 747, 0, 'slash', -1),
+      (2.1, 747, 0, 'crouch', -1), (2.2, 800, 0, 'crouch', -1), (2.3, 827, 0, 'crouch', -1), (2.4, 853, 0, 'windup', -1),
+      (2.5, 853, 0, 'slash', -1), (2.6, 800, 0, 'crouch', -1), (2.7, 830, 0, 'knock', -1), (2.8, 773, 0, 'crouch', -1),
+      (2.9, 960, 0, 'crouch', -1), (3.0, 960, 0, 'windup', -1), (3.1, 1013, 0, 'crouch', -1), (3.3, 987, 0, 'crouch', -1),
+      (3.5, 1000, 0, 'windup', -1), (3.6, 987, 0, 'windup', -1), (3.7, 900, 0, 'crouch', -1), (3.8, 827, -180, 'knock', -1),
+      (3.9, 720, -230, 'knock', -1), (4.0, 667, -210, 'knock', -1), (4.1, 640, -170, 'knock', -1), (4.2, 640, -190, 'knock', -1),
+      (4.3, 613, -200, 'knock', -1), (4.4, 453, 0, 'crouch', 1), (4.5, 480, 0, 'crouch', 1), (4.6, 453, 0, 'windup', 1),
+      (4.7, 453, 0, 'slash', 1), (4.8, 427, 0, 'crouch', 1), (5.1, 427, 0, 'crouch', 1)]
+
 
 
 def pose_pts(name, t):
@@ -180,67 +222,69 @@ def fighter_state(keys, t):
     return x, y, pts, face, vx
 
 
-def draw_fighter(d, keys, t, cloak):
+def draw_fighter(d, keys, t, cloak, z, gy):
     x, yoff, pts, f, vx = fighter_state(keys, t)
+    S = SCALE * z
     foot = max(pts[7][1], pts[9][1])
-    hip = (x, GROUND - foot * SCALE + yoff)
-    J = [(hip[0] + p[0] * SCALE * f, hip[1] + p[1] * SCALE) for p in pts[:-1]]
+    hip = (x, gy - foot * S + yoff * z)
+    J = [(hip[0] + p[0] * S * f, hip[1] + p[1] * S) for p in pts[:-1]]
     head, neck, eF, hF, eB, hB, kF, fF, kB, fB = J
     sw = math.radians(pts[-1])
     swv = (math.cos(sw) * f, math.sin(sw))
-    flap = math.sin(t * 40) * 4
-    trail = -f * (34 + min(60, abs(vx) * 0.04))
+    flap = math.sin(t * 40) * 4 * z
+    trail = -f * (30 + min(50, abs(vx) * 0.04)) * z
+
+    def at(p, dx, dy): return (p[0] + f * dx * z, p[1] + dy * z)
     if cloak == 'red':     # long cape behind body
-        d.polygon([(neck[0] - f * 2, neck[1] - 4), (neck[0] + f * 6, neck[1] + 2),
-                   (hip[0] + trail * .5, hip[1] + 26 + flap), (hip[0] + trail, hip[1] + 10 - flap),
-                   (hip[0] + trail * .8, hip[1] - 10)], fill=RED)
-        d.polygon([(neck[0], neck[1] - 2), (hip[0] + trail * .5, hip[1] + 26 + flap),
-                   (hip[0] + trail * .25, hip[1] + 18)], fill=RED_D)
-    lw = 7
+        d.polygon([at(neck, 3, -4), at(neck, -6, 0), (hip[0] + trail, hip[1] + 14 * z - flap),
+                   (hip[0] + trail * .7, hip[1] + 34 * z + flap), at(hip, 6, 26), at(hip, 6, 6)], fill=RED)
+        d.polygon([at(neck, -2, 0), (hip[0] + trail * .7, hip[1] + 34 * z + flap), at(hip, -4, 22)], fill=RED_D)
+    lw = max(5, int(7 * z))
     for a, b in [(hip, kB), (kB, fB), (neck, eB), (eB, hB)]:
         d.line([a, b], fill=INK, width=lw)
     d.line([hip, neck], fill=INK, width=lw + 1)
-    if cloak == 'green':   # poncho over torso + trailing scarf
-        d.polygon([(neck[0] + f * 8, neck[1] - 2), (neck[0] - f * 8, neck[1] - 2),
-                   (hip[0] + trail * .6, hip[1] + 12 + flap), (hip[0] + f * 14, hip[1] + 10)], fill=GREEN)
-        d.polygon([(neck[0] - f * 4, neck[1] - 4), (neck[0] + trail * .9, neck[1] - 10 + flap),
-                   (neck[0] + trail * .7, neck[1] + 4)], fill=GREEN_D)
+    if cloak == 'green':   # long coat over torso, flaring behind
+        d.polygon([at(neck, 8, -3), at(hip, 14, 4), at(hip, 8, 30 + flap / z), (hip[0] + trail, hip[1] + 22 * z - flap),
+                   (hip[0] + trail * .8, hip[1] - 4 * z), at(neck, -9, 0)], fill=GREEN)
+        d.polygon([at(neck, -4, 0), (hip[0] + trail, hip[1] + 22 * z - flap), (hip[0] + trail * .8, hip[1] - 4 * z)], fill=GREEN_D)
     for a, b in [(hip, kF), (kF, fF), (neck, eF), (eF, hF)]:
         d.line([a, b], fill=INK, width=lw)
     for p in J[1:]:
-        d.ellipse([p[0] - 3.5, p[1] - 3.5, p[0] + 3.5, p[1] + 3.5], fill=INK)
-    r = 11
+        r = lw / 2
+        d.ellipse([p[0] - r, p[1] - r, p[0] + r, p[1] + r], fill=INK)
+    r = 15 * z
     d.ellipse([head[0] - r, head[1] - r, head[0] + r, head[1] + r], fill=INK)
-    tip = (hF[0] + swv[0] * 62, hF[1] + swv[1] * 62)
-    d.line([hF, tip], fill=WHITE, width=4)
-    d.line([(hF[0] - swv[0] * 8, hF[1] - swv[1] * 8), (hF[0] + swv[0] * 6, hF[1] + swv[1] * 6)], fill=(60, 50, 40), width=6)
+    ln = 64 * z
+    tip = (hF[0] + swv[0] * ln, hF[1] + swv[1] * ln)
+    d.line([hF, tip], fill=WHITE, width=max(3, int(4 * z)))
     return hip, hF, tip
 
 
-# ---------------------------------------------------------------- effects
-def crescent(d, cx, cy, r, a0, a1, w, col, n=28):
+# ---------------------------------------------------------------- effects (screen coords)
+def crescent(d, cx, cy, r, a0, a1, w, col, n=28, sy=0.8):
     outer, inner = [], []
     for i in range(n + 1):
         k = i / n
         a = math.radians(lerp(a0, a1, k))
         th = w * math.sin(math.pi * k) ** 0.8
-        outer.append((cx + math.cos(a) * r, cy + math.sin(a) * r * 0.8))
-        inner.append((cx + math.cos(a) * (r - th), cy + math.sin(a) * (r - th) * 0.8))
+        outer.append((cx + math.cos(a) * r, cy + math.sin(a) * r * sy))
+        inner.append((cx + math.cos(a) * (r - th), cy + math.sin(a) * (r - th) * sy))
     d.polygon(outer + inner[::-1], fill=col)
 
 
-def slash(d, g, cx, cy, r, a0, sweep, u, col=WHITE, w=14):
-    """Crescent that sweeps in (u 0..0.4) then thins out (0.4..1)."""
+def slash(d, g, cx, cy, r, a0, sweep, u, col=WHITE, w=14, sy=0.8):
+    """Crescent that sweeps in (u 0..0.35) then thins away (0.35..1)."""
     if not 0 <= u <= 1: return
     head = a0 + sweep * min(1, u / 0.35)
     tail = a0 + sweep * max(0, (u - 0.35) / 0.65)
     ww = w * (1 - max(0, u - 0.5) * 1.6)
     if abs(head - tail) < 3 or ww < 1: return
-    crescent(d, cx, cy, r, tail, head, ww, col)
-    crescent(g, cx, cy, r, tail, head, ww * 2.2, col)
+    crescent(d, cx, cy, r, tail, head, ww, col, sy=sy)
+    crescent(g, cx, cy, r, tail, head, ww * 2.2, col, sy=sy)
 
 
 def streak(d, g, x0, x1, y, h, col, a=255):
+    if h <= 0.5: return
     d.ellipse([min(x0, x1), y - h / 2, max(x0, x1), y + h / 2], fill=col + (a,))
     g.ellipse([min(x0, x1) - 30, y - h * 1.6, max(x0, x1) + 30, y + h * 1.6], fill=col + (a,))
 
@@ -250,15 +294,22 @@ def fire_arc(d, g, cx, cy, rx, ry, a0, a1, w, u):
         pts = []
         for i in range(31):
             a = math.radians(lerp(a0, a1, i / 30))
+            taper = math.sin(math.pi * (0.1 + 0.8 * i / 30))
             jit = math.sin(i * 1.7 + u * 30) * w * 0.15
             pts.append((cx + math.cos(a) * (rx + jit), cy + math.sin(a) * (ry + jit)))
         d.line(pts, fill=col, width=max(1, int(ww)), joint='curve')
-        if k == 0: g.line(pts, fill=(255, 90, 40), width=int(ww * 2.5), joint='curve')
+        if k == 0: g.line(pts, fill=(255, 70, 40), width=int(ww * 2.5), joint='curve')
+
+
+def fire_line(d, g, p0, p1, w):
+    for col, ww in [((226, 50, 40), w), ((255, 150, 50), w * .55), ((255, 232, 120), w * .25)]:
+        d.line([p0, p1], fill=col, width=max(1, int(ww)))
+    g.line([p0, p1], fill=(255, 70, 40), width=int(w * 2.5))
 
 
 def puff(d, x, y, r, col, a):
     if a <= 0 or r <= 0: return
-    sh = tuple(int(c * .8) for c in col)
+    sh = tuple(int(c * .82) for c in col)
     d.ellipse([x - r, y - r * .7, x + r, y + r * .75], fill=sh + (int(a),))
     d.ellipse([x - r * .9, y - r * .8, x + r * .7, y + r * .45], fill=col + (int(a),))
 
@@ -270,120 +321,210 @@ def particles(d, g, cx, cy, spread, u, n, seed, col=(232, 52, 44)):
         x = cx + math.cos(ang) * spread * sp * (0.3 + u)
         y = cy + math.sin(ang) * spread * sp * 0.6 * (0.3 + u) - 30 * u
         s = sz * (1 - u * 0.7)
-        d.ellipse([x - s, y - s, x + s, y + s], fill=col)
-        g.ellipse([x - s * 2, y - s * 2, x + s * 2, y + s * 2], fill=col)
+        d.rectangle([x - s, y - s, x + s, y + s], fill=col)
+        g.ellipse([x - s * 2.5, y - s * 2.5, x + s * 2.5, y + s * 2.5], fill=col)
 
 
-def bolt(d, g, x0, y0, x1, y1, seed, col=(80, 255, 170)):
+def bolt(d, g, x0, y0, x1, y1, seed, col=(70, 240, 170)):
     rr = np.random.default_rng(seed)
     pts = [(x0, y0)]
-    for i in range(1, 7):
+    for i in range(1, 7):     # jagged forks with sharp kinks
         k = i / 7
-        pts.append((lerp(x0, x1, k) + rr.uniform(-22, 22), lerp(y0, y1, k) + rr.uniform(-22, 22)))
+        pts.append((lerp(x0, x1, k) + rr.uniform(-30, 30), lerp(y0, y1, k) + rr.uniform(-40, 40)))
     pts.append((x1, y1))
-    g.line(pts, fill=col, width=14)
-    d.line(pts, fill=col, width=5)
+    j = rr.integers(2, 5)     # side branch
+    g.line([pts[j], (pts[j][0] + rr.uniform(-50, 50), pts[j][1] + rr.uniform(30, 70))], fill=col, width=10)
+    d.line([pts[j], (pts[j][0] + rr.uniform(-50, 50), pts[j][1] + rr.uniform(30, 70))], fill=col, width=4)
+    g.line(pts, fill=col, width=16)
+    d.line(pts, fill=col, width=6)
     d.line(pts, fill=(220, 255, 240), width=2)
 
 
 def spikes(d, g, cx, cy, u, seed):
     rr = np.random.default_rng(seed)
     for _ in range(14):
-        a = rr.uniform(-160, -20)
-        ln = rr.uniform(60, 190) * math.sin(math.pi * min(1, u * 1.4)) + 1
-        bx = cx + rr.uniform(-70, 70)
+        a = rr.uniform(-165, -15)
+        ln = rr.uniform(60, 200) * math.sin(math.pi * min(1, u * 1.4)) + 1
+        bx = cx + rr.uniform(-80, 80)
         dx, dy = math.cos(math.radians(a)), math.sin(math.radians(a))
         tip = (bx + dx * ln, cy + dy * ln)
-        for col, w in [((220, 40, 36), 16), ((255, 140, 50), 8), ((255, 230, 120), 3)]:
+        for col, w in [((220, 40, 36), 14), ((255, 140, 50), 7), ((255, 230, 120), 3)]:
             d.polygon([(bx - w * dy, cy + w * dx), (bx + w * dy, cy - w * dx), tip], fill=col)
-        g.line([(bx, cy), tip], fill=(255, 80, 40), width=24)
+        g.line([(bx, cy), tip], fill=(255, 70, 40), width=24)
+
+
+def dust(d, x0, x1, y, u, col, seed, big=1.0):
+    rr = np.random.default_rng(seed)
+    a = 235 * (1 - u) ** 1.2
+    for _ in range(9):
+        x = rr.uniform(x0, x1); yy = y - rr.uniform(0, 110 * big)
+        r = rr.uniform(50, 95) * big * (0.8 + 0.5 * u)
+        puff(d, x + (x - (x0 + x1) / 2) * u * 0.3, yy - u * 25, r, col, a)
 
 
 def effects(t, d, g, G, R):
     def win(t0, t1): return (t - t0) / (t1 - t0)
-    gx, rx = G[0][0], R[0][0]
-    slash(d, g, 250, 520, 70, 200, 200, win(0.0, 0.3), w=16)                     # opening swing
-    if 0.18 < t < 0.32: streak(d, g, 260, gx + 40, 540, 18, WHITE, int(255 * (1 - win(0.18, 0.32))))
-    if 0.26 < t < 0.5:                                                           # dark flash impact
-        u = win(0.26, 0.5)
-        streak(d, g, 200, 560, 515, 26 * (1 - u), WHITE)
-        slash(d, g, 400, 515, 60, -40, 250, u, w=16)
-        slash(d, g, 470, 545, 46, 120, 200, u * 1.2, w=10)
-        slash(d, g, 640, 590, 50, 160, 90, u, w=8)
-    if 0.56 < t < 0.8:                                                           # fire swirl
-        u = win(0.56, 0.8)
-        fire_arc(d, g, 470, 500, 140 + 60 * u, 60, 200 + 200 * u, 330 + 200 * u, 22 * (1 - u * .6), u)
-        fire_arc(d, g, 560, 470, 110, 90, -60 + 220 * u, 60 + 220 * u, 18 * (1 - u * .6), u)
-        streak(d, g, 360, 620, 548, 12 * (1 - u), (255, 220, 120))
-        slash(d, g, 640, 560, 48, 140, 150, u, w=10)
-    if 0.8 < t < 1.6:                                                            # knockback dust both sides
-        u = win(0.8, 1.6)
-        for i, (bx, s) in enumerate([(60, 1), (1010, -1)]):
-            for j in range(6):
-                puff(d, bx + s * (j * 26 - 20 + 14 * math.sin(j * 2.3)) + s * u * 40, 600 - (j % 3) * 22 - u * 20, 40 + 22 * u - j * 2, (238, 242, 238), 230 * (1 - u) ** 1.3)
-    if 0.8 < t < 1.0:
-        slash(d, g, 120, 520, 56, 220, -200, win(0.8, 1.0), w=12)
-    slash(d, g, 300, 520, 50, 200, 180, win(1.32, 1.62), w=12)                   # running swings
-    slash(d, g, 870, 540, 52, -20, -180, win(1.40, 1.72), w=12)
-    slash(d, g, 560, 530, 54, 20, -200, win(1.70, 2.0), w=12)
-    if 1.95 < t < 2.12:                                                          # sword clash spark
-        u = win(1.95, 2.12)
-        streak(d, g, 420, 560, 520, 30 * (1 - u), WHITE)
-        streak(d, g, 470, 510, 500, 0.1 + 50 * (1 - u), WHITE)
-    if 2.14 < t < 2.62:                                                          # dark fire dash
-        u = win(2.14, 2.62)
-        fire_arc(d, g, 420, 520, 90, 46, 120 + 300 * u, 300 + 300 * u, 22, u)
-        streak(d, g, 360 + 200 * u, 900, 530, 28 * (1 - u), (255, 214, 120))
-        particles(d, g, 470, 540, 120, u, 10, 4)
-        slash(d, g, 560, 470, 70, 210, 180, u * 1.3, w=14)
-        if t > 2.4: fire_arc(d, g, 500, 520, 50, 120, -110 + 60 * win(2.4, 2.62), 40 + 60 * win(2.4, 2.62), 24, u)
-    if 2.6 < t < 2.86:                                                           # big explosion
-        u = win(2.6, 2.86)
-        r = 60 + 220 * u
-        g.ellipse([520 - r * 1.1, 500 - r * .45, 520 + r * 1.1, 500 + r * .45], fill=tuple(int(c * (1 - u)) for c in (255, 190, 60)))
-        d.ellipse([520 - r * 1.2, 500 - r * .55, 520 + r * 1.2, 500 + r * .55], fill=(255, 150, 50, int(220 * (1 - u))))
-        d.ellipse([520 - r * .8, 500 - r * .3, 520 + r * .8, 500 + r * .3], fill=(255, 238, 150, int(240 * (1 - u))))
-        streak(d, g, -40, 1320, 495, 30 * (1 - u), (255, 250, 220))
-        fire_arc(d, g, 520, 520, 120, 70, 0 + 200 * u, 300 + 200 * u, 26, u)
-    if 2.8 < t < 3.45:                                                           # ring of fire, dust
-        u = win(2.8, 3.45)
-        cx = lerp(500, 560, u)
-        for j in range(5):
-            puff(d, cx - 130 + j * 60, 590 - j % 2 * 14, 46 + 20 * u, (176, 140, 96), 190 * (1 - u))
-        fire_arc(d, g, cx, 520, 150, 60, 360 * u * 2, 360 * u * 2 + 150, 20 * (1 - u * .5), u)
-        fire_arc(d, g, cx, 500, 120, 80, 180 + 360 * u * 2, 300 + 360 * u * 2, 16 * (1 - u * .5), u)
-        slash(d, g, cx, 520, 60, 360 * u * 3, 200, (u * 3) % 1, w=12)
-        particles(d, g, cx, 520, 160, u, 8, 9)
-    slash(d, g, 600, 360, 80, 150, 220, win(3.44, 3.66), w=18)                   # aerial crescent
-    if 3.58 < t < 3.84:                                                          # fire crash down
-        u = win(3.58, 3.84)
-        fire_arc(d, g, 700, 600, 190, 330, 200, 200 + 70 * min(1, u * 2), 34 * (1 - u * .4), u)
-        fire_arc(d, g, 690, 600, 150, 300, 205, 205 + 60 * min(1, u * 2), 16, u)
-        rr = 80 + 200 * u
-        g.ellipse([640 - rr, 590 - 26, 640 + rr, 590 + 26], fill=(255, 220, 90))
-        d.ellipse([640 - rr * .8, 590 - 14 * (1 - u), 640 + rr * .8, 590 + 14 * (1 - u)], fill=(255, 236, 140))
-        streak(d, g, 440, 860, 592, 16 * (1 - u), (255, 250, 220))
-    if 3.78 < t < 4.15:
-        spikes(d, g, 720, 600, win(3.78, 4.15), 11)
-    if 3.95 < t < 4.45:                                                          # embers + counter slashes
-        u = win(3.95, 4.45)
-        particles(d, g, 640, 470, 200, u, 14, 21)
-        slash(d, g, 690, 560, 50, 160, 160, u * 1.4, w=12)
-        slash(d, g, 820, 540, 50, 0, -180, u * 1.2 - 0.2, w=12)
-    slash(d, g, 420, 530, 52, -40, 200, win(4.48, 4.72), w=12)                   # final exchange
-    slash(d, g, 600, 520, 58, 200, 180, win(4.52, 4.78), w=14)
-    if 4.78 < t < ACTION:                                                        # green lightning
+    Y = (255, 220, 120)
+    slash(d, g, 200, 505, 48, 100, 160, win(-0.05, 0.15), w=14)
+    slash(d, g, 295, 520, 45, 260, 120, win(0.08, 0.25), w=12)
+    slash(d, g, 400, 560, 50, -100, 330, win(0.15, 0.32), w=12, sy=2.0)
+    if 0.27 < t < 0.4:
+        u = win(0.27, 0.4)
+        streak(d, g, 300, 580, 505, 44 * (1 - u), WHITE)
+        slash(d, g, 430, 490, 40, 200, 200, u, w=14)
+        slash(d, g, 560, 560, 50, -60, 120, u, w=8)
+    if 0.38 < t < 0.56:
+        u = win(0.38, 0.56)
+        streak(d, g, 540, 900, 482, 24 * (1 - u), WHITE)
+        slash(d, g, 427, 493, 35, 180, 240, u, w=10)
+        slash(d, g, 380, 470, 30, 200, 180, u - 0.2, w=8)
+        particles(d, g, 420, 500, 120, u, 5, 2, col=WHITE)
+    if 0.55 < t < 0.68:
+        u = win(0.55, 0.68)
+        streak(d, g, 80, 960, 452, 30 * (1 - u * .6), Y)
+        fire_arc(d, g, 587, 450, 170, 70, 160 + 80 * u, 380 + 80 * u, 24, u)
+        fire_arc(d, g, 640, 470, 110, 90, -40 + 120 * u, 120 + 120 * u, 18, u)
+        particles(d, g, 600, 450, 160, u, 12, 6, col=(255, 200, 80))
+    if 0.65 < t < 0.82:
+        u = win(0.65, 0.82)
+        fire_arc(d, g, 650, 470, 330, 110, 170 + 60 * u, 330 + 60 * u, 22 * (1 - u * .5), u)
+        fire_arc(d, g, 780, 420, 200, 140, -40 + 40 * u, 90 + 40 * u, 18 * (1 - u * .5), u)
+        streak(d, g, 560, 720, 510, 16 * (1 - u), Y)
+        slash(d, g, 330, 500, 40, 100, 160, u, w=12)
+        slash(d, g, 900, 500, 45, -60, 160, u, w=12)
+    if 0.74 < t < 0.92:
+        u = win(0.74, 0.92)
+        fire_line(d, g, (330, 440), (lerp(330, 600, min(1, u * 2)), lerp(440, 610, min(1, u * 2))), 20 * (1 - u * .6))
+        particles(d, g, 470, 500, 220, u, 14, 8)
+        streak(d, g, 360, 520, 525, 14 * (1 - u), Y)
+    if 0.72 < t < 1.3:
+        u = win(0.72, 1.3)
+        dust(d, -40, 380, 610, u, (240, 242, 238), 1)
+        dust(d, 900, 1300, 610, u, (240, 242, 238), 2)
+    slash(d, g, 225, 505, 45, 100, 160, win(0.95, 1.12), w=12)
+    slash(d, g, 930, 520, 60, 300, -110, win(1.25, 1.42), w=8)
+    slash(d, g, 290, 470, 45, 100, 170, win(1.45, 1.62), w=13)
+    slash(d, g, 300, 445, 48, 120, 150, win(1.55, 1.72), w=13)
+    slash(d, g, 960, 470, 40, 280, -90, win(1.6, 1.75), w=8)
+    slash(d, g, 330, 455, 50, 100, 170, win(1.65, 1.82), w=13)
+    slash(d, g, 420, 425, 60, 200, 140, win(1.85, 2.0), w=14, sy=0.5)
+    slash(d, g, 560, 520, 50, -80, 160, win(1.95, 2.1), w=14)
+    slash(d, g, 573, 550, 62, -90, 180, win(2.05, 2.2), w=16)
+    if 2.15 < t < 2.32:
+        u = win(2.15, 2.32)
+        fire_arc(d, g, 330, 470, 90, 50, 90 + 60 * u, 300 + 60 * u, 22, u)
+        slash(d, g, 380, 440, 110, 200, 140, u, w=12, sy=0.3)
+        streak(d, g, 320, 1060, 490, 36 * (1 - u * .5), Y)
+    if 2.25 < t < 2.42:
+        u = win(2.25, 2.42)
+        slash(d, g, 500, 425, 110, 200, 140, u, w=14, sy=0.35)
+        particles(d, g, 450, 505, 200, u, 12, 12, col=(255, 120, 40))
+        fire_arc(d, g, 570, 500, 70, 40, 0, 200, 16, u)
+        streak(d, g, 250, 650, 510, 20 * (1 - u), Y)
+    if 2.35 < t < 2.5:
+        u = win(2.35, 2.5)
+        particles(d, g, 400, 490, 80, u, 8, 14)
+        slash(d, g, 613, 430, 40, -90, 180, u, w=12)
+        slash(d, g, 853, 480, 45, -60, 200, u, w=8)
+    if 2.45 < t < 2.63:
+        u = win(2.45, 2.63)
+        a = 225 + 100 * min(1, u * 2)
+        for col, w, r in [((200, 30, 36), 90, 240), ((240, 60, 50), 60, 228), ((255, 120, 110), 22, 205)]:
+            if u < 0.85: crescent(d, 650, 470, r, 215, a, w * (1 - u * .5), col, sy=1.0)
+        crescent(g, 650, 470, 240, 215, a, 120, (255, 40, 40), sy=1.0)
+        crescent(d, 630, 490, 170, 230, a - 10, 34 * (1 - u), WHITE, sy=1.0)
+        streak(d, g, 250, 1000, 530, 28 * (1 - u), WHITE)
+        particles(d, g, 650, 520, 260, u, 10, 15)
+    if 2.56 < t < 2.7:
+        u = win(2.56, 2.7)
+        slash(d, g, 480, 570, 90, 20, 140, u, w=16, sy=0.3)
+        slash(d, g, 745, 560, 50, 0, 120, u, w=6)
+        slash(d, g, 660, 380, 60, 200, 120, u, col=(220, 50, 40), w=12)
+    if 2.64 < t < 2.82:
+        u = win(2.64, 2.82)
+        streak(d, g, -60, 1340, 330, 70 * (1 - u * .7), (255, 238, 160))
+        g.ellipse([400, 230, 1040, 430], fill=tuple(int(c * (1 - u)) for c in (255, 200, 80)))
+        fire_arc(d, g, 600, 500, 220, 150, 100 + 220 * u, 330 + 220 * u, 30 * (1 - u * .4), u)
+        fire_arc(d, g, 610, 520, 150, 95, 300 + 220 * u, 500 + 220 * u, 24 * (1 - u * .4), u)
+        fire_arc(d, g, 600, 480, 80, 50, 0 + 300 * u, 200 + 300 * u, 16, u)
+    if 2.76 < t < 2.92:
+        u = win(2.76, 2.92)
+        fire_arc(d, g, 470, 420, 330, 190, 150 + 40 * u, 270 + 40 * u, 26 * (1 - u * .5), u)
+        fire_arc(d, g, 520, 470, 260, 120, 30 + 40 * u, 150 + 40 * u, 18 * (1 - u * .5), u)
+        streak(d, g, 330, 650, 560, 18 * (1 - u), WHITE)
+        slash(d, g, 500, 430, 60, 200, 150, u, w=14)
+    if 2.75 < t < 3.25:
+        u = win(2.75, 3.25)
+        dust(d, 620, 820, 620, u, (176, 140, 96), 3, big=.8)
+    if 2.85 < t < 3.2:
+        u = win(2.85, 3.2)
+        dust(d, 180, 780, 640, u, (160, 128, 88), 4, big=.7)
+        particles(d, g, 620, 390, 60, u, 6, 16)
+        particles(d, g, 560, 560, 60, u, 6, 17, col=(255, 180, 60))
+    slash(d, g, 500, 440, 60, 200, 150, win(2.95, 3.1), w=14)
+    if 3.05 < t < 3.22:
+        u = win(3.05, 3.22)
+        fire_arc(d, g, 700, 450, 120, 60, 360 * u * 1.5, 360 * u * 1.5 + 220, 18, u)
+        slash(d, g, 700, 440, 50, 120, 180, u, w=12)
+        streak(d, g, 560, 720, 470, 16 * (1 - u), Y)
+    if 3.15 < t < 3.32:
+        u = win(3.15, 3.32)
+        fire_arc(d, g, 650, 540, 90, 120, 360 * u + 90, 360 * u + 330, 20, u)
+        slash(d, g, 650, 520, 60, 160, 180, u, w=12)
+    if 3.25 < t < 3.42:
+        u = win(3.25, 3.42)
+        particles(d, g, 600, 420, 70, u, 6, 18)
+        slash(d, g, 600, 420, 45, 180, 160, u, w=12)
+    slash(d, g, 650, 400, 70, 180, 170, win(3.35, 3.6), w=22)
+    slash(d, g, 990, 480, 40, -60, 120, win(3.38, 3.6), w=8)
+    slash(d, g, 720, 390, 62, 190, 150, win(3.55, 3.7), w=16, sy=0.5)
+    slash(d, g, 970, 480, 40, -80, 120, win(3.55, 3.7), w=8)
+    if 3.65 < t < 3.82:
+        u = win(3.65, 3.82)
+        k = min(1, u * 2.2)
+        fire_arc(d, g, 900, 330, 300, 235, 180, 180 - 90 * k, 34 * (1 - u * .4), u)
+        fire_arc(d, g, 890, 340, 260, 210, 185, 185 - 85 * k, 16, u)
+        if k > .8:
+            rr = 120 + 220 * u
+            g.ellipse([850 - rr, 560 - 30, 850 + rr, 560 + 30], fill=(255, 220, 90))
+            d.ellipse([850 - rr * .8, 560 - 16 * (1 - u), 850 + rr * .8, 560 + 16 * (1 - u)], fill=(255, 240, 150))
+            streak(d, g, 620, 1180, 562, 18 * (1 - u), (255, 252, 230))
+    if 3.76 < t < 4.0:
+        u = win(3.76, 4.0)
+        spikes(d, g, 950, 565, u, 11)
+        fire_arc(d, g, 830, 330, 90, 60, 180, 330, 16 * (1 - u), u)
+        streak(d, g, 860, 1060, 568, 14 * (1 - u), (255, 120, 80))
+    if 3.85 < t < 4.4:
+        u = win(3.85, 4.4)
+        particles(d, g, 870, 420, 420, u, 26, 21)
+    slash(d, g, 960, 520, 45, -60, 160, win(3.95, 4.1), w=12)
+    slash(d, g, 935, 500, 40, -80, 160, win(4.05, 4.2), w=12)
+    slash(d, g, 900, 480, 45, -80, 160, win(4.15, 4.3), w=12)
+    slash(d, g, 830, 480, 40, -80, 160, win(4.28, 4.42), w=12)
+    slash(d, g, 780, 430, 30, 200, 120, win(4.28, 4.42), w=6, sy=0.4)
+    slash(d, g, 827, 440, 55, 200, 150, win(4.4, 4.55), w=14, sy=0.5)
+    slash(d, g, 480, 470, 40, -90, 160, win(4.42, 4.57), w=8)
+    slash(d, g, 827, 420, 50, 200, 150, win(4.5, 4.62), w=14, sy=0.5)
+    slash(d, g, 587, 460, 55, -90, 180, win(4.58, 4.72), w=16)
+    slash(d, g, 560, 480, 50, -90, 180, win(4.68, 4.8), w=16)
+    if 4.78 < t < ACTION:
         rr = int(t * 30)
-        cx = (gx + rx) / 2
-        for k in range(3):
-            bolt(d, g, cx - 120 + k * 40, 460 + k * 30, cx + 80 - k * 20, 600 - k * 40, rr * 7 + k)
-        slash(d, g, cx + 20, 540, 40, 120, 200, win(4.85, 5.1), w=10)
+        for k, (a, b, c, e) in enumerate([(300, 560, 470, 470), (430, 520, 600, 400), (560, 430, 760, 540), (380, 420, 420, 560)]):
+            bolt(d, g, a, b, c, e, rr // 2 * 7 + k)
+        streak(d, g, 330, 760, 505, 10, WHITE)
+        slash(d, g, 570, 500, 40, -90, 200, win(4.85, 5.05), w=12)
 
 
-DIM = [(0, 0), (0.12, 0), (0.2, 0.45), (0.27, 1), (0.78, 1), (0.82, 0), (2.12, 0), (2.18, 1), (2.6, 1),
-       (2.66, 0.55), (2.84, 0.15), (2.9, 0), (3.42, 0), (3.47, 1), (4.43, 1), (4.47, 0), (4.85, 0.15),
-       (5.0, 0.75), (5.1, 0.8)]
-HITS = [0.28, 1.98, 2.62, 3.68, 3.82, 4.98]
+DIM = [(0, 0), (0.12, 0), (0.2, 0.5), (0.3, 0.8), (0.36, 1), (0.65, 1), (0.7, 0.6), (0.8, 0.35), (0.88, 0), (2.05, 0),
+       (2.1, 0.5), (2.17, 0.95), (2.5, 0.92), (2.6, 0.8), (2.68, 0.4), (2.8, 0.1), (2.88, 0), (3.42, 0), (3.5, 0.4),
+       (3.57, 0.92), (4.3, 0.92), (4.4, 0.7), (4.5, 0.45), (4.58, 0), (4.85, 0), (4.9, 0.55), (5.0, 0.85), (5.1, 0.9)]
+VIG = [(0, 0), (0.62, 0), (0.68, 1), (0.85, 0.8), (0.9, 0), (2.6, 0), (2.66, 0.8), (2.85, 0.5), (2.92, 0), (5.1, 0)]
+CZ = [(0, 1), (2.55, 1), (2.75, 1.1), (4.4, 1.12), (5.1, 1.15)]
+CX = [(0, 640), (2.55, 640), (2.8, 670), (3.3, 690), (5.1, 695)]
+CY = [(0, 360), (2.55, 360), (2.8, 375), (5.1, 380)]
+HITS = [0.3, 0.58, 2.0, 2.47, 2.65, 3.72, 3.8, 4.9]
+_Y, _X = np.mgrid[0:H, 0:W].astype(np.float32)
+VMASK = (1 - 0.75 * np.clip((((_X - W / 2) / (W / 2)) ** 2 + ((_Y - H / 2) / (H / 2)) ** 2) - 0.25, 0, 1))[..., None]
 
 
 def frame(t, bg, dark, tail):
@@ -391,19 +532,25 @@ def frame(t, bg, dark, tail):
         return tail
     dim = piece(t, DIM)
     base = bg * (1 - dim) + dark * dim
-    sh = sum(18 * math.exp(-(t - h) * 18) for h in HITS if t >= h)
-    ox, oy = int(sh * math.sin(t * 91)), int(sh * 0.6 * math.cos(t * 77))
-    img = Image.fromarray(np.roll(base, (oy, ox), (0, 1)).clip(0, 255).astype(np.uint8))
+    z, cx, cy = piece(t, CZ), piece(t, CX), piece(t, CY)
+    sh = sum(14 * math.exp(-(t - h) * 18) for h in HITS if t >= h)
+    cx += sh * math.sin(t * 91); cy += sh * 0.6 * math.cos(t * 77)
+    img = Image.fromarray(base.clip(0, 255).astype(np.uint8))
+    img = img.transform((W, H), Image.Transform.AFFINE, (1 / z, 0, cx - 640 / z, 0, 1 / z, cy - 360 / z), Image.Resampling.NEAREST)
+    gy = (GROUND - cy) * z + 360
     d = ImageDraw.Draw(img)
-    G = draw_fighter(d, GK, t, 'green')
-    R = draw_fighter(d, RK, t, 'red')
+    G = draw_fighter(d, GK, t, 'green', z, gy)
+    R = draw_fighter(d, RK, t, 'red', z, gy)
     fx = Image.new('RGBA', (W, H), (0, 0, 0, 0))
     gl = Image.new('RGB', (W, H), (0, 0, 0))
     effects(t, ImageDraw.Draw(fx), ImageDraw.Draw(gl), G, R)
     gl = gl.resize((W // 4, H // 4), Image.Resampling.BILINEAR).filter(ImageFilter.GaussianBlur(5)).resize((W, H), Image.Resampling.BILINEAR)
     img = Image.alpha_composite(img.convert('RGBA'), fx).convert('RGB')
     out = np.asarray(img).astype(np.float32) + np.asarray(gl).astype(np.float32) * 0.75
+    v = piece(t, VIG)
+    if v: out *= (1 - v) + v * VMASK
     return out.clip(0, 255).astype(np.uint8)
+
 
 
 def make_tail():
