@@ -96,6 +96,20 @@ def build_bg():
                     c = dark if v < -0.55 else (light if v > 0.6 else mid)
                 px[x, y] = c
         return top
+    pk = np.random.default_rng(5)                            # tall jagged snow peaks behind the existing hills
+    for cx0, top, half in [(14, 6, 26), (44, 2, 30), (70, 10, 22), (98, 4, 28), (124, 12, 20)]:
+        for x in range(max(0, cx0 - half), min(w, cx0 + half)):
+            dx = x - cx0
+            yt = top + abs(dx) * 1.35 + 1.5 * abs(math.sin(dx * .55)) + pk.uniform(0, .6)   # sharp, jagged ridgelines
+            for y in range(int(yt), 46):
+                snow = y < top + 9 + 3 * math.sin(x * 1.3) + 2 * math.sin(x * 3.1) - abs(dx) * .1   # ragged snow caps
+                lit = dx < 0
+                if snow: c = (246, 249, 252) if lit else (198, 214, 232)
+                else:
+                    c = (104, 128, 160) if lit else (70, 90, 124)
+                    if STREAK[y, x] > .9: c = (128, 150, 178) if lit else (84, 104, 138)
+                px[x, y] = c
+            if 0 <= int(yt) < h: px[x, int(yt)] = (255, 255, 255) if dx < 0 else (220, 230, 242)
     t1 = ridge([0, 8, 12, 16, 20, 24, 36, 40, 48, 56, 60, 64, 76, 88, 92, 96, 100, 108, 112, 120], [35, 35, 33, 31, 34, 37, 38, 34, 35, 37, 35, 34, 34, 33, 36, 32, 30, 29, 27, 26],
                (126, 198, 160), (86, 150, 118), (54, 110, 82), (150, 210, 172))
     for x0 in [31, 35, 40, 44, 49, 53, 12, 61]:              # snow streaks hugging the slopes
@@ -243,7 +257,7 @@ def fighter_state(keys, t):
     u = (t - a[0]) / span if b is not a else 0
     km = 1 - (1 - min(1, u)) ** 2.2                       # ease-out movement: snappy anime feel
     x, y = lerp(a[1], b[1], km), lerp(a[2], b[2], km)
-    kp = ss((t - a[0]) / min(0.1, span)) if b is not a else 0
+    kp = ss((t - a[0]) / min(0.14, span)) if b is not a else 0
     pa, pb = pose_pts(a[3], t), pose_pts(b[3], t)
     pts = [((lerp(p[0], q[0], kp), lerp(p[1], q[1], kp)) if isinstance(p, tuple) else lerp(p, q, kp)) for p, q in zip(pa, pb)]
     face = a[4] if u < 0.999 else b[4]
@@ -255,12 +269,15 @@ def draw_fighter(d, keys, t, cloak, z, gy):
     x, yoff, pts, f, vx = fighter_state(keys, t)
     S = SCALE * z
     foot = max(pts[7][1], pts[9][1])
-    hip = (x, gy - foot * S + yoff * z)
-    J = [(hip[0] + p[0] * S * f, hip[1] + p[1] * S) for p in pts[:-1]]
+    speed = min(1.0, abs(vx) / 2500)
+    bob = math.sin(t * 9 + (0 if cloak == 'green' else 2)) * 2.5 * z * (1 - speed)   # breathing when still
+    hip = (x, gy - foot * S + yoff * z + bob)
+    lean = 14 * speed * (1 if vx * f > 0 else -0.5)                                    # lean into dashes
+    J = [(hip[0] + (p[0] + (lean * -p[1] / 40 if p[1] < 0 else 0)) * S * f, hip[1] + p[1] * S) for p in pts[:-1]]
     head, neck, eF, hF, eB, hB, kF, fF, kB, fB = J
     sw = math.radians(pts[-1])
     swv = (math.cos(sw) * f, math.sin(sw))
-    flap = math.sin(t * 40) * 4 * z
+    flap = math.sin(t * (24 + 30 * min(1.0, abs(vx) / 2500))) * (3 + 6 * min(1.0, abs(vx) / 2500)) * z   # cloth flutters harder at speed
     trail = -f * (40 + min(60, abs(vx) * 0.05)) * z
 
     def at(p, dx, dy): return (p[0] + f * dx * z, p[1] + dy * z)
@@ -283,9 +300,27 @@ def draw_fighter(d, keys, t, cloak, z, gy):
         d.ellipse([p[0] - r, p[1] - r, p[0] + r, p[1] + r], fill=INK)
     r = 18 * z
     d.ellipse([head[0] - r, head[1] - r, head[0] + r, head[1] + r], fill=INK)
-    ln = 64 * z
-    tip = (hF[0] + swv[0] * ln, hF[1] + swv[1] * ln)
-    d.line([hF, tip], fill=WHITE, width=max(11, int(12 * z)))
+    if cloak == 'green':   # katana: long slightly curved blade, gold guard, wrapped grip
+        ln = 70 * z
+        nx, ny = -swv[1], swv[0]
+        pts_ = [(hF[0] + swv[0] * ln * k + nx * 8 * z * k * k, hF[1] + swv[1] * ln * k + ny * 8 * z * k * k) for k in (0, .35, .7, 1)]
+        d.line(pts_, fill=WHITE, width=max(10, int(11 * z)), joint='curve')
+        d.line([(hF[0] - swv[0] * 14 * z, hF[1] - swv[1] * 14 * z), hF], fill=(40, 40, 60), width=max(10, int(11 * z)))
+        d.line([(hF[0] + nx * 9 * z, hF[1] + ny * 9 * z), (hF[0] - nx * 9 * z, hF[1] - ny * 9 * z)], fill=(236, 190, 70), width=max(8, int(9 * z)))
+        tip = pts_[-1]
+    else:                  # battle axe: long dark haft with a big red-steel head
+        ln = 74 * z
+        tip = (hF[0] + swv[0] * ln, hF[1] + swv[1] * ln)
+        d.line([(hF[0] - swv[0] * 12 * z, hF[1] - swv[1] * 12 * z), tip], fill=(92, 62, 40), width=max(10, int(11 * z)))
+        nx, ny = -swv[1] * f, swv[0] * f
+        hb = (hF[0] + swv[0] * ln * .8, hF[1] + swv[1] * ln * .8)
+        d.polygon([(hb[0] + swv[0] * 14 * z, hb[1] + swv[1] * 14 * z), (hb[0] - swv[0] * 14 * z, hb[1] - swv[1] * 14 * z),
+                   (hb[0] + nx * 30 * z - swv[0] * 26 * z, hb[1] + ny * 30 * z - swv[1] * 26 * z),
+                   (hb[0] + nx * 34 * z, hb[1] + ny * 34 * z),
+                   (hb[0] + nx * 30 * z + swv[0] * 26 * z, hb[1] + ny * 30 * z + swv[1] * 26 * z)], fill=(200, 206, 214))
+        d.line([(hb[0] + nx * 30 * z - swv[0] * 26 * z, hb[1] + ny * 30 * z - swv[1] * 26 * z),
+                (hb[0] + nx * 34 * z, hb[1] + ny * 34 * z),
+                (hb[0] + nx * 30 * z + swv[0] * 26 * z, hb[1] + ny * 30 * z + swv[1] * 26 * z)], fill=(214, 60, 52), width=max(6, int(7 * z)))
     return hip, hF, tip
 
 
