@@ -1,0 +1,27 @@
+# Motion-capture sources (hook mocap test)
+
+Source: **CMU Graphics Lab Motion Capture Database**, http://mocap.cs.cmu.edu/
+(ASF skeleton + AMC motion, 120 fps; parsed directly by `src/mocap.py`, same data as the BVH conversions).
+
+Licence (from http://mocap.cs.cmu.edu/faqs.php, checked 2026-11-09): "The motion capture data may be
+copied, modified, or redistributed without permission." The database asks for this acknowledgement:
+"The data used in this project was obtained from mocap.cs.cmu.edu. The database was created with
+funding from NSF EIA-0196217." The FAQ also says the data must not be resold directly as a mocap
+product; using it inside an animation is allowed.
+
+| Role | Clip | CMU description | Range used |
+|---|---|---|---|
+| Hero: duck, then straight right | 14_01 | subject 14, "boxing" | 22.3–26.2 s (impact detected at 23.75 s) |
+| Opponent before the hit: punch | 14_02 | subject 14, "boxing" (second take) | 13.6–16.0 s |
+| Opponent hit reaction | 91_59 | subject 91, "360 smallStumble" | 0–2.6 s, starting at the detected head-whip onset |
+
+There is no "get punched" clip in CMU, so the reaction is a real stumble take, started on the impact frame.
+
+Raw AMC/ASF files are not committed. Fetch them with `src/get_mocap.sh` (into `out/mocap-cmu/`).
+`src/mocap_poses.npz` holds the retargeted per-frame joint positions used for the render
+(allowed: the licence permits modified redistribution).
+
+What is processed rather than captured: bone lengths retargeted to our figure, a 1-frame
+Gaussian low-pass, foot-plant locking (2-bone IK), the time remap (slow-in, 3-frame hit-stop),
+a 0.18 s pose blend from the punch take into the reaction take, and a 0.4 s blend back to the
+first pose so the loop closes. No poses are hand-keyed.
