@@ -150,6 +150,11 @@ class Film:
         s.story = list(range(NF_FIGHT))
         s.B = {k['beat']: k for k in s.contacts}
         s.fin = [k for k in s.contacts if k['finisher']][0]
+        s.on1 = np.zeros(NF_FIGHT, bool)                       # mixed timing: on 1s around strikes, on 2s otherwise
+        for k in s.contacts:
+            s.on1[max(0, k['c'] - 7):min(NF_FIGHT, k['c'] + 2 * k['hitstop'] + 7)] = True
+        for r in HF.RAGDOLLS:
+            s.on1[r['start']:min(NF_FIGHT, r['end'] + 4)] = True
         s.worlds = {k: RS.paint_world(kind='day', zoom=v[1]) for k, v in SHOTS.items()}
         s.dusk = {'wide': RS.paint_world(kind='dusk', zoom=1.0), 'close': RS.paint_world(kind='dusk', zoom=2.4)}
         s.camera(); s.dust_events(); s.cloth()
@@ -172,7 +177,15 @@ class Film:
         s.cams = [None] * N; s.shot_of = [None] * N
         for (a, kind), (b, _) in zip(s.shots[:-1], s.shots[1:]):
             fr = np.arange(a, b)
-            cx = gaussian_filter1d(mid[a:b], 6, mode='nearest') if b - a > 1 else mid[a:b]
+            sc_k = scale_of(kind) if kind else 1; dz = W * .22 / sc_k   # camera operator: dead zone, then a quick reframe
+            cx = np.zeros(b - a); c_ = mid[a]; moving = False
+            for i in range(b - a):
+                err = mid[a + i] - c_
+                if abs(err) > dz: moving = True
+                if moving:
+                    c_ += err * .35
+                    if abs(err) < dz * .25: moving = False
+                cx[i] = c_
             sc0 = scale_of(kind)
             for i, f in enumerate(fr):
                 sc = sc0; tilt = 0.0; smear = 0
@@ -187,12 +200,11 @@ class Film:
                 else:
                     c = cx[i]; gy = int(round(H * SHOTS[kind][2]))
                     if a == 0:                                  # opening: truck-in and push-in
-                        u = min(1, f / 50); u = u * u * (3 - 2 * u)
+                        u = min(1, f / 24); u = u * u * (3 - 2 * u)
                         c += 260 * (1 - u); sc *= .9 + .1 * u
                 for k in s.contacts:
                     if k['evade'] and k['beat'] != 5: continue
                     dd = f - k['o']
-                    sc *= 1 + .07 * k['size'] ** .5 * math.exp(-((dd + 8) / 9) ** 2)      # push-in on the wind-up
                     if not k['evade'] and 0 <= dd < 2 * k['hitstop'] + 3: sc *= 1.04          # punch-in on the hit
                     if k.get('tilt'):                                                     # low tilt on the kicks / leap
                         tilt = max(tilt, 16 * math.exp(-(dd / 16) ** 2) * H / 320)
@@ -248,27 +260,36 @@ class Film:
     def flash_on(s, o):
         if o >= NF_FIGHT - 2: return True
         for k in s.contacts:
-            if not k['evade'] and k['fx'] == 'fire' and k['o'] <= o < k['o'] + (4 if k['finisher'] else 3):
+            if not k['evade'] and k['fx'] == 'fire' and k['o'] <= o < k['o'] + (16 if k['finisher'] else 12):
                 return True
         return False
 
     def fight(s, o):
-        t = s.story[o]; cx, gy, sc, kind, tilt, smear = s.cams[o]
+        t0 = s.story[o]; cx, gy, sc, kind, tilt, smear = s.cams[o]
+        hold = 2 if s.on1[t0] else 5                            # action on 30 drawings/s, calm on 12 (hand-drawn rhythm)
+        t = t0 - (t0 % hold); oc = o - (o % hold)
         wd = s.worlds[kind]; s_nom = scale_of(kind)
         img = RS.compose(wd, round(cx * s_nom), gy - int(round(H * .885)), tilt, smear)
         if s.flash_on(o): img = RS.dark_grade(img)
-        tp = s.story[o - 1] if o > 0 else t
+        tp = t - hold if t >= hold else t
         Po, Ph = s.pose('opp', t), s.pose('hero', t)
         Pop, Php = (s.pose('opp', tp), s.pose('hero', tp)) if tp != t else (None, None)
         fl = {k['dfn'] for k in s.contacts if not k['evade'] and k['o'] <= o < k['o'] + 2}   # white hit flash (2 frames)
+        if s.flash_on(o) and not s.flash_on(o - 1): fl = {'hero', 'opp'}                    # impact frame: white silhouettes
+        for k in s.contacts:                                    # smear multiples on the striking limb
+            if k['evade'] or not (k['o'] - 5 <= o < k['o']): continue
+            A = s.Wd[k['att']]; side = 'l' if k['eff'] in ('lhand', 'ltoes') else 'r'
+            jn = ('humerus', 'hand') if 'hand' in k['eff'] or k['eff'] == 'blade' else ('femur', 'tibia')
+            segs = [tuple(scr(A[max(0, t - g)], cx, gy, sc)[[I[side + jn[0]], I[side + jn[1]]], :2]) for g in (4, 2, 0)]
+            RS.fx_smear(img, segs, RS.BODY[k['att'] == 'hero'][1], max(2, int(round(FIG * sc / 55))))
         z = sc / scale_of('wide')
         for k in s.contacts:                                    # speed trail along the striking fist / foot
             if k['evade'] or k.get('weapon') or not (k['o'] - 5 <= o <= k['o'] + 1): continue
             A = s.Wd[k['att']]
             pts = [scr(A[f], cx, gy, sc)[I[k['eff']], :2] for f in range(max(0, min(t, k['c']) - 6), min(t, k['c']) + 1)]
             RS.fx_trail(img, pts, 3 * z)
-        s.figure(img, Po, Pop, s.cape[o], None, cx, gy, sc, False, flash='opp' in fl)
-        s.figure(img, Ph, Php, s.scarf[o], s.hair[o], cx, gy, sc, True, blade=bool(s.weapon_on[t]), flash='hero' in fl)
+        s.figure(img, Po, Pop, s.cape[oc], None, cx, gy, sc, False, flash='opp' in fl)
+        s.figure(img, Ph, Php, s.scarf[oc], s.hair[oc], cx, gy, sc, True, blade=bool(s.weapon_on[t]), flash='hero' in fl)
         for k in s.contacts:                                    # impact star + shock lines on every landed hit
             if k['evade']: continue
             age = o - k['o']
@@ -296,7 +317,7 @@ class Film:
             if 0 <= age < 22:
                 A = s.Wd[k['att']][k['c']]
                 P = scr_pts([blade_tip(A)[1]], cx, gy, sc)[0] if k.get('weapon') else scr(A, cx, gy, sc)[I[k['eff']], :2]
-                if k['fx'] == 'fire': RS.fx_fire(img, P, age, z * k['size'] ** .4, D[k['att']], k['beat'] * 31, k['finisher'])
+                if k['fx'] == 'fire': RS.fx_fire(img, P, age, z * k['size'] ** .4 * 1.5, D[k['att']], k['beat'] * 31, k['finisher'])
                 else: RS.fx_spark(img, P, age, z * k['size'] ** .4, D[k['att']], k['beat'] * 31)
         for o0, f, who, side in s.dust:
             age = o - o0

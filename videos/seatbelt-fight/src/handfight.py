@@ -21,36 +21,36 @@ I = {n: i for i, n in enumerate(NAMES)}
 HEAD_R, FIG, BLADE = 58.0, 520.0, 210.0
 L = dict(hip=16, thigh=116, shin=110, foot=32, lb=50, ub=50, th=46, ln=8, un=14, head=78, upper=96, fore=88, hand=26)
 
-STANCE = dict(lean=10, head=-4, rot=0, air=0, lhip=30, lknee=42, rhip=-24, rknee=32, lsh=48, lel=78, rsh=28, rel=112)
+STANCE = dict(sq=0.0, lean=10, head=-4, rot=0, air=0, lhip=30, lknee=42, rhip=-24, rknee=32, lsh=48, lel=78, rsh=28, rel=112)
 POSES = {
     'stance': {},
     'bob': dict(lknee=50, rknee=40, lean=13),
-    'crouch': dict(lean=30, head=-10, lhip=48, lknee=86, rhip=-4, rknee=78, lsh=20, lel=60, rsh=4, rel=74),
-    'dash': dict(lean=48, head=-20, lhip=74, lknee=36, rhip=-58, rknee=86, lsh=-44, lel=24, rsh=-62, rel=20),
-    'jab': dict(lean=22, lhip=42, lknee=26, rhip=-32, rknee=20, lsh=90, lel=0, rsh=32, rel=120),
-    'cross': dict(lean=30, lhip=48, lknee=30, rhip=-38, rknee=8, rsh=92, rel=0, lsh=38, lel=104),
+    'crouch': dict(sq=-.14, lean=30, head=-10, lhip=48, lknee=86, rhip=-4, rknee=78, lsh=20, lel=60, rsh=4, rel=74),
+    'dash': dict(sq=.10, lean=48, head=-20, lhip=74, lknee=36, rhip=-58, rknee=86, lsh=-44, lel=24, rsh=-62, rel=20),
+    'jab': dict(sq=.10, lean=22, lhip=42, lknee=26, rhip=-32, rknee=20, lsh=90, lel=0, rsh=32, rel=120),
+    'cross': dict(sq=.12, lean=30, lhip=48, lknee=30, rhip=-38, rknee=8, rsh=92, rel=0, lsh=38, lel=104),
     'slip': dict(lean=-26, head=-14, lhip=22, lknee=30, rhip=-34, rknee=48, lsh=40, lel=90, rsh=20, rel=120),
     'chamber': dict(lean=-14, rhip=96, rknee=122, lhip=6, lknee=16, lsh=44, lel=70, rsh=-18, rel=60),
-    'kick': dict(lean=-34, rhip=112, rknee=0, lhip=2, lknee=12, lsh=62, lel=60, rsh=-40, rel=20),
+    'kick': dict(sq=.12, lean=-34, rhip=112, rknee=0, lhip=2, lknee=12, lsh=62, lel=60, rsh=-40, rel=20),
     'hit': dict(lean=-26, head=-32, lhip=18, lknee=34, rhip=-36, rknee=24, lsh=24, lel=12, rsh=-32, rel=22),
     'stagger': dict(lean=-14, head=-10, lhip=10, lknee=34, rhip=-42, rknee=30, lsh=64, lel=30, rsh=-20, rel=44),
-    'wind': dict(lean=-10, head=-10, rsh=205, rel=20, lsh=70, lel=40, lhip=36, lknee=48, rhip=-20, rknee=36),
-    'slash': dict(lean=36, head=4, rsh=60, rel=0, lsh=-30, lel=20, lhip=56, lknee=30, rhip=-42, rknee=14),
+    'wind': dict(sq=-.06, lean=-10, head=-10, rsh=205, rel=20, lsh=70, lel=40, lhip=36, lknee=48, rhip=-20, rknee=36),
+    'slash': dict(sq=.14, lean=36, head=4, rsh=60, rel=0, lsh=-30, lel=20, lhip=56, lknee=30, rhip=-42, rknee=14),
     'follow': dict(lean=42, rsh=-42, rel=10, lsh=-40, lel=20, lhip=60, lknee=40, rhip=-40, rknee=20),
-    'tuck': dict(lean=16, lhip=84, lknee=132, rhip=72, rknee=130, lsh=86, lel=60, rsh=62, rel=60),
-    'airkick': dict(lean=-30, head=8, rhip=102, rknee=0, lhip=42, lknee=112, lsh=-30, lel=30, rsh=104, rel=30),
-    'land': dict(lean=36, head=-12, lhip=52, lknee=88, rhip=-6, rknee=82, lsh=12, lel=40, rsh=-10, rel=40),
+    'tuck': dict(sq=-.10, lean=16, lhip=84, lknee=132, rhip=72, rknee=130, lsh=86, lel=60, rsh=62, rel=60),
+    'airkick': dict(sq=.12, lean=-30, head=8, rhip=102, rknee=0, lhip=42, lknee=112, lsh=-30, lel=30, rsh=104, rel=30),
+    'land': dict(sq=-.12, lean=36, head=-12, lhip=52, lknee=88, rhip=-6, rknee=82, lsh=12, lel=40, rsh=-10, rel=40),
     'lunge': dict(lean=32, lhip=62, lknee=30, rhip=-46, rknee=4, rsh=94, rel=0, lsh=22, lel=92),
     'block': dict(lean=4, rsh=118, rel=64, lsh=62, lel=92, lhip=34, lknee=46, rhip=-22, rknee=38),
     'slide': dict(lean=-42, head=6, lhip=86, lknee=4, rhip=12, rknee=130, lsh=-20, lel=30, rsh=60, rel=40),
-    'fly': dict(lean=-44, head=-24, lhip=52, lknee=64, rhip=30, rknee=84, lsh=124, lel=20, rsh=142, rel=30),
-    'load': dict(lean=2, head=-6, lhip=26, lknee=38, rhip=-30, rknee=56, lsh=40, lel=88, rsh=20, rel=118),
+    'fly': dict(sq=.10, lean=-44, head=-24, lhip=52, lknee=64, rhip=30, rknee=84, lsh=124, lel=20, rsh=142, rel=30),
+    'load': dict(sq=-.10, lean=2, head=-6, lhip=26, lknee=38, rhip=-30, rknee=56, lsh=40, lel=88, rsh=20, rel=118),
     'step': dict(lean=16, lhip=44, lknee=32, rhip=-30, rknee=36, lsh=52, lel=74, rsh=28, rel=112),
     'jab_recoil': dict(lean=18, lhip=40, lknee=30, rhip=-30, rknee=24, lsh=70, lel=40, rsh=30, rel=118),
     'cross_recoil': dict(lean=24, lhip=46, lknee=34, rhip=-36, rknee=14, rsh=70, rel=36, lsh=40, lel=100),
-    'land2': dict(lean=40, head=-14, lhip=58, lknee=104, rhip=-4, rknee=98, lsh=6, lel=40, rsh=-14, rel=40),
+    'land2': dict(sq=-.18, lean=40, head=-14, lhip=58, lknee=104, rhip=-4, rknee=98, lsh=6, lel=40, rsh=-14, rel=40),
     'hit_head': dict(lean=4, head=-48, lsh=40, lel=60, rsh=10, rel=80),
-    'hit_body': dict(lean=-30, head=-26, lhip=16, lknee=36, rhip=-40, rknee=26, lsh=20, lel=20, rsh=-36, rel=30),
+    'hit_body': dict(sq=.08, lean=-30, head=-26, lhip=16, lknee=36, rhip=-40, rknee=26, lsh=20, lel=20, rsh=-36, rel=30),
     'recover': dict(lean=18, head=2, lhip=34, lknee=48, rhip=-22, rknee=38, lsh=46, lel=80, rsh=26, rel=110),
     'sprawl': dict(lean=-60, head=-20, lhip=70, lknee=30, rhip=40, rknee=60, lsh=150, lel=10, rsh=170, rel=10),
 }
@@ -61,7 +61,18 @@ def down(a):
 
 
 def pose(k):
-    """Joint positions (local frame, facing +x) from an angle key; grounded unless airborne/rolled."""
+    """Joint positions (local frame, facing +x) from an angle key; grounded unless airborne/rolled.
+    k['sq'] squashes (<0) or stretches (>0) the spine and limbs."""
+    global L
+    L0 = L; g = 1 + k.get('sq', 0.0)
+    L = {q: (v if q in ('head', 'hip', 'foot') else v * g) for q, v in L0.items()}
+    try:
+        return _pose(k)
+    finally:
+        L = L0
+
+
+def _pose(k):
     P = np.zeros((31, 3))
     u = np.array([math.sin(math.radians(k['lean'])), math.cos(math.radians(k['lean']))])
     hu = np.array([math.sin(math.radians(k['lean'] + k['head'])), math.cos(math.radians(k['lean'] + k['head']))])
@@ -220,11 +231,11 @@ class Track:
         calm = (A[:, names.index('air')] < 5).astype(float)
         bounce = np.sin(2 * math.pi * 1.7 * t + ph); sway = np.sin(2 * math.pi * .55 * t + ph * .6)
         T = A.copy()
-        for q, amp, wave in (('lknee', 7, bounce), ('rknee', 6, bounce), ('lean', 2.5, sway), ('head', 3, -sway),
-                             ('lsh', 4, sway), ('rsh', 3, -bounce), ('lel', 4, bounce)):
+        for q, amp, wave in (('lknee', 3, bounce), ('rknee', 2.5, bounce), ('lean', 1.5, sway), ('head', 2, -sway),
+                             ('lsh', 2, sway), ('lel', 2, bounce)):
             T[:, names.index(q)] += amp * wave * calm
         # per-channel natural frequency (rad/s) and damping ratio
-        spec = dict(x=(16, .95), air=(60, 1.0), rot=(60, 1.0), lean=(20, .5), head=(15, .32),
+        spec = dict(sq=(26, .3), x=(16, .95), air=(60, 1.0), rot=(60, 1.0), lean=(20, .5), head=(15, .32),
                     lhip=(28, .65), rhip=(28, .65), lknee=(30, .6), rknee=(30, .6),
                     lsh=(19, .42), rsh=(19, .42), lel=(22, .4), rel=(22, .4))
         om = np.array([spec[q][0] for q in names]); ze = np.array([spec[q][1] for q in names])
@@ -233,7 +244,7 @@ class Track:
             imp.setdefault(f, []).append(dv)
         for f in range(1, n):                                             # landings compress the legs
             if A[f - 1, names.index('air')] > 20 and A[f, names.index('air')] <= 3:
-                imp.setdefault(f, []).append(dict(lknee=520, rknee=480, lean=260, head=-200))
+                imp.setdefault(f, []).append(dict(lknee=520, rknee=480, lean=260, head=-200, sq=-4.0))
         q = T[0].copy(); v = np.zeros(len(names)); dt = 1 / 60; out = np.zeros_like(A)
         for f in range(n):
             if pin[f]:
@@ -295,6 +306,7 @@ def build():
         side = 'l' if c['eff'] == 'lhand' else 'r'
         ev[c['att']].append((f1, {side + 'sh': -260, side + 'el': 200, 'lean': -90, 'x': -FACE[c['att']] * 120}))
     Wd = {w: t.frames(N_FIGHT, crisp, ev[w]) for w, t in tracks.items()}
+    Wd['opp'] = apply_ragdolls(Wd['opp'], FACE['opp'])                     # physical knock-backs
     weapon = np.zeros(N_FIGHT, bool); on = False; kf = 0
     for k in HERO:
         if k['weapon'] is not None:
@@ -348,3 +360,90 @@ def plant_feet(Wp, d, step=55.0, dur=7, lift=26.0):
             P[kn, :2] = K_; P[an, :2] = A_
             for j in (I[s_ + 'foot'], I[s_ + 'toes']): P[j, :2] += delta
     return Wp
+
+
+# ---------------------------------------------------------------- ragdoll (pymunk) for knock-backs
+RAGDOLLS = [  # (start frame, end frame, push velocity (x toward +x for the opponent), spin, blend-back frames)
+    dict(start=229, end=242, push=(1150, 620), spin=-3.5, blend=14),
+    dict(start=271, end=288, push=(1650, 1250), spin=-6.0, blend=0),
+]
+
+
+def ragdoll(P0, Pprev, push, spin, n, seed=0):
+    """Simulate a limp stickman from pose P0 (with velocity from Pprev) for n frames: gravity, ground
+    contact, joint limits and weak muscle springs. Returns n poses in the 31-joint layout."""
+    import pymunk
+    sp = pymunk.Space(); sp.gravity = (0, -2900); sp.iterations = 30
+    g = pymunk.Segment(sp.static_body, (-8000, 0), (8000, 0), 4); g.friction = .9; g.elasticity = .15; sp.add(g)
+    J = lambda n_: P0[I[n_], :2]; V = (P0[:, :2] - Pprev[:, :2]) * 60
+    vel = lambda n_: V[I[n_]] + np.array(push)
+    bodies = {}
+
+    def seg(name, a, b, m, va, vb):
+        a, b = np.asarray(a, float), np.asarray(b, float); c = (a + b) / 2
+        bd = pymunk.Body(m, pymunk.moment_for_segment(m, tuple(a - c), tuple(b - c), 8))
+        bd.position = tuple(c); bd.velocity = tuple((va + vb) / 2)
+        sh = pymunk.Segment(bd, tuple(a - c), tuple(b - c), 8); sh.friction = .8; sh.filter = pymunk.ShapeFilter(group=1)
+        sp.add(bd, sh); bodies[name] = (bd, a - c, b - c)
+        return bd
+    torso = seg('torso', J('root'), J('lowerneck'), 10, vel('root'), vel('lowerneck'))
+    torso.angular_velocity = spin
+    hcen = head_center(P0)
+    hb = pymunk.Body(4, pymunk.moment_for_circle(4, 0, HEAD_R * .8)); hb.position = tuple(hcen); hb.velocity = tuple(vel('head'))
+    hs = pymunk.Circle(hb, HEAD_R * .8); hs.friction = .8; hs.filter = pymunk.ShapeFilter(group=1); sp.add(hb, hs)
+
+    def pivot(a, b, at, lim=None, k=4e4):
+        sp.add(pymunk.PivotJoint(a, b, tuple(at)))
+        rel = b.angle - a.angle
+        if lim is not None: sp.add(pymunk.RotaryLimitJoint(a, b, rel + lim[0], rel + lim[1]))
+        sp.add(pymunk.DampedRotarySpring(a, b, rel, k, k * .05))
+    pivot(torso, hb, J('lowerneck'), (-.6, .6), 2e5)
+    for s_ in 'lr':
+        ua = seg(s_ + 'ua', J(s_ + 'clavicle'), J(s_ + 'humerus'), 1.6, vel(s_ + 'clavicle'), vel(s_ + 'humerus'))
+        fa = seg(s_ + 'fa', J(s_ + 'humerus'), J(s_ + 'hand'), 1.1, vel(s_ + 'humerus'), vel(s_ + 'hand'))
+        th = seg(s_ + 'th', J(s_ + 'hipjoint'), J(s_ + 'femur'), 4, vel(s_ + 'hipjoint'), vel(s_ + 'femur'))
+        sh_ = seg(s_ + 'sh', J(s_ + 'femur'), J(s_ + 'tibia'), 3, vel(s_ + 'femur'), vel(s_ + 'tibia'))
+        pivot(torso, ua, J(s_ + 'clavicle'), None, 1.5e4); pivot(ua, fa, J(s_ + 'humerus'), (-1.4, 1.4), 1e4)
+        pivot(torso, th, J(s_ + 'hipjoint'), (-1.6, 1.6), 6e4); pivot(th, sh_, J(s_ + 'femur'), (-1.5, 1.5), 4e4)
+    rest = {s_: (P0[I[s_ + 'foot'], :2] - J(s_ + 'tibia'), P0[I[s_ + 'toes'], :2] - J(s_ + 'tibia')) for s_ in 'lr'}
+    a0 = {s_: bodies[s_ + 'sh'][0].angle for s_ in 'lr'}
+    out = []
+    for _ in range(n):
+        for _ in range(10): sp.step(1 / 600)
+        P = P0.copy()
+        W_ = lambda name, end: np.array(bodies[name][0].local_to_world(tuple(bodies[name][1 if end == 0 else 2])))
+        r, nk = W_('torso', 0), W_('torso', 1)
+        for nm, u in (('root', 0), ('lowerback', .3), ('upperback', .6), ('thorax', .93)): P[I[nm], :2] = r + (nk - r) * u
+        P[I['lowerneck'], :2] = nk
+        hc = np.array(hb.position); dv = (hc - nk) / max(np.linalg.norm(hc - nk), 1e-6)
+        P[I['upperneck'], :2] = nk + dv * 14; P[I['head'], :2] = nk + dv * 92
+        for s_ in 'lr':
+            c_, e_, h_ = W_(s_ + 'ua', 0), W_(s_ + 'ua', 1), W_(s_ + 'fa', 1)
+            fd = (h_ - e_) / max(np.linalg.norm(h_ - e_), 1e-6)
+            P[I[s_ + 'clavicle'], :2] = c_; P[I[s_ + 'humerus'], :2] = e_; P[I[s_ + 'hand'], :2] = h_
+            P[I[s_ + 'radius'], :2] = h_ - fd * 26; P[I[s_ + 'wrist'], :2] = h_ - fd * 16
+            P[I[s_ + 'fingers'], :2] = h_ + fd * 6; P[I[s_ + 'thumb'], :2] = h_ - fd * 14
+            hp, kn, an = W_(s_ + 'th', 0), W_(s_ + 'th', 1), W_(s_ + 'sh', 1)
+            P[I[s_ + 'hipjoint'], :2] = hp; P[I[s_ + 'femur'], :2] = kn; P[I[s_ + 'tibia'], :2] = an
+            da = bodies[s_ + 'sh'][0].angle - a0[s_]; ca, sa = math.cos(da), math.sin(da)
+            for j, off in zip(('foot', 'toes'), rest[s_]):
+                P[I[s_ + j], :2] = an + np.array([off[0] * ca - off[1] * sa, off[0] * sa + off[1] * ca])
+        out.append(P)
+    return np.array(out)
+
+
+def apply_ragdolls(A, d):
+    A = A.copy()
+    for r in RAGDOLLS:
+        s0, e = r['start'], min(r['end'], len(A))
+        push = (r['push'][0] * -d, r['push'][1])
+        R = ragdoll(A[s0], A[s0 - 1], push, r['spin'] * -d, e - s0)
+        keyed = A.copy()
+        A[s0:e] = R
+        for i in range(r['blend']):                                         # recover: blend back into the keyed motion
+            f = e + i
+            if f >= len(A): break
+            u = (i + 1) / (r['blend'] + 1); u = u * u * (3 - 2 * u)
+            off = R[-1][0] - keyed[e - 1][0]; off[1] = 0                     # carry the ragdoll's landing spot
+            A[f] = (R[-1] + (keyed[f] + off * (1 - u) - R[-1]) * u) if False else R[-1] * (1 - u) + (keyed[f] + off * (1 - u)) * u
+    return A

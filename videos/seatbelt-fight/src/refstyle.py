@@ -413,6 +413,16 @@ def fx_impact(img, c, age, z, d):
             pline(img, (c[0] + math.cos(a) * r0, c[1] + math.sin(a) * r0), (c[0] + math.cos(a) * r1, c[1] + math.sin(a) * r1), 1, (255, 244, 200))
 
 
+def fx_smear(img, segs, col, w):
+    """Classic smear: ghost copies of the limb at earlier positions plus a filled smear shape between the
+    last two, in the body colour (the eye reads one fast stretched limb)."""
+    for i, (a, b) in enumerate(segs[:-1]):
+        pline(img, a, b, max(1, w - 1), col)
+    (a0, b0), (a1, b1) = segs[-2], segs[-1]
+    if np.linalg.norm(np.asarray(b1) - np.asarray(b0)) > 3:
+        ppoly(img, [tuple(a0), tuple(b0), tuple(b1), tuple(a1)], col)
+
+
 def fx_trail(img, pts, w):
     """Speed trail behind a fist/foot: a tapered pale strip along its last positions, brightest at the tip."""
     P = np.asarray(pts, float)
