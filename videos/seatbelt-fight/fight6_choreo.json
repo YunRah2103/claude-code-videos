@@ -1,0 +1,48 @@
+{
+  "about": "6 s fight + transition test. Frames are STORY frames at 60 fps (hit-stops are inserted on top, so output frame = story frame + hit-stop frames before it). 'at' places the move's key frame (attack contact, duck bottom, slip apex, block apex) when align='key', or the move's first frame when align='start'. A contact's defender reaction starts on the exact contact frame. Moves come from shared/assets/mocapmoves.",
+  "fps": 60,
+  "fight_story_frames": 275,
+  "transition_frames": 72,
+  "crossfade": 6,
+  "start": {"hero": {"x": -300, "move": "ready"}, "opp": {"x": 300, "move": "ready"}},
+  "beats": [
+    {"n": 1, "label": "square up", "actions": [
+      {"who": "hero", "move": "ready", "at": 0, "align": "start"},
+      {"who": "opp", "move": "ready", "at": 0, "align": "start"}]},
+    {"n": 2, "label": "opponent steps in", "actions": [
+      {"who": "opp", "move": "step_in", "at": 6, "align": "start", "speed": 1.1}]},
+    {"n": 3, "label": "opponent jab, hero slips", "actions": [
+      {"who": "opp", "move": "jab", "at": 46, "align": "key", "speed": 1.1},
+      {"who": "hero", "move": "slip", "at": 46, "align": "key"}],
+      "contact": {"attacker": "opp", "defender": "hero", "target": "head", "evade": true}},
+    {"n": 4, "label": "opponent cross, hero blocks", "actions": [
+      {"who": "opp", "move": "cross", "at": 70, "align": "key"},
+      {"who": "hero", "move": "block", "at": 70, "align": "key", "mirror": true}],
+      "contact": {"attacker": "opp", "defender": "hero", "target": "guard", "hitstop": 2, "size": 0.5}},
+    {"n": 5, "label": "hero jab (flurry)", "actions": [
+      {"who": "hero", "move": "jab", "at": 94, "align": "key", "speed": 1.2}],
+      "contact": {"attacker": "hero", "defender": "opp", "target": "head", "hitstop": 2, "size": 0.7,
+                  "reaction": {"move": "stagger", "speed": 1.15}}},
+    {"n": 6, "label": "hero cross (flurry)", "actions": [
+      {"who": "hero", "move": "cross", "at": 108, "align": "key", "speed": 1.2}],
+      "contact": {"attacker": "hero", "defender": "opp", "target": "head", "hitstop": 2, "size": 0.8,
+                  "reaction": {"move": "stagger", "speed": 1.2}}},
+    {"n": 7, "label": "hero hook, opponent knocked back", "actions": [
+      {"who": "hero", "move": "hook", "at": 124, "align": "key", "speed": 1.15}],
+      "contact": {"attacker": "hero", "defender": "opp", "target": "head", "hitstop": 3, "size": 1.0,
+                  "reaction": {"move": "knock_back", "speed": 1.0, "slide": true}}},
+    {"n": 8, "label": "breather: hero steps back (slow beat after the flurry)", "actions": [
+      {"who": "hero", "move": "step_back", "at": 148, "align": "start", "speed": 0.85}]},
+    {"n": 9, "label": "opponent roundhouse, hero ducks (dodge before the finisher)", "actions": [
+      {"who": "opp", "move": "roundhouse", "at": 200, "align": "key", "speed": 1.05},
+      {"who": "hero", "move": "duck", "at": 200, "align": "key", "speed": 0.95}],
+      "contact": {"attacker": "opp", "defender": "hero", "target": "head", "evade": true}},
+    {"n": 10, "label": "opponent resets after the miss; hero winds up the finisher (slow)", "actions": [
+      {"who": "opp", "move": "step_back", "at": 214, "align": "start", "speed": 1.0},
+      {"who": "hero", "move": "lunge_punch", "at": 250, "align": "key", "speed": 0.82}]},
+    {"n": 11, "label": "FINISHER: lunge punch, close-up, opponent falls", "contact": {"attacker": "hero", "defender": "opp",
+      "target": "head", "hitstop": 4, "size": 1.6, "finisher": true,
+      "reaction": {"move": "fall", "speed": 1.0, "slide": true, "fly": true}}, "actions": [], "of_beat": 10},
+    {"n": 12, "label": "opponent flies out of frame; flash = cut into the headlights transition", "actions": [], "at": 275}
+  ]
+}

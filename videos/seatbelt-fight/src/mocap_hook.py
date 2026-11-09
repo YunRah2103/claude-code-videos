@@ -288,8 +288,13 @@ def draw_fighter(cr, cl, P, hero, fd, prevP):
             else:
                 base = root
                 blob(cr, [cap(J('lhipjoint'), J('rhipjoint'), 40, 40)], Pal['tee'])
-            blob(cr, [cap(base, ub, 47, 56), cap(ub, th, 56, 48), cap(J('lclavicle'), J('rclavicle'), 31, 31)],
-                 Pal['tee'])
+            prims = [cap(base, ub, 47, 56), cap(ub, th, 56, 48), cap(J('lclavicle'), J('rclavicle'), 31, 31)]
+            if hero:  # shirt hem trails the pelvis (secondary motion)
+                lag = np.clip(-(root - prevP[I['root']])[:2] * 0.6, -26, 26)
+                r2 = root[:2]
+                prims.append(('poly', [r2 + (-fd * 46, 8), r2 + (-fd * 52, 30) + lag, r2 + (0, 38) + lag * 0.5,
+                                       r2 + (fd * 44, 16)]))
+            blob(cr, prims, Pal['tee'])
         else:
             blob(cr, [cap(J('thorax'), hc, 19, 18)], Pal['skin'])
             blob(cr, [circ(hc, R_HEAD)], Pal['skin'])

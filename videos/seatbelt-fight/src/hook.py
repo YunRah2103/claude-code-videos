@@ -376,7 +376,8 @@ def surf_to_np(surf):
     return a[..., [2, 1, 0, 3]].astype(np.float32) / 255.0      # premultiplied RGBA
 
 
-def make_layers():
+def make_layers(moon=(40, -600, 215)):
+    """moon = (dx, dy, r) in layer px from the screen centre at the default camera."""
     rng = np.random.default_rng(11)
     layers = []
     gy = lambda wy: wy - CAM0[1] + LC[1]                       # world y -> layer y (at CAM0)
@@ -394,7 +395,7 @@ def make_layers():
         x, y = rng.uniform(0, LW), rng.uniform(250, 1250)
         cr.set_source_rgba(1, 0.96, 0.9, rng.uniform(0.35, 0.85))
         cr.arc(x, y, rng.uniform(1.5, 3.2), 0, 2 * math.pi); cr.fill()
-    mx, my, mr = LC[0] + 40, LC[1] - 600, 215
+    mx, my, mr = LC[0] + moon[0], LC[1] + moon[1], moon[2]
     rg = cairo.RadialGradient(mx, my, mr, mx, my, mr * 1.7)
     rg.add_color_stop_rgba(0, 1, 0.93, 0.78, 0.16); rg.add_color_stop_rgba(1, 1, 0.93, 0.78, 0)
     cr.set_source(rg); cr.arc(mx, my, mr * 1.7, 0, 2 * math.pi); cr.fill()

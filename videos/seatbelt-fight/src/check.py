@@ -4,15 +4,15 @@ Loop = mean |diff| first vs last frame on the same measure."""
 import os, subprocess, sys
 import numpy as np
 mp4 = sys.argv[1]; out = os.path.dirname(mp4)
-subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', mp4, '-vf', "select='not(mod(n\\,6))',scale=216:384,tile=10x3",
+subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', mp4, '-vf', "select='not(mod(n\\,6))',scale=216:384,tile=10x%d" % max(1, round(float(subprocess.run(['ffprobe','-v','error','-show_entries','format=duration','-of','csv=p=0',mp4],capture_output=True,text=True).stdout) * 10 / 10)),
                 '-frames:v', '1', os.path.splitext(mp4)[0] + '-sheet.png'], check=True)
 raw = subprocess.run(['ffmpeg', '-v', 'error', '-i', mp4, '-vf', 'scale=108:192,format=gray', '-f', 'rawvideo', '-'],
                      capture_output=True, check=True).stdout
 g = np.frombuffer(raw, np.uint8).reshape(-1, 192, 108).astype(np.float32)
 n = len(g); print('frames', n)
 d = lambda a, b: float(np.abs(g[a] - g[b]).mean())
-print('motion per second:', [round(d(s * 60, min(s * 60 + 59, n - 1)), 1) for s in range(3)])
-print('peak change within each second:', [round(max(d(s * 60, i) for i in range(s * 60, min(s * 60 + 60, n))), 1) for s in range(3)])
+print('motion per second:', [round(d(s * 60, min(s * 60 + 59, n - 1)), 1) for s in range(n // 60)])
+print('peak change within each second:', [round(max(d(s * 60, i) for i in range(s * 60, min(s * 60 + 60, n))), 1) for s in range(n // 60)])
 print('loop diff first-last: %.2f' % d(0, n - 1))
 prof = [d(i, i + 2) for i in range(0, n - 2, 2)]                  # 30 fps motion profile
 low = [v < 3 for v in prof]; run = best = 0
