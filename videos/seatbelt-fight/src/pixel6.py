@@ -28,25 +28,8 @@ OUT = F6.OUT
 UP, FPS = 4, 60
 NDRAW = 180                                   # 6.0 s of 30 fps drawings
 D = {'hero': 1, 'opp': -1}
-from pixlook import (W, H, S0, GY0, PAL, INK, TEE, WHITE, YEL, FIRE, BAY, paint_layers, draw_world, dim,  # noqa: E402
-                     draw_stick, shadow, fx_crescent, fx_streak, fx_spark, fx_dust, glow, draw_car)
-import pixlook as PL  # noqa: E402
-
-
-def to_screen(P, cam):
-    cx, gy, s = cam
-    Q = proj(P)
-    return np.stack([(Q[:, 0] - cx) * s + W / 2, Q[:, 1] * s + gy, Q[:, 2]], -1), s
-
-
-def draw_fighter(img, P, cam, hero, mask=None):
-    S, s = to_screen(P, cam)
-    return draw_stick(img, S, s, I, hero, mask)
-
-
-def fshadow(img, P, cam):
-    S, s = to_screen(P, cam)
-    shadow(img, [S[I[k + 'tibia']][0] for k in 'lr'], cam[1], s)
+import refstyle as RS  # noqa: E402
+W, H = RS.W, RS.H
 
 
 # ---------------------------------------------------------------- motion (fight6 pipeline + speed-found contacts)
@@ -108,138 +91,157 @@ def build_motion():
 
 
 # ---------------------------------------------------------------- film
-TRD = NDRAW - 144                                             # transition drawings (1.2 s)
+TRD = NDRAW - 144                                             # (audio timing) transition = 36 x 2 output frames
+NF_FIGHT, NF_TR = 288, 72
+SW, GYW = 0.066, 388                                          # wide shot: figure ~56 px (12 % of the frame), feet on the path
+SC_CLOSE = 0.13
+
+
+def scr(P, cx, gy, s):
+    """World pose -> whole-pixel screen coords (x, y) + depth; camera offset rounded once (no crawl)."""
+    Q = proj(P)
+    return np.stack([np.round(Q[:, 0] * s) - round(cx * s) + W // 2, np.round(Q[:, 1] * s) + gy, Q[:, 2]], -1)
+
+
+def scr_pts(Pxy, cx, gy, s):
+    P = np.asarray(Pxy, float)
+    return np.stack([np.round(P[:, 0] * s) - round(cx * s) + W // 2, np.round(P[:, 1] * s) + gy], -1)
+
+
+def anchor(P, a, b, u=.5):
+    Q = proj(P)
+    return (Q[I[a], :2] + (Q[I[b], :2] - Q[I[a], :2]) * u)
 
 
 class Film:
     def __init__(s):
         s.sh, s.segs, s.contacts, s.Wd, s.draws, s.slide = build_motion()
         s.ND = len(s.draws)
+        S = s.sh['fight_story_frames']
+        s.story = []                                           # 60 fps output frame -> story frame (hit-stops repeat)
+        for t in range(S):
+            s.story.append(t)
+            s.story += [t] * (2 * sum(k['hitstop'] for k in s.contacts if k['c'] == t))
+        assert len(s.story) == NF_FIGHT, len(s.story)
+        for k in s.contacts:
+            k['o'] = s.story.index(k['c'])
         s.fin = [k for k in s.contacts if k['finisher']][0]
-        s.layers = paint_layers(); s.roadl = paint_layers(road=True)
-        s.camera(); s.dust_events()
+        s.world = RS.paint_world()
+        s.road_world = RS.grade_layers(RS.paint_world(road=True), (.5, .42, .6), (16, 8, 26))
+        s.camera(); s.dust_events(); s.cloth()
 
     def pose(s, who, t):
         return s.Wd[who][int(min(max(t, 0), len(s.Wd[who]) - 1))]
 
+    # -------------------------------------------------------------- camera (whole pixels)
     def camera(s):
-        N = s.ND; hx = np.zeros(N); ox = np.zeros(N)
-        for d, t in enumerate(s.draws):
-            hx[d] = proj(s.pose('hero', t))[I['thorax'], 0]; ox[d] = proj(s.pose('opp', t))[I['thorax'], 0]
-        fd = s.fin['d']; hs = s.fin['hitstop']
-        wo = np.array([.5 if d < fd else .5 - .3 * ease((d - fd - hs) / 4, 'io') for d in range(N)])
-        ox = np.where(np.arange(N) > fd + hs, np.minimum(ox, hx + 700), ox)          # don't chase the flying body
-        cx = gaussian_filter1d(hx * (1 - wo) + ox * wo, 3, mode='nearest')
-        u0 = np.clip(np.arange(N) / 22, 0, 1)
-        cx += 70 * (1 - u0 * u0 * (3 - 2 * u0))                 # opening truck-in
-        push = np.clip(np.arange(N) / (N - 1), 0, 1)
-        sc = S0 * (1 + 0.07 * push)
-        for k in s.contacts:                                   # gentle push-ins on the strikes
-            if not k['finisher']:
-                sc = sc * (1 + 0.05 * k['size'] * np.exp(-((np.arange(N) - k['d'] + 3) / 6) ** 2))
-        sc = gaussian_filter1d(sc, 2, mode='nearest')
-        gy = np.full(N, float(GY0)) + 10 * push
-        # finisher: whip into a close-up on the impact over 3 drawings, hold the hit-stop, snap back out
-        t = s.fin['c']; Ph = proj(s.pose('hero', t)); Po = proj(s.pose('opp', t))
+        N = NF_FIGHT; hx = np.zeros(N); ox = np.zeros(N)
+        for o, t in enumerate(s.story):
+            hx[o] = proj(s.pose('hero', t))[I['thorax'], 0]; ox[o] = proj(s.pose('opp', t))[I['thorax'], 0]
+        of = s.fin['o']; hs = 2 * s.fin['hitstop']
+        ox = np.where(np.arange(N) > of + hs, np.minimum(ox, hx + 500), ox)
+        cx = gaussian_filter1d((hx + ox) / 2, 8, mode='nearest')
+        u0 = np.clip(np.arange(N) / 45, 0, 1)
+        cx += 1000 * (1 - u0 * u0 * (3 - 2 * u0))              # opening truck-in along the meadow
+        cx += np.linspace(160, -160, N)                         # slow continuous drift (parallax keeps moving)
+        t = s.fin['c']; Ph = proj(s.pose('hero', t))
         IP = (Ph[I[s.fin['eff']], :2] + proj(np.array([head_c(s.pose('opp', t))]))[0, :2]) / 2
-        s.IP = IP
-        close = (IP[0], 0.40)
-        cams = []
-        for d in range(N):
-            c = (cx[d], gy[d], sc[d])
-            tgt = (close[0], 250 - IP[1] * close[1], close[1])
-            if fd - 3 <= d < fd:
-                u = ease((d - fd + 3) / 3, 'in'); c = tuple(c[j] + (tgt[j] - c[j]) * u for j in range(3))
-            elif fd <= d <= fd + hs:
-                u = (d - fd) / max(hs, 1); c = (tgt[0], tgt[1] + 4 * u, tgt[2] * (1 + .03 * u))
-            elif fd + hs < d <= fd + hs + 4:
-                u = ease((d - fd - hs) / 4, 'snap'); a = cams[fd + hs]
-                c = tuple(a[j] + (c[j] - a[j]) * u for j in range(3))
-            cams.append(c)
-        s.cams, s.push = cams, push
+        s.close = (of - 8, of + hs + 8)
+        s.cams = []
+        for o in range(N):
+            if s.close[0] <= o < s.close[1]:                    # hard cut to a close shot on the finisher
+                s.cams.append((IP[0], int(round(250 - IP[1] * SC_CLOSE)), SC_CLOSE))
+            else:
+                s.cams.append((cx[o], GYW, SW))
+        for k in s.contacts:                                    # whole-pixel camera shake on hits
+            if k['evade']: continue
+            amp = 2 if k['size'] >= 1 else 1
+            for j, (dx, dy) in enumerate(((amp, -amp), (-amp, amp), (amp, 0), (-1, 1), (1, 0))):
+                o = k['o'] + j
+                if o < N:
+                    c = s.cams[o]; s.cams[o] = (c[0] + dx / c[2], c[1] + dy, c[2])
 
     def dust_events(s):
         ev = []; S = len(s.Wd['hero'])
         for who in ('hero', 'opp'):
             A = s.Wd[who]; last = -99
             for side in 'lr':
-                y = A[:, I[side + 'tibia'], 1]
-                vy = np.r_[0, np.diff(y)] * FPS
+                y = A[:, I[side + 'tibia'], 1]; vy = np.r_[0, np.diff(y)] * FPS
                 for f in range(2, S):
                     if y[f - 2] > 75 and y[f] <= 62 and vy[f - 1] < -250 and f - last > 30:
                         ev.append((f, who, side)); last = f
             for sg in s.segs[who]:
                 if sg.slide and sg.start < S and sg.start - last > 8:
                     ev.append((int(sg.start) + 2, who, 'l')); last = sg.start
-        s.dust = sorted(ev)
+        s.dust = [(s.story.index(min(s.story, key=lambda x: abs(x - f))), f, who, side) for f, who, side in sorted(ev)]
 
-    # -------------------------------------------------------------- fight drawing
-    def dim_level(s, d):
-        """Backdrop dims around the big hits (fire contacts): ramps in over 2 drawings, out over 3;
-        gaps under 12 drawings between two dimmed hits stay dark (no light/dark flicker)."""
-        if not hasattr(s, '_dim'):
-            raw = [s._dim_raw(x) for x in range(s.ND)]
-            on = [i for i, v in enumerate(raw) if v >= 1]
-            for i, j in zip(on, on[1:]):
-                if 1 < j - i < 12: raw[i:j] = [1.0] * (j - i)
-            s._dim = raw
-        return s._dim[d]
+    # -------------------------------------------------------------- Verlet cloth (opp cape, hero scarf + hair)
+    def cloth(s):
+        cape, scarf, hair = RS.Chain(7, 60, back=1.0), RS.Chain(4, 40, back=.8), RS.Chain(3, 26, grav=1800, back=.6)
+        s.cape, s.scarf, s.hair = [], [], []
+        prev = None
+        for o, t in enumerate(s.story):
+            Po, Ph = s.pose('opp', t), s.pose('hero', t)
+            if t != prev:
+                c = cape.step(anchor(Po, 'upperback', 'thorax', .7), -1)
+                sc = scarf.step(anchor(Ph, 'lowerneck', 'upperneck', .2), 1)
+                hr = hair.step(anchor(Ph, 'upperneck', 'head', 1.0) + [-40, 10], 1)
+            s.cape.append(c); s.scarf.append(sc); s.hair.append(hr); prev = t
+        s.tr_scarf, s.tr_hair = scarf, hair
 
-    def _dim_raw(s, d):
-        k = 0.0
-        for c in s.contacts:
-            if c['fx'] != 'fire' or c['evade']: continue
-            a, b = c['d'] - (4 if c['finisher'] else 1), c['d'] + c['hitstop'] + 6
-            if a <= d <= b: k = max(k, min(1.0, (d - a + 1) / 2, (b - d + 1) / 3))
-        return k
+    # -------------------------------------------------------------- drawing helpers
+    def figure(s, img, P, cloth_pts, hair_pts, cx, gy, sc, hero, mask=None):
+        S = scr(P, cx, gy, sc)
+        lim = 2 if sc < 0.17 else 3
+        cl = scr_pts(cloth_pts, cx, gy, sc) if cloth_pts is not None else None
+        hc, hr = RS.draw_figure(img, S, I, hero, cl, mask, lim)
+        if hero and hair_pts is not None:
+            Hp = scr_pts(hair_pts, cx, gy, sc)
+            Hp[0] = hc + np.array([-.8 * hr, -.2 * hr])
+            for i in range(1, len(Hp)):
+                RS.pline(img, Hp[i - 1], Hp[i], max(1, lim - 1), RS.HAIR, mask)
+        return S
 
-    def fight(s, d):
-        t = s.draws[d]; cx, gy, sc = s.cams[d]; cam = (cx, gy, sc)
-        img = np.zeros((H, W), np.uint8)
-        draw_world(img, s.layers, cx, gy, s.push[d])
-        dim(img, s.dim_level(d))
-        Ph, Po = s.pose('hero', t), s.pose('opp', t)
-        fshadow(img, Po, cam); fshadow(img, Ph, cam)
-        z = sc / S0
-        for k in s.contacts:                                   # glow behind the figures on fire hits
-            e = (d - k['d']) // 2
-            if not k['evade'] and k['fx'] == 'fire' and 0 <= e < 2:
-                P = to_screen(s.Wd[k['att']][k['c']], cam)[0][I[k['eff']], :2]
-                glow(img, P, (60 if k['finisher'] else 40) * z, 1 - .4 * e)
-        draw_fighter(img, Po, cam, False)
-        draw_fighter(img, Ph, cam, True)
-        pil = Image.fromarray(img); dr = ImageDraw.Draw(pil)
-        for k in s.contacts:                                   # crescent slashes: 3 frames on 2s from 2 drawings before contact
-            e = (d - (k['d'] - 2)) // 2
-            if 0 <= e < 3:
-                A = s.Wd[k['att']]; f1 = min(t + 2, k['c'] + 3); f0 = max(0, k['c'] - 16)
-                pts = [to_screen(A[f], cam)[0][I[k['eff']], :2] for f in range(f0, f1 + 1)]
-                root = to_screen(A[k['c']], cam)[0][0, :2]
-                fx_crescent(dr, pts, e, z * (0.7 if k['evade'] else 1.0), np.mean(pts, 0) - root)
-        for k in s.contacts:                                   # sparks / fire streaks on the contact
+    def flash_on(s, o):
+        if o >= NF_FIGHT - 2: return True                       # the cut into the transition
+        for k in s.contacts:
+            if not k['evade'] and k['fx'] == 'fire' and k['o'] <= o < k['o'] + (4 if k['finisher'] else 3):
+                return True
+        return False
+
+    def fight(s, o):
+        t = s.story[o]; cx, gy, sc = s.cams[o]
+        img = RS.compose(s.world, round(cx * SW), gy - GYW)
+        dark = s.flash_on(o)
+        if dark: img = RS.dark_grade(img)
+        Po, Ph = s.pose('opp', t), s.pose('hero', t)
+        s.figure(img, Po, s.cape[o], None, cx, gy, sc, False)
+        s.figure(img, Ph, s.scarf[o], s.hair[o], cx, gy, sc, True)
+        z = sc / SW
+        for k in s.contacts:                                    # crescent slashes along the striking limb
+            age = o - (k['o'] - 4)
+            if 0 <= age < 14:
+                A = s.Wd[k['att']]
+                pts = scr(np.array([A[f][I[k['eff']]] for f in range(max(0, k['c'] - 10), min(len(A), k['c'] + 3))]).reshape(-1, 1, 3)[:, 0], cx, gy, sc) \
+                    if False else np.array([scr(A[f], cx, gy, sc)[I[k['eff']], :2] for f in range(max(0, k['c'] - 10), min(len(A), k['c'] + 3))])
+                root = scr(A[k['c']], cx, gy, sc)[0, :2]
+                tg = np.gradient(pts.astype(float), axis=0); nrm = np.stack([-tg[:, 1], tg[:, 0]], 1)
+                side = 1.0 if ((pts - root) * nrm).sum() > 0 else -1.0
+                RS.fx_slash(img, pts, age, 14, side, z * (.6 if k['evade'] else 1.0), red=(k['fx'] == 'fire' and not k['evade']))
+        for k in s.contacts:                                    # bursts, embers, fire streaks
             if k['evade']: continue
-            e = (d - k['d']) // 2; P = to_screen(s.Wd[k['att']][k['c']], cam)[0][I[k['eff']], :2]
-            if k['fx'] == 'fire':
-                if 0 <= e < 4: fx_streak(dr, P, e, z * k['size'] ** .4, D[k['att']], k['beat'], k['finisher'])
-            elif 0 <= e < 4:
-                fx_spark(dr, P, e, z * k['size'] ** .5, D[k['att']], k['beat'])
-        for f, who, side in s.dust:                            # dust puffs on landings
-            d0 = s.draws.index(min(s.draws, key=lambda x: abs(x - f)))
-            e = (d - d0) // 2
-            if 0 <= e < 3:
-                Pp = to_screen(s.Wd[who][min(f, len(s.Wd[who]) - 1)], cam)[0][I[side + 'tibia']]
-                fx_dust(dr, (Pp[0], gy), e, z, D[who])
-        return np.array(pil)
-
-    def flash(s, img, kind):
-        """Finisher flash = the cut: one white frame, one dark frame; figures as hard silhouettes."""
-        t = s.draws[-1]; cam = s.cams[-1]
-        m = np.zeros((H, W), bool); tmp = img.copy()
-        draw_fighter(tmp, s.pose('hero', t), cam, True, m); draw_fighter(tmp, s.pose('opp', t), cam, False, m)
-        out = np.full((H, W), WHITE if kind == 0 else INK, np.uint8)
-        if kind == 0: out[BAY < 4] = YEL
-        out[m] = INK if kind == 0 else FIRE
-        return out
+            age = o - k['o']
+            if 0 <= age < 20:
+                P = scr(s.Wd[k['att']][k['c']], cx, gy, sc)[I[k['eff']], :2]
+                fire = k['fx'] == 'fire'
+                if fire: RS.fx_streak(img, P, age, z * k['size'] ** .4, D[k['att']], k['beat'], k['finisher'])
+                RS.fx_burst(img, P, age, z * k['size'] ** .4, k['beat'] * 31, fire, k['finisher'])
+        for o0, f, who, side in s.dust:
+            age = o - o0
+            if 0 <= age < 12:
+                Pp = scr(s.Wd[who][min(f, len(s.Wd[who]) - 1)], cx, gy, sc)[I[side + 'tibia']]
+                RS.fx_dust(img, (Pp[0], gy), age, z, D[who])
+        return img
 
     # -------------------------------------------------------------- transition
     def tr_hero(s, i):
@@ -247,11 +249,7 @@ class Film:
         P = sample(rd, t, False).copy(); P[:, [0, 2]] -= P[0, [0, 2]]
         return P
 
-    def face(s, i):
-        return PL.face(i)
-
     def car_x(s, i):
-        """World x of the car's front bumper; enters at speed, cartoon-brakes to a stop beside the hero."""
         v, i0, i1, stop = 2600 / FPS, 40, 62, 240.0
         brake = v * (i1 - i0) / 2
         if i <= i0: return stop + brake + v * (i0 - i)
@@ -264,66 +262,56 @@ class Film:
         t = (i - 62) / FPS
         return math.radians(7) * math.exp(-t * 9) * math.cos(t * 26)
 
-    def road(s, i, cx, cam_s, gy, beam=True):
-        img = np.zeros((H, W), np.uint8)
-        draw_world(img, s.roadl, cx, gy, 0)
-        dim(img, 1.0); dim(img, 1.0)                           # night: the dark flash carries into the road
-        cam = (cx, gy, cam_s)
-        X = lambda wx: (wx - cx) * cam_s + W / 2
+    def road(s, i, cx, sc, gy, beam=True):
+        img = RS.compose(s.road_world, round(cx * SW), gy - GYW)
         x0 = s.car_x(i); p = s.car_pitch(i)
-        if i > 40:                                             # skid marks
-            a, b = X(s.car_x(40)), X(x0)
+        X = lambda wx: int(round(wx * sc)) - round(cx * sc) + W // 2
+        if i > 40:
             for off in (160, 640):
-                img[int(gy) + 1:int(gy) + 3, int(max(0, b + off * cam_s)):int(max(0, min(W, a + off * cam_s)))] = INK
-        Ph = s.tr_hero(i)
-        m = np.zeros((H, W), bool)
+                a, b = X(s.car_x(40) + off), X(x0 + off)
+                img[gy:gy + 2, max(0, b):max(0, min(W, a))] = (24, 22, 28)
         dist = max(0.0, 1 - (x0 - 240) / 1800)
-        if beam:                                               # headlight cone, dithered, toward the hero
+        hl = (X(x0 + 36), int(round(-180 * sc)) + gy)
+        if beam:                                                # banded headlight cone toward the hero
             yy, xx = np.mgrid[0:H, 0:W]
-            hx, hy = X(x0 + 30), gy - 180 * cam_s - 120 * math.sin(p) * cam_s
-            dxp = hx - xx; spread = np.abs(yy - hy) < 6 + dxp * .3
-            inten = np.clip(1 - dxp / 280, 0, 1) * (dxp > 0) * spread * 10 * (0.5 + 0.5 * dist)
-            img[(inten > BAY) & (yy < gy + 40)] = YEL
-            img[(inten > BAY + 6) & (yy < gy + 40)] = WHITE
-        draw_fighter(img, Ph, cam, True, m)
+            dx = hl[0] - xx; spread = np.abs(yy - hl[1] - dx * .05) < 4 + dx * .3
+            for reach, col, a in ((300, (255, 214, 140), .22), (200, (255, 232, 176), .3), (110, (255, 246, 214), .4)):
+                RS.blend(img, (dx > 0) & (dx < reach * (.6 + .4 * dist)) & spread & (yy < gy + 30), col, a)
+        P = s.tr_hero(i)
+        m = np.zeros((H, W), bool)
+        sp = s.tr_scarf.step(anchor(P, 'lowerneck', 'upperneck', .2), 1)
+        hp = s.tr_hair.step(anchor(P, 'upperneck', 'head', 1.0) + [-40, 10], 1)
+        s.figure(img, P, sp, hp, cx, gy, sc, True, m)
         if beam:
-            rim = m & ~np.roll(m, -1, 1) & (BAY < 16 * dist)  # headlight rim on the hero
-            img[rim] = YEL
-        draw_car(img, x0, p, cam)
+            rim = m & ~np.roll(m, -1, 1)
+            if dist > .2: img[rim] = (255, 226, 160)
+        RS.draw_car(img, x0, p, round(cx * sc), sc, gy)
         return img
 
     def transition(s, j):
-        """j = transition drawing 0..35: face close-up (0-11), whip pan (12-16), brake (17-35)."""
-        i = 2 * j
-        if j < 12:
-            return s.face(j)
-        cs, gy = 0.225, 452.0
-        rest = (W / 2 - 45) / cs
-        if j < 17:                                             # whip pan along the road toward the car
-            u = ease((j - 11) / 6, 'out')
-            cx = (-1400 + (rest + 1400) * u)
-            img = s.road(i, cx, cs, gy, beam=False)
-            sm = img.copy(); step = 14 - 2 * (j - 12)          # horizontal pixel smear in the pan direction
-            for x in range(W):
-                sm[:, x] = img[:, (x // step) * step]
-            return sm
-        return s.road(i, rest, cs, gy)
+        """j = transition frame 0..71: face close-up (0-23), whip pan (24-33), brake + freeze (34-71)."""
+        sc, gy = 0.2, 392
+        rest = (W / 2 - 45) / sc
+        if j < 24:
+            bg = s.road(30, rest - 300, sc, gy, beam=False) if not hasattr(s, '_facebg') else s._facebg
+            s._facebg = bg
+            return RS.face(j, RS.dark_grade(bg) // 2 + bg // 2)
+        if j < 34:
+            u = ease((j - 23) / 11, 'out')
+            cx = -1600 + (rest + 1600) * u
+            img = s.road(j, cx, sc, gy, beam=False)
+            step = max(1, 12 - (j - 24))
+            idx = (np.arange(W) // step) * step
+            return img[:, idx]
+        return s.road(min(j, 64), rest, sc, gy)
 
-    def drawing(s, d):
-        return s.fight(d) if d < s.ND else s.transition(min(d - s.ND, TRD - 4))   # last 4 drawings: freeze
-
-    def frame(s, o, cache):
-        d = o // 2
-        if d not in cache:
-            cache.clear(); cache[d] = s.drawing(d)
-        img = cache[d]
-        if d == s.ND - 1:                                      # finisher flash = the cut (2 output frames)
-            img = s.flash(img, o % 2)
-        return img
+    def frame(s, o):
+        img = s.fight(o) if o < NF_FIGHT else s.transition(o - NF_FIGHT)
+        return RS.vignette(img)
 
 
-def upscale(idx):
-    return PAL[np.repeat(np.repeat(idx, UP, 0), UP, 1)]
+def upscale(img):
+    return np.repeat(np.repeat(img, UP, 0), UP, 1)
 
 
 # ---------------------------------------------------------------- chiptune sound
@@ -378,21 +366,20 @@ def audio(F, path):
         if i < n: seg = sig[:n - i]; mix[i:i + len(seg)] += seg * g
     tof = lambda d: 2 * d / FPS
     for k in F.contacts:
-        dp = F.draws.index(min(F.draws, key=lambda x: abs(x - k['peak'])))
-        put(chip_whoosh(.16 if k['size'] < 1 else .22), tof(dp) - .1, .5 + .2 * min(k['size'], 1.5))
+        op = F.story.index(min(F.story, key=lambda x: abs(x - k['peak'])))
+        put(chip_whoosh(.16 if k['size'] < 1 else .22), op / FPS - .1, .5 + .2 * min(k['size'], 1.5))
         if not k['evade']:
-            put(chip_thump(.22 if not k['finisher'] else .35), tof(k['d']), .8 + .3 * k['size'])
-            put(chip_bass(.6 if k['finisher'] else .4, 45 if k['finisher'] else 55), tof(k['d']), .6 + .3 * k['size'])
-    for f, who, side in F.dust:
-        d0 = F.draws.index(min(F.draws, key=lambda x: abs(x - f)))
-        put(crush(sfx.lp(np.random.default_rng(f).standard_normal(int(SR * .08)), 8) * np.hanning(int(SR * .08)), 4, 4), tof(d0), .25)
-    t0 = tof(F.ND)
+            put(chip_thump(.22 if not k['finisher'] else .35), k['o'] / FPS, .8 + .3 * k['size'])
+            put(chip_bass(.6 if k['finisher'] else .4, 45 if k['finisher'] else 55), k['o'] / FPS, .6 + .3 * k['size'])
+    for o0, f, who, side in F.dust:
+        put(crush(sfx.lp(np.random.default_rng(f).standard_normal(int(SR * .08)), 8) * np.hanning(int(SR * .08)), 4, 4), o0 / FPS, .25)
+    t0 = NF_FIGHT / FPS
     put(sfx.boom(1.0), t0 - 2 / FPS, .8)                                        # flash cut
-    put(chip_whoosh(.28, False), t0 + tof(12) - .05, 1.0)                      # whip pan
-    put(crush(sq(70 + 40 * np.linspace(0, 1, int(SR * .5)), .5) * np.linspace(0, .4, int(SR * .5)), 4, 8), t0 + tof(10), .5)
+    put(chip_whoosh(.28, False), t0 + 24 / FPS - .05, 1.0)                     # whip pan
+    put(crush(sq(70 + 40 * np.linspace(0, 1, int(SR * .5)), .5) * np.linspace(0, .4, int(SR * .5)), 4, 8), t0 + 20 / FPS, .5)
     put(chip_screech(.55), t0 + 40 / FPS, .9)                                   # cartoon brake
     put(chip_thump(.18), t0 + 62 / FPS, .5)
-    put(F6.record_scratch(), tof(NDRAW - 4) - .02, 1.0)                          # freeze
+    put(F6.record_scratch(), t0 + 64 / FPS - .02, 1.0)                          # freeze
     fade = np.ones(n); fade[-int(SR * .02):] = np.linspace(1, 0, int(SR * .02)); mix *= fade
     g, ceil = 1.0 / np.abs(mix).max(), 10 ** (-2.0 / 20)
     for _ in range(10):
@@ -411,10 +398,10 @@ def audio(F, path):
 
 # ---------------------------------------------------------------- report + main
 def report(F):
-    print('drawings: fight %d (story %d), transition %d; output frames %d' % (F.ND, len(F.Wd['hero']), TRD, NDRAW * 2))
+    print('frames: fight %d (story %d + hit-stops), transition %d' % (NF_FIGHT, len(F.Wd['hero']), NF_TR))
     for k in F.contacts:
         print('beat %2d %-4s %-11s -> %-4s planned %3d speed-found %3d (peak %3d, %4.0f u/s) out %3d hitstop %d%s' % (
-            k['beat'], k['att'], k['seg'].m.name, k['dfn'], k['c_planned'], k['c'], k['peak'], k['vpeak'], 2 * k['d'],
+            k['beat'], k['att'], k['seg'].m.name, k['dfn'], k['c_planned'], k['c'], k['peak'], k['vpeak'], k['o'],
             k['hitstop'], ' EVADE' if k['evade'] else (' -> ' + k['rseg'].m.name if k.get('rseg') else '')))
     hit = set()
     for k in F.contacts: hit.update(range(k['c'] - 6, k['c'] + 8))
@@ -428,17 +415,17 @@ def report(F):
             on = (an[1:, 1] < 50) & (v > 1.5) & ~F.slide[who][1:]
             sl.append(int(on.sum()))
     print('foot-sliding story frames (ankle down, >1.5 u/frame, not a slide move): hero %d/%d opp %d/%d' % tuple(sl))
-    fs = [d for d in range(F.ND) if any(abs(d - k['d']) < 1 for k in F.contacts)]
-    print('flash output frames:', [2 * F.ND - 2, 2 * F.ND - 1])
+    print('dark flash-cut frames:', [o for o in range(NF_FIGHT) if F.flash_on(o)])
 
 
 def main():
     os.makedirs(OUT, exist_ok=True)
     F = Film(); report(F)
-    pal = np.zeros(256, bool)
-    if '--drawings' in sys.argv:
-        for d in map(int, sys.argv[sys.argv.index('--drawings') + 1].split(',')):
-            Image.fromarray(upscale(F.drawing(d))).resize((270 * 2, 480 * 2), Image.NEAREST).save(os.path.join(OUT, 'p6_%03d.png' % d))
+    if '--frames' in sys.argv:
+        fr = list(map(int, sys.argv[sys.argv.index('--frames') + 1].split(',')))
+        for o in range(max(fr) + 1):                              # cloth state is sequential: render in order
+            img = F.frame(o)
+            if o in fr: Image.fromarray(img).save(os.path.join(OUT, 'p6_%03d.png' % o))
         return
     wav = os.path.join(OUT, 'pixel-fight6-sfx.wav')
     Il, P = audio(F, wav); print('audio I=%.1f LUFS TP=%.1f dBTP' % (Il, P))
@@ -447,12 +434,16 @@ def main():
            '-r', str(FPS), '-i', '-', '-i', wav, '-map', '0:v', '-map', '1:a', '-c:v', 'libx264', '-preset', 'slow',
            '-crf', '16', '-pix_fmt', 'yuv420p', '-vf', 'setsar=1', '-aspect', '9:16', '-c:a', 'aac', '-b:a', '256k',
            '-t', '6.000', '-movflags', '+faststart', mp4]
-    pr = subprocess.Popen(cmd, stdin=subprocess.PIPE); cache = {}
+    pr = subprocess.Popen(cmd, stdin=subprocess.PIPE); cols = []
+    os.makedirs(os.path.join(OUT, 'art'), exist_ok=True)
     for o in range(NDRAW * 2):
-        idx = F.frame(o, cache); pal[np.unique(idx)] = True
-        pr.stdin.write(upscale(idx).tobytes())
+        img = F.frame(o)
+        if o % 30 == 0:
+            cols.append(len(np.unique(img.reshape(-1, 3), axis=0)))
+            Image.fromarray(img).save(os.path.join(OUT, 'art', 'a%03d.png' % o))
+        pr.stdin.write(upscale(img).tobytes())
     pr.stdin.close(); pr.wait()
-    print('palette colours used: %d ->' % pal.sum(), mp4)
+    print('colours per frame (every 0.5 s):', cols, '->', mp4)
 
 
 if __name__ == '__main__':
