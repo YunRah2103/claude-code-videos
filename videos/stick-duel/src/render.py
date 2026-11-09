@@ -63,7 +63,8 @@ def build_bg():
             dn = M[min(h - 1, y + 3), x]
             c = LT if rnd.random() > .04 else SH
             if not up: c = HL
-            elif not dn or y > 27: c = SH if rnd.random() > .06 else LT
+            elif not dn: c = SH if rnd.random() > .06 else LT
+            elif not M[min(h - 1, y + 5), x]: c = (233, 234, 237) if rnd.random() > .1 else LT
             px[x, y] = c
     # mountains: back light ridge + front darker ridge, slopes shaded by facing
     sr_ = np.random.default_rng(21)
@@ -73,9 +74,19 @@ def build_bg():
 
     def ridge(xs, ys, light, mid, dark, rim):
         top = np.interp(np.arange(w), xs, ys)
+        peaks = [x for x in range(2, w - 2) if top[x] <= top[x - 2] and top[x] <= top[x + 2] and top[x] < top[x - 2] + top[x + 2] - top[x] - 0.5] or [w // 2]
+        for x in range(w):
+            pk = min(peaks, key=lambda p: abs(p - x))
+            for y in range(int(top[x]) + 1, 52):             # broad lit faces left of each peak, shaded faces right
+                depth = y - top[x]
+                if x < pk and depth < (pk - x) * 0.9 + 3 and STREAK[y, x] > -0.9:
+                    px[x, y] = light
+                elif x > pk and depth < (x - pk) * 0.6 + 2 and STREAK[y, x] < 0.9:
+                    px[x, y] = dark
         for x in range(w):
             slope = top[min(w - 1, x + 1)] - top[max(0, x - 1)]
             for y in range(int(top[x]), 52):
+                if px[x, y] in (light, dark) and y > top[x]: continue
                 c = mid
                 if y < top[x] + 1: c = rim
                 elif slope > 0.3 and y < top[x] + 6: c = dark
