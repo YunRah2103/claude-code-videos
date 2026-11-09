@@ -735,7 +735,7 @@ def audio(path):
     mix = mus * env * 0.55
     ev = [(0.02, sfx.whoosh(0.3, 10)), (0.18, sfx.whoosh(0.25, 6)), (0.28, clang()), (0.28, sfx.boom(0.8) * .8),
           (0.56, crackle(0.4)), (0.58, sfx.whoosh(0.3, 8)), (0.8, sfx.boom(0.6) * .6), (1.32, sfx.whoosh(0.3, 12)),
-          (1.4, sfx.whoosh(0.3, 12)), (1.7, sfx.whoosh(0.3, 10)), (1.98, clang(0.8) * 1.1), (2.14, crackle(0.5)),
+          (1.28, sfx.whoosh(0.16, 12)), (1.7, sfx.whoosh(0.3, 10)), (1.98, clang(0.8) * 1.1), (2.14, crackle(0.5)),
           (2.16, sfx.whoosh(0.4, 6)), (2.4, clang(0.4) * .6), (2.62, sfx.boom(1.2) * 1.2), (2.8, crackle(0.65)),
           (2.9, sfx.whoosh(0.25, 8)), (3.1, sfx.whoosh(0.25, 8)), (3.3, sfx.whoosh(0.25, 8)), (3.44, sfx.whoosh(0.3, 10)),
           (3.6, crackle(0.4)), (3.68, sfx.boom(1.0)), (3.82, crackle(0.6)), (3.95, clang(0.5) * .7),
@@ -744,8 +744,8 @@ def audio(path):
     for t0 in (0.30, 0.56, 1.49, 2.04, 2.25, 3.55, 3.72, 4.48):   # strongest hits measured in the reference
         snap = rng.standard_normal(int(SR * .04)) * np.exp(-sfx.T(.04) * 70)
         ev += [(t0, sfx.boom(0.7) * 1.1), (t0, clang(0.5) * 1.2), (t0, snap * 3.0)]
-    for t0 in (0.30, 1.49, 3.72):                             # these were masked by nearby whooshes/crackle
-        ev.append((t0, rng.standard_normal(int(SR * .03)) * np.exp(-sfx.T(.03) * 90) * 3.0))
+    for t0, g_ in ((0.30, 3.0), (1.49, 5.5), (3.72, 5.0)):   # these were masked by nearby whooshes/crackle
+        ev.append((t0, rng.standard_normal(int(SR * .03)) * np.exp(-sfx.T(.03) * 90) * g_))
     for t0, s in ev:
         add(mix, int(t0 * SR), s * 0.8)
     F = np.fft.rfft(mix); fq = np.fft.rfftfreq(len(mix), 1 / SR)      # EQ toward reference band balance
