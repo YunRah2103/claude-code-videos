@@ -745,7 +745,7 @@ def audio(path):
         snap = rng.standard_normal(int(SR * .04)) * np.exp(-sfx.T(.04) * 70)
         ev += [(t0, sfx.boom(0.7) * 1.1), (t0, clang(0.5) * 1.2), (t0, snap * 3.0)]
     hr = np.random.default_rng(99)                           # own seed: hit levels stay stable while tuning
-    for t0, g_ in ((0.30, 4.5), (1.49, 7.0), (3.72, 6.0)):   # these were masked by nearby whooshes/crackle
+    for t0, g_ in ((0.30, 4.5), (1.49, 9.0), (3.55, 5.0), (3.72, 6.0)):   # these were masked by nearby whooshes/crackle
         ev.append((t0, hr.standard_normal(int(SR * .03)) * np.exp(-sfx.T(.03) * 90) * g_))
     for t0, s in ev:
         add(mix, int(t0 * SR), s * 0.8)
