@@ -322,7 +322,7 @@ def build_camera(S):
     hh = np.array([head_centre(S['hero'], poses(S, f)[0])[:2] for f in range(NF)])
     oh = np.array([head_centre(S['ob'], poses(S, f)[1])[:2] for f in range(NF)])
     oroot = np.array([poses(S, f)[1][0, :2] for f in range(NF)])
-    wo = np.array([0.45 if f < FI else 0.55 * (1 - ease((f - FI - 18) / (NF - 28 - FI - 18), 'io'))
+    wo = np.array([0.45 if f < FI else 0.55 * (1 - ease((f - FI - 18) / (NF - 28 - FI - 18), 'out'))
                    for f in range(NF)])                 # after the fall: drift from him back onto the hero
     tx = gaussian_filter1d(hh[:, 0] * (1 - wo) + np.where(np.arange(NF)[:, None] < FI, oh, oroot)[:, 0] * wo, 6)
     ty = gaussian_filter1d(np.where(np.arange(NF) < FI, (hh[:, 1] + oh[:, 1]) / 2, hh[:, 1]), 8) + 330
@@ -330,14 +330,14 @@ def build_camera(S):
     cams = []
     for f in range(NF):
         if f <= FI - 3:
-            z = 1.32 + 0.3 * ease(f / (FI - 3), 'io'); c = (tx[f], ty[f], z, 0.0)
+            z = 1.32 + 0.3 * (f / (FI - 3)) ** 0.8; c = (tx[f], ty[f], z, 0.0)   # push-in starts at once
         elif f < FI:
             a = cams[FI - 3]; u = ease((f - FI + 3) / 3, 'in')
             c = tuple(a[i] + ((IP[0], IP[1] + 40, 2.7, -0.09)[i] - a[i]) * u for i in range(4))
         elif f <= FI + 3:                            # close-up holds through the hit-stop
             u = (f - FI) / 3; c = (IP[0] + 10 * u, IP[1] + 40 - 8 * u, 2.7 + 0.1 * u, -0.09)
         else:
-            c = (tx[f], ty[f] + 20, 1.04 + 0.34 * ease((f - FI - 18) / (NF - 28 - FI - 18), 'io'), 0.0)
+            c = (tx[f], ty[f] + 20, 1.04 + 0.34 * ease((f - FI - 18) / (NF - 28 - FI - 18), 'out'), 0.0)
             if f < FI + 18:                          # fast pull-back so the knock-down is seen
                 a = cams[FI + 3]; u = ease((f - FI - 3) / 15, 'snap')
                 c = tuple(a[i] + (c[i] - a[i]) * u for i in range(4))
