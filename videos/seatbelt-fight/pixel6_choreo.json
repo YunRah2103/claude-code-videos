@@ -1,50 +1,48 @@
 {
-  "about": "6 s pixel-stickman fight test (pixel6.py). Frames are STORY frames at 60 fps; figures are drawn on 1s at 30 fps (one drawing per 2 story frames, each held for 2 output frames at 60 fps). 'hitstop' counts extra 30 fps drawings frozen on the contact. Each contact frame is re-found from the attacker's effector speed (full extension after the speed peak) and the defender's reaction starts on it. 'at' places the move's key frame when align='key'. Moves: shared/assets/mocapmoves.",
+  "about": "6 s pixel-stickman fight (pixel6.py). STORY frames at 60 fps; 'hitstop' counts extra 30 fps frames held on the contact (x2 at 60 fps). Contacts are re-found from effector speed; the defender reacts on that frame. Mocap boxing for the close exchanges, authored acrobatic moves (authored.py) for the flashy beats; 'weapon' beats draw the hero's blade and the slash follows its tip.",
   "fps": 60,
   "fight_drawings": 144,
-  "fight_story_frames": 258,
+  "fight_story_frames": 260,
   "transition_frames": 72,
   "crossfade": 6,
-  "start": {"hero": {"x": -330, "move": "ready"}, "opp": {"x": 330, "move": "ready"}},
+  "start": {"hero": {"x": -300, "move": "ready"}, "opp": {"x": 300, "move": "ready"}},
   "beats": [
-    {"n": 1, "label": "square up, opponent already stepping in", "actions": [
+    {"n": 1, "label": "square up; opponent steps in", "actions": [
       {"who": "hero", "move": "ready", "at": 0, "align": "start"},
       {"who": "opp", "move": "step_in", "at": 0, "align": "start", "speed": 1.3}]},
-    {"n": 2, "label": "opponent jab, hero slips", "actions": [
-      {"who": "opp", "move": "jab", "at": 30, "align": "key", "speed": 1.2},
-      {"who": "hero", "move": "slip", "at": 30, "align": "key", "speed": 1.1}],
+    {"n": 2, "label": "opponent jab, hero slips (mocap)", "actions": [
+      {"who": "opp", "move": "jab", "at": 28, "align": "key", "speed": 1.2},
+      {"who": "hero", "move": "slip", "at": 28, "align": "key", "speed": 1.1}],
       "contact": {"attacker": "opp", "defender": "hero", "target": "head", "evade": true}},
-    {"n": 3, "label": "hero jab", "actions": [
-      {"who": "hero", "move": "jab", "at": 52, "align": "key", "speed": 1.25}],
+    {"n": 3, "label": "hero jab (mocap)", "actions": [
+      {"who": "hero", "move": "jab", "at": 46, "align": "key", "speed": 1.3}],
       "contact": {"attacker": "hero", "defender": "opp", "target": "head", "hitstop": 2, "size": 0.7, "fx": "spark",
                   "reaction": {"move": "stagger", "speed": 1.3}}},
-    {"n": 4, "label": "hero cross", "actions": [
-      {"who": "hero", "move": "cross", "at": 68, "align": "key", "speed": 1.25}],
+    {"n": 4, "label": "hero cross (mocap)", "actions": [
+      {"who": "hero", "move": "cross", "at": 62, "align": "key", "speed": 1.3}],
       "contact": {"attacker": "hero", "defender": "opp", "target": "head", "hitstop": 2, "size": 0.8, "fx": "spark",
                   "reaction": {"move": "stagger", "speed": 1.3}}},
-    {"n": 5, "label": "hero steps back to make room; opponent roundhouse, hero blocks", "actions": [
-      {"who": "hero", "move": "step_back", "at": 78, "align": "start", "speed": 1.3},
-      {"who": "opp", "move": "roundhouse", "at": 114, "align": "key", "speed": 1.3},
-      {"who": "hero", "move": "block", "at": 114, "align": "key", "mirror": true, "speed": 1.2}],
-      "contact": {"attacker": "opp", "defender": "hero", "target": "guard", "hitstop": 2, "size": 0.7, "fx": "fire"}},
-    {"n": 6, "label": "opponent jab-feint, hero ducks", "actions": [
-      {"who": "opp", "move": "jab", "at": 142, "align": "key", "speed": 1.25},
-      {"who": "hero", "move": "duck", "at": 142, "align": "key", "speed": 1.1}],
+    {"n": 5, "label": "opponent roundhouse, hero backflips out (authored)", "actions": [
+      {"who": "opp", "move": "roundhouse", "at": 100, "align": "key", "speed": 1.3},
+      {"who": "hero", "move": "backflip_dodge", "at": 100, "align": "key"}],
       "contact": {"attacker": "opp", "defender": "hero", "target": "head", "evade": true}},
-    {"n": 7, "label": "hero knee out of the duck, opponent knocked back", "actions": [
-      {"who": "hero", "move": "knee", "at": 160, "align": "key", "speed": 1.15}],
-      "contact": {"attacker": "hero", "defender": "opp", "target": "body", "hitstop": 2, "size": 0.8, "fx": "spark",
-                  "reaction": {"move": "knock_back", "speed": 1.45, "slide": true}}},
-    {"n": 8, "label": "hero roundhouse, opponent staggers", "actions": [
-      {"who": "hero", "move": "roundhouse", "at": 214, "align": "key", "speed": 1.35}],
+    {"n": 6, "label": "hero dash-in covers the distance (authored)", "actions": [
+      {"who": "hero", "move": "dash_in", "at": 116, "align": "start"}]},
+    {"n": 7, "label": "WEAPON: spinning blade slash, opponent knocked away (authored)", "actions": [
+      {"who": "hero", "move": "spin_slash", "at": 154, "align": "key"}],
+      "contact": {"attacker": "hero", "defender": "opp", "target": "head", "hitstop": 3, "size": 1.0, "fx": "fire", "weapon": true,
+                  "reaction": {"move": "knock_back", "speed": 1.3, "slide": true}}},
+    {"n": 8, "label": "aerial kick (authored)", "actions": [
+      {"who": "hero", "move": "aerial_kick", "at": 192, "align": "key"}],
       "contact": {"attacker": "hero", "defender": "opp", "target": "head", "hitstop": 3, "size": 1.0, "fx": "fire",
                   "reaction": {"move": "stagger", "speed": 1.3}}},
-    {"n": 9, "label": "hero winds up the finisher", "actions": [
-      {"who": "hero", "move": "lunge_punch", "at": 244, "align": "key", "speed": 1.5}]},
-    {"n": 10, "label": "FINISHER: lunge punch (close push-in, fire burst)", "contact": {"attacker": "hero", "defender": "opp",
-      "target": "head", "hitstop": 4, "size": 1.6, "finisher": true, "fx": "fire",
-      "reaction": {"move": "fall", "speed": 1.0, "slide": true, "fly": true}}, "actions": [], "of_beat": 9},
-    {"n": 11, "label": "opponent thrown out of frame, dust", "actions": []},
-    {"n": 12, "label": "2-frame finisher flash cuts to the headlights transition", "actions": []}
+    {"n": 9, "label": "slide to close the gap (authored)", "actions": [
+      {"who": "hero", "move": "slide", "at": 205, "align": "start", "speed": 1.6}]},
+    {"n": 10, "label": "FINISHER (weapon): blade slash, opponent flies away", "actions": [
+      {"who": "hero", "move": "spin_slash", "at": 240, "align": "key"}],
+      "contact": {"attacker": "hero", "defender": "opp", "target": "head", "hitstop": 4, "size": 1.6, "finisher": true, "fx": "fire", "weapon": true,
+                  "reaction": {"move": "fall", "speed": 1.0, "slide": true, "fly": true}}},
+    {"n": 11, "label": "opponent thrown out of frame", "actions": []},
+    {"n": 12, "label": "dark flash cuts to the headlights transition", "actions": []}
   ]
 }
