@@ -5,7 +5,9 @@ holds for hit-stop, and anticipation / follow-through keys. Strike keys marked `
 fist, foot or blade tip lands exactly on the target at the contact frame. Output: per-frame joint arrays in
 the 31-joint layout the renderer uses (60 fps, hit-stops baked in as holds).
 
-Compact stickman proportions: ~620 units tall, big round head (radius 70, ~23 % of the height).
+Classic stickman proportions: ~520 units tall, head diameter ~22 % of the height, legs ~half the height,
+arms reaching mid-thigh. Keyed curves are smoothed (strike and hit-stop frames kept crisp) and the arms
+trail the body by 2 frames, the head by 1, for overlapping, fluid motion.
 Angles in degrees: limbs from straight down (+ = forward / up), spine from vertical (+ = leaning forward),
 'rot' rolls the whole body (+ = backward flip). 'dx' moves the fighter toward the opponent.
 """
@@ -16,8 +18,8 @@ NAMES = ['root', 'lhipjoint', 'lfemur', 'ltibia', 'lfoot', 'ltoes', 'rhipjoint',
          'lowerback', 'upperback', 'thorax', 'lowerneck', 'upperneck', 'head', 'lclavicle', 'lhumerus', 'lradius',
          'lwrist', 'lhand', 'lfingers', 'lthumb', 'rclavicle', 'rhumerus', 'rradius', 'rwrist', 'rhand', 'rfingers', 'rthumb']
 I = {n: i for i, n in enumerate(NAMES)}
-HEAD_R, FIG, BLADE = 70.0, 620.0, 250.0
-L = dict(hip=20, thigh=150, shin=145, foot=40, lb=60, ub=60, th=55, ln=10, un=16, head=90, upper=118, fore=108, hand=34)
+HEAD_R, FIG, BLADE = 58.0, 520.0, 210.0
+L = dict(hip=16, thigh=116, shin=110, foot=32, lb=50, ub=50, th=46, ln=8, un=14, head=78, upper=96, fore=88, hand=26)
 
 STANCE = dict(lean=10, head=-4, rot=0, air=0, lhip=30, lknee=42, rhip=-24, rknee=32, lsh=48, lel=78, rsh=28, rel=112)
 POSES = {
@@ -65,12 +67,12 @@ def pose(k):
         thigh = k[s + 'hip']; shin = thigh - k[s + 'knee']
         kn = hip + down(thigh) * L['thigh']; an = kn + down(shin) * L['shin']
         fd = np.array([math.cos(math.radians(shin * .4)), math.sin(math.radians(shin * .4))])
-        ft = an + fd * L['foot'] + [0, -10]; to = ft + fd * 16
-        put(s + 'hipjoint', hip, 24 * z); put(s + 'femur', kn, 36 * z); put(s + 'tibia', an, 44 * z)
-        put(s + 'foot', ft, 46 * z); put(s + 'toes', to, 46 * z)
+        ft = an + fd * L['foot'] + [0, -8]; to = ft + fd * 12
+        put(s + 'hipjoint', hip, 20 * z); put(s + 'femur', kn, 30 * z); put(s + 'tibia', an, 36 * z)
+        put(s + 'foot', ft, 38 * z); put(s + 'toes', to, 38 * z)
         sh = th + [0, -6]; ua = k[s + 'sh']; fa = ua + k[s + 'el']
         el = sh + down(ua) * L['upper']; wr = el + down(fa) * L['fore']
-        put(s + 'clavicle', sh, 36 * z); put(s + 'humerus', el, 42 * z); put(s + 'radius', wr, 38 * z)
+        put(s + 'clavicle', sh, 30 * z); put(s + 'humerus', el, 34 * z); put(s + 'radius', wr, 32 * z)
         put(s + 'wrist', wr + down(fa) * 10, 38 * z); put(s + 'hand', wr + down(fa) * L['hand'], 38 * z)
         put(s + 'fingers', wr + down(fa) * (L['hand'] + 6), 38 * z); put(s + 'thumb', wr + down(fa + 30) * 10, 34 * z)
     r = k.get('rot', 0) % 360
@@ -78,10 +80,10 @@ def pose(k):
         c = P[I['lowerback'], :2].copy(); a = math.radians(r); ca, sa = math.cos(a), math.sin(a)
         v = P[:, :2] - c
         P[:, 0] = c[0] + v[:, 0] * ca - v[:, 1] * sa; P[:, 1] = c[1] + v[:, 0] * sa + v[:, 1] * ca
-        low = P[:, 1].min() - 30
+        low = P[:, 1].min() - 24
     else:
         low = min(P[I['ltibia'], 1], P[I['rtibia'], 1])
-    P[:, 1] += 30 - low + k['air']
+    P[:, 1] += 24 - low + k['air']
     P[:, 1] = np.maximum(P[:, 1], 0)
     return P
 
@@ -96,52 +98,42 @@ def K(f, name, ease='io', **kw):
 
 
 # ---------------------------------------------------------------- the choreography (60 fps output frames)
-# Contacts: frame, attacker, effector, target, hit-stop (30 fps frames, held x2), effect.
+# Fewer, longer moves: 10-14 frame anticipation, short snap, long follow-through. Hit-stop = held keys.
 CONTACTS = [
-    dict(beat=2, c=22, att='opp', eff='lhand', target='head', evade=True, label='opponent jab, hero slips'),
-    dict(beat=3, c=34, att='hero', eff='lhand', target='head', hitstop=2, size=.7, fx='spark', label='hero jab'),
-    dict(beat=4, c=50, att='hero', eff='rhand', target='head', hitstop=2, size=.8, fx='spark', label='hero cross'),
-    dict(beat=5, c=78, att='opp', eff='rtoes', target='head', evade=True, label='opponent kick, hero backflips out'),
-    dict(beat=7, c=122, att='hero', eff='blade', target='head', hitstop=3, size=1.0, fx='fire', weapon=True, label='dash-in blade slash'),
-    dict(beat=8, c=168, att='hero', eff='rtoes', target='head', hitstop=3, size=1.0, fx='fire', label='leaping aerial kick'),
-    dict(beat=9, c=204, att='opp', eff='rhand', target='rhand', hitstop=2, size=.6, fx='spark', label='opponent lunge, blade block'),
-    dict(beat=10, c=238, att='hero', eff='blade', target='head', hitstop=4, size=1.6, fx='fire', weapon=True, finisher=True,
-         label='FINISHER: slide in, rising blade slash'),
+    dict(beat=2, c=58, att='opp', eff='lhand', target='head', evade=True, label='opponent jab, hero slips'),
+    dict(beat=3, c=92, att='hero', eff='lhand', target='head', hitstop=2, size=.7, fx='spark', label='hero jab'),
+    dict(beat=4, c=112, att='hero', eff='rhand', target='head', hitstop=2, size=.8, fx='spark', label='hero cross'),
+    dict(beat=5, c=150, att='opp', eff='rtoes', target='head', evade=True, tilt=True, label='opponent kick, hero backflips out'),
+    dict(beat=7, c=222, att='hero', eff='blade', target='head', hitstop=3, size=1.0, fx='fire', weapon=True, label='dash-in blade slash'),
+    dict(beat=10, c=262, att='hero', eff='blade', target='head', hitstop=4, size=1.6, fx='fire', weapon=True, finisher=True, tilt=True,
+         label='FINISHER: leaping blade slash, opponent flies away'),
 ]
+SHOTPLAN = [(0, 'wide'), (74, 'medium'), (128, 'wide'), (188, 'medium'), (240, 'wide'), (256, 'close'), (276, 'wide')]
+DUST = [(40, 'opp'), (174, 'hero'), (204, 'hero'), (246, 'opp'), (280, 'hero'), (287, 'opp')]
 
-HERO = [K(0, 'stance'), K(10, 'bob'), K(16, 'stance'),
-        K(20, 'slip', 'snap', dx=-30), K(28, 'stance', 'io', dx=10),
-        K(31, 'crouch', 'out'), K(34, 'jab', 'snap', reach=('head', 'lhand')), K(38, 'jab', 'hold'), K(44, 'stance', 'out'),
-        K(46, 'crouch', 'out', dx=10), K(50, 'cross', 'snap', reach=('head', 'rhand')), K(54, 'cross', 'hold'), K(62, 'stance', 'out'),
-        K(70, 'crouch', 'out'),
-        K(78, 'tuck', 'lin', dx=-150, air=200, rot=140), K(86, 'tuck', 'lin', dx=-120, air=220, rot=290),
-        K(94, 'land', 'in', dx=-60, rot=360), K(102, 'stance', 'io', rot=360),
-        K(106, 'crouch', 'out', rot=360, weapon=True), K(113, 'dash', 'snap', dx=190, rot=360), K(117, 'wind', 'out', dx=40, rot=360),
-        K(122, 'slash', 'snap', reach=('head', 'blade'), rot=360), K(128, 'slash', 'hold', rot=360),
-        K(136, 'follow', 'out', dx=20, rot=360), K(146, 'stance', 'io', rot=360, weapon=False),
-        K(152, 'crouch', 'out', rot=360), K(160, 'tuck', 'out', dx=400, air=210, rot=360),
-        K(168, 'airkick', 'snap', reach=('head', 'rtoes'), air=230, rot=360), K(174, 'airkick', 'hold', air=230, rot=360),
-        K(184, 'land', 'in', dx=40, rot=360), K(192, 'stance', 'io', rot=360),
-        K(197, 'stance', 'io', rot=360, weapon=True), K(202, 'block', 'snap', rot=360), K(208, 'block', 'hold', rot=360),
-        K(212, 'crouch', 'out', dx=-10, rot=360), K(221, 'slide', 'out', dx=110, rot=360), K(228, 'crouch', 'out', dx=40, rot=360),
-        K(232, 'wind', 'out', dx=10, rot=360), K(238, 'slash', 'snap', reach=('head', 'blade'), rot=360), K(246, 'slash', 'hold', rot=360),
-        K(256, 'follow', 'out', dx=30, rot=360), K(270, 'stance', 'io', rot=360), K(287, 'bob', 'io', rot=360)]
+HERO = [K(0, 'stance'), K(18, 'bob'), K(36, 'stance', dx=20), K(50, 'bob'),
+        K(58, 'slip', 'out', dx=-30), K(72, 'stance', 'io', dx=10),
+        K(82, 'crouch', 'io'), K(92, 'jab', 'snap', reach=('head', 'lhand')), K(96, 'jab', 'hold'),
+        K(104, 'crouch', 'out'), K(112, 'cross', 'snap', reach=('head', 'rhand')), K(116, 'cross', 'hold'), K(130, 'stance', 'out'),
+        K(138, 'crouch', 'io'),
+        K(148, 'tuck', 'out', dx=-110, air=170, rot=130), K(161, 'tuck', 'lin', dx=-100, air=185, rot=265),
+        K(174, 'land', 'in', dx=-45, rot=360), K(186, 'stance', 'io', rot=360, weapon=True),
+        K(194, 'crouch', 'io', rot=360), K(205, 'dash', 'out', dx=110, rot=360), K(213, 'wind', 'out', dx=40, rot=360),
+        K(222, 'slash', 'snap', reach=('head', 'blade'), rot=360), K(228, 'slash', 'hold', rot=360),
+        K(238, 'follow', 'out', dx=20, rot=360), K(246, 'crouch', 'io', rot=360),
+        K(254, 'wind', 'out', dx=260, air=150, rot=360), K(262, 'slash', 'snap', reach=('head', 'blade'), air=110, rot=360),
+        K(270, 'slash', 'hold', air=110, rot=360), K(280, 'follow', 'in', dx=30, air=0, rot=360), K(287, 'follow', 'io', rot=360)]
 
-OPP = [K(0, 'stance'), K(4, 'crouch', 'out'), K(12, 'dash', 'snap', dx=170), K(17, 'stance', 'out', dx=20),
-       K(22, 'jab', 'snap', reach=('head@16', 'lhand')), K(28, 'stance', 'out'),
-       K(34, 'stance', 'hold'), K(38, 'stance', 'hold'), K(43, 'hit', 'snap', dx=-50), K(48, 'stance', 'io', dx=-10),
-       K(50, 'stance', 'hold'), K(54, 'stance', 'hold'), K(59, 'stagger', 'snap', dx=-60), K(64, 'stance', 'io'),
-       K(71, 'chamber', 'out', dx=50), K(78, 'kick', 'snap', reach=('head@70', 'rtoes')), K(86, 'chamber', 'out'), K(95, 'stance', 'io', dx=10),
-       K(116, 'stance', 'io'), K(122, 'stance', 'hold'), K(128, 'stance', 'hold'),
-       K(135, 'fly', 'out', dx=-250, air=110, rot=-15), K(143, 'land', 'in', dx=-70, rot=0), K(154, 'stance', 'io'),
-       K(162, 'stance', 'io', dx=10), K(168, 'stance', 'hold'), K(174, 'stance', 'hold'),
-       K(180, 'hit', 'snap', dx=-90), K(188, 'stagger', 'out', dx=-30), K(195, 'stance', 'io'),
-       K(199, 'crouch', 'out', dx=20), K(204, 'lunge', 'snap', reach=('rhand', 'rhand')), K(208, 'lunge', 'hold'),
-       K(215, 'stance', 'out', dx=-90), K(224, 'crouch', 'io', dx=-210), K(230, 'stance', 'io'), K(238, 'stance', 'hold'), K(246, 'stance', 'hold'),
-       K(252, 'fly', 'out', dx=-320, air=230, rot=-50), K(264, 'sprawl', 'lin', dx=-330, air=280, rot=-130),
-       K(278, 'sprawl', 'in', dx=-300, air=150, rot=-220), K(287, 'sprawl', 'in', dx=-200, air=0, rot=-280)]
+OPP = [K(0, 'stance'), K(16, 'crouch', 'io'), K(30, 'dash', 'out', dx=120), K(40, 'stance', 'io', dx=25),
+       K(50, 'crouch', 'io'), K(58, 'jab', 'snap', reach=('head@50', 'lhand')), K(72, 'stance', 'out'),
+       K(92, 'stance', 'io'), K(96, 'stance', 'hold'), K(104, 'hit', 'out', dx=-40), K(110, 'stance', 'io'),
+       K(112, 'stance', 'io'), K(116, 'stance', 'hold'), K(126, 'stagger', 'out', dx=-60), K(134, 'stance', 'io'),
+       K(140, 'chamber', 'io', dx=40), K(150, 'kick', 'snap', reach=('head@138', 'rtoes')), K(162, 'chamber', 'out'), K(176, 'stance', 'io'),
+       K(222, 'stance', 'io'), K(228, 'stance', 'hold'), K(238, 'fly', 'out', dx=-170, air=70, rot=-10), K(246, 'land', 'in', dx=-40, rot=0),
+       K(256, 'stagger', 'io'), K(262, 'stagger', 'io'), K(270, 'stagger', 'hold'),
+       K(279, 'fly', 'out', dx=-260, air=200, rot=-60), K(287, 'sprawl', 'lin', dx=-220, air=240, rot=-140)]
 
-START = {'hero': -260.0, 'opp': 330.0}
+START = {'hero': -230.0, 'opp': 290.0}
 FACE = {'hero': 1, 'opp': -1}
 N_FIGHT = 288
 
@@ -184,7 +176,7 @@ class Track:
             acc += sh; out.append(k['x'] + acc)
         return out
 
-    def at(s, f):
+    def params(s, f):
         ks, xs = s.keys, s.xs()
         j = max(i for i, k in enumerate(ks) if k['f'] <= f) if f >= ks[0]['f'] else 0
         if j == len(ks) - 1 or f <= ks[0]['f']:
@@ -194,7 +186,35 @@ class Track:
             u = EASE[b['ease']]((f - a['f']) / max(b['f'] - a['f'], 1e-6))
             p = {q: a['pose'][q] + (b['pose'][q] - a['pose'][q]) * u for q in a['pose']}
             x = xs[j] + (xs[j + 1] - xs[j]) * u
+        return p, x
+
+    def at(s, f):
+        p, x = s.params(f)
         return world(pose(p), x, s.d)
+
+    def frames(s, n, crisp):
+        """Fluid playback: smooth the keyed curves (sigma 2.5 frames) except near strikes/hit-stops (crisp),
+        and let the arms trail the body by 2 frames and the head by 1 (overlapping action)."""
+        from scipy.ndimage import gaussian_filter1d
+        names = list(STANCE)
+        raw = [s.params(f) for f in range(n)]
+        A = np.array([[p[q] for q in names] + [x] for p, x in raw])
+        Sm = gaussian_filter1d(A, 2.5, axis=0, mode='nearest')
+        w = np.ones(n)
+        for c0, c1 in crisp:
+            for f in range(max(0, c0 - 8), min(n, c1 + 4)):
+                d = 0 if c0 - 2 <= f <= c1 else min(abs(f - c0), abs(f - c1))
+                w[f] = min(w[f], min(1.0, d / 6.0))
+        A2 = A * (1 - w[:, None]) + Sm * w[:, None]
+        lag = {'lsh': 2, 'lel': 2, 'rsh': 2, 'rel': 2, 'head': 1}
+        out = []
+        for f in range(n):
+            p = {}
+            for i, q in enumerate(names):
+                g = max(0, f - lag.get(q, 0)) if w[f] > .5 else f
+                p[q] = A2[g, i]
+            out.append(world(pose(p), A2[f, -1], s.d))
+        return np.array(out)
 
 
 def solve(tracks):
@@ -227,7 +247,8 @@ def solve(tracks):
 def build():
     tracks = {'hero': Track('hero', HERO), 'opp': Track('opp', OPP)}
     solve(tracks)
-    Wd = {w: np.array([t.at(f) for f in range(N_FIGHT)]) for w, t in tracks.items()}
+    crisp = [(c['c'], c['c'] + 2 * c.get('hitstop', 0)) for c in CONTACTS]
+    Wd = {w: t.frames(N_FIGHT, crisp) for w, t in tracks.items()}
     weapon = np.zeros(N_FIGHT, bool); on = False; kf = 0
     for k in HERO:
         if k['weapon'] is not None:

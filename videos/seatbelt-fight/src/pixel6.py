@@ -114,7 +114,7 @@ TRD = NDRAW - 144
 NF_FIGHT, NF_TR = 288, 72
 import handfight as HF  # noqa: E402
 FIG = HF.FIG                                                  # compact stickman height in world units (to head top)
-SHOTS = {'wide': (0.30, 1.0, .885), 'medium': (0.45, 1.6, .965), 'close': (0.62, 2.4, None)}   # height frac, world zoom, feet row
+SHOTS = {'wide': (0.27, 1.0, .885), 'medium': (0.40, 1.6, .95), 'close': (0.56, 2.4, None)}   # height frac, world zoom, feet row
 BLADE = HF.BLADE
 
 
@@ -161,8 +161,7 @@ class Film:
     def camera(s):
         N = NF_FIGHT; o = lambda b: s.B[b]['o']
         hs10 = 2 * s.fin['hitstop']
-        s.shots = [(0, 'wide'), (o(3) - 16, 'medium'), (o(5) - 34, 'wide'), (o(7) - 26, 'medium'), (o(7) + 26, 'wide'),
-                   (o(8) + 22, 'medium'), (o(10) - 6, 'close'), (o(10) + hs10 + 6, 'wide'), (N, None)]
+        s.shots = list(HF.SHOTPLAN) + [(N, None)]
         hx = np.array([proj(s.pose('hero', t))[I['thorax'], 0] for t in s.story])
         ox = np.array([proj(s.pose('opp', t))[I['thorax'], 0] for t in s.story])
         of = o(10)
@@ -194,7 +193,7 @@ class Film:
                     if k['evade'] and k['beat'] != 5: continue
                     dd = f - k['o']
                     sc *= 1 + .07 * k['size'] ** .5 * math.exp(-((dd + 8) / 9) ** 2)      # push-in on the wind-up
-                    if k['beat'] in (5, 8):                                               # low tilt on the kicks
+                    if k.get('tilt'):                                                     # low tilt on the kicks / leap
                         tilt = max(tilt, 16 * math.exp(-(dd / 16) ** 2) * H / 320)
                 s.cams[f] = (c, gy + int(round(tilt * .5)), sc, kind, tilt, smear); s.shot_of[f] = kind
         for k in s.contacts:                                    # whole-pixel shake on hits
@@ -214,7 +213,7 @@ class Film:
                 for f in range(2, S):
                     if y[f - 2] > 75 and y[f] <= 62 and vy[f - 1] < -250 and f - last > 24:
                         ev.append((f, who, side)); last = f
-        ev += [(17, 'opp', 'l'), (113, 'hero', 'l'), (143, 'opp', 'l'), (221, 'hero', 'l'), (286, 'opp', 'l')]   # dash, slide, land
+        ev += [(f, who, 'l') for f, who in HF.DUST]                                         # dash, landings
         s.dust = [(s.story.index(min(s.story, key=lambda x: abs(x - f))), f, who, side) for f, who, side in sorted(ev)]
 
     def cloth(s):
@@ -310,7 +309,7 @@ class Film:
     def road(s, i, cx, sc, gy, beam=True, smear=0):
         img = RS.compose(s.dusk['wide'], round(cx * scale_of('wide')), gy - int(round(H * .885)), 0, smear)
         x0 = s.car_x(i); p = s.car_pitch(i)
-        csc = sc * .62                                          # cartoon car scaled to the compact stickman
+        csc = .4 * H / 620 * .62                                # cartoon car, fixed size next to the stickman
         x0 = x0 + cx - (cx * sc - (.6 * W - W // 2)) / csc     # car stops with its bumper just right of the hero
         X = lambda wx: int(round(wx * csc)) - round(cx * csc) + W // 2
         if i > 40:
