@@ -268,7 +268,7 @@ def draw_fighter(d, keys, t, cloak, z, gy):
         d.polygon([at(neck, 3, -4), at(neck, -6, 0), (hip[0] + trail, hip[1] + 14 * z - flap),
                    (hip[0] + trail * .7, hip[1] + 34 * z + flap), at(hip, 6, 26), at(hip, 6, 6)], fill=RED)
         d.polygon([at(neck, -2, 0), (hip[0] + trail * .7, hip[1] + 34 * z + flap), at(hip, -4, 22)], fill=RED_D)
-    lw = max(9, int(10 * z))
+    lw = max(12, int(13 * z))
     for a, b in [(hip, kB), (kB, fB), (neck, eB), (eB, hB)]:
         d.line([a, b], fill=INK, width=lw)
     d.line([hip, neck], fill=INK, width=lw + 1)
@@ -281,11 +281,11 @@ def draw_fighter(d, keys, t, cloak, z, gy):
     for p in (neck, eF, hF, kF, fF):
         r = lw / 2
         d.ellipse([p[0] - r, p[1] - r, p[0] + r, p[1] + r], fill=INK)
-    r = 16 * z
+    r = 18 * z
     d.ellipse([head[0] - r, head[1] - r, head[0] + r, head[1] + r], fill=INK)
     ln = 64 * z
     tip = (hF[0] + swv[0] * ln, hF[1] + swv[1] * ln)
-    d.line([hF, tip], fill=WHITE, width=max(9, int(10 * z)))
+    d.line([hF, tip], fill=WHITE, width=max(11, int(12 * z)))
     return hip, hF, tip
 
 
@@ -573,7 +573,7 @@ CZ = [(0, 1), (2.55, 1), (2.75, 1.1), (4.4, 1.12), (5.1, 1.15)]
 CX = [(0, 640), (2.55, 640), (2.8, 670), (3.3, 690), (5.1, 695)]
 CY = [(0, 360), (2.55, 360), (2.8, 375), (5.1, 380)]
 HITS = [0.3, 0.58, 2.0, 2.47, 2.65, 3.72, 3.8, 4.9]
-CPX, FPX = 8, 5            # pixel size of characters and of effects, in output px
+CPX, FPX = 1280 / 120, 6            # pixel size of characters and of effects, in output px
 
 
 def pixelate(layer, k, cut=90):
