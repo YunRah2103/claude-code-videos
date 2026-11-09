@@ -257,7 +257,7 @@ def draw_fighter(d, keys, t, cloak, z, gy):
         d.polygon([at(neck, -4, 0), (hip[0] + trail, hip[1] + 22 * z - flap), (hip[0] + trail * .8, hip[1] - 4 * z)], fill=GREEN_D)
     for a, b in [(hip, kF), (kF, fF), (neck, eF), (eF, hF)]:
         d.line([a, b], fill=INK, width=lw)
-    for p in J[1:]:
+    for p in (neck, eF, hF, kF, fF):
         r = lw / 2
         d.ellipse([p[0] - r, p[1] - r, p[0] + r, p[1] + r], fill=INK)
     r = 15 * z
@@ -572,7 +572,12 @@ def frame(t, bg, dark, tail):
     soft = Image.new('RGBA', (W, H), (0, 0, 0, 0))
     effects(t, ImageDraw.Draw(fx), ImageDraw.Draw(gl), G, R, ImageDraw.Draw(soft))
     if soft.getbbox():                    # dust sits behind the fighters
-        img = Image.alpha_composite(img.convert('RGBA'), soft.filter(ImageFilter.GaussianBlur(5))).convert('RGB')
+        sm = np.asarray(soft.filter(ImageFilter.GaussianBlur(4)).resize((W // 8, H // 8), Image.Resampling.BOX)).astype(np.int16)
+        noise = np.random.default_rng(int(t * 30)).integers(-12, 13, sm.shape[:2])[..., None]
+        sm[..., :3] += noise                                  # grainy, pixel-chunky dust like the hand-drawn smoke
+        sm[..., 3] = np.where(sm[..., 3] > 40, np.minimum(255, sm[..., 3] + 30), sm[..., 3] // 2)
+        soft = Image.fromarray(sm.clip(0, 255).astype(np.uint8)).resize((W, H), Image.Resampling.NEAREST)
+        img = Image.alpha_composite(img.convert('RGBA'), soft).convert('RGB')
     ghost = Image.new('RGBA', (W, H), (0, 0, 0, 0))   # smear trail on fast moves
     gd = ImageDraw.Draw(ghost)
     for keys, cl in [(GK, 'green'), (RK, 'red')]:
