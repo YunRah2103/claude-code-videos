@@ -180,7 +180,7 @@ GK = [(0.0, 267, 0, 'windup', 1), (0.1, 240, 0, 'slash', 1), (0.2, 413, 0, 'dash
       (2.4, 587, 0, 'dash', 1), (2.5, 453, 0, 'crouch', 1), (2.6, 480, 0, 'slash', 1), (2.7, 533, 0, 'dash', 1),
       (2.8, 587, 0, 'spin', 1), (2.9, 533, 0, 'crouch', 1), (3.0, 587, 0, 'windup', 1), (3.1, 693, 0, 'spin', 1),
       (3.3, 693, 0, 'slash', 1), (3.4, 720, 0, 'windup', 1), (3.5, 720, -30, 'windup', 1), (3.6, 747, -70, 'jump', 1),
-      (3.7, 853, -40, 'slash', 1), (3.8, 880, 0, 'crouch', -1), (3.9, 880, 0, 'crouch', -1), (4.0, 827, 0, 'crouch', -1),
+      (3.7, 1000, -40, 'slash', 1), (3.8, 1000, 0, 'crouch', -1), (3.9, 880, 0, 'crouch', -1), (4.0, 827, 0, 'crouch', -1),
       (4.1, 773, 0, 'crouch', -1), (4.2, 693, 0, 'crouch', -1), (4.3, 773, 0, 'slash', -1), (4.4, 720, 0, 'crouch', -1),
       (4.5, 720, 0, 'crouch', -1), (4.6, 667, 0, 'windup', -1), (4.7, 693, 0, 'slash', -1), (4.8, 693, 0, 'crouch', -1),
       (4.9, 667, 0, 'dash', -1), (5.0, 667, 0, 'slash', -1), (5.1, 660, 0, 'slash', -1)]
@@ -192,7 +192,7 @@ RK = [(0.0, 800, 0, 'crouch', -1), (0.1, 773, 0, 'crouch', -1), (0.2, 747, 0, 'd
       (2.1, 747, 0, 'crouch', -1), (2.2, 800, 0, 'crouch', -1), (2.3, 827, 0, 'crouch', -1), (2.4, 853, 0, 'windup', -1),
       (2.5, 853, 0, 'slash', -1), (2.6, 800, 0, 'crouch', -1), (2.7, 830, 0, 'knock', -1), (2.8, 773, 0, 'crouch', -1),
       (2.9, 960, 0, 'crouch', -1), (3.0, 960, 0, 'windup', -1), (3.1, 1013, 0, 'crouch', -1), (3.3, 987, 0, 'crouch', -1),
-      (3.5, 1000, 0, 'windup', -1), (3.6, 987, 0, 'windup', -1), (3.7, 900, 0, 'crouch', -1), (3.8, 827, -180, 'knock', -1),
+      (3.5, 1000, 0, 'windup', -1), (3.6, 987, 0, 'windup', -1), (3.7, 1060, -60, 'knock', -1), (3.8, 960, -200, 'knock', -1),
       (3.9, 720, -230, 'knock', -1), (4.0, 667, -210, 'knock', -1), (4.1, 640, -170, 'knock', -1), (4.2, 640, -190, 'knock', -1),
       (4.3, 613, -200, 'knock', -1), (4.4, 453, 0, 'crouch', 1), (4.5, 480, 0, 'crouch', 1), (4.6, 453, 0, 'windup', 1),
       (4.7, 453, 0, 'slash', 1), (4.8, 427, 0, 'crouch', 1), (5.1, 427, 0, 'crouch', 1)]
@@ -361,16 +361,30 @@ def spikes(d, g, cx, cy, u, seed):
         g.line([(bx, cy), tip], fill=(255, 70, 40), width=24)
 
 
-def dust(d, x0, x1, y, u, col, seed, big=1.0):
+def dust(d, x0, x1, y, u, col, seed, big=1.0, towers=True):
+    """Smoky dust: low billows plus curling wave crests (drawn on the soft layer)."""
     rr = np.random.default_rng(seed)
-    a = 235 * (1 - u) ** 1.2
-    for _ in range(9):
-        x = rr.uniform(x0, x1); yy = y - rr.uniform(0, 110 * big)
-        r = rr.uniform(50, 95) * big * (0.8 + 0.5 * u)
-        puff(d, x + (x - (x0 + x1) / 2) * u * 0.3, yy - u * 25, r, col, a)
+    a = int(255 * min(1, (1 - u) / 0.65) ** 0.8)
+    if a <= 0: return
+    sh = tuple(int(c * .86) for c in col)
+    grow = 0.8 + 0.5 * u
+    for _ in range(7):
+        x = rr.uniform(x0, x1); yy = y - rr.uniform(0, 60 * big)
+        r = rr.uniform(45, 80) * big * grow
+        x += (x - (x0 + x1) / 2) * u * 0.3
+        d.ellipse([x - r, yy - r * .55, x + r, yy + r * .5], fill=sh + (a,))
+        d.ellipse([x - r * .85, yy - r * .65, x + r * .6, yy + r * .25], fill=col + (a,))
+    for _ in range(3 if towers else 0):                      # rising billows with curled tops
+        x = rr.uniform(x0 + 60, x1 - 60); r = rr.uniform(70, 95) * big * grow
+        for k in range(3):
+            yy = y - 40 * big - k * r * .42 - u * 30
+            xx = x + math.sin(k * 1.3 + seed) * r * .3
+            d.ellipse([xx - r * (1 - k * .18), yy - r * .6, xx + r * (1 - k * .18), yy + r * .55], fill=sh + (a,))
+            d.ellipse([xx - r * (.95 - k * .18), yy - r * .7, xx + r * (.7 - k * .15), yy + r * .3], fill=col + (a,))
+        crescent(d, x + r * .2, y - 40 * big - 1.25 * r - u * 30, r * .6, 170, 380, r * .3, sh + (a,), sy=1.0)
 
 
-def effects(t, d, g, G, R):
+def effects(t, d, g, G, R, sd):
     def win(t0, t1): return (t - t0) / (t1 - t0)
     Y = (255, 220, 120)
     slash(d, g, 200, 505, 48, 100, 160, win(-0.05, 0.15), w=14)
@@ -400,15 +414,15 @@ def effects(t, d, g, G, R):
         streak(d, g, 560, 720, 510, 16 * (1 - u), Y)
         slash(d, g, 330, 500, 40, 100, 160, u, w=12)
         slash(d, g, 900, 500, 45, -60, 160, u, w=12)
-    if 0.74 < t < 0.92:
-        u = win(0.74, 0.92)
+    if 0.74 < t < 0.87:
+        u = win(0.74, 0.87)
         fire_line(d, g, (330, 440), (lerp(330, 600, min(1, u * 2)), lerp(440, 610, min(1, u * 2))), 20 * (1 - u * .6))
         particles(d, g, 470, 500, 220, u, 14, 8)
         streak(d, g, 360, 520, 525, 14 * (1 - u), Y)
-    if 0.72 < t < 1.3:
-        u = win(0.72, 1.3)
-        dust(d, -40, 380, 610, u, (240, 242, 238), 1)
-        dust(d, 900, 1300, 610, u, (240, 242, 238), 2)
+    if 0.78 < t < 1.22:
+        u = win(0.78, 1.22)
+        dust(sd, -40, 420, 640, u, (248, 250, 246), 1, big=1.3)
+        dust(sd, 880, 1300, 640, u, (248, 250, 246), 2, big=1.2)
     slash(d, g, 225, 505, 45, 100, 160, win(0.95, 1.12), w=12)
     slash(d, g, 930, 520, 60, 300, -110, win(1.25, 1.42), w=8)
     slash(d, g, 290, 470, 45, 100, 170, win(1.45, 1.62), w=13)
@@ -455,20 +469,22 @@ def effects(t, d, g, G, R):
         fire_arc(d, g, 600, 500, 220, 150, 100 + 220 * u, 330 + 220 * u, 30 * (1 - u * .4), u)
         fire_arc(d, g, 610, 520, 150, 95, 300 + 220 * u, 500 + 220 * u, 24 * (1 - u * .4), u)
         fire_arc(d, g, 600, 480, 80, 50, 0 + 300 * u, 200 + 300 * u, 16, u)
-    if 2.76 < t < 2.92:
-        u = win(2.76, 2.92)
+    if 2.74 < t < 2.86:
+        u = win(2.74, 2.86)
         fire_arc(d, g, 470, 420, 330, 190, 150 + 40 * u, 270 + 40 * u, 26 * (1 - u * .5), u)
         fire_arc(d, g, 520, 470, 260, 120, 30 + 40 * u, 150 + 40 * u, 18 * (1 - u * .5), u)
         streak(d, g, 330, 650, 560, 18 * (1 - u), WHITE)
         slash(d, g, 500, 430, 60, 200, 150, u, w=14)
     if 2.75 < t < 3.25:
         u = win(2.75, 3.25)
-        dust(d, 620, 820, 620, u, (176, 140, 96), 3, big=.8)
+        dust(sd, 620, 820, 640, u, (176, 140, 96), 3, big=.8, towers=False)
     if 2.85 < t < 3.2:
         u = win(2.85, 3.2)
-        dust(d, 180, 780, 640, u, (160, 128, 88), 4, big=.7)
+        dust(sd, 180, 1000, 650, u, (160, 128, 88), 4, big=1.0, towers=False)
         particles(d, g, 620, 390, 60, u, 6, 16)
+        fire_arc(d, g, 650, 330, 90, 40, 190 + 90 * u, 350 + 90 * u, 22 * (1 - u * .7), u)
         particles(d, g, 560, 560, 60, u, 6, 17, col=(255, 180, 60))
+    slash(d, g, 560, 420, 60, 200, 150, win(2.84, 3.0), w=14)
     slash(d, g, 500, 440, 60, 200, 150, win(2.95, 3.1), w=14)
     if 3.05 < t < 3.22:
         u = win(3.05, 3.22)
@@ -487,8 +503,8 @@ def effects(t, d, g, G, R):
     slash(d, g, 990, 480, 40, -60, 120, win(3.38, 3.6), w=8)
     slash(d, g, 720, 390, 62, 190, 150, win(3.55, 3.7), w=16, sy=0.5)
     slash(d, g, 970, 480, 40, -80, 120, win(3.55, 3.7), w=8)
-    if 3.62 < t < 3.77:
-        u = win(3.62, 3.77)
+    if 3.62 < t < 3.73:
+        u = win(3.62, 3.73)
         k = min(1, u * 2.2)
         fire_arc(d, g, 900, 330, 300, 235, 180, 180 - 90 * k, 34 * (1 - u * .4), u)
         fire_arc(d, g, 890, 340, 260, 210, 185, 185 - 85 * k, 16, u)
@@ -499,7 +515,7 @@ def effects(t, d, g, G, R):
             streak(d, g, 620, 1180, 562, 18 * (1 - u), (255, 252, 230))
     if 3.7 < t < 3.98:
         u = win(3.7, 3.98)
-        spikes(d, g, 1120, 580, u, 11)
+        spikes(d, g, 1080, 580, u, 11)
         fire_arc(d, g, 1110, 440, 120, 170, 190, 350, 22 * (1 - u * .6), u)
         fire_arc(d, g, 1090, 430, 80, 120, 200, 330, 12 * (1 - u * .6), u)
         streak(d, g, 860, 1060, 568, 14 * (1 - u), (255, 120, 80))
@@ -552,7 +568,10 @@ def frame(t, bg, dark, tail):
     R = draw_fighter(d, RK, t, 'red', z, gy)
     fx = Image.new('RGBA', (W, H), (0, 0, 0, 0))
     gl = Image.new('RGB', (W, H), (0, 0, 0))
-    effects(t, ImageDraw.Draw(fx), ImageDraw.Draw(gl), G, R)
+    soft = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+    effects(t, ImageDraw.Draw(fx), ImageDraw.Draw(gl), G, R, ImageDraw.Draw(soft))
+    if soft.getbbox():
+        img = Image.alpha_composite(img.convert('RGBA'), soft.filter(ImageFilter.GaussianBlur(5))).convert('RGB')
     gl = gl.resize((W // 4, H // 4), Image.Resampling.BILINEAR).filter(ImageFilter.GaussianBlur(5)).resize((W, H), Image.Resampling.BILINEAR)
     img = Image.alpha_composite(img.convert('RGBA'), fx).convert('RGB')
     out = np.asarray(img).astype(np.float32) + np.asarray(gl).astype(np.float32) * 0.75
