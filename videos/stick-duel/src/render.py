@@ -630,10 +630,22 @@ def frame(t, bg, dark, tail):
         if abs(x1 - x0) > 40:
             hy1 = gy - 30 * SCALE * z + y1 * z
             hy0 = gy - 30 * SCALE * z + y0 * z
-            hh = 26 * z
-            cdr.polygon([(x0, hy0), (x1, hy1 - hh), (x1, hy1 + hh * 1.3)], fill=col + (255,))
+            hh = 28 * z
+            dark = tuple(int(c * .7) for c in col) + (255,)
+            rr = np.random.default_rng(int(t * 30) + int(x1))
+            n = 10
+            topl, botl = [], []                              # curved, jagged smear with ragged tail
+            for i in range(n + 1):
+                k = i / n
+                xx = lerp(x0, x1, k); yy = lerp(hy0, hy1, k) - math.sin(math.pi * k) * 14 * z
+                wdt = hh * k ** 0.7
+                jag = rr.uniform(0, 10) * (1 - k)
+                topl.append((xx, yy - wdt - jag)); botl.append((xx, yy + wdt * 1.3 + jag))
+            cdr.polygon(topl + botl[::-1], fill=dark)
+            cdr.polygon([(lerp(x0, x1, .35), lerp(hy0, hy1, .35))] + topl[6:] + botl[6:][::-1], fill=col + (255,))
             for k in (-1, 0, 1):
-                cdr.line([(x0 + (x1 - x0) * .2, hy0 + k * 16), (x1 - (x1 - x0) * .15, hy1 + k * 16)], fill=(250, 250, 246, 255), width=5)
+                a0 = rr.uniform(.1, .35)
+                cdr.line([(lerp(x0, x1, a0), lerp(hy0, hy1, a0) + k * 18), (lerp(x0, x1, .85), hy1 + k * 18)], fill=(250, 250, 246, 255), width=5)
     draw_fighter(cdr, GK, t, 'green', z, gy)
     draw_fighter(cdr, RK, t, 'red', z, gy)
     img = Image.alpha_composite(img.convert('RGBA'), pixelate(chars, CPX)).convert('RGB')
