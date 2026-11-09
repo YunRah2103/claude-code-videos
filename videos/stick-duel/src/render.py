@@ -61,9 +61,9 @@ def build_bg():
             if not M[y, x]: continue
             up = M[max(0, y - 2), max(0, x - 1)]
             dn = M[min(h - 1, y + 3), x]
-            c = LT if rnd.random() > .12 else SH
+            c = LT if rnd.random() > .04 else SH
             if not up: c = HL
-            elif not dn or y > 27: c = SH if rnd.random() > .15 else LT
+            elif not dn or y > 27: c = SH if rnd.random() > .06 else LT
             px[x, y] = c
     # mountains: back light ridge + front darker ridge, slopes shaded by facing
     def ridge(xs, ys, light, mid, dark, rim):
@@ -80,9 +80,10 @@ def build_bg():
         return top
     t1 = ridge([0, 9, 17, 24, 30, 40, 52, 66, 76, 86, 100, 112, 120], [37, 33, 30, 33, 36, 35, 34, 33, 35, 32, 29, 27, 27],
                (128, 184, 150), (100, 158, 128), (68, 124, 98), (150, 200, 166))
-    for _ in range(12):                                      # snow clumps near the middle peaks
-        x = int(rnd.uniform(30, 54)); y = int(t1[x] + rnd.uniform(2, 6))
-        d.rectangle([x, y, x + rnd.integers(0, 3), y + rnd.integers(0, 2)], fill=(248, 250, 247))
+    for x0 in [31, 35, 40, 44, 49, 53, 12, 61]:              # snow streaks hugging the slopes
+        for k in range(int(rnd.integers(2, 5))):
+            x = x0 + k
+            if x < w: px[x, int(t1[x]) + 2 + k // 2] = (248, 250, 247)
     ridge([0, 6, 14, 22, 34, 44, 54, 62, 72, 120], [44, 41, 43, 40, 44, 41, 43, 42, 45, 45],
           (90, 156, 120), (72, 134, 106), (50, 104, 80), (104, 170, 132))
     for x0, ht in [(1, 8), (3, 6), (5, 9)]:                  # cypress trees far left
@@ -100,17 +101,24 @@ def build_bg():
     # tree: irregular leafy canopies
     d.rectangle([76, 27, 80, 52], fill=(110, 82, 48)); d.rectangle([79, 27, 80, 52], fill=(88, 64, 38))
     d.rectangle([74, 51, 82, 52], fill=(88, 64, 38))
-    for (x0, x1, y0, y1, n) in [(67, 87, 18, 31, 44), (72, 84, 36, 45, 22)]:
-        lv = []
-        for _ in range(n):
+    for (x0, x1, y0, y1, n) in [(66, 88, 17, 31, 30), (71, 85, 35, 45, 16)]:
+        cm = Image.new('L', (w, h)); cd = ImageDraw.Draw(cm)
+        for _ in range(n):                                   # leafy clumps
             a, q = rr.uniform(0, 2 * math.pi), math.sqrt(rr.uniform(0, 1))
-            lv.append(((x0 + x1) / 2 + math.cos(a) * q * (x1 - x0) / 2, (y0 + y1) / 2 + math.sin(a) * q * (y1 - y0) / 2, rr.uniform(1.3, 2.6)))
-        for cx, cy, r in lv: blob(cx, cy, r + 1, (36, 95, 60))
-        for cx, cy, r in lv: blob(cx, cy, r, (67, 171, 58))
-        for cx, cy, r in lv[::2]: blob(cx - .8, cy - .8, r * .5, (92, 200, 80))
-    for _ in range(40):
-        x, y = rnd.integers(64, 90), rnd.integers(14, 47)
-        if px[x, y][1] > 160 and px[x, y][0] < 100: px[x, y] = (36, 95, 60)
+            cx = (x0 + x1) / 2 + math.cos(a) * q * (x1 - x0) / 2.3
+            cy = (y0 + y1) / 2 + math.sin(a) * q * (y1 - y0) / 2.3
+            r = rr.uniform(1.6, 3.0)
+            cd.ellipse([cx - r, cy - r * .8, cx + r, cy + r * .8], fill=255)
+        C = np.asarray(cm) > 0
+        for y in range(y0 - 3, y1 + 3):
+            for x in range(x0 - 3, x1 + 3):
+                if not C[y, x]: continue
+                edge = not (C[y - 1, x] and C[y + 1, x] and C[y, x - 1] and C[y, x + 1])
+                if edge and rr.random() < .18: continue      # notched silhouette
+                lit = not C[y - 2, x - 1]
+                c = (36, 95, 60) if edge else ((92, 200, 80) if lit else (67, 171, 58))
+                if not edge and rr.random() < .1: c = (44, 130, 52)
+                px[x, y] = c
     # meadow
     rows = [(150, 194, 110), (162, 205, 112), (169, 207, 111), (156, 200, 98), (149, 192, 90), (140, 190, 86), (132, 190, 80),
             (124, 195, 78), (120, 196, 76), (118, 194, 74), (112, 186, 70), (106, 178, 66), (100, 170, 62), (96, 166, 60),
@@ -122,14 +130,14 @@ def build_bg():
         c = 57.5 - x * 0.045 + 1.2 * math.sin(x / 9)
         hw = 1.6 + 1.0 * math.sin(x / 14 + 1)
         for y in range(int(c - hw), int(c + hw) + 1):
-            if 51 <= y < h: px[x, y] = (237, 238, 209) if abs(y - c) < hw * .5 else (214, 230, 170)
+            if 51 <= y < h: px[x, y] = (238, 242, 190) if abs(y - c) < hw * .5 else (206, 228, 140)
     for x in range(88, 120):
         y = int(53 - (x - 88) * 0.05)
         px[x, y] = (237, 250, 177)
     for x in range(39, 76):                                  # dirt patch
         for y in range(58, 61):
-            if abs(x - 57) / 18 + abs(y - 59) / 2 < 1.2 and rnd.random() < .85:
-                px[x, y] = (196, 178, 128) if rnd.random() < .7 else (168, 140, 96)
+            if abs(x - 57) / 18 + abs(y - 59) / 2 < 1.1:
+                px[x, y] = (186, 160, 112) if (x + y) % 5 else (160, 132, 92)
     for _ in range(160):                                     # grass tufts
         x, y = rnd.integers(0, w), rnd.integers(56, h)
         px[x, y] = (68, 148, 76) if y > 62 else (124, 200, 90)
@@ -344,8 +352,8 @@ def spikes(d, g, cx, cy, u, seed):
     rr = np.random.default_rng(seed)
     for _ in range(14):
         a = rr.uniform(-165, -15)
-        ln = rr.uniform(60, 200) * math.sin(math.pi * min(1, u * 1.4)) + 1
-        bx = cx + rr.uniform(-80, 80)
+        ln = rr.uniform(100, 260) * math.sin(math.pi * min(1, u * 1.4)) + 1
+        bx = cx + rr.uniform(-140, 140)
         dx, dy = math.cos(math.radians(a)), math.sin(math.radians(a))
         tip = (bx + dx * ln, cy + dy * ln)
         for col, w in [((220, 40, 36), 14), ((255, 140, 50), 7), ((255, 230, 120), 3)]:
@@ -426,13 +434,13 @@ def effects(t, d, g, G, R):
         particles(d, g, 400, 490, 80, u, 8, 14)
         slash(d, g, 613, 430, 40, -90, 180, u, w=12)
         slash(d, g, 853, 480, 45, -60, 200, u, w=8)
-    if 2.45 < t < 2.63:
-        u = win(2.45, 2.63)
-        a = 225 + 100 * min(1, u * 2)
-        for col, w, r in [((200, 30, 36), 90, 240), ((240, 60, 50), 60, 228), ((255, 120, 110), 22, 205)]:
-            if u < 0.85: crescent(d, 650, 470, r, 215, a, w * (1 - u * .5), col, sy=1.0)
-        crescent(g, 650, 470, 240, 215, a, 120, (255, 40, 40), sy=1.0)
-        crescent(d, 630, 490, 170, 230, a - 10, 34 * (1 - u), WHITE, sy=1.0)
+    if 2.4 < t < 2.6:
+        u = win(2.4, 2.6)
+        a = -100 + 170 * min(1, u * 2)       # tall ')' crescent sweeping top -> bottom
+        for col, w, r in [((200, 30, 36), 90, 260), ((240, 60, 50), 60, 248), ((255, 120, 110), 22, 225)]:
+            if u < 0.85: crescent(d, 560, 440, r, -100, a, w * (1 - u * .5), col, sy=1.0)
+        crescent(g, 560, 440, 260, -100, a, 120, (255, 40, 40), sy=1.0)
+        crescent(d, 560, 460, 190, -85, a - 10, 34 * (1 - u), WHITE, sy=1.0)
         streak(d, g, 250, 1000, 530, 28 * (1 - u), WHITE)
         particles(d, g, 650, 520, 260, u, 10, 15)
     if 2.56 < t < 2.7:
@@ -479,8 +487,8 @@ def effects(t, d, g, G, R):
     slash(d, g, 990, 480, 40, -60, 120, win(3.38, 3.6), w=8)
     slash(d, g, 720, 390, 62, 190, 150, win(3.55, 3.7), w=16, sy=0.5)
     slash(d, g, 970, 480, 40, -80, 120, win(3.55, 3.7), w=8)
-    if 3.65 < t < 3.82:
-        u = win(3.65, 3.82)
+    if 3.62 < t < 3.77:
+        u = win(3.62, 3.77)
         k = min(1, u * 2.2)
         fire_arc(d, g, 900, 330, 300, 235, 180, 180 - 90 * k, 34 * (1 - u * .4), u)
         fire_arc(d, g, 890, 340, 260, 210, 185, 185 - 85 * k, 16, u)
@@ -489,10 +497,11 @@ def effects(t, d, g, G, R):
             g.ellipse([850 - rr, 560 - 30, 850 + rr, 560 + 30], fill=(255, 220, 90))
             d.ellipse([850 - rr * .8, 560 - 16 * (1 - u), 850 + rr * .8, 560 + 16 * (1 - u)], fill=(255, 240, 150))
             streak(d, g, 620, 1180, 562, 18 * (1 - u), (255, 252, 230))
-    if 3.76 < t < 4.0:
-        u = win(3.76, 4.0)
-        spikes(d, g, 950, 565, u, 11)
-        fire_arc(d, g, 830, 330, 90, 60, 180, 330, 16 * (1 - u), u)
+    if 3.7 < t < 3.98:
+        u = win(3.7, 3.98)
+        spikes(d, g, 1120, 580, u, 11)
+        fire_arc(d, g, 1110, 440, 120, 170, 190, 350, 22 * (1 - u * .6), u)
+        fire_arc(d, g, 1090, 430, 80, 120, 200, 330, 12 * (1 - u * .6), u)
         streak(d, g, 860, 1060, 568, 14 * (1 - u), (255, 120, 80))
     if 3.85 < t < 4.4:
         u = win(3.85, 4.4)
