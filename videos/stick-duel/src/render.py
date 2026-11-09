@@ -633,7 +633,7 @@ def zap(d=0.35):
 
 def music(n):
     t = np.arange(n) / SR
-    beat = 60 / 150
+    beat = 60 / 161.5
     out = np.zeros(n)
     k = 0
     while k * beat / 2 < n / SR:
@@ -664,8 +664,9 @@ def audio(path):
     n = int(DUR * SR)
     mus = music(n)
     env = np.ones(n)
-    a = int(7.0 * SR)
-    env[a:] = np.linspace(1, 0, n - a) ** 1.5
+    a, c = int(ACTION * SR), int(0.15 * SR)                  # reference drops ~12 dB at the cut, then fades
+    env[a:a + c] = np.linspace(1, 0.5, c)
+    env[a + c:] = 0.5 * np.linspace(1, 0.3, n - a - c)
     mix = mus * env * 0.55
     ev = [(0.02, sfx.whoosh(0.3, 10)), (0.18, sfx.whoosh(0.25, 6)), (0.28, clang()), (0.28, sfx.boom(0.8) * .8),
           (0.56, crackle(0.4)), (0.58, sfx.whoosh(0.3, 8)), (0.8, sfx.boom(0.6) * .6), (1.32, sfx.whoosh(0.3, 12)),
@@ -675,6 +676,9 @@ def audio(path):
           (3.6, crackle(0.4)), (3.68, sfx.boom(1.0)), (3.82, crackle(0.6)), (3.95, clang(0.5) * .7),
           (4.2, sfx.whoosh(0.25, 10)), (4.48, sfx.whoosh(0.3, 10)), (4.6, clang(0.6)), (4.8, zap()), (4.92, zap()),
           (4.98, sfx.boom(1.4) * .9), (4.98, clang(1.0) * .8)]
+    for t0 in (0.30, 0.56, 1.49, 2.04, 2.25, 3.55, 3.72, 4.48):   # strongest hits measured in the reference
+        snap = rng.standard_normal(int(SR * .04)) * np.exp(-sfx.T(.04) * 70)
+        ev += [(t0, sfx.boom(0.7) * .9), (t0, clang(0.5) * .9), (t0, snap * 1.6)]
     for t0, s in ev:
         add(mix, int(t0 * SR), s * 0.8)
     mix = np.tanh(mix * 1.2) * 0.8
