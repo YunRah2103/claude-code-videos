@@ -28,3 +28,13 @@ a 0.18 s pose blend from the punch take into the reaction take, a 0.4 s blend ba
 first pose so the loop closes, and ONE added layer: a 260 px eased knock-back slide of the
 opponent's root during the fall (`KNOCK` in `mocap_hook.py`) so he lands clear of the hero.
 No poses are hand-keyed.
+
+## 6 s fight test (`src/fight6.py`)
+
+Uses the retargeted move library in `shared/assets/mocapmoves/` (see its `INDEX.md` for every move's
+clip, time range, duration and key frame). Additional CMU clips: 14_03, 13_17 (boxing), 135_07 (roundhouse),
+135_09 (oi-zuki lunge punch), 144_26 (blocks), 86_06 (knee kicks), 88_06 (jump spin kick), 104_13
+(StumbleWalk). Same CMU licence. `get_mocap.sh` fetches all of them.
+The choreography is new: `fight6_choreo.json` sequences library moves (key-aligned, speed within ±25%,
+mirroring). Not captured: the cross-fades, a stage nudge spread over each attack's approach, foot-plant cleanup,
+anticipation lean, contact IK, head look-at, hit-stops, and the finisher's launch arc (procedural, disclosed).
