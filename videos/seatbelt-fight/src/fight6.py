@@ -623,6 +623,8 @@ def audio(F, path):
     put(sfx.screech(0.55), t0 + 26 / FPS, 0.7)                                       # cartoon brake
     put(sfx.thump(0.2), t0 + 56 / FPS, 0.5)
     put(record_scratch(), t0 + (TR - 6) / FPS, 1.0)                                   # freeze
+    bed = sfx.lp(rng.standard_normal(n), 60) * (1 + 0.3 * np.sin(np.arange(n) / SR * 1.7))   # quiet night-wind bed
+    mix += bed / np.abs(bed).max() * 0.05 * np.abs(mix).max()
     fade = np.ones(n); fade[-int(SR * .02):] = np.linspace(1, 0, int(SR * .02)); mix *= fade
     g, ceil = 1.0 / np.abs(mix).max(), 10 ** (-2.0 / 20)
     for _ in range(8):
@@ -672,6 +674,12 @@ def main():
             cv2.imwrite(os.path.join(OUT, 'g%03d.png' % o), F.render(o, layers, fg)[..., ::-1])
         return
     wav = os.path.join(OUT, 'fight6-sfx.wav')
+    if '--audio-only' in sys.argv:  # rebuild the mix and remux it onto the existing video
+        Il, P, cues = audio(F, wav); print('audio I=%.1f LUFS TP=%.1f dBTP' % (Il, P))
+        mp4 = os.path.join(OUT, 'fight6-test.mp4'); tmp = mp4 + '.tmp.mp4'
+        subprocess.run(['ffmpeg', '-y', '-v', 'error', '-i', mp4, '-i', wav, '-map', '0:v', '-map', '1:a', '-c:v', 'copy',
+                        '-c:a', 'aac', '-b:a', '320k', '-t', '%.3f' % (F.TOTAL / FPS), '-movflags', '+faststart', tmp], check=True)
+        os.replace(tmp, mp4); return
     Il, P, cues = audio(F, wav); print('audio I=%.1f LUFS TP=%.1f dBTP contacts at %s' % (Il, P, cues))
     mp4 = os.path.join(OUT, 'fight6-test.mp4')
     cmd = ['ffmpeg', '-y', '-v', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', '%dx%d' % (W, H),
