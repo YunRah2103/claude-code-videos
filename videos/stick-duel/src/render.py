@@ -698,20 +698,21 @@ def music(n):
     k = 0
     while k * beat / 2 < n / SR:
         i = int(k * beat / 2 * SR)
-        if k % 4 == 0 or k % 8 == 3: add(out, i, sfx.thump(0.28) * 0.9)
+        if k % 4 == 0 or k % 8 == 3: add(out, i, sfx.thump(0.32) * 1.3)
         if k % 4 == 2:
             sn = rng.standard_normal(int(SR * .18)) * np.exp(-sfx.T(.18) * 22)
-            add(out, i, sn * .35)
+            add(out, i, np.diff(sn, prepend=0) * .4)
         hh = np.diff(rng.standard_normal(int(SR * .04)), prepend=0) * np.exp(-sfx.T(.04) * 90)
-        add(out, i, hh * .25)
+        add(out, i, np.diff(hh, prepend=0) * .9)
+        if k % 2: add(out, i, np.diff(rng.standard_normal(int(SR * .12)), prepend=0) * np.exp(-sfx.T(.12) * 25) * .18)  # open hat
         k += 1
     notes = [58.3, 58.3, 58.3, 58.3, 58.3, 58.3, 65.4, 69.3]       # Bb pedal stepping to C, C# (measured from reference)
     for j in range(int(n / SR / (beat / 2)) + 1):
         f = notes[j % 8]
         seg = sfx.T(beat / 2)
         saw = 2 * ((seg * f) % 1) - 1
-        add(out, int(j * beat / 2 * SR), sfx.lp(saw, 12) * np.exp(-seg * 4) * .35)
-    pad = sum(np.sin(2 * np.pi * f * t + np.sin(t * 3) * .5) for f in (233.1, 349.2, 261.6)) * .05
+        add(out, int(j * beat / 2 * SR), sfx.lp(sfx.lp(saw, 40), 40) * np.exp(-seg * 3) * .8)   # deep sub bass
+    pad = sum(np.sin(2 * np.pi * f * t + np.sin(t * 3) * .5) for f in (233.1, 349.2, 261.6)) * .02
     return out + pad
 
 
@@ -741,7 +742,10 @@ def audio(path):
         ev += [(t0, sfx.boom(0.7) * .9), (t0, clang(0.5) * .9), (t0, snap * 1.6)]
     for t0, s in ev:
         add(mix, int(t0 * SR), s * 0.8)
-    mix = np.tanh(mix * 1.2) * 0.8
+    F = np.fft.rfft(mix); fq = np.fft.rfftfreq(len(mix), 1 / SR)      # EQ toward reference band balance
+    F *= np.where((fq > 200) & (fq < 1000), 0.72, 1.0) * np.where(fq > 4000, 1.35, 1.0)
+    mix = np.fft.irfft(F, len(mix))
+    mix = np.tanh(mix * 1.2) * 0.7
     pcm = (np.stack([mix, mix], 1) * 32767).astype(np.int16)
     with wave.open(str(path), 'wb') as w:
         w.setnchannels(2); w.setsampwidth(2); w.setframerate(SR); w.writeframes(pcm.tobytes())
