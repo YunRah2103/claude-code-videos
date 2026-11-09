@@ -345,7 +345,7 @@ TR = 72
 
 def car_x(i):
     """Front-bumper x of the car (moving left), cartoon brake from i=26 to a stop at i=56."""
-    v, i0, i1, stop = 2600 / FPS, 26, 56, 420.0
+    v, i0, i1, stop = 2600 / FPS, 26, 56, 290.0
     brake = v * (i1 - i0) / 2
     if i <= i0: return stop + brake + v * (i0 - i)
     if i <= i1:
@@ -493,7 +493,7 @@ class Film:
                 c = tuple(a[j] + ((ccx, -330, 1.5, 0.0)[j] - a[j]) * u for j in range(4))
             elif i < 60:
                 u = ease((i - 28) / 32, 'out'); a = t_cams[27]
-                c = tuple(a[j] + (((car_x(i) + 420) / 2 + 40, -400, 0.9, 0.0)[j] - a[j]) * u for j in range(4))
+                c = tuple(a[j] + (((car_x(i) + 420) / 2 - 20, -330, 1.0, 0.0)[j] - a[j]) * u for j in range(4))
             else:
                 c = t_cams[59]
             t_cams.append(c)
@@ -676,7 +676,7 @@ def main():
     mp4 = os.path.join(OUT, 'fight6-test.mp4')
     cmd = ['ffmpeg', '-y', '-v', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', '%dx%d' % (W, H),
            '-r', str(FPS), '-i', '-', '-i', wav, '-map', '0:v', '-map', '1:a', '-c:v', 'libx264', '-preset', 'slow',
-           '-crf', '17', '-pix_fmt', 'yuv420p', '-vf', 'setsar=1', '-aspect', '9:16', '-c:a', 'aac', '-b:a', '256k',
+           '-crf', '17', '-pix_fmt', 'yuv420p', '-vf', 'setsar=1', '-aspect', '9:16', '-c:a', 'aac', '-b:a', '320k',
            '-t', '%.3f' % (F.TOTAL / FPS), '-movflags', '+faststart', mp4]
     pr = subprocess.Popen(cmd, stdin=subprocess.PIPE)
     nb = 0
