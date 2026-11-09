@@ -45,7 +45,7 @@ def ease(u, k):
 CH = ['hx', 'hy', 'a', 'hd', 'nsa', 'neb', 'fsa', 'feb', 'nfx', 'ffx']
 READY = dict(hx=0, hy=0, a=8, hd=-4, nsa=25, neb=125, fsa=40, feb=105, nfx=-115, ffx=95)
 L_T, L_TH, L_SH, ANK, L_UA, L_FA, R_HEAD, NECK, HIP0 = 250, 195, 190, 28, 150, 140, 62, 22, 372
-R_HAND, OUTW = 37, 6
+R_HAND, OUTW = 30, 0      # flat solid shapes, no outline; flat mitten hands
 
 
 def build(keys):
@@ -244,7 +244,7 @@ PAL = {
     True: dict(skin=C('#c08862'), skin2=C('#93603f'), tee=C('#f4f2f7'), shorts=C('#1e1e26'),
                shorts2=C('#121218'), shoe=C('#f2f2f4'), shoe2=C('#bfc0c8'), sole=C('#16161c'),
                hair=C('#221a1e')),
-    False: dict(skin=C('#a3212c'), skin2=C('#6d141d'), tee=C('#a3212c'), shorts=C('#a3212c'),
+    False: dict(skin=C('#a3212c'), arm=C('#c4303c'), skin2=C('#6d141d'), tee=C('#a3212c'), shorts=C('#a3212c'),
                 shorts2=C('#6d141d'), shoe=C('#7c1820'), shoe2=C('#55101a'), sole=C('#3a0b12'),
                 hair=C('#a3212c')),
 }
@@ -271,8 +271,10 @@ def leg(cr, L, P, near, hero):
 
 def arm(cr, A, P, near, hero):
     sh, el, hd = A
-    skin = P['skin'] if near else P['skin2']
-    blob(cr, [('cap', sh, el, 27, 23), ('cap', el, hd, 23, 18), ('circ', el, 23), ('circ', hd, R_HAND)], skin)
+    skin = P.get('arm', P['skin']) if near else P['skin2']
+    d = (hd - el) / max(1e-3, float(np.hypot(*(hd - el))))
+    hand = ('cap', hd - d * 4, hd + d * 26, 20, 19)            # flat hand: short mitten, same colour
+    blob(cr, [('cap', sh, el, 27, 23), ('cap', el, hd, 23, 19), ('circ', el, 23), hand], skin)
     if hero:
         tee = P['tee'] if near else C('#c9c7d2')
         blob(cr, [('cap', sh, sh + (el - sh) * 0.5, 30, 27)], tee)
@@ -321,10 +323,9 @@ def draw_fighter(cr, F, ta, smear=False):
                (60, -14), (44, -26), (34, -18), (20, -34), (-10, -30), (-34, -10), (-44, 22)]
         spikes = [[(-58, -44), (-96 + lx, -60 + ly), (-66, -16)],
                   [(-30, -64), (-52 + lx * .8, -100 + ly * .8), (-4, -70)],
-                  [(-66, -4), (-100 + lx * 1.1, 6 + ly), (-62, 22)],
-                  [(6, -70), (10 + lx * .5, -98 + ly * .5), (30, -62)]]
+]
         prims = [('poly', head_pts(s, cap))] + [('poly', head_pts(s, sp)) for sp in spikes]
-        blob(cr, prims, P['hair'], ow=4)
+        blob(cr, prims, P['hair'])
         # eye + brow
         ex, ey = head_pts(s, [(38, -2)])[0]
         cr.set_source_rgba(*C('#140c10')); cr.arc(ex, ey, 7.5, 0, 2 * math.pi); cr.fill()
