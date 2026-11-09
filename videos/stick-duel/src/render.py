@@ -619,6 +619,16 @@ def frame(t, bg, dark, tail):
         img = Image.alpha_composite(img.convert('RGBA'), Image.fromarray(ga)).convert('RGB')
     chars = Image.new('RGBA', (W, H), (0, 0, 0, 0))   # pixel-art stickmen: drawn smooth, then snapped to a coarse grid
     cdr = ImageDraw.Draw(chars)
+    for keys, col in [(GK, GREEN), (RK, RED)]:        # hand-drawn style smear: tapered streak behind fast dashes
+        x1, y1 = fighter_state(keys, t)[:2]
+        x0, y0 = fighter_state(keys, t - 0.06)[:2]
+        if abs(x1 - x0) > 40:
+            hy1 = gy - 30 * SCALE * z + y1 * z
+            hy0 = gy - 30 * SCALE * z + y0 * z
+            hh = 26 * z
+            cdr.polygon([(x0, hy0), (x1, hy1 - hh), (x1, hy1 + hh * 1.3)], fill=col + (255,))
+            for k in (-1, 0, 1):
+                cdr.line([(x0 + (x1 - x0) * .2, hy0 + k * 16), (x1 - (x1 - x0) * .15, hy1 + k * 16)], fill=(250, 250, 246, 255), width=5)
     draw_fighter(cdr, GK, t, 'green', z, gy)
     draw_fighter(cdr, RK, t, 'red', z, gy)
     img = Image.alpha_composite(img.convert('RGBA'), pixelate(chars, CPX)).convert('RGB')
