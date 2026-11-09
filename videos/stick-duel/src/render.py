@@ -270,7 +270,7 @@ def draw_fighter(d, keys, t, cloak, z, gy):
     S = SCALE * z
     foot = max(pts[7][1], pts[9][1])
     speed = min(1.0, abs(vx) / 2500)
-    bob = math.sin(t * 9 + (0 if cloak == 'green' else 2)) * 2.5 * z * (1 - speed)   # breathing when still
+    bob = math.sin(t * 7 + (0 if cloak == 'green' else 2)) * 11 * z * (1 - speed)   # breathing when still (>1 pixel cell so it survives pixelation)
     hip = (x, gy - foot * S + yoff * z + bob)
     lean = 14 * speed * (1 if vx * f > 0 else -0.5)                                    # lean into dashes
     J = [(hip[0] + (p[0] + (lean * -p[1] / 40 if p[1] < 0 else 0)) * S * f, hip[1] + p[1] * S) for p in pts[:-1]]
