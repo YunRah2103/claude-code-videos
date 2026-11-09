@@ -13,9 +13,10 @@ product; using it inside an animation is allowed.
 |---|---|---|---|
 | Hero: duck, then straight right | 14_01 | subject 14, "boxing" | 22.3–26.2 s (impact detected at 23.75 s) |
 | Opponent before the hit: punch | 14_02 | subject 14, "boxing" (second take) | 13.6–16.0 s |
-| Opponent hit reaction | 91_59 | subject 91, "360 smallStumble" | 0–2.6 s, starting at the detected head-whip onset |
+| Opponent hit reaction | 90_18 | subject 90, "RugPullFall" (backward knock-down) | 0–3.25 s, starting at the detected head-whip onset (1.008 s) |
 
-There is no "get punched" clip in CMU, so the reaction is a real stumble take, started on the impact frame.
+There is no "get punched" clip in CMU. 91_59 "smallStumble" was tried first, but it barely moves (about 25 px), so the
+reaction is a real backward fall, started on the impact frame and oriented so he falls away from the hero.
 
 Raw AMC/ASF files are not committed. Fetch them with `src/get_mocap.sh` (into `out/mocap-cmu/`).
 `src/mocap_poses.npz` holds the retargeted per-frame joint positions used for the render
@@ -23,5 +24,7 @@ Raw AMC/ASF files are not committed. Fetch them with `src/get_mocap.sh` (into `o
 
 What is processed rather than captured: bone lengths retargeted to our figure, a 1-frame
 Gaussian low-pass, foot-plant locking (2-bone IK), the time remap (slow-in, 3-frame hit-stop),
-a 0.18 s pose blend from the punch take into the reaction take, and a 0.4 s blend back to the
-first pose so the loop closes. No poses are hand-keyed.
+a 0.18 s pose blend from the punch take into the reaction take, a 0.4 s blend back to the
+first pose so the loop closes, and ONE added layer: a 260 px eased knock-back slide of the
+opponent's root during the fall (`KNOCK` in `mocap_hook.py`) so he lands clear of the hero.
+No poses are hand-keyed.

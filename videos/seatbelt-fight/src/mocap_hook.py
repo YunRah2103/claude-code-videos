@@ -1,7 +1,7 @@
 """3-second motion-capture fight hook test (CMU mocap -> flat 2D figures).
 
 Hero: CMU 14_01 (boxing: duck, then straight right). Opponent: CMU 14_02 (boxing take,
-throws a punch) until the impact frame, then CMU 91_59 (smallStumble) as the hit reaction.
+throws a punch) until the impact frame, then CMU 90_18 (RugPullFall) as the knock-down reaction.
 Pipeline: ASF/AMC FK -> low-pass -> retarget bone directions onto our proportions ->
 foot-plant lock (2-bone IK) -> three-quarter orthographic projection -> time remap
 (anticipation slow-down, hit-stop) -> camera -> render.
@@ -22,6 +22,7 @@ FI, HS, SLOW = 75, 3, 0.6          # impact output frame, hit-stop frames, slow 
 FLASH = {FI: 0.62, FI + 1: 0.22}
 THETA = math.radians(22)           # three-quarter view angle
 R_HEAD = 62
+KNOCK = 260                        # px; the only non-mocap motion layer (see MOCAP.md)
 SIDE = dict(hipjoint=45, femur=195, tibia=190, foot=58, toes=26, clavicle=52, humerus=150, radius=140,
             wrist=16, hand=44, fingers=8, thumb=8)
 CENTRE = dict(lowerback=85, upperback=85, thorax=80, lowerneck=14, upperneck=16, head=124)
@@ -125,14 +126,14 @@ class Clip:
             v = sum(Q[:f + 1, s.I[k + 'toes']].mean(0) - Q[:f + 1, s.I[k + 'tibia']].mean(0) for k in 'lr')
         v = np.array([v[0], 0, v[2]]); return v / np.linalg.norm(v)
 
-    def project(s, fwd, fd, base_x, ref):
+    def project(s, fwd, fd, base_x, ref, gf=None):
         """Three-quarter orthographic view; world x right, y down (ground 0), z depth."""
         side = np.array([fwd[2], 0, -fwd[0]])
         ex = math.cos(THETA) * fwd + math.sin(THETA) * side
         ez = -math.sin(THETA) * fwd + math.cos(THETA) * side
         Q = s.Q.copy(); Q[:, :, [0, 2]] -= Q[ref, 0][[0, 2]]
         anks = np.minimum(Q[:, s.I['ltibia'], 1], Q[:, s.I['rtibia'], 1])
-        g = np.percentile(anks, 10) - 40      # planted ankle sits 40 px above the ground line
+        g = np.percentile(anks[:gf], 10) - 40      # planted ankle sits 40 px above the ground line
         V = np.zeros_like(Q)
         V[..., 0] = base_x + fd * (Q @ ex)
         V[..., 1] = -(Q[..., 1] - g)
@@ -186,16 +187,17 @@ def setup():
     OFF = o_peak + 0.62                    # opponent's punch peaks ~0.62 s before the impact
     fa = oa.facing(int((o_imp - oa.t0) * SRC), 'punch')
     oa.project(fa, -1, 250, int((OFF + tau(0) - oa.t0) * SRC))
-    ob = Clip('91_59', 0.0, 2.6)
+    ob = Clip('90_18', 0.0, 3.25)
     # reaction onset = head starts to whip (head speed relative to the pelvis)
     hv = np.linalg.norm(np.diff(ob.Q[:, ob.I['head']] - ob.Q[:, 0], axis=0), axis=1) * SRC
-    pk = int(np.argmax(hv[:int(1.4 * SRC)]))
+    pk = int(np.argmax(hv[:int(1.6 * SRC)]))
     on = pk
     while on > 0 and hv[on] > 0.3 * hv[pk]:
         on -= 1
     r0 = on / SRC
-    fb = ob.facing(int(0.5 * SRC), 'feet')
-    ob.project(fb, -1, 0, on)
+    T = ob.Q[min(on + int(0.6 * SRC), len(ob.Q) - 1), ob.I['head']] - ob.Q[on, ob.I['head']]
+    fb = -np.array([T[0], 0, T[2]]) / np.hypot(T[0], T[2])      # orient so he falls away from the hero
+    ob.project(fb, -1, 0, on, gf=on)
     S = dict(hero=hero, oa=oa, ob=ob, t_imp=t_imp, t_peak=t_peak, hand=hand, OFF=OFF, r0=r0)
     # place the opponent so the hero's fist lands on his face at the impact frame
     fist = hero.at(t_imp)[hero.I[hand]]
@@ -208,7 +210,7 @@ def setup():
         c.V[..., 0] -= mid
     S['fist_vs_head_y'] = float(fist[1] - head[1])
     S['IP'] = (hero.at(t_imp)[hero.I[hand]][:2] + head_centre(oa, oa.at(OFF))[:2]) / 2
-    S['knock_dir'] = float((ob.Q[-1, 0] - ob.Q[on, 0]) @ fb)
+    S['knock_dir'] = float(ob.V[min(on + int(0.6 * SRC), len(ob.V) - 1), ob.I['head'], 0] - ob.V[on, ob.I['head'], 0])
     return S
 
 
@@ -231,6 +233,7 @@ def poses(S, fx):
         b = ob.at(S['r0'] + t)
         w = ease(t / 0.18, 'io') if t < 0.18 else 1.0
         o = blend(ob.par, oa.at(S['OFF']), b, w, ob.names) if w < 1 else b
+        o = o.copy(); o[:, 0] += KNOCK * ease(min(t / 0.45, 1.0), 'out')   # added knock-back slide (not mocap)
     return h, o
 
 
@@ -313,25 +316,44 @@ def draw_hair(cr, hc, neck, top, fd, vel, Pal):
 
 
 # ---------------------------------------------------------------- camera
-def camera(S, f):
+def build_camera(S):
+    """Per-frame camera: tracks the fighters (parallax), pushes in, whips to the impact, pulls back."""
+    I = S['hero'].I
+    hh = np.array([head_centre(S['hero'], poses(S, f)[0])[:2] for f in range(NF)])
+    oh = np.array([head_centre(S['ob'], poses(S, f)[1])[:2] for f in range(NF)])
+    oroot = np.array([poses(S, f)[1][0, :2] for f in range(NF)])
+    wo = np.array([0.45 if f < FI else 0.55 * (1 - ease((f - FI - 18) / (NF - 28 - FI - 18), 'io'))
+                   for f in range(NF)])                 # after the fall: drift from him back onto the hero
+    tx = gaussian_filter1d(hh[:, 0] * (1 - wo) + np.where(np.arange(NF)[:, None] < FI, oh, oroot)[:, 0] * wo, 6)
+    ty = gaussian_filter1d(np.where(np.arange(NF) < FI, (hh[:, 1] + oh[:, 1]) / 2, hh[:, 1]), 8) + 330
     IP = S['IP']
-    o_end = S['ob'].V[-1, 0, 0]
-    keys = [(0, (0, -470, 1.0, 0), 'io'),
-            (FI - 3, (IP[0] * 0.3, -505, 1.15, 0), 'io'),          # slow push-in on the wind-up
-            (FI, (IP[0], IP[1] + 40, 2.7, -0.09), 'in'),            # whip-zoom into the impact
-            (FI + 8, (IP[0] + 12, IP[1] + 30, 2.85, -0.09), 'lin'),
-            (FI + 30, (o_end * 0.35, -485, 1.05, 0), 'snap'),      # pull back as he is knocked away
-            (NF - 25, (o_end * 0.25, -478, 1.02, 0), 'io'),
-            (NF - 1, (0, -470, 1.0, 0), 'io')]
-    for (f0, a, _), (f1, b, e) in zip(keys, keys[1:]):
-        if f <= f1:
-            u = ease((f - f0) / (f1 - f0), e)
-            v = [a[i] + (b[i] - a[i]) * u for i in range(4)]
-            break
+    cams = []
+    for f in range(NF):
+        if f <= FI - 3:
+            z = 1.32 + 0.3 * ease(f / (FI - 3), 'io'); c = (tx[f], ty[f], z, 0.0)
+        elif f < FI:
+            a = cams[FI - 3]; u = ease((f - FI + 3) / 3, 'in')
+            c = tuple(a[i] + ((IP[0], IP[1] + 40, 2.7, -0.09)[i] - a[i]) * u for i in range(4))
+        elif f <= FI + 3:                            # close-up holds through the hit-stop
+            u = (f - FI) / 3; c = (IP[0] + 10 * u, IP[1] + 40 - 8 * u, 2.7 + 0.1 * u, -0.09)
+        else:
+            c = (tx[f], ty[f] + 20, 1.04 + 0.34 * ease((f - FI - 18) / (NF - 28 - FI - 18), 'io'), 0.0)
+            if f < FI + 18:                          # fast pull-back so the knock-down is seen
+                a = cams[FI + 3]; u = ease((f - FI - 3) / 15, 'snap')
+                c = tuple(a[i] + (c[i] - a[i]) * u for i in range(4))
+        cams.append(c)
+    for f in range(NF - 28, NF):                     # settle back onto the opening framing (loop)
+        u = ease((f - NF + 28) / 27, 'io')
+        cams[f] = tuple(cams[f][i] + (cams[0][i] - cams[f][i]) * u for i in range(4))
+    S['cams'] = cams
+
+
+def camera(S, f):
+    x, y, z, rot = S['cams'][f]
     shake = np.zeros(2)
     if FI <= f < FI + 5:
         k = f - FI; shake = np.array([16, -11]) * (1 - k / 5) * (1 if k % 2 == 0 else -1)
-    return np.array(v[:2]), v[2], v[3], shake
+    return np.array([x, y]), z, rot, shake
 
 
 def sparks(cr, S, f):
@@ -432,8 +454,8 @@ def audio(S, path):
 # ---------------------------------------------------------------- main
 def report(S):
     print('hero clip 14_01: speed peak %.3fs, impact %.3fs (%s)' % (S['t_peak'], S['t_imp'], S['hand']))
-    print('opponent 14_02 punch peak aligned %.2fs before impact; 91_59 reaction onset %.3fs' % (0.62, S['r0']))
-    print('fist-vs-head dy %.0f px; knock-back along opp facing %.2f (neg = backwards)' % (S['fist_vs_head_y'], S['knock_dir']))
+    print('opponent 14_02 punch peak aligned %.2fs before impact; 90_18 reaction onset %.3fs' % (0.62, S['r0']))
+    print('fist-vs-head dy %.0f px; opp head travel +x in 0.6 s after onset: %.0f px' % (S['fist_vs_head_y'], S['knock_dir']))
     gaps = [abs(poses(S, f)[1][0, 0] - poses(S, f)[0][0, 0]) for f in range(NF)]
     print('root separation min %.0f px (body width ~110)' % min(gaps))
     pl = {k: int(v.sum()) for k, v in S['hero'].planted.items()}
@@ -442,7 +464,7 @@ def report(S):
 
 def main():
     os.makedirs(OUT, exist_ok=True)
-    S = setup(); report(S)
+    S = setup(); build_camera(S); report(S)
     layers, fg = make_layers()
     if '--frames' in sys.argv:
         for f in map(int, sys.argv[sys.argv.index('--frames') + 1].split(',')):
