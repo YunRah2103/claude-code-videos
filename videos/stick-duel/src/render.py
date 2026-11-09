@@ -66,6 +66,11 @@ def build_bg():
             elif not dn or y > 27: c = SH if rnd.random() > .06 else LT
             px[x, y] = c
     # mountains: back light ridge + front darker ridge, slopes shaded by facing
+    sr_ = np.random.default_rng(21)
+    base = sr_.standard_normal((h, w // 4 + 3))
+    STREAK = np.stack([np.interp(np.arange(w) / 4, np.arange(w // 4 + 3), base[y]) for y in range(h)])
+    STREAK += 0.6 * np.sin(np.arange(w)[None, :] / 6 + np.arange(h)[:, None] * 1.3)
+
     def ridge(xs, ys, light, mid, dark, rim):
         top = np.interp(np.arange(w), xs, ys)
         for x in range(w):
@@ -75,17 +80,19 @@ def build_bg():
                 if y < top[x] + 1: c = rim
                 elif slope > 0.3 and y < top[x] + 6: c = dark
                 elif slope < -0.3 and y < top[x] + 4: c = light
-                elif (x * 2 + y * 5) % 17 < 2: c = dark
+                else:                                        # horizontal brush streaks like the reference
+                    v = STREAK[y, x]
+                    c = dark if v < -0.55 else (light if v > 0.6 else mid)
                 px[x, y] = c
         return top
-    t1 = ridge([0, 9, 17, 24, 30, 40, 52, 66, 76, 86, 100, 112, 120], [37, 33, 30, 33, 36, 35, 34, 33, 35, 32, 29, 27, 27],
-               (128, 184, 150), (100, 158, 128), (68, 124, 98), (150, 200, 166))
+    t1 = ridge([0, 8, 16, 25, 31, 38, 46, 54, 64, 74, 86, 100, 112, 120], [40, 35, 29, 35, 39, 36, 38, 34, 33, 36, 32, 29, 27, 27],
+               (126, 198, 160), (86, 150, 118), (54, 110, 82), (150, 210, 172))
     for x0 in [31, 35, 40, 44, 49, 53, 12, 61]:              # snow streaks hugging the slopes
         for k in range(int(rnd.integers(2, 5))):
             x = x0 + k
             if x < w: px[x, int(t1[x]) + 2 + k // 2] = (248, 250, 247)
     ridge([0, 6, 14, 22, 34, 44, 54, 62, 72, 120], [44, 41, 43, 40, 44, 41, 43, 42, 45, 45],
-          (90, 156, 120), (72, 134, 106), (50, 104, 80), (104, 170, 132))
+          (100, 172, 128), (64, 128, 94), (38, 94, 68), (118, 186, 140))
     for x0, ht in [(1, 8), (3, 6), (5, 9)]:                  # cypress trees far left
         d.rectangle([x0, 51 - ht, x0 + 1, 51], fill=(29, 92, 73))
     d.rectangle([14, 47, 30, 51], fill=(44, 120, 70)); d.rectangle([16, 46, 26, 47], fill=(44, 120, 70))
@@ -187,7 +194,7 @@ GK = [(0.0, 267, 0, 'windup', 1), (0.1, 240, 0, 'slash', 1), (0.2, 413, 0, 'dash
 RK = [(0.0, 800, 0, 'crouch', -1), (0.1, 773, 0, 'crouch', -1), (0.2, 747, 0, 'dash', -1), (0.3, 747, 0, 'slash', -1),
       (0.4, 747, 0, 'crouch', -1), (0.6, 760, 0, 'crouch', -1), (0.7, 880, 0, 'slash', -1), (0.8, 933, 0, 'crouch', -1),
       (0.9, 933, 0, 'crouch', -1), (1.0, 960, 0, 'stand', -1), (1.1, 987, 0, 'stand', -1), (1.2, 987, 0, 'crouch', -1),
-      (1.3, 1000, 0, 'slash', -1), (1.4, 1000, 0, 'stand', -1), (1.5, 987, 0, 'crouch', -1), (1.6, 960, 0, 'windup', -1),
+      (1.3, 1000, 0, 'slash', -1), (1.4, 1000, 0, 'stand', -1), (1.5, 987, 0, 'crouch', -1), (1.6, 960, 0, 'slash', -1),
       (1.7, 1000, 0, 'crouch', -1), (1.8, 960, 0, 'dash', -1), (1.9, 747, 0, 'dash', -1), (2.0, 747, 0, 'slash', -1),
       (2.1, 747, 0, 'crouch', -1), (2.2, 800, 0, 'crouch', -1), (2.3, 827, 0, 'crouch', -1), (2.4, 853, 0, 'windup', -1),
       (2.5, 853, 0, 'slash', -1), (2.6, 800, 0, 'crouch', -1), (2.7, 830, 0, 'knock', -1), (2.8, 773, 0, 'crouch', -1),
