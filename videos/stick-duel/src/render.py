@@ -645,13 +645,13 @@ def music(n):
         hh = np.diff(rng.standard_normal(int(SR * .04)), prepend=0) * np.exp(-sfx.T(.04) * 90)
         add(out, i, hh * .25)
         k += 1
-    notes = [55, 55, 65.4, 49, 55, 55, 73.4, 65.4]                 # driving minor bass line
+    notes = [58.3, 58.3, 58.3, 58.3, 58.3, 58.3, 65.4, 69.3]       # Bb pedal stepping to C, C# (measured from reference)
     for j in range(int(n / SR / (beat / 2)) + 1):
         f = notes[j % 8]
         seg = sfx.T(beat / 2)
         saw = 2 * ((seg * f) % 1) - 1
         add(out, int(j * beat / 2 * SR), sfx.lp(saw, 12) * np.exp(-seg * 4) * .35)
-    pad = sum(np.sin(2 * np.pi * f * t + np.sin(t * 3) * .5) for f in (220, 261.6, 329.6)) * .05
+    pad = sum(np.sin(2 * np.pi * f * t + np.sin(t * 3) * .5) for f in (233.1, 349.2, 261.6)) * .05
     return out + pad
 
 
