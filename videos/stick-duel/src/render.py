@@ -728,6 +728,10 @@ def audio(path):
     a, c = int(ACTION * SR), int(0.15 * SR)                  # reference drops ~12 dB at the cut, then fades
     env[a:a + c] = np.linspace(1, 0.5, c)
     env[a + c:] = 0.5 * np.linspace(1, 0.3, n - a - c)
+    for t0 in (0.30, 0.56, 1.49, 2.04, 2.25, 3.55, 3.72, 4.48):   # duck music just before each big hit
+        i0, i1 = int((t0 - 0.09) * SR), int(t0 * SR)
+        env[i0:i1] *= np.linspace(1, 0.15, i1 - i0)
+        env[i1:i1 + int(.12 * SR)] *= np.linspace(0.15, 1, int(.12 * SR))
     mix = mus * env * 0.55
     ev = [(0.02, sfx.whoosh(0.3, 10)), (0.18, sfx.whoosh(0.25, 6)), (0.28, clang()), (0.28, sfx.boom(0.8) * .8),
           (0.56, crackle(0.4)), (0.58, sfx.whoosh(0.3, 8)), (0.8, sfx.boom(0.6) * .6), (1.32, sfx.whoosh(0.3, 12)),
@@ -739,7 +743,9 @@ def audio(path):
           (4.98, sfx.boom(1.4) * .9), (4.98, clang(1.0) * .8)]
     for t0 in (0.30, 0.56, 1.49, 2.04, 2.25, 3.55, 3.72, 4.48):   # strongest hits measured in the reference
         snap = rng.standard_normal(int(SR * .04)) * np.exp(-sfx.T(.04) * 70)
-        ev += [(t0, sfx.boom(0.7) * .9), (t0, clang(0.5) * .9), (t0, snap * 1.6)]
+        ev += [(t0, sfx.boom(0.7) * 1.1), (t0, clang(0.5) * 1.2), (t0, snap * 3.0)]
+    for t0 in (0.30, 1.49, 3.72):                             # these were masked by nearby whooshes/crackle
+        ev.append((t0, rng.standard_normal(int(SR * .03)) * np.exp(-sfx.T(.03) * 90) * 3.0))
     for t0, s in ev:
         add(mix, int(t0 * SR), s * 0.8)
     F = np.fft.rfft(mix); fq = np.fft.rfftfreq(len(mix), 1 / SR)      # EQ toward reference band balance
