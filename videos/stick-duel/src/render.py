@@ -156,18 +156,18 @@ def build_bg():
 
 # ---------------------------------------------------------------- fighters
 P = {  # hip-relative joints, facing right: head neck eF hF eB hB kF fF kB fB, sword angle
-    'stand':  [(4, -48), (2, -36), (10, -24), (20, -16), (-6, -24), (-10, -10), (8, 18), (6, 38), (-6, 18), (-10, 38), -30],
-    'crouch': [(18, -38), (12, -28), (22, -16), (32, -10), (0, -18), (-10, -8), (18, 8), (26, 26), (-14, 12), (-30, 26), 8],
+    'stand':  [(10, -44), (7, -33), (16, -22), (26, -16), (-4, -22), (-10, -10), (12, 14), (16, 32), (-8, 14), (-16, 32), -30],
+    'crouch': [(24, -32), (17, -23), (28, -12), (40, -8), (4, -14), (-8, -6), (20, 6), (30, 24), (-16, 10), (-34, 24), 8],
     'run1':   [(14, -46), (10, -35), (16, -22), (26, -24), (-4, -26), (-16, -16), (16, 10), (10, 30), (-8, 20), (-26, 26), -40],
     'run2':   [(14, -46), (10, -35), (18, -22), (28, -28), (-6, -24), (-14, -12), (-4, 18), (-20, 28), (14, 12), (14, 30), -50],
-    'windup': [(6, -46), (3, -35), (6, -48), (-6, -58), (-8, -24), (-14, -12), (12, 14), (18, 32), (-10, 16), (-20, 32), -150],
+    'windup': [(12, -40), (8, -30), (10, -42), (-2, -52), (-6, -20), (-14, -10), (16, 8), (26, 26), (-12, 12), (-26, 26), -150],
     'slash':  [(20, -40), (14, -30), (30, -22), (44, -14), (0, -22), (-12, -18), (20, 10), (30, 28), (-16, 14), (-34, 28), 20],
     'dash':   [(40, -24), (30, -20), (46, -14), (60, -12), (16, -18), (4, -8), (18, 6), (26, 22), (-20, 10), (-44, 20), 2],
     'spin':   [(0, -42), (0, -31), (18, -30), (34, -32), (-18, -28), (-34, -24), (10, 10), (4, 26), (-10, 10), (-4, 26), 0],
     'jump':   [(6, -44), (4, -34), (4, -48), (-4, -60), (-10, -26), (-18, -18), (14, 2), (4, 14), (-6, 6), (-16, 16), -120],
     'knock':  [(-22, -30), (-16, -22), (4, -30), (14, -40), (-28, -18), (-34, -6), (14, 4), (28, 12), (4, 10), (18, 22), -60],
 }
-SCALE = 1.85
+SCALE = 1.55
 GROUND = 622            # world y of feet; converted to screen via camera
 
 # keyframes measured from the reference every 0.1 s, in SCREEN x
@@ -247,7 +247,7 @@ def draw_fighter(d, keys, t, cloak, z, gy):
         d.polygon([at(neck, 3, -4), at(neck, -6, 0), (hip[0] + trail, hip[1] + 14 * z - flap),
                    (hip[0] + trail * .7, hip[1] + 34 * z + flap), at(hip, 6, 26), at(hip, 6, 6)], fill=RED)
         d.polygon([at(neck, -2, 0), (hip[0] + trail * .7, hip[1] + 34 * z + flap), at(hip, -4, 22)], fill=RED_D)
-    lw = max(5, int(7 * z))
+    lw = max(9, int(10 * z))
     for a, b in [(hip, kB), (kB, fB), (neck, eB), (eB, hB)]:
         d.line([a, b], fill=INK, width=lw)
     d.line([hip, neck], fill=INK, width=lw + 1)
@@ -260,11 +260,11 @@ def draw_fighter(d, keys, t, cloak, z, gy):
     for p in (neck, eF, hF, kF, fF):
         r = lw / 2
         d.ellipse([p[0] - r, p[1] - r, p[0] + r, p[1] + r], fill=INK)
-    r = 15 * z
+    r = 16 * z
     d.ellipse([head[0] - r, head[1] - r, head[0] + r, head[1] + r], fill=INK)
     ln = 64 * z
     tip = (hF[0] + swv[0] * ln, hF[1] + swv[1] * ln)
-    d.line([hF, tip], fill=WHITE, width=max(3, int(4 * z)))
+    d.line([hF, tip], fill=WHITE, width=max(9, int(10 * z)))
     return hip, hF, tip
 
 
@@ -550,6 +550,18 @@ CZ = [(0, 1), (2.55, 1), (2.75, 1.1), (4.4, 1.12), (5.1, 1.15)]
 CX = [(0, 640), (2.55, 640), (2.8, 670), (3.3, 690), (5.1, 695)]
 CY = [(0, 360), (2.55, 360), (2.8, 375), (5.1, 380)]
 HITS = [0.3, 0.58, 2.0, 2.47, 2.65, 3.72, 3.8, 4.9]
+CPX, FPX = 8, 5            # pixel size of characters and of effects, in output px
+
+
+def pixelate(layer, k, cut=90):
+    """Downsample an RGBA layer to a k-px grid, hard-threshold alpha, upscale with nearest: crisp pixel art."""
+    small = layer.resize((round(W / k), round(H / k)), Image.Resampling.BOX)
+    a = np.asarray(small).copy()
+    on = a[..., 3] > cut
+    a[..., 3] = np.where(on, 255, 0)
+    return Image.fromarray(a).resize((W, H), Image.Resampling.NEAREST)
+
+
 _Y, _X = np.mgrid[0:H, 0:W].astype(np.float32)
 VMASK = (1 - 0.75 * np.clip((((_X - W / 2) / (W / 2)) ** 2 + ((_Y - H / 2) / (H / 2)) ** 2) - 0.25, 0, 1))[..., None]
 
@@ -585,12 +597,15 @@ def frame(t, bg, dark, tail):
             for dt in (0.045, 0.025):
                 draw_fighter(gd, keys, t - dt, cl, z, gy)
     if ghost.getbbox():
-        ga = np.asarray(ghost).copy(); ga[..., 3] = (ga[..., 3] * 0.35).astype(np.uint8)
-        img = Image.alpha_composite(img.convert('RGBA'), Image.fromarray(ga).filter(ImageFilter.BoxBlur(3))).convert('RGB')
-    d = ImageDraw.Draw(img)
-    draw_fighter(d, GK, t, 'green', z, gy)
-    draw_fighter(d, RK, t, 'red', z, gy)
-    gl = gl.resize((W // 4, H // 4), Image.Resampling.BILINEAR).filter(ImageFilter.GaussianBlur(5)).resize((W, H), Image.Resampling.BILINEAR)
+        ga = np.asarray(pixelate(ghost, CPX)).copy(); ga[..., 3] = (ga[..., 3] * 0.35).astype(np.uint8)
+        img = Image.alpha_composite(img.convert('RGBA'), Image.fromarray(ga)).convert('RGB')
+    chars = Image.new('RGBA', (W, H), (0, 0, 0, 0))   # pixel-art stickmen: drawn smooth, then snapped to a coarse grid
+    cdr = ImageDraw.Draw(chars)
+    draw_fighter(cdr, GK, t, 'green', z, gy)
+    draw_fighter(cdr, RK, t, 'red', z, gy)
+    img = Image.alpha_composite(img.convert('RGBA'), pixelate(chars, CPX)).convert('RGB')
+    fx = pixelate(fx, FPX, cut=60)
+    gl = gl.resize((W // 8, H // 8), Image.Resampling.BILINEAR).filter(ImageFilter.GaussianBlur(2.5)).resize((W, H), Image.Resampling.NEAREST)  # blocky glow
     img = Image.alpha_composite(img.convert('RGBA'), fx).convert('RGB')
     out = np.asarray(img).astype(np.float32) + np.asarray(gl).astype(np.float32) * 0.75
     v = piece(t, VIG)
