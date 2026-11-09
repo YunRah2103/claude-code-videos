@@ -342,76 +342,55 @@ CAPE = (rgb('#b9473e'), rgb('#8f3430'), rgb('#5e1f22')); SCARF = (rgb('#e5b13c')
 STEEL = (rgb('#e9eef2'), rgb('#aab4bd'), rgb('#5d6670'), rgb('#3b2a1e'))
 
 
-def draw_figure(img, S, I, hero, cloth, mask=None, lim=2, prev=None, blade=None):
-    """Thin pixel stick figure from whole-pixel joint positions S (Nx3, z = depth). prev = previous frame:
-    fast limbs get a filled smear between the two. blade = (hand, tip) for the hero's weapon."""
+BODY = {True: (rgb('#1c1518'), rgb('#3b3237')), False: (rgb('#141218'), rgb('#2e2b35'))}
+
+
+def draw_figure(img, S, I, hero, cloth, mask=None, lim=2, prev=None, blade=None, hr=6.0):
+    """Pure pixel stickman from whole-pixel joint positions S (Nx3, z = depth): equal-width limb lines,
+    one torso line, a big round head. Far-side limbs a shade lighter so crossings read. The hero wears a
+    gold scarf, the opponent a red cape (both Verlet chains). prev = previous frame (smear streaks on fast
+    limbs); blade = (hand, tip) for the hero's weapon."""
     J = lambda n: S[I[n]][:2]
     zl = np.mean([S[I[n]][2] for n in ('lhumerus', 'lfemur')]); zr = np.mean([S[I[n]][2] for n in ('rhumerus', 'rfemur')])
     near = 'l' if zl < zr else 'r'; far = 'r' if near == 'l' else 'l'
     a, b = J('lowerneck'), J('head')
     u = (b - a) / max(np.linalg.norm(b - a), 1e-6)
-    sc = np.linalg.norm(J('thorax') - J('root')) / 23.0
-    hr = max(4.0, 6.4 * sc)
-    hc = a + u * hr * 1.15
-    limb = INKC if not hero else SKIN
-    limb2 = INKC if not hero else SKIN2
-    if not hero and cloth is not None:
-        draw_cloth(img, cloth, max(2, 4 * sc), 17 * sc, CAPE, mask, folds=1)
+    hc = a + u * hr * 1.1
+    col, col2 = BODY[hero]
+    if cloth is not None and not hero:
+        draw_cloth(img, cloth, max(2, hr * .5), hr * 2.2, CAPE, mask, folds=1)
 
-    def smear(k, col, joints):
+    def smear(k, c, joints):
         if prev is None: return
-        A0, A1 = prev[I[k + joints[0]]][:2], prev[I[k + joints[1]]][:2]
-        B0, B1 = J(k + joints[0]), J(k + joints[1])
+        A1, B0, B1 = prev[I[k + joints[1]]][:2], J(k + joints[0]), J(k + joints[1])
         mv_ = np.linalg.norm(B1 - A1)
-        if 5 * max(1, sc * .8) < mv_ < 40 * max(1, sc):              # smear: streak from the last tip position
-            pline(img, A1, B1, max(1, lim - 1), col, mask)
-            pline(img, (A1 + B0) / 2, B1, 1, col, mask)
+        if 4 < mv_ < 8 * hr:
+            pline(img, A1, B1, max(1, lim - 1), c, mask); pline(img, (A1 + B0) / 2, B1, 1, c, mask)
 
-    def leg(k, col):
-        smear(k, col, ('femur', 'tibia'))
+    def leg(k, c):
+        smear(k, c, ('femur', 'tibia'))
         hip, kn, an, ft = J(k + 'hipjoint'), J(k + 'femur'), J(k + 'tibia'), J(k + 'foot')
-        pline(img, hip, kn, lim, col, mask); pline(img, kn, an, lim, col, mask)
-        toe = an + (ft - an) * 1.4
-        pline(img, an, toe, lim, (SHOE if k == near else TEE2) if hero else col, mask)
-        if hero: pline(img, an + [0, 1], toe + [0, 1], 1, INKC, mask)
+        pline(img, hip, kn, lim, c, mask); pline(img, kn, an, lim, c, mask)
+        pline(img, an, an + (ft - an) * 1.2, lim, c, mask)
 
-    def arm(k, col):
-        smear(k, col, ('humerus', 'hand'))
+    def arm(k, c):
+        smear(k, c, ('humerus', 'hand'))
         sh, el, hd = J(k + 'clavicle'), J(k + 'humerus'), J(k + 'hand')
-        pline(img, sh, el, lim, col, mask); pline(img, el, hd, lim, col, mask)
-        brush(img, int(round(hd[0])), int(round(hd[1])), lim + 1, col, mask)
-    arm(far, limb2); leg(far, limb2)
-    root, th = J('root'), J('thorax')
-    if hero:
-        if cloth is not None: draw_cloth(img, cloth, 2, max(3, 7 * sc), SCARF, mask)
-        sh_mid = (J('lclavicle') + J('rclavicle')) / 2
-        tw = max(4, int(round(6.5 * sc)))
-        pline(img, root + (th - root) * .25, sh_mid, tw, TEE, mask)
-        pline(img, root + (th - root) * .25 + [-1, 0], sh_mid + [-1, 0], max(1, tw // 4), TEE2, mask)
-        for k in 'lr':
-            pline(img, root, root + (J(k + 'femur') - root) * .55, max(3, int(round(4.5 * sc))), SHORTS, mask)
-        pline(img, root, root + (th - root) * .3, tw, SHORTS, mask)
-        pline(img, sh_mid, hc, lim, SKIN, mask)
-    else:
-        pline(img, root, th, lim + 1, INKC, mask); pline(img, th, hc, lim, INKC, mask)
-    leg(near, limb); arm(near, limb)
+        pline(img, sh, el, lim, c, mask); pline(img, el, hd, lim, c, mask)
+        brush(img, int(round(hd[0])), int(round(hd[1])), lim + 1, c, mask)
+    arm(far, col2); leg(far, col2)
+    if cloth is not None and hero:
+        draw_cloth(img, cloth, max(2, hr * .35), max(3, hr * .8), SCARF, mask)
+    pline(img, J('root'), J('thorax'), lim + 1, col, mask); pline(img, J('thorax'), hc, lim, col, mask)
+    leg(near, col); arm(near, col)
     if hero and blade is not None:
         h0, tip = np.asarray(blade[0], float), np.asarray(blade[1], float)
         dv = (tip - h0) / max(np.linalg.norm(tip - h0), 1e-6); nv = np.array([-dv[1], dv[0]])
-        pline(img, h0 - dv * 3, h0 + dv * 2, lim + 1, STEEL[3], mask)
-        pline(img, h0 + dv * 2, tip, lim, STEEL[1], mask)
+        pline(img, h0 - dv * 2, h0 + dv * 2, lim, STEEL[3], mask)
+        pline(img, h0 + dv * 2, tip, max(1, lim - 1), STEEL[1], mask)
         pline(img, h0 + dv * 2 - nv, tip - nv, 1, STEEL[0], mask)
-        pline(img, h0 + dv + nv * 3, h0 + dv - nv * 3, 1, STEEL[2], mask)
-    pdisc(img, hc, hr, SKIN if hero else INKC, mask)
-    if hero:
-        d = 1 if S[I['head']][0] >= S[I['lowerneck']][0] - 50 else -1
-        cx, cy = int(round(hc[0])), int(round(hc[1])); r = int(round(hr))
-        for dy in range(-r, 1):
-            for dx in range(-r, r + 1):
-                if dx * dx + dy * dy <= hr * hr and (dy < -r * .25 or d * dx < -r * .3):
-                    if 0 <= cy + dy < H and 0 <= cx + dx < W: img[cy + dy, cx + dx] = HAIR
-        ex = cx + d * max(1, int(round(r * .45)))
-        if 0 <= cy < H and 0 <= ex < W: img[cy, ex] = INKC
+        pline(img, h0 + dv * 2 + nv * 2, h0 + dv * 2 - nv * 2, 1, STEEL[2], mask)
+    pdisc(img, hc, hr, col, mask)
     return hc, hr
 
 
@@ -562,48 +541,35 @@ def outline(img, m, col):
 
 
 def face(i, bg):
-    """Hero close-up in pixel style: clumped skin/hair shading, 1-px ink outline, eyes catching the two
-    headlights; the headlight glow is soft clumped light from the right."""
+    """Close-up of the stickman hero's round head: black pixel head with a 1-px warm rim from the
+    headlights, two white eyes that widen, each catching the two headlights; gold scarf below."""
     img = bg.copy()
     k = min(1.0, (i + 3) / 18)
-    nz = vnoise(H, W, 7, 7, np.random.default_rng(21)) * .6 + .2
-    soft_glow(img, (W * 1.1, H * .42), W * (0.6 + .5 * k), (255, 214, 150), .22 * k, 3, levels=4)
-    soft_glow(img, (W * 1.05, H * .42), W * (0.35 + .3 * k), (255, 238, 196), .3 * k, 7, levels=3)
-    r = W * .3; c = np.array([W * .45 - i * .1, H * .45])
+    soft_glow(img, (W * 1.1, H * .4), W * (0.6 + .5 * k), (255, 214, 150), .22 * k, 3, levels=4)
+    soft_glow(img, (W * 1.05, H * .4), W * (0.35 + .3 * k), (255, 238, 196), .3 * k, 7, levels=3)
     yy, xx = np.mgrid[0:H, 0:W]
-    sh_pts = [(c[0] - r * 1.7, H), (c[0] - r * 1.55, c[1] + r * 1.45), (c[0] - r * 1.2, c[1] + r * 1.15), (c[0] - r * .5, c[1] + r * 1.02),
-              (c[0] + r * .6, c[1] + r * 1.02), (c[0] + r * 1.3, c[1] + r * 1.15), (c[0] + r * 1.65, c[1] + r * 1.45), (c[0] + r * 1.8, H)]
-    tee = polymask(sh_pts)                                              # rounded shoulders
-    shade_region(img, tee, TEER, 1.0, -.5, c[0] + r * .2, c[1] + r * 1.3, r * 1.3, k, nz * .5 + .25, ambient=.3)
-    for fx_ in (-.5, .1, .7):                                          # a few fold lines
-        pline(img, (c[0] + r * fx_, c[1] + r * 1.25), (c[0] + r * (fx_ * 1.3), H), 1, TEER[1])
-    outline(img, tee, INKC)
-    neck = polymask([(c[0] - r * .35, c[1] + r * .5), (c[0] + r * .3, c[1] + r * .5), (c[0] + r * .32, c[1] + r * 1.08), (c[0] - r * .38, c[1] + r * 1.08)])
-    shade_region(img, neck, SKINR[:4], .8, 0, c[0], c[1] + r * .8, r * .5, k, nz, ambient=.2)
-    head = ((xx - c[0]) / r) ** 2 + ((yy - c[1]) / (r * 1.08)) ** 2 <= 1
-    head |= polymask([(c[0] + r * .9, c[1] - r * .05), (c[0] + r * 1.12, c[1] + r * .24), (c[0] + r * .88, c[1] + r * .32)])
-    shade_region(img, head, SKINR, .9, -.15, c[0], c[1], r, k, nz)
-    hair = head & ((((xx - (c[0] - r * .55)) / r) ** 2 + ((yy - (c[1] - r * .62)) / (r * .66)) ** 2) <= 1)
-    hair |= head & (yy < c[1] - r * .55)
-    shade_region(img, hair, HAIRR, .7, -.6, c[0], c[1] - r * .5, r, k, nz, ambient=.3)
-    outline(img, head | neck, INKC)
-    ear = (((xx - (c[0] - r * .42)) / (r * .12)) ** 2 + ((yy - (c[1] + r * .14)) / (r * .16)) ** 2 <= 1) & ~hair
-    img[ear] = SKINR[2]; outline(img, ear, SKINR[0])
+    r = W * .27; c = np.array([W * .46 - i * .08, H * .44])
+    col = BODY[True][0]
+    pline(img, (c[0] - r * .1, c[1] + r * .9), (c[0] - r * .45, H + 4), max(3, int(r * .12)), col)          # neck + torso line
+    sc_ = [(c[0] - r * .55, c[1] + r * 1.05), (c[0] + r * .35, c[1] + r * 1.0), (c[0] + r * .3, c[1] + r * 1.28), (c[0] - r * .6, c[1] + r * 1.32)]
+    m = polymask(sc_); img[m] = SCARF[0]; img[m & (yy > c[1] + r * 1.17)] = SCARF[1]
+    tail = polymask([(c[0] - r * .55, c[1] + r * 1.08), (c[0] - r * 1.3 - i * .3, c[1] + r * 1.45), (c[0] - r * 1.2 - i * .3, c[1] + r * 1.7), (c[0] - r * .5, c[1] + r * 1.3)])
+    img[tail] = SCARF[1]
+    head = ((xx - c[0]) / r) ** 2 + ((yy - c[1]) / r) ** 2 <= 1
+    img[head] = col
+    lit = head & (((xx - c[0] - r * .35) / r) ** 2 + ((yy - c[1] + r * .1) / r) ** 2 > .62) & (xx > c[0] + r * .2)
+    img[lit] = rgb('#3a2c2a') if k < .5 else rgb('#5a4034')                                                   # warm light on the lit side
+    if k > .3: img[head & ~np.roll(head, -1, 1) & (xx > c[0])] = (255, 220, 160)                             # rim
     shock = i >= 8
-    for ex, ew in ((c[0] + r * .22, r * .17), (c[0] + r * .66, r * .12)):
-        ey = c[1] + r * .04; eh = ew * (1.0 if shock else .62)
-        pline(img, (ex - ew, ey - eh - (4 if shock else 2)), (ex + ew, ey - eh - (5 if shock else 1)), 2, HAIRR[1])
+    for ex, ew in ((c[0] + r * .2, r * .2), (c[0] + r * .62, r * .15)):
+        ey = c[1] - r * .05; eh = ew * (1.25 if shock else .7)
         e = ((xx - ex) / ew) ** 2 + ((yy - ey) / eh) ** 2 <= 1
-        img[e] = TEE; outline(img, e, INKC)
-        pr = max(1.6, ew * .5)
-        img[((xx - (ex + ew * .25)) ** 2 + (yy - ey) ** 2 <= pr * pr) & e] = INKC
-        for dx in (-.35, .45):
-            px, py = int(round(ex + ew * .25 + dx * pr)), int(round(ey - pr * .4))
+        img[e] = (240, 238, 232)
+        pr = max(1.6, ew * .45)
+        img[((xx - (ex + ew * .3)) ** 2 + (yy - ey) ** 2 <= pr * pr) & e] = col
+        for dx in (-.35, .45):                                           # two headlight reflections in each eye
+            px, py = int(round(ex + ew * .3 + dx * pr)), int(round(ey - pr * .45))
             if 0 <= py < H and 0 <= px < W: img[py, px] = (255, 252, 236)
-    mx, my = c[0] + r * .54, c[1] + r * .55
-    if shock: pdisc(img, (mx, my + 1), max(1.5, r * .07), INKC)
-    else: pline(img, (mx - r * .1, my), (mx + r * .08, my - 1), 1, INKC)
-    if k > .4: img[head & ~np.roll(head, -1, 1)] = (255, 220, 160)
     return img
 
 
