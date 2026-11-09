@@ -240,7 +240,7 @@ def draw_fighter(d, keys, t, cloak, z, gy):
     sw = math.radians(pts[-1])
     swv = (math.cos(sw) * f, math.sin(sw))
     flap = math.sin(t * 40) * 4 * z
-    trail = -f * (30 + min(50, abs(vx) * 0.04)) * z
+    trail = -f * (40 + min(60, abs(vx) * 0.05)) * z
 
     def at(p, dx, dy): return (p[0] + f * dx * z, p[1] + dy * z)
     if cloak == 'red':     # long cape behind body
@@ -252,7 +252,7 @@ def draw_fighter(d, keys, t, cloak, z, gy):
         d.line([a, b], fill=INK, width=lw)
     d.line([hip, neck], fill=INK, width=lw + 1)
     if cloak == 'green':   # long coat over torso, flaring behind
-        d.polygon([at(neck, 8, -3), at(hip, 14, 4), at(hip, 8, 30 + flap / z), (hip[0] + trail, hip[1] + 22 * z - flap),
+        d.polygon([at(neck, 10, -4), at(hip, 18, 6), at(hip, 12, 36 + flap / z), (hip[0] + trail, hip[1] + 22 * z - flap),
                    (hip[0] + trail * .8, hip[1] - 4 * z), at(neck, -9, 0)], fill=GREEN)
         d.polygon([at(neck, -4, 0), (hip[0] + trail, hip[1] + 22 * z - flap), (hip[0] + trail * .8, hip[1] - 4 * z)], fill=GREEN_D)
     for a, b in [(hip, kF), (kF, fF), (neck, eF), (eF, hF)]:
@@ -407,8 +407,8 @@ def effects(t, d, g, G, R, sd):
         fire_arc(d, g, 587, 450, 170, 70, 160 + 80 * u, 380 + 80 * u, 24, u)
         fire_arc(d, g, 640, 470, 110, 90, -40 + 120 * u, 120 + 120 * u, 18, u)
         particles(d, g, 600, 450, 160, u, 12, 6, col=(255, 200, 80))
-    if 0.65 < t < 0.82:
-        u = win(0.65, 0.82)
+    if 0.65 < t < 0.78:
+        u = win(0.65, 0.78)
         fire_arc(d, g, 650, 470, 330, 110, 170 + 60 * u, 330 + 60 * u, 22 * (1 - u * .5), u)
         fire_arc(d, g, 780, 420, 200, 140, -40 + 40 * u, 90 + 40 * u, 18 * (1 - u * .5), u)
         streak(d, g, 560, 720, 510, 16 * (1 - u), Y)
@@ -416,13 +416,13 @@ def effects(t, d, g, G, R, sd):
         slash(d, g, 900, 500, 45, -60, 160, u, w=12)
     if 0.74 < t < 0.87:
         u = win(0.74, 0.87)
-        fire_line(d, g, (330, 440), (lerp(330, 600, min(1, u * 2)), lerp(440, 610, min(1, u * 2))), 20 * (1 - u * .6))
+        fire_line(d, g, (330, 340), (lerp(330, 600, min(1, u * 2)), lerp(340, 650, min(1, u * 2))), 24 * (1 - u * .6))
         particles(d, g, 470, 500, 220, u, 14, 8)
         streak(d, g, 360, 520, 525, 14 * (1 - u), Y)
     if 0.78 < t < 1.22:
         u = win(0.78, 1.22)
-        dust(sd, -40, 420, 640, u, (248, 250, 246), 1, big=1.3)
-        dust(sd, 880, 1300, 640, u, (248, 250, 246), 2, big=1.2)
+        dust(sd, -40, 320, 630, u, (248, 250, 246), 1, big=1.1)
+        dust(sd, 960, 1320, 630, u, (248, 250, 246), 2, big=1.1)
     slash(d, g, 225, 505, 45, 100, 160, win(0.95, 1.12), w=12)
     slash(d, g, 930, 520, 60, 300, -110, win(1.25, 1.42), w=8)
     slash(d, g, 290, 470, 45, 100, 170, win(1.45, 1.62), w=13)
@@ -448,8 +448,8 @@ def effects(t, d, g, G, R, sd):
         particles(d, g, 400, 490, 80, u, 8, 14)
         slash(d, g, 613, 430, 40, -90, 180, u, w=12)
         slash(d, g, 853, 480, 45, -60, 200, u, w=8)
-    if 2.4 < t < 2.6:
-        u = win(2.4, 2.6)
+    if 2.42 < t < 2.67:
+        u = win(2.42, 2.67)
         a = -100 + 170 * min(1, u * 2)       # tall ')' crescent sweeping top -> bottom
         for col, w, r in [((200, 30, 36), 90, 260), ((240, 60, 50), 60, 248), ((255, 120, 110), 22, 225)]:
             if u < 0.85: crescent(d, 560, 440, r, -100, a, w * (1 - u * .5), col, sy=1.0)
@@ -477,10 +477,12 @@ def effects(t, d, g, G, R, sd):
         slash(d, g, 500, 430, 60, 200, 150, u, w=14)
     if 2.75 < t < 3.25:
         u = win(2.75, 3.25)
-        dust(sd, 620, 820, 640, u, (176, 140, 96), 3, big=.8, towers=False)
+        dust(sd, 600, 860, 660, u, (176, 140, 96), 3, big=1.1, towers=False)
     if 2.85 < t < 3.2:
         u = win(2.85, 3.2)
-        dust(sd, 180, 1000, 650, u, (160, 128, 88), 4, big=1.0, towers=False)
+        dust(sd, 160, 1100, 690, u, (160, 128, 88), 4, big=1.4, towers=False)
+        fire_arc(d, g, 590, 600, 50, 60, 100 + 300 * u, 300 + 300 * u, 18 * (1 - u), u)
+        streak(d, g, 520, 660, 590, 26 * (1 - u), (255, 200, 90))
         particles(d, g, 620, 390, 60, u, 6, 16)
         fire_arc(d, g, 650, 330, 90, 40, 190 + 90 * u, 350 + 90 * u, 22 * (1 - u * .7), u)
         particles(d, g, 560, 560, 60, u, 6, 17, col=(255, 180, 60))
@@ -563,15 +565,26 @@ def frame(t, bg, dark, tail):
     img = Image.fromarray(base.clip(0, 255).astype(np.uint8))
     img = img.transform((W, H), Image.Transform.AFFINE, (1 / z, 0, cx - 640 / z, 0, 1 / z, cy - 360 / z), Image.Resampling.NEAREST)
     gy = (GROUND - cy) * z + 360
-    d = ImageDraw.Draw(img)
-    G = draw_fighter(d, GK, t, 'green', z, gy)
-    R = draw_fighter(d, RK, t, 'red', z, gy)
+    G = ((fighter_state(GK, t)[0], 0),)
+    R = ((fighter_state(RK, t)[0], 0),)
     fx = Image.new('RGBA', (W, H), (0, 0, 0, 0))
     gl = Image.new('RGB', (W, H), (0, 0, 0))
     soft = Image.new('RGBA', (W, H), (0, 0, 0, 0))
     effects(t, ImageDraw.Draw(fx), ImageDraw.Draw(gl), G, R, ImageDraw.Draw(soft))
-    if soft.getbbox():
+    if soft.getbbox():                    # dust sits behind the fighters
         img = Image.alpha_composite(img.convert('RGBA'), soft.filter(ImageFilter.GaussianBlur(5))).convert('RGB')
+    ghost = Image.new('RGBA', (W, H), (0, 0, 0, 0))   # smear trail on fast moves
+    gd = ImageDraw.Draw(ghost)
+    for keys, cl in [(GK, 'green'), (RK, 'red')]:
+        if abs(fighter_state(keys, t)[0] - fighter_state(keys, t - 0.033)[0]) > 25:
+            for dt in (0.045, 0.025):
+                draw_fighter(gd, keys, t - dt, cl, z, gy)
+    if ghost.getbbox():
+        ga = np.asarray(ghost).copy(); ga[..., 3] = (ga[..., 3] * 0.35).astype(np.uint8)
+        img = Image.alpha_composite(img.convert('RGBA'), Image.fromarray(ga).filter(ImageFilter.BoxBlur(3))).convert('RGB')
+    d = ImageDraw.Draw(img)
+    draw_fighter(d, GK, t, 'green', z, gy)
+    draw_fighter(d, RK, t, 'red', z, gy)
     gl = gl.resize((W // 4, H // 4), Image.Resampling.BILINEAR).filter(ImageFilter.GaussianBlur(5)).resize((W, H), Image.Resampling.BILINEAR)
     img = Image.alpha_composite(img.convert('RGBA'), fx).convert('RGB')
     out = np.asarray(img).astype(np.float32) + np.asarray(gl).astype(np.float32) * 0.75
