@@ -44,6 +44,14 @@ POSES = {
     'block': dict(lean=4, rsh=118, rel=64, lsh=62, lel=92, lhip=34, lknee=46, rhip=-22, rknee=38),
     'slide': dict(lean=-42, head=6, lhip=86, lknee=4, rhip=12, rknee=130, lsh=-20, lel=30, rsh=60, rel=40),
     'fly': dict(lean=-44, head=-24, lhip=52, lknee=64, rhip=30, rknee=84, lsh=124, lel=20, rsh=142, rel=30),
+    'load': dict(lean=2, head=-6, lhip=26, lknee=38, rhip=-30, rknee=56, lsh=40, lel=88, rsh=20, rel=118),
+    'step': dict(lean=16, lhip=44, lknee=32, rhip=-30, rknee=36, lsh=52, lel=74, rsh=28, rel=112),
+    'jab_recoil': dict(lean=18, lhip=40, lknee=30, rhip=-30, rknee=24, lsh=70, lel=40, rsh=30, rel=118),
+    'cross_recoil': dict(lean=24, lhip=46, lknee=34, rhip=-36, rknee=14, rsh=70, rel=36, lsh=40, lel=100),
+    'land2': dict(lean=40, head=-14, lhip=58, lknee=104, rhip=-4, rknee=98, lsh=6, lel=40, rsh=-14, rel=40),
+    'hit_head': dict(lean=4, head=-48, lsh=40, lel=60, rsh=10, rel=80),
+    'hit_body': dict(lean=-30, head=-26, lhip=16, lknee=36, rhip=-40, rknee=26, lsh=20, lel=20, rsh=-36, rel=30),
+    'recover': dict(lean=18, head=2, lhip=34, lknee=48, rhip=-22, rknee=38, lsh=46, lel=80, rsh=26, rel=110),
     'sprawl': dict(lean=-60, head=-20, lhip=70, lknee=30, rhip=40, rknee=60, lsh=150, lel=10, rsh=170, rel=10),
 }
 
@@ -89,7 +97,8 @@ def pose(k):
 
 
 EASE = {'io': lambda u: u * u * (3 - 2 * u), 'in': lambda u: u ** 3, 'out': lambda u: 1 - (1 - u) ** 3,
-        'lin': lambda u: u, 'snap': lambda u: 1 - (1 - u) ** 4, 'hold': lambda u: 0.0}
+        'lin': lambda u: u, 'snap': lambda u: 1 - (1 - u) ** 4, 'hold': lambda u: 0.0,
+        'back': lambda u: 1 + 2.4 * (u - 1) ** 3 + 1.4 * (u - 1) ** 2}         # overshoot then settle
 
 
 def K(f, name, ease='io', **kw):
@@ -111,27 +120,30 @@ CONTACTS = [
 SHOTPLAN = [(0, 'wide'), (74, 'medium'), (128, 'wide'), (188, 'medium'), (240, 'wide'), (256, 'close'), (276, 'wide')]
 DUST = [(40, 'opp'), (174, 'hero'), (204, 'hero'), (246, 'opp'), (280, 'hero'), (287, 'opp')]
 
-HERO = [K(0, 'stance'), K(18, 'bob'), K(36, 'stance', dx=20), K(50, 'bob'),
-        K(58, 'slip', 'out', dx=-30), K(72, 'stance', 'io', dx=10),
-        K(82, 'crouch', 'io'), K(92, 'jab', 'snap', reach=('head', 'lhand')), K(96, 'jab', 'hold'),
-        K(104, 'crouch', 'out'), K(112, 'cross', 'snap', reach=('head', 'rhand')), K(116, 'cross', 'hold'), K(130, 'stance', 'out'),
-        K(138, 'crouch', 'io'),
-        K(148, 'tuck', 'out', dx=-110, air=170, rot=130), K(161, 'tuck', 'lin', dx=-100, air=185, rot=265),
-        K(174, 'land', 'in', dx=-45, rot=360), K(186, 'stance', 'io', rot=360, weapon=True),
-        K(194, 'crouch', 'io', rot=360), K(205, 'dash', 'out', dx=110, rot=360), K(213, 'wind', 'out', dx=40, rot=360),
+HERO = [K(0, 'stance'), K(18, 'bob'), K(34, 'step', dx=25), K(46, 'stance', 'back'),
+        K(54, 'load', 'io'), K(60, 'slip', 'out', dx=-30), K(70, 'slip', 'io'), K(78, 'stance', 'back', dx=10),
+        K(84, 'load', 'io'), K(89, 'step', 'out', dx=30), K(92, 'jab', 'snap', reach=('head', 'lhand')), K(96, 'jab', 'hold'),
+        K(100, 'jab_recoil', 'out'), K(106, 'load', 'io'), K(112, 'cross', 'snap', reach=('head', 'rhand')), K(116, 'cross', 'hold'),
+        K(121, 'cross_recoil', 'out'), K(132, 'stance', 'back'),
+        K(140, 'crouch', 'io'), K(147, 'tuck', 'out', dx=-100, air=170, rot=120), K(158, 'tuck', 'lin', dx=-100, air=190, rot=260),
+        K(169, 'land', 'in', dx=-50, rot=360), K(175, 'land2', 'out', rot=360), K(188, 'stance', 'back', rot=360, weapon=True),
+        K(196, 'crouch', 'io', rot=360), K(205, 'dash', 'out', dx=110, rot=360), K(213, 'wind', 'out', dx=40, rot=360),
         K(222, 'slash', 'snap', reach=('head', 'blade'), rot=360), K(228, 'slash', 'hold', rot=360),
-        K(238, 'follow', 'out', dx=20, rot=360), K(246, 'crouch', 'io', rot=360),
-        K(254, 'wind', 'out', dx=260, air=150, rot=360), K(262, 'slash', 'snap', reach=('head', 'blade'), air=110, rot=360),
-        K(270, 'slash', 'hold', air=110, rot=360), K(280, 'follow', 'in', dx=30, air=0, rot=360), K(287, 'follow', 'io', rot=360)]
+        K(238, 'follow', 'out', dx=30, rot=360), K(246, 'crouch', 'back', rot=360),
+        K(254, 'wind', 'out', dx=165, air=150, rot=360), K(262, 'slash', 'snap', reach=('head', 'blade'), air=110, rot=360),
+        K(270, 'slash', 'hold', air=110, rot=360), K(279, 'land2', 'in', dx=30, air=0, rot=360), K(287, 'follow', 'back', rot=360)]
 
-OPP = [K(0, 'stance'), K(16, 'crouch', 'io'), K(30, 'dash', 'out', dx=120), K(40, 'stance', 'io', dx=25),
-       K(50, 'crouch', 'io'), K(58, 'jab', 'snap', reach=('head@50', 'lhand')), K(72, 'stance', 'out'),
-       K(92, 'stance', 'io'), K(96, 'stance', 'hold'), K(104, 'hit', 'out', dx=-40), K(110, 'stance', 'io'),
-       K(112, 'stance', 'io'), K(116, 'stance', 'hold'), K(126, 'stagger', 'out', dx=-60), K(134, 'stance', 'io'),
-       K(140, 'chamber', 'io', dx=40), K(150, 'kick', 'snap', reach=('head@138', 'rtoes')), K(162, 'chamber', 'out'), K(176, 'stance', 'io'),
-       K(222, 'stance', 'io'), K(228, 'stance', 'hold'), K(238, 'fly', 'out', dx=-170, air=70, rot=-10), K(246, 'land', 'in', dx=-40, rot=0),
-       K(256, 'stagger', 'io'), K(262, 'stagger', 'io'), K(270, 'stagger', 'hold'),
-       K(279, 'fly', 'out', dx=-260, air=200, rot=-60), K(287, 'sprawl', 'lin', dx=-220, air=240, rot=-140)]
+OPP = [K(0, 'stance'), K(16, 'crouch', 'io'), K(30, 'dash', 'out', dx=50), K(37, 'land2', 'out', dx=10), K(46, 'stance', 'back', dx=10),
+       K(51, 'load', 'io'), K(55, 'step', 'out', dx=90), K(58, 'jab', 'snap', reach=('head@50', 'lhand')), K(64, 'jab_recoil', 'out'),
+       K(76, 'stance', 'back'),
+       K(92, 'stance', 'io'), K(96, 'stance', 'hold'), K(99, 'hit_head', 'snap', dx=-10), K(104, 'hit_body', 'out', dx=-35),
+       K(110, 'recover', 'io'), K(112, 'recover', 'io'), K(116, 'recover', 'hold'),
+       K(119, 'hit_head', 'snap', dx=-15), K(126, 'hit_body', 'out', dx=-55), K(134, 'stagger', 'out', dx=-20), K(141, 'recover', 'back'),
+       K(146, 'chamber', 'out', dx=60), K(150, 'kick', 'snap', reach=('head@138', 'rtoes')), K(160, 'chamber', 'out'), K(172, 'stance', 'back'),
+       K(214, 'stance', 'io'), K(222, 'stance', 'io'), K(228, 'stance', 'hold'),
+       K(231, 'hit_head', 'snap', dx=-20), K(238, 'fly', 'out', dx=-170, air=70, rot=-10), K(245, 'land2', 'in', dx=-40, rot=0),
+       K(253, 'stagger', 'out', dx=-10), K(262, 'recover', 'io'), K(270, 'recover', 'hold'),
+       K(274, 'hit_head', 'snap', dx=-30, air=40), K(281, 'fly', 'out', dx=-250, air=200, rot=-60), K(287, 'sprawl', 'lin', dx=-200, air=240, rot=-140)]
 
 START = {'hero': -230.0, 'opp': 290.0}
 FACE = {'hero': 1, 'opp': -1}
@@ -214,7 +226,7 @@ class Track:
                 g = max(0, f - lag.get(q, 0)) if w[f] > .5 else f
                 p[q] = A2[g, i]
             out.append(world(pose(p), A2[f, -1], s.d))
-        return np.array(out)
+        return plant_feet(np.array(out), s.d)
 
 
 def solve(tracks):
@@ -270,3 +282,35 @@ def stance_bob(i, fps=60):
     u = .5 - .5 * math.cos(2 * math.pi * i / fps * .9)
     p = dict(STANCE); p.update({q: STANCE[q] + (STANCE[q] + POSES['bob'].get(q, STANCE[q]) - 2 * STANCE[q]) * u for q in STANCE})
     return pose(p)
+
+
+def plant_feet(Wp, d, step=55.0, dur=7, lift=26.0):
+    """Weight: a grounded foot stays planted; when the body has moved too far from it, the foot takes a
+    quick step (small lift arc) to where the pose wants it. Knees re-solved with 2-bone IK (knee forward)."""
+    Wp = Wp.copy(); n = len(Wp)
+    l1, l2 = L['thigh'], L['shin']
+    for s_ in 'lr':
+        hi, kn, an = I[s_ + 'hipjoint'], I[s_ + 'femur'], I[s_ + 'tibia']
+        tgt, stp = None, None
+        for f in range(n):
+            P = Wp[f]; a = P[an, :2].copy()
+            if a[1] > 46:                                              # airborne / flipping: foot follows the pose
+                tgt, stp = None, None; continue
+            if tgt is None:
+                tgt = a.copy(); continue
+            if stp is None and abs(a[0] - tgt[0]) > step:
+                stp = (f, tgt.copy())
+            if stp is not None:
+                u = min(1.0, (f - stp[0]) / dur); e = u * u * (3 - 2 * u)
+                tgt = stp[1] + (a - stp[1]) * e; tgt = tgt + [0, lift * math.sin(math.pi * u)]
+                if u >= 1: tgt = a.copy(); stp = None
+            H = P[hi, :2]; v = tgt - H; D = max(min(np.linalg.norm(v), l1 + l2 - .5), abs(l1 - l2) + .5)
+            v = v / max(np.linalg.norm(v), 1e-6)
+            nrm = np.array([-v[1], v[0]])
+            if nrm[0] * d < 0: nrm = -nrm                               # knee bends toward the facing side
+            x = (l1 * l1 - l2 * l2 + D * D) / (2 * D); y = math.sqrt(max(l1 * l1 - x * x, 0))
+            K_ = H + v * x + nrm * y; A_ = H + v * D
+            delta = A_ - a
+            P[kn, :2] = K_; P[an, :2] = A_
+            for j in (I[s_ + 'foot'], I[s_ + 'toes']): P[j, :2] += delta
+    return Wp

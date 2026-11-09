@@ -345,7 +345,7 @@ STEEL = (rgb('#e9eef2'), rgb('#aab4bd'), rgb('#5d6670'), rgb('#3b2a1e'))
 BODY = {True: (rgb('#1c1518'), rgb('#3b3237')), False: (rgb('#141218'), rgb('#2e2b35'))}
 
 
-def draw_figure(img, S, I, hero, cloth, mask=None, lim=2, prev=None, blade=None, hr=6.0):
+def draw_figure(img, S, I, hero, cloth, mask=None, lim=2, prev=None, blade=None, hr=6.0, flash=False):
     """Pure pixel stickman from whole-pixel joint positions S (Nx3, z = depth): equal-width limb lines,
     one torso line, a big round head. Far-side limbs a shade lighter so crossings read. The hero wears a
     gold scarf, the opponent a red cape (both Verlet chains). prev = previous frame (smear streaks on fast
@@ -357,6 +357,7 @@ def draw_figure(img, S, I, hero, cloth, mask=None, lim=2, prev=None, blade=None,
     u = (b - a) / max(np.linalg.norm(b - a), 1e-6)
     hc = a + u * hr * 1.1
     col, col2 = BODY[hero]
+    if flash: col = col2 = rgb('#fbf8f0')                           # white hit flash on the struck body
     if cloth is not None and not hero:
         draw_cloth(img, cloth, max(2, hr * .5), hr * 2.2, CAPE, mask, folds=1)
 
@@ -395,6 +396,43 @@ def draw_figure(img, S, I, hero, cloth, mask=None, lim=2, prev=None, blade=None,
 
 
 # ---------------------------------------------------------------- effects
+def fx_impact(img, c, age, z, d):
+    """Punch impact: a big pixel star on the contact frames, shrinking into short rays, then dots."""
+    if age >= 7: return
+    k = [1.0, 1.0, .75, .55, .4, .3, .2][age]
+    for a, L_ in ((0, 1.0), (math.pi / 2, .8), (math.pi, 1.0), (-math.pi / 2, .8)):
+        L_ *= 15 * z * k; ca, sa = math.cos(a), math.sin(a)
+        w = max(1.0, 3.2 * z * k)
+        pts = [(c[0] + ca * L_, c[1] + sa * L_), (c[0] - sa * w, c[1] + ca * w), (c[0] - ca * w, c[1] - sa * w), (c[0] + sa * w, c[1] - ca * w)]
+        if age < 4: ppoly(img, pts, (255, 255, 255))
+    if age < 2: pdisc(img, c, 3.5 * z, (255, 250, 220))
+    for j in range(8):                                                   # thin diagonal rays, growing outward
+        a = math.pi / 4 + j * math.pi / 4 + (0 if d > 0 else .2)
+        r0, r1 = (6 + age * 3) * z, (11 + age * 4.5) * z
+        if 1 <= age < 6 and j % 2 == 0:
+            pline(img, (c[0] + math.cos(a) * r0, c[1] + math.sin(a) * r0), (c[0] + math.cos(a) * r1, c[1] + math.sin(a) * r1), 1, (255, 244, 200))
+
+
+def fx_trail(img, pts, w):
+    """Speed trail behind a fist/foot: a tapered pale strip along its last positions, brightest at the tip."""
+    P = np.asarray(pts, float)
+    if len(P) < 2 or np.linalg.norm(P[-1] - P[0]) < 4: return
+    for i in range(1, len(P)):
+        u = i / (len(P) - 1)
+        m = np.zeros((H, W), bool); pline(np.zeros((H, W, 3), np.uint8), P[i - 1], P[i], max(1, int(round(w * u))), (0, 0, 0), m)
+        blend(img, m, (255, 252, 238), .25 + .55 * u)
+
+
+def fx_shock(img, c, age, z, d):
+    """Shock lines flung out behind the struck head, in the hit direction."""
+    if age >= 8: return
+    for j, a in enumerate((-.5, -.15, .2, .55)):
+        ang = (0 if d > 0 else math.pi) + a
+        r0, r1 = (10 + age * 4) * z, (18 + age * 6) * z * (1 - .2 * (j % 2))
+        if age > 5 and j % 2: continue
+        pline(img, (c[0] + math.cos(ang) * r0, c[1] + math.sin(ang) * r0), (c[0] + math.cos(ang) * r1, c[1] + math.sin(ang) * r1), 1, (255, 255, 255))
+
+
 WHITE = np.array([255, 255, 255], np.float32)
 GLOW = np.array([220, 238, 255], np.float32)
 FIRE = ramp('#fff6d8', '#ffe08a', '#ffb347', '#ff7a2e', '#e8432e', '#a8242a')

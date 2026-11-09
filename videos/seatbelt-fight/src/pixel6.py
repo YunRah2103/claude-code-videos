@@ -193,6 +193,7 @@ class Film:
                     if k['evade'] and k['beat'] != 5: continue
                     dd = f - k['o']
                     sc *= 1 + .07 * k['size'] ** .5 * math.exp(-((dd + 8) / 9) ** 2)      # push-in on the wind-up
+                    if not k['evade'] and 0 <= dd < 2 * k['hitstop'] + 3: sc *= 1.04          # punch-in on the hit
                     if k.get('tilt'):                                                     # low tilt on the kicks / leap
                         tilt = max(tilt, 16 * math.exp(-(dd / 16) ** 2) * H / 320)
                 s.cams[f] = (c, gy + int(round(tilt * .5)), sc, kind, tilt, smear); s.shot_of[f] = kind
@@ -230,7 +231,7 @@ class Film:
         s.tr_scarf, s.tr_hair = scarf, hair
 
     # -------------------------------------------------------------- drawing
-    def figure(s, img, P, Pprev, cloth_pts, hair_pts, cx, gy, sc, hero, mask=None, blade=False):
+    def figure(s, img, P, Pprev, cloth_pts, hair_pts, cx, gy, sc, hero, mask=None, blade=False, flash=False):
         S = scr(P, cx, gy, sc)
         lim = max(2, int(round(FIG * sc / 55)))
         prev = scr(Pprev, cx, gy, sc) if Pprev is not None else None
@@ -238,7 +239,7 @@ class Film:
         bl = None
         if hero and blade:
             h, tip = blade_tip(P); bl = scr_pts([h, tip], cx, gy, sc)
-        hc, hr = RS.draw_figure(img, S, I, hero, cl, mask, lim, prev, bl, hr=HF.HEAD_R * sc)
+        hc, hr = RS.draw_figure(img, S, I, hero, cl, mask, lim, prev, bl, hr=HF.HEAD_R * sc, flash=flash)
         if False:
             Hp = scr_pts(hair_pts, cx, gy, sc); Hp[0] = hc + np.array([-.8 * hr, -.2 * hr])
             for i in range(1, len(Hp)): RS.pline(img, Hp[i - 1], Hp[i], max(1, lim - 1), RS.HAIR, mask)
@@ -259,9 +260,24 @@ class Film:
         tp = s.story[o - 1] if o > 0 else t
         Po, Ph = s.pose('opp', t), s.pose('hero', t)
         Pop, Php = (s.pose('opp', tp), s.pose('hero', tp)) if tp != t else (None, None)
-        s.figure(img, Po, Pop, s.cape[o], None, cx, gy, sc, False)
-        s.figure(img, Ph, Php, s.scarf[o], s.hair[o], cx, gy, sc, True, blade=bool(s.weapon_on[t]))
+        fl = {k['dfn'] for k in s.contacts if not k['evade'] and k['o'] <= o < k['o'] + 2}   # white hit flash (2 frames)
         z = sc / scale_of('wide')
+        for k in s.contacts:                                    # speed trail along the striking fist / foot
+            if k['evade'] or k.get('weapon') or not (k['o'] - 5 <= o <= k['o'] + 1): continue
+            A = s.Wd[k['att']]
+            pts = [scr(A[f], cx, gy, sc)[I[k['eff']], :2] for f in range(max(0, min(t, k['c']) - 6), min(t, k['c']) + 1)]
+            RS.fx_trail(img, pts, 3 * z)
+        s.figure(img, Po, Pop, s.cape[o], None, cx, gy, sc, False, flash='opp' in fl)
+        s.figure(img, Ph, Php, s.scarf[o], s.hair[o], cx, gy, sc, True, blade=bool(s.weapon_on[t]), flash='hero' in fl)
+        for k in s.contacts:                                    # impact star + shock lines on every landed hit
+            if k['evade']: continue
+            age = o - k['o']
+            if 0 <= age < 10:
+                A = s.Wd[k['att']][k['c']]
+                P = scr_pts([blade_tip(A)[1]], cx, gy, sc)[0] if k.get('weapon') else scr(A, cx, gy, sc)[I[k['eff']], :2]
+                RS.fx_impact(img, P, age, z * k['size'] ** .3, D[k['att']])
+                hd = scr_pts([HF.head_center(s.Wd[k['dfn']][min(t, NF_FIGHT - 1)])], cx, gy, sc)[0]
+                RS.fx_shock(img, hd, age - 2 * k['hitstop'], z, D[k['att']])
         for k in s.contacts:                                    # crescent slashes along the blade tip or limb tip
             age = o - (k['o'] - 4)
             if not 0 <= age < 14: continue
