@@ -624,9 +624,44 @@ _Y, _X = np.mgrid[0:H, 0:W].astype(np.float32)
 VMASK = (1 - 0.75 * np.clip((((_X - W / 2) / (W / 2)) ** 2 + ((_Y - H / 2) / (H / 2)) ** 2) - 0.25, 0, 1))[..., None]
 
 
+BIG = [0.3, 2.0, 2.65, 3.72, 4.9]          # hits that get hit-stop, white flash and speed lines
+STOP = 0.06                                 # hit-stop hold (about 2 frames)
+
+
+def hitstop(t):
+    for h in BIG:
+        if h <= t < h + STOP: return h
+    return t
+
+
+def ambient(d, t, n=26, seed=31):
+    """Petals and leaves drifting on the wind (pixel squares, they flutter as they fall)."""
+    rr = np.random.default_rng(seed)
+    for _ in range(n):
+        x0, y0, sp, ph = rr.uniform(-200, W), rr.uniform(-100, H), rr.uniform(.6, 1.4), rr.uniform(0, 6.3)
+        col = [(246, 170, 200), (255, 230, 120), (120, 200, 90), (250, 250, 240)][rr.integers(4)]
+        x = (x0 + t * 160 * sp) % (W + 200) - 100
+        y = (y0 + t * 60 * sp + 18 * math.sin(t * 3 * sp + ph)) % (H + 100) - 50
+        s = 5 + 3 * abs(math.sin(t * 6 * sp + ph))
+        d.rectangle([x - s, y - 6, x + s, y + 6], fill=col + (255,))
+
+
+def speedlines(d, cx, cy, u, seed):
+    rr = np.random.default_rng(seed)
+    for _ in range(46):
+        a = rr.uniform(0, 2 * math.pi); r0 = rr.uniform(260, 420) + 120 * u
+        ln = rr.uniform(140, 320) * (1 - u)
+        w_ = rr.uniform(3, 9)
+        p0 = (cx + math.cos(a) * r0, cy + math.sin(a) * r0 * .7)
+        p1 = (cx + math.cos(a) * (r0 + ln), cy + math.sin(a) * (r0 + ln) * .7)
+        d.line([p0, p1], fill=(255, 255, 255, 230), width=int(w_))
+
+
 def frame(t, bg, dark, tail):
     if t >= ACTION:
-        return tail
+        return ember_tail(t, tail)
+    t0 = t
+    t = hitstop(t)
     dim = piece(t, DIM)
     base = bg * (1 - dim) + dark * dim
     z, cx, cy = piece(t, CZ), piece(t, CX), piece(t, CY)
@@ -684,13 +719,42 @@ def frame(t, bg, dark, tail):
     draw_fighter(cdr, GK, t, 'green', z, gy)
     draw_fighter(cdr, RK, t, 'red', z, gy)
     img = Image.alpha_composite(img.convert('RGBA'), pixelate(chars, CPX)).convert('RGB')
+    fd = ImageDraw.Draw(fx)
+    ambient(fd, t0)
+    for h, (sx, sy) in zip(BIG, [(420, 500), (500, 470), (600, 470), (850, 560), (560, 500)]):
+        if h <= t0 < h + 0.22: speedlines(fd, sx, sy, (t0 - h) / 0.22, int(h * 100))
     fx = pixelate(fx, FPX, cut=60)
     gl = gl.resize((W // 8, H // 8), Image.Resampling.BILINEAR).filter(ImageFilter.GaussianBlur(2.5)).resize((W, H), Image.Resampling.NEAREST)  # blocky glow
     img = Image.alpha_composite(img.convert('RGBA'), fx).convert('RGB')
     out = np.asarray(img).astype(np.float32) + np.asarray(gl).astype(np.float32) * 0.75
     v = piece(t, VIG)
     if v: out *= (1 - v) + v * VMASK
+    for h in BIG:                                      # one-frame white impact flash, then a quick fade
+        if h <= t0 < h + 0.1:
+            k = 0.75 if t0 < h + 1 / FPS else 0.75 * (1 - (t0 - h) / 0.1)
+            out = out * (1 - k) + 255 * k
     return out.clip(0, 255).astype(np.uint8)
+
+
+def ember_tail(t, tail):
+    """Instead of a near-black screen: dark backdrop with glowing embers drifting up, fading with the music."""
+    u = (t - ACTION) / (DUR - ACTION)
+    img = Image.fromarray(tail).convert('RGBA')
+    lay = Image.new('RGBA', (W, H), (0, 0, 0, 0)); d = ImageDraw.Draw(lay)
+    rr = np.random.default_rng(77)
+    for _ in range(40):
+        x0, sp, ph = rr.uniform(0, W), rr.uniform(40, 120), rr.uniform(0, 6.3)
+        y = H + 40 - ((t - ACTION) * sp + rr.uniform(0, H)) % (H + 80)
+        x = x0 + 20 * math.sin(t * 2 + ph)
+        a = int(255 * (1 - u) * (0.5 + 0.5 * math.sin(t * 5 + ph)))
+        col = [(255, 120, 50), (255, 200, 90), (230, 60, 40)][rr.integers(3)]
+        r_ = 6 + 6 * (rr.random() < .3)
+        d.rectangle([x - r_, y - r_, x + r_, y + r_], fill=col + (max(0, a),))
+    glow = lay.resize((W // 8, H // 8), Image.Resampling.BILINEAR).filter(ImageFilter.GaussianBlur(2)).resize((W, H), Image.Resampling.NEAREST)
+    g = np.asarray(glow).astype(np.float32); g[..., 3] *= 0.8
+    img = Image.alpha_composite(img, Image.fromarray(g.clip(0, 255).astype(np.uint8)))
+    img = Image.alpha_composite(img, pixelate(lay, 6, cut=30))
+    return np.asarray(img.convert('RGB'))
 
 
 
