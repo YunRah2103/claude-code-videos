@@ -204,29 +204,52 @@ class Track:
         p, x = s.params(f)
         return world(pose(p), x, s.d)
 
-    def frames(s, n, crisp):
-        """Fluid playback: smooth the keyed curves (sigma 2.5 frames) except near strikes/hit-stops (crisp),
-        and let the arms trail the body by 2 frames and the head by 1 (overlapping action)."""
-        from scipy.ndimage import gaussian_filter1d
-        names = list(STANCE)
+    def frames(s, n, crisp, events=()):
+        """Physics playback. Every pose channel is a spring-damper chasing the keyed pose, so the body has
+        mass: momentum, lag, overshoot and wobble (head and arms loose, spine heavier, legs firm). Hits and
+        landings inject impulses (whiplash, recoil, knee compression). Idle phases breathe, sway and bounce.
+        Strike frames and hit-stops are pinned to the keys so every contact still lands exactly."""
+        names = list(STANCE) + ['x']
         raw = [s.params(f) for f in range(n)]
-        A = np.array([[p[q] for q in names] + [x] for p, x in raw])
-        Sm = gaussian_filter1d(A, 2.5, axis=0, mode='nearest')
-        w = np.ones(n)
+        A = np.array([[p[q] for q in STANCE] + [x] for p, x in raw])
+        pin = np.zeros(n, bool)
         for c0, c1 in crisp:
-            for f in range(max(0, c0 - 8), min(n, c1 + 4)):
-                d = 0 if c0 - 2 <= f <= c1 else min(abs(f - c0), abs(f - c1))
-                w[f] = min(w[f], min(1.0, d / 6.0))
-        A2 = A * (1 - w[:, None]) + Sm * w[:, None]
-        lag = {'lsh': 2, 'lel': 2, 'rsh': 2, 'rel': 2, 'head': 1}
-        out = []
+            pin[max(0, c0 - 2):min(n, c1 + 1)] = True
+        # idle life added to the targets: boxer bounce, breathing sway (fades out while airborne/flipping)
+        t = np.arange(n) / 60.0; ph = 0.0 if s.d > 0 else 1.7
+        calm = (A[:, names.index('air')] < 5).astype(float)
+        bounce = np.sin(2 * math.pi * 1.7 * t + ph); sway = np.sin(2 * math.pi * .55 * t + ph * .6)
+        T = A.copy()
+        for q, amp, wave in (('lknee', 7, bounce), ('rknee', 6, bounce), ('lean', 2.5, sway), ('head', 3, -sway),
+                             ('lsh', 4, sway), ('rsh', 3, -bounce), ('lel', 4, bounce)):
+            T[:, names.index(q)] += amp * wave * calm
+        # per-channel natural frequency (rad/s) and damping ratio
+        spec = dict(x=(16, .95), air=(60, 1.0), rot=(60, 1.0), lean=(20, .5), head=(15, .32),
+                    lhip=(28, .65), rhip=(28, .65), lknee=(30, .6), rknee=(30, .6),
+                    lsh=(19, .42), rsh=(19, .42), lel=(22, .4), rel=(22, .4))
+        om = np.array([spec[q][0] for q in names]); ze = np.array([spec[q][1] for q in names])
+        imp = {}
+        for f, dv in events:
+            imp.setdefault(f, []).append(dv)
+        for f in range(1, n):                                             # landings compress the legs
+            if A[f - 1, names.index('air')] > 20 and A[f, names.index('air')] <= 3:
+                imp.setdefault(f, []).append(dict(lknee=520, rknee=480, lean=260, head=-200))
+        q = T[0].copy(); v = np.zeros(len(names)); dt = 1 / 60; out = np.zeros_like(A)
         for f in range(n):
-            p = {}
-            for i, q in enumerate(names):
-                g = max(0, f - lag.get(q, 0)) if w[f] > .5 else f
-                p[q] = A2[g, i]
-            out.append(world(pose(p), A2[f, -1], s.d))
-        return plant_feet(np.array(out), s.d)
+            if pin[f]:
+                q = A[f].copy(); v = (A[f] - A[f - 1]) / dt if f and not pin[f - 1] else (A[f] - A[max(0, f - 1)]) / dt
+            else:
+                for _ in range(4):                                        # 4 substeps, semi-implicit
+                    acc = om * om * (T[f] - q) - 2 * ze * om * v
+                    v += acc * dt / 4; q += v * dt / 4
+                for dv in imp.get(f, []):
+                    for k_, val in dv.items(): v[names.index(k_)] += val
+            out[f] = q
+        res = []
+        for f in range(n):
+            p = {k_: out[f, i] for i, k_ in enumerate(names[:-1])}
+            res.append(world(pose(p), out[f, -1], s.d))
+        return plant_feet(np.array(res), s.d)
 
 
 def solve(tracks):
@@ -260,7 +283,18 @@ def build():
     tracks = {'hero': Track('hero', HERO), 'opp': Track('opp', OPP)}
     solve(tracks)
     crisp = [(c['c'], c['c'] + 2 * c.get('hitstop', 0)) for c in CONTACTS]
-    Wd = {w: t.frames(N_FIGHT, crisp) for w, t in tracks.items()}
+    ev = {'hero': [], 'opp': []}
+    for c in CONTACTS:                                                    # hit impulses after the hit-stop
+        f1 = c['c'] + 2 * c.get('hitstop', 0) + 1
+        dfn = 'opp' if c['att'] == 'hero' else 'hero'; sz = c.get('size', .6)
+        if c.get('evade'):
+            ev[c['att']].append((f1, dict(lean=150, head=120)))          # overcommits on the miss
+            continue
+        ev[dfn].append((f1, dict(head=-1100 * sz, lean=-650 * sz, lsh=500 * sz, rsh=650 * sz, lel=-300 * sz,
+                                 lknee=300 * sz, x=-FACE[dfn] * 900 * sz)))
+        side = 'l' if c['eff'] == 'lhand' else 'r'
+        ev[c['att']].append((f1, {side + 'sh': -260, side + 'el': 200, 'lean': -90, 'x': -FACE[c['att']] * 120}))
+    Wd = {w: t.frames(N_FIGHT, crisp, ev[w]) for w, t in tracks.items()}
     weapon = np.zeros(N_FIGHT, bool); on = False; kf = 0
     for k in HERO:
         if k['weapon'] is not None:
