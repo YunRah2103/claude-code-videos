@@ -854,6 +854,88 @@ def speedlines(d, cx, cy, u, seed):
         d.line([p0, p1], fill=(255, 255, 255, 230), width=int(w_))
 
 
+_DUMMY = ImageDraw.Draw(Image.new('RGBA', (1, 1)))
+SLAMS = [2.65, 3.72, 7.15, 8.95]                      # ground impacts that throw rock debris
+
+
+def pose_now(keys, t):
+    i = max((j for j, k in enumerate(keys) if k[0] <= t), default=0)
+    return keys[i][3], keys[min(i + 1, len(keys) - 1)][3]
+
+
+def hit_pos(h, z, gy):
+    a, b = fighter_state(GK, h)[:2], fighter_state(RK, h)[:2]
+    return (a[0] + b[0]) / 2, gy - 40 * SCALE * z + (a[1] + b[1]) / 2 * z
+
+
+def weapon_smear(fd, gld, keys, cloak, t, z, gy):
+    """Anime swing smear traced from the weapon's real path over the last few frames."""
+    tips, hands = [], []
+    for k in range(7):
+        _, hF, tip = draw_fighter(_DUMMY, keys, t - k * 0.014, cloak, z, gy)
+        tips.append(tip); hands.append(hF)
+    sp = sum(math.hypot(a[0] - b[0], a[1] - b[1]) for a, b in zip(tips, tips[1:])) / (0.014 * 6)
+    if sp < 900: return
+    col = (190, 255, 220) if cloak == 'green' else (255, 160, 140)
+    inner = [(lerp(hh[0], tp[0], .45), lerp(hh[1], tp[1], .45)) for hh, tp in zip(hands, tips)]
+    fd.polygon(tips + inner[::-1], fill=col + (255,))
+    fd.line(tips, fill=(255, 255, 255, 255), width=7)
+    gld.line(tips, fill=col, width=22)
+
+
+def sparks(fd, gld, t, z, gy):
+    """Hot sparks with gravity from every hit."""
+    for h in HITS:
+        a = t - h
+        if not 0 <= a < 0.7: continue
+        x0, y0 = hit_pos(h, z, gy)
+        rr = np.random.default_rng(int(h * 1000))
+        for _ in range(26):
+            vx, vy, life = rr.uniform(-1000, 1000), rr.uniform(-1100, -150), rr.uniform(0.3, 0.7)
+            if a > life: continue
+            x, y = x0 + vx * a, y0 + vy * a + 1300 * a * a
+            if y > gy + 8: continue
+            ex, ey = vx, vy + 2600 * a
+            col = (255, 255, 255) if a < life * 0.3 else ((255, 230, 120) if a < life * 0.65 else (255, 130, 40))
+            fd.line([(x, y), (x - ex * 0.025, y - ey * 0.025)], fill=col + (255,), width=5)
+            gld.line([(x, y), (x - ex * 0.025, y - ey * 0.025)], fill=col, width=12)
+
+
+def debris(fd, t, z, gy):
+    """Rock chunks thrown up by ground slams; they bounce once and settle."""
+    for h in SLAMS:
+        a = t - h
+        if not 0 <= a < 1.1: continue
+        x0 = hit_pos(h, z, gy)[0]
+        rr = np.random.default_rng(int(h * 777))
+        for _ in range(16):
+            vx, vy, sz = rr.uniform(-520, 520), rr.uniform(-1000, -450), rr.uniform(6, 15)
+            tl = -2 * vy / 2600                               # time to land
+            if a < tl: x, y = x0 + vx * a, gy + vy * a + 1300 * a * a
+            else:
+                b = a - tl; x = x0 + vx * tl + vx * .3 * b; y = gy + (-vy * .25) * -b + 1300 * b * b
+                y = min(gy, y)
+            col = (122, 104, 84) if rr.random() < .5 else (96, 100, 110)
+            al = int(255 * min(1, (1.1 - a) / 0.3))
+            fd.rectangle([x - sz, y - sz, x + sz, y + sz * .7], fill=col + (al,))
+
+
+def aura(fd, gld, keys, cloak, t, z, gy):
+    """Flickering pixel flames around a fighter while winding up a big move."""
+    if 'windup' not in pose_now(keys, t) and 'raise' not in pose_now(keys, t): return
+    x, yoff = fighter_state(keys, t)[:2]
+    cy = gy - 34 * SCALE * z + yoff * z
+    ramp = [(40, 140, 90), (90, 230, 150), (190, 255, 220)] if cloak == 'green' else [(200, 40, 60), (255, 90, 80), (255, 200, 70)]
+    rr = np.random.default_rng(int(t * 30) * 7 + (cloak == 'red'))
+    for k in range(14):
+        ax = x + rr.uniform(-46, 46) * z; base = cy + rr.uniform(10, 50) * z
+        hgt = rr.uniform(40, 110) * z; w_ = rr.uniform(8, 16) * z
+        for j, col in enumerate(ramp):
+            f_ = 1 - j * 0.3
+            fd.polygon([(ax - w_ * f_, base), (ax + w_ * f_, base), (ax + rr.uniform(-6, 6), base - hgt * f_)], fill=col + (255,))
+        gld.ellipse([ax - 24, base - hgt, ax + 24, base], fill=ramp[1])
+
+
 def frame(t, bg, dark, tail):
     if t >= ACTION:
         return ember_tail(t, tail)
@@ -862,7 +944,9 @@ def frame(t, bg, dark, tail):
     dim = piece(t, DIM)
     base = bg * (1 - dim) + dark * dim
     z, cx, cy = piece(t, CZ), piece(t, CX), piece(t, CY)
-    sh = sum(14 * math.exp(-(t - h) * 18) for h in HITS if t >= h)
+    hp = max((h for h in HITS if h <= t0), default=-9)
+    if t0 - hp < 0.45: z *= 1 + 0.11 * math.exp(-(t0 - hp) * 12)          # camera punches in on every hit
+    sh = sum(20 * math.exp(-(t - h) * 16) for h in HITS if t >= h)
     cx += sh * math.sin(t * 91); cy += sh * 0.6 * math.cos(t * 77)
     cx = min(max(cx, 640 / z), W - 640 / z); cy = min(max(cy, 360 / z), H - 360 / z)
     img = Image.fromarray(base.clip(0, 255).astype(np.uint8))
@@ -917,9 +1001,15 @@ def frame(t, bg, dark, tail):
                 cdr.line([(lerp(x0, x1, a0), lerp(hy0, hy1, a0) + k * 18), (lerp(x0, x1, .85), hy1 + k * 18)], fill=(250, 250, 246, 255), width=5)
     draw_fighter(cdr, GK, t, 'green', z, gy)
     draw_fighter(cdr, RK, t, 'red', z, gy)
-    img = Image.alpha_composite(img.convert('RGBA'), pixelate(chars, CPX)).convert('RGB')
-    fd = ImageDraw.Draw(fx)
+    cpx = pixelate(chars, CPX)
+    fd = ImageDraw.Draw(fx); gld = ImageDraw.Draw(gl)
+    behind = Image.new('RGBA', (W, H), (0, 0, 0, 0)); bd_ = ImageDraw.Draw(behind)
+    for keys, cl in ((GK, 'green'), (RK, 'red')): aura(bd_, gld, keys, cl, t, z, gy)
+    img = Image.alpha_composite(img.convert('RGBA'), pixel_fx(behind, FPX))       # aura flames sit behind the body
+    img = Image.alpha_composite(img, cpx).convert('RGB')
     ambient(fd, t0)
+    for keys, cl in ((GK, 'green'), (RK, 'red')): weapon_smear(fd, gld, keys, cl, t, z, gy)
+    sparks(fd, gld, t0, z, gy); debris(fd, t0, z, gy)
     for h, (sx, sy) in zip(BIG, [(420, 500), (500, 470), (600, 470), (850, 560), (560, 500), (470, 500), (700, 430), (700, 520), (520, 470), (590, 560)]):
         if h <= t0 < h + 0.22: speedlines(fd, sx, sy, (t0 - h) / 0.22, int(h * 100))
     fx = pixel_fx(fx, FPX)
@@ -928,10 +1018,17 @@ def frame(t, bg, dark, tail):
     out = np.asarray(img).astype(np.float32) + np.asarray(gl).astype(np.float32) * 0.75
     v = piece(t, VIG)
     if v: out *= (1 - v) + v * VMASK
-    for h in BIG:                                      # one-frame white impact flash, then a quick fade
-        if h <= t0 < h + 0.1:
-            k = 0.75 if t0 < h + 1 / FPS else 0.75 * (1 - (t0 - h) / 0.1)
-            out = out * (1 - k) + 255 * k
+    hb = max((h for h in BIG if h <= t0), default=-9)
+    if t0 - hb < 0.25:                                 # colour-split shudder after big hits
+        sft = int(9 * (1 - (t0 - hb) / 0.25))
+        out[..., 0] = np.roll(out[..., 0], sft, 1); out[..., 2] = np.roll(out[..., 2], -sft, 1)
+    sil = (np.asarray(cpx)[..., 3] > 0) | (np.asarray(fx)[..., 3] > 0)
+    if hb <= t0 < hb + 1 / FPS:                        # impact frame 1: white silhouettes on black
+        out = np.repeat(np.where(sil[..., None], np.float32(250), np.float32(12)), 3, axis=2)
+    elif hb + 1 / FPS <= t0 < hb + 2 / FPS:            # impact frame 2: inverted, red-hot effects
+        out = np.full_like(out, 244); out[np.asarray(fx)[..., 3] > 0] = (230, 40, 40); out[np.asarray(cpx)[..., 3] > 0] = 12
+    elif hb + 2 / FPS <= t0 < hb + 0.16:
+        k = 0.55 * (1 - (t0 - hb - 2 / FPS) / (0.16 - 2 / FPS)); out = out * (1 - k) + 255 * k
     return out.clip(0, 255).astype(np.uint8)
 
 

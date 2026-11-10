@@ -14,7 +14,8 @@ a wheel-to-rotor match cut, then a narrated disc-brake and ABS explanation with 
 | Pixel snapping | `duel.pixelate(layer, duel.CPX)` | characters on the same 10.67 px grid as the background |
 | Pixel FX | `duel.pixel_fx(layer, 8)`, `duel.pixel_glow(gl, 8)` | palette `duel.FX_PAL`, dark 1-cell outlines, dithered stepped glow |
 | FX shapes | `duel.slash / streak / fire_arc / particles / bolt / spikes / shock / dust / puff` | draw onto the FX layer; glow goes on the `gl` layer |
-| Hit feel | `duel.BIG`, `duel.hitstop`, `duel.speedlines`, white flash in `duel.frame` | |
+| Hit feel | `duel.BIG`, `duel.hitstop`, `duel.speedlines`, impact frames + colour split + camera punch in `duel.frame` | add a hit time to `HITS`/`BIG`, ground slams to `SLAMS` |
+| Intensity FX | `duel.weapon_smear`, `duel.sparks`, `duel.debris`, `duel.aura` | smears trace the real weapon path; aura shows on `windup`/`raise` poses |
 | Whole duel shot | `duel.frame(t, bg, dark, tail)` | override `duel.CZ/CX/CY` for a steady camera |
 | Backgrounds | `duel.build_bg()` (meadow), `brake.build_road()` (road) | both on the 120x68 art grid |
 | Car sprite, pixel font, icons | `videos/new-car-trap/src/pix.py` | `pix.car`, `pix.label`, `pix.FONT` (add missing glyphs as in `brake/render.py`), `pix.check/xmark` |
