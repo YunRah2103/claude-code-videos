@@ -20,6 +20,8 @@ lean coding rules there; it is not the official plugin. Cloud project threads ma
 ignore repository settings; select Sonnet/low in the host when settings do not apply.
 Never claim a particular percentage saved. `/usage` and `/context` show real usage.
 
+For stick-fighter explainers (fight hook, transition, diagram, presenter) follow `docs/STICK_EXPLAINER_PLAYBOOK.md`.
+
 ## Reuse these files
 
 | Need | Read/edit |
