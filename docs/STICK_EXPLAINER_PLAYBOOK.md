@@ -105,3 +105,15 @@ The full 66 s render takes about 3 minutes. Never commit MP4s, WAVs or frames (`
 5. Full render: `ffprobe` shows h264 + aac and the expected duration; a 0.5 fps contact sheet;
    `volumedetect` mean about −16 dB with no long silences.
 6. `python3 -m unittest tests.test_stick_duel_motion` passes.
+
+## 9. Handoff: current state
+
+- Done: `videos/stick-duel` (12.1 s duel) and `videos/brake-explainer` (66.1 s explainer). Both share the fight
+  upgrades: swing smears, impact frames, camera punch, colour split, sparks, slam debris and wind-up aura.
+- Renders are not committed. Regenerate them with the commands in section 2. The voice clips live in
+  `out/brake/vo/`; if they are missing, rerun `tts.py` and `align.py` (Gemini free tier: 3 requests/min).
+- Open points: slam debris has not been checked at full size; the aura shows on every `windup`, so drop
+  `'windup'` from `duel.aura` if it feels too frequent.
+- Next topic: copy `videos/brake-explainer/src/` to `videos/<topic>/src/`, rewrite `script.json`, replace the
+  diagram functions (`diagram_lowres`, `abs_panel`, the state functions, `POINTS`, `diagram_cam`) and the
+  road event (car), then run the section 8 checklist.
