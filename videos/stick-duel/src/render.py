@@ -760,7 +760,7 @@ CZ = [(0, 1), (2.55, 1), (2.75, 1.1), (4.4, 1.12), (5.1, 1.15), (5.5, 1.05), (5.
 CX = [(0, 640), (2.55, 640), (2.8, 670), (3.3, 690), (5.1, 695), (5.5, 560), (5.8, 520), (6.4, 700), (6.75, 700), (7.2, 780), (7.62, 700), (8.0, 560), (8.3, 520), (8.6, 520), (8.85, 560), (8.95, 600), (9.6, 620)]
 CY = [(0, 360), (2.55, 360), (2.8, 375), (5.1, 380), (6.5, 380), (6.75, 330), (7.0, 380), (8.6, 380), (8.8, 320), (8.95, 390), (9.6, 390)]
 HITS = [0.3, 0.58, 2.0, 2.47, 2.65, 3.72, 3.8, 4.9, 5.8, 6.75, 7.15, 7.62, 8.32, 8.4, 8.6, 8.95]
-CPX, FPX = 1280 / 120, 6            # pixel size of characters and of effects, in output px
+CPX, FPX = 1280 / 120, 8            # pixel size of characters and of effects, in output px
 
 
 def pixelate(layer, k, cut=90):
@@ -770,6 +770,43 @@ def pixelate(layer, k, cut=90):
     on = a[..., 3] > cut
     a[..., 3] = np.where(on, 255, 0)
     return Image.fromarray(a).resize((W, H), Image.Resampling.NEAREST)
+
+
+FX_PAL = np.array([                      # limited pixel-art palette for effects: hard colour ramps, no smooth gradients
+    (90, 20, 30), (170, 30, 40), (230, 60, 40), (255, 130, 40), (255, 200, 70), (255, 245, 170),   # fire
+    (255, 255, 255), (210, 235, 255), (140, 190, 255), (70, 110, 200),                               # steel / slash
+    (40, 140, 90), (90, 230, 150), (190, 255, 220),                                                   # green energy
+    (255, 150, 130), (255, 90, 80), (200, 40, 60),                                                    # red energy
+    (255, 230, 120), (246, 170, 200), (120, 200, 90), (250, 250, 240)], np.float32)                  # sparks, petals
+BAYER = np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]], np.float32) / 16 - 0.5
+
+
+def pixel_fx(layer, k):
+    """Effects as pixel art: coarse grid, palette-snapped colours, 1-cell dark outline."""
+    gw, gh = round(W / k), round(H / k)
+    a = np.asarray(layer.resize((gw, gh), Image.Resampling.BOX)).astype(np.float32)
+    on = a[..., 3] > 60
+    rgb = a[..., :3] * 255 / np.maximum(a[..., 3:4], 1)
+    idx = ((rgb[:, :, None, :] - FX_PAL[None, None]) ** 2).sum(-1).argmin(-1)
+    col = FX_PAL[idx]
+    out = np.zeros((gh, gw, 4), np.float32)
+    out[on, :3] = col[on]; out[on, 3] = 255
+    nb = np.zeros((gh, gw, 3), np.float32); grow = np.zeros((gh, gw), bool)
+    for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+        sh = np.roll(np.roll(on, dy, 0), dx, 1); sc = np.roll(np.roll(col, dy, 0), dx, 1)
+        add = sh & ~on & ~grow
+        nb[add] = sc[add]; grow |= add
+    out[grow, :3] = nb[grow] * 0.38; out[grow, 3] = 230      # dark rim like hand-pixelled FX
+    return Image.fromarray(out.clip(0, 255).astype(np.uint8)).resize((W, H), Image.Resampling.NEAREST)
+
+
+def pixel_glow(gl, k):
+    """Glow as stepped, dithered bands instead of a smooth blur."""
+    gw, gh = round(W / k), round(H / k)
+    g = np.asarray(gl.resize((gw, gh), Image.Resampling.BILINEAR).filter(ImageFilter.GaussianBlur(2.2))).astype(np.float32) / 255
+    th = np.tile(BAYER, (gh // 4 + 1, gw // 4 + 1))[:gh, :gw, None]
+    q = np.floor(g * 3 + 0.5 + th * 0.9).clip(0, 3) / 3
+    return Image.fromarray((q * 255).astype(np.uint8)).resize((W, H), Image.Resampling.NEAREST)
 
 
 _Y, _X = np.mgrid[0:H, 0:W].astype(np.float32)
@@ -877,8 +914,8 @@ def frame(t, bg, dark, tail):
     ambient(fd, t0)
     for h, (sx, sy) in zip(BIG, [(420, 500), (500, 470), (600, 470), (850, 560), (560, 500), (470, 500), (700, 430), (700, 520), (520, 470), (590, 560)]):
         if h <= t0 < h + 0.22: speedlines(fd, sx, sy, (t0 - h) / 0.22, int(h * 100))
-    fx = pixelate(fx, FPX, cut=60)
-    gl = gl.resize((W // 8, H // 8), Image.Resampling.BILINEAR).filter(ImageFilter.GaussianBlur(2.5)).resize((W, H), Image.Resampling.NEAREST)  # blocky glow
+    fx = pixel_fx(fx, FPX)
+    gl = pixel_glow(gl, FPX)
     img = Image.alpha_composite(img.convert('RGBA'), fx).convert('RGB')
     out = np.asarray(img).astype(np.float32) + np.asarray(gl).astype(np.float32) * 0.75
     v = piece(t, VIG)
