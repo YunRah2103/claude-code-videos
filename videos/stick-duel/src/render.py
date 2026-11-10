@@ -206,6 +206,7 @@ P = {  # hip-relative joints, facing right: head neck eF hF eB hB kF fF kB fB, s
     'land':   [(26, -22), (18, -15), (30, -2), (34, 10), (4, -8), (-10, 2), (22, 6), (32, 22), (-18, 10), (-38, 22), 20],
     'knock':  [(-22, -30), (-16, -22), (4, -30), (14, -40), (-28, -18), (-34, -6), (14, 4), (28, 12), (4, 10), (18, 22), -60],
 }
+LASTJ = {}
 SCALE = 1.55
 GROUND = 622            # world y of feet; converted to screen via camera
 
@@ -278,6 +279,8 @@ def fighter_state(keys, t):
     u = (t - a[0]) / span if b is not a else 0
     km = 1 - (1 - min(1, u)) ** 2.2                       # ease-out movement: snappy anime feel
     x, y = lerp(a[1], b[1], km), lerp(a[2], b[2], km)
+    if b is not a and a[2] == 0 and b[2] == 0 and abs(b[1] - a[1]) / span > 1400 and abs(b[1] - a[1]) > 60:
+        y -= math.sin(math.pi * min(1, u)) * min(70, abs(b[1] - a[1]) * 0.3)    # fast dash = short leap, not a slide
     rot = lerp(a[5] if len(a) > 5 else 0, b[5] if len(b) > 5 else 0, min(1, u) if b is not a else 0)
     kp = ss((t - a[0]) / min(0.14, span)) if b is not a else 0
     pa, pb = pose_pts(a[3], t), pose_pts(b[3], t)
@@ -292,6 +295,14 @@ def draw_fighter(d, keys, t, cloak, z, gy):
     S = SCALE * z
     foot = max(pts[7][1], pts[9][1])
     speed = min(1.0, abs(vx) / 2500)
+    walk = max(0.0, min(1.0, (abs(vx) - 120) / 350)) if abs(yoff) < 3 else 0.0
+    if walk:                                               # planted-feet steps: leg phase follows distance travelled
+        k = 0.5 + 0.5 * math.sin(2 * math.pi * x * f / (110 * z))
+        r1, r2 = P['run1'], P['run2']
+        pts = list(pts)
+        for i in (6, 7, 8, 9):
+            cyc = (lerp(r1[i][0], r2[i][0], k), lerp(r1[i][1], r2[i][1], k))
+            pts[i] = (lerp(pts[i][0], cyc[0], walk), lerp(pts[i][1], cyc[1], walk))
     bob = math.sin(t * 7 + (0 if cloak == 'green' else 2)) * 11 * z * (1 - speed)   # breathing when still (>1 pixel cell so it survives pixelation)
     hip = (x, gy - foot * S + yoff * z + bob)
     lean = 14 * speed * (1 if vx * f > 0 else -0.5)                                    # lean into dashes
@@ -305,6 +316,7 @@ def draw_fighter(d, keys, t, cloak, z, gy):
         hip = (c0[0] + (hip[0] - c0[0]) * ca - (hip[1] - c0[1]) * sa, c0[1] + (hip[0] - c0[0]) * sa + (hip[1] - c0[1]) * ca)
         swv = (swv[0] * ca - swv[1] * sa, swv[0] * sa + swv[1] * ca)
     head, neck, eF, hF, eB, hB, kF, fF, kB, fB = J
+    LASTJ[cloak] = (J, hip)
     flap = math.sin(t * (24 + 30 * min(1.0, abs(vx) / 2500))) * (3 + 6 * min(1.0, abs(vx) / 2500)) * z   # cloth flutters harder at speed
     trail = -f * (40 + min(60, abs(vx) * 0.05)) * z
 
