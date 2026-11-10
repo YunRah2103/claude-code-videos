@@ -10,9 +10,9 @@ from PIL import Image, ImageDraw, ImageFilter
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'new-car-trap' / 'src'))
 import sfx  # noqa: E402  (reuse whoosh/boom/thump)
 
-DUR = 10.1
+DUR = 12.1
 FPS, W, H, PX = 30, 1280, 720, 4
-ACTION = 5.1              # reference cuts to near-black here; music keeps running
+ACTION = 9.6              # fight ends here; ember outro while the music fades
 INK = (18, 24, 32)
 GREEN, GREEN_D = (40, 122, 82), (28, 92, 64)
 RED, RED_D = (178, 72, 62), (130, 50, 46)
@@ -200,6 +200,10 @@ P = {  # hip-relative joints, facing right: head neck eF hF eB hB kF fF kB fB, s
     'lowguard': [(28, -24), (20, -17), (32, -8), (46, 2), (6, -10), (-6, -2), (22, 4), (34, 20), (-18, 8), (-36, 20), 25],
     'raise':  [(16, -34), (11, -25), (16, -38), (14, -52), (-4, -16), (-14, -8), (20, 6), (32, 22), (-14, 10), (-30, 22), -95],
     'guardup': [(20, -32), (14, -23), (26, -18), (30, -30), (2, -14), (-8, -6), (20, 6), (30, 22), (-14, 8), (-30, 22), -80],
+    'punch':  [(16, -44), (11, -33), (28, -33), (48, -33), (-2, -26), (6, -36), (14, 10), (26, 26), (-12, 14), (-28, 28), -170],
+    'flykick': [(-6, -40), (-4, -30), (6, -36), (14, -46), (-12, -24), (-20, -14), (24, -2), (48, -6), (-6, 14), (-14, 26), -120],
+    'tuck':   [(4, -30), (2, -22), (14, -16), (18, -4), (-6, -14), (0, -4), (16, -8), (10, 6), (8, -6), (0, 8), -60],
+    'land':   [(26, -22), (18, -15), (30, -2), (34, 10), (4, -8), (-10, 2), (22, 6), (32, 22), (-18, 10), (-38, 22), 20],
     'knock':  [(-22, -30), (-16, -22), (4, -30), (14, -40), (-28, -18), (-34, -6), (14, 4), (28, 12), (4, 10), (18, 22), -60],
 }
 SCALE = 1.55
@@ -218,7 +222,16 @@ GK = [(0.0, 267, 0, 'windup', 1), (0.1, 240, 0, 'slash', 1), (0.2, 413, 0, 'dash
       (3.7, 1000, -40, 'slash', 1), (3.8, 1000, 0, 'crouch', -1), (3.9, 880, 0, 'crouch', -1), (4.0, 827, 0, 'crouch', -1),
       (4.1, 773, 0, 'crouch', -1), (4.2, 693, 0, 'crouch', -1), (4.3, 773, 0, 'slash', -1), (4.4, 720, 0, 'crouch', -1),
       (4.5, 720, 0, 'crouch', -1), (4.6, 667, 0, 'windup', -1), (4.7, 693, 0, 'slash', -1), (4.8, 693, 0, 'crouch', -1),
-      (4.9, 667, 0, 'dash', -1), (5.0, 667, 0, 'slash', -1), (5.1, 660, 0, 'slash', -1)]
+      (4.9, 667, 0, 'dash', -1), (5.0, 667, 0, 'slash', -1), (5.1, 660, 0, 'slash', -1),
+      # ---- extended fight: flying punches, backflips, aerial clash, final pass-through
+      (5.25, 660, 0, 'guardup', -1), (5.55, 640, 0, 'windup', -1), (5.7, 520, 0, 'dash', -1), (5.8, 485, 0, 'slash', -1),
+      (5.95, 700, -60, 'knock', -1, 20), (6.1, 760, -10, 'knock', -1, 0), (6.28, 830, -190, 'tuck', -1, -180),
+      (6.45, 890, 0, 'land', -1, -360), (6.55, 870, 0, 'crouch', -1, -360), (6.62, 820, -150, 'flykick', -1, -390),
+      (6.75, 725, -170, 'flykick', -1, -380), (6.9, 840, -120, 'spin', -1, -360), (7.05, 880, -60, 'windup', -1, -360),
+      (7.15, 900, -170, 'tuck', -1, -540), (7.32, 940, -60, 'tuck', -1, -700), (7.42, 950, 0, 'land', -1, -720),
+      (7.52, 860, -40, 'punch', -1, -730), (7.62, 730, -50, 'punch', -1, -735), (7.75, 710, 0, 'crouch', -1, -720),
+      (8.2, 760, 0, 'windup', -1, -720), (8.42, 700, 0, 'slash', -1, -720), (8.6, 420, 0, 'dash', -1, -720),
+      (8.8, 400, 0, 'slash', -1, -720), (9.6, 400, 0, 'slash', -1, -720)]
 RK = [(0.0, 800, 0, 'lowguard', -1), (0.1, 773, 0, 'lowguard', -1), (0.2, 747, 0, 'dash', -1), (0.3, 747, 0, 'slash', -1),
       (0.4, 747, 0, 'crouch', -1), (0.6, 760, 0, 'crouch', -1), (0.7, 880, 0, 'slash', -1), (0.8, 933, 0, 'crouch', -1),
       (0.9, 933, 0, 'crouch', -1), (1.0, 960, 0, 'stand', -1), (1.1, 987, 0, 'stand', -1), (1.2, 987, 0, 'crouch', -1),
@@ -230,7 +243,15 @@ RK = [(0.0, 800, 0, 'lowguard', -1), (0.1, 773, 0, 'lowguard', -1), (0.2, 747, 0
       (3.5, 1000, 0, 'windup', -1), (3.6, 987, 0, 'windup', -1), (3.7, 1060, -60, 'knock', -1), (3.8, 960, -200, 'knock', -1),
       (3.9, 720, -230, 'knock', -1), (4.0, 667, -210, 'knock', -1), (4.1, 640, -170, 'knock', -1), (4.2, 640, -190, 'knock', -1),
       (4.3, 613, -200, 'knock', -1), (4.4, 453, 0, 'crouch', 1), (4.5, 480, 0, 'crouch', 1), (4.6, 453, 0, 'guardup', 1),
-      (4.7, 453, 0, 'slash', 1), (4.8, 427, 0, 'crouch', 1), (5.1, 427, 0, 'crouch', 1)]
+      (4.7, 453, 0, 'slash', 1), (4.8, 427, 0, 'crouch', 1), (5.1, 427, 0, 'crouch', 1),
+      (5.2, 400, -60, 'tuck', 1, -120), (5.32, 330, -170, 'tuck', 1, -240), (5.45, 260, 0, 'land', 1, -360),
+      (5.62, 300, 0, 'crouch', 1, -360), (5.72, 380, -80, 'punch', 1, -350), (5.8, 455, -50, 'punch', 1, -350),
+      (5.95, 470, 0, 'crouch', 1, -360), (6.4, 520, 0, 'run', 1, -360), (6.6, 620, -140, 'windup', 1, -360),
+      (6.75, 680, -170, 'slash', 1, -360), (6.9, 560, -130, 'spin', 1, -360), (7.0, 640, -220, 'windup', 1, -360),
+      (7.15, 820, 0, 'slash', 1, -360), (7.4, 780, 0, 'crouch', 1, -360), (7.62, 700, 0, 'knock', 1, -340),
+      (7.8, 520, -200, 'knock', 1, -540), (7.95, 400, -120, 'tuck', 1, -660), (8.05, 360, 0, 'land', 1, -720),
+      (8.2, 420, 0, 'dash', 1, -720), (8.42, 620, 0, 'slash', 1, -720), (8.6, 900, 0, 'dash', 1, -720),
+      (8.8, 920, 0, 'slash', 1, -720), (9.6, 920, 0, 'slash', 1, -720)]
 
 
 
@@ -257,16 +278,17 @@ def fighter_state(keys, t):
     u = (t - a[0]) / span if b is not a else 0
     km = 1 - (1 - min(1, u)) ** 2.2                       # ease-out movement: snappy anime feel
     x, y = lerp(a[1], b[1], km), lerp(a[2], b[2], km)
+    rot = lerp(a[5] if len(a) > 5 else 0, b[5] if len(b) > 5 else 0, min(1, u) if b is not a else 0)
     kp = ss((t - a[0]) / min(0.14, span)) if b is not a else 0
     pa, pb = pose_pts(a[3], t), pose_pts(b[3], t)
     pts = [((lerp(p[0], q[0], kp), lerp(p[1], q[1], kp)) if isinstance(p, tuple) else lerp(p, q, kp)) for p, q in zip(pa, pb)]
     face = a[4] if u < 0.999 else b[4]
     vx = (b[1] - a[1]) / span * (1 - km + 0.2) if b is not a else 0
-    return x, y, pts, face, vx
+    return x, y, pts, face, vx, rot
 
 
 def draw_fighter(d, keys, t, cloak, z, gy):
-    x, yoff, pts, f, vx = fighter_state(keys, t)
+    x, yoff, pts, f, vx, rot = fighter_state(keys, t)
     S = SCALE * z
     foot = max(pts[7][1], pts[9][1])
     speed = min(1.0, abs(vx) / 2500)
@@ -274,9 +296,15 @@ def draw_fighter(d, keys, t, cloak, z, gy):
     hip = (x, gy - foot * S + yoff * z + bob)
     lean = 14 * speed * (1 if vx * f > 0 else -0.5)                                    # lean into dashes
     J = [(hip[0] + (p[0] + (lean * -p[1] / 40 if p[1] < 0 else 0)) * S * f, hip[1] + p[1] * S) for p in pts[:-1]]
-    head, neck, eF, hF, eB, hB, kF, fF, kB, fB = J
     sw = math.radians(pts[-1])
     swv = (math.cos(sw) * f, math.sin(sw))
+    if rot:                                          # whole-body rotation for flips, tumbles and flying attacks
+        ang = math.radians(rot * f); ca, sa = math.cos(ang), math.sin(ang)
+        c0 = (hip[0], hip[1] - 14 * S)
+        J = [(c0[0] + (p[0] - c0[0]) * ca - (p[1] - c0[1]) * sa, c0[1] + (p[0] - c0[0]) * sa + (p[1] - c0[1]) * ca) for p in J]
+        hip = (c0[0] + (hip[0] - c0[0]) * ca - (hip[1] - c0[1]) * sa, c0[1] + (hip[0] - c0[0]) * sa + (hip[1] - c0[1]) * ca)
+        swv = (swv[0] * ca - swv[1] * sa, swv[0] * sa + swv[1] * ca)
+    head, neck, eF, hF, eB, hB, kF, fF, kB, fB = J
     flap = math.sin(t * (24 + 30 * min(1.0, abs(vx) / 2500))) * (3 + 6 * min(1.0, abs(vx) / 2500)) * z   # cloth flutters harder at speed
     trail = -f * (40 + min(60, abs(vx) * 0.05)) * z
 
@@ -592,7 +620,7 @@ def effects(t, d, g, G, R, sd):
     slash(d, g, 827, 420, 50, 200, 150, win(4.5, 4.62), w=14, sy=0.5)
     slash(d, g, 587, 460, 55, -90, 180, win(4.58, 4.72), w=16)
     slash(d, g, 560, 480, 50, -90, 180, win(4.68, 4.8), w=16)
-    if 4.78 < t < ACTION:
+    if 4.78 < t < 5.1:
         rr = int(t * 30)
         for k, (a, b, c, e) in enumerate([(300, 560, 470, 470), (430, 520, 600, 400), (560, 430, 760, 540), (380, 420, 420, 560)]):
             bolt(d, g, a, b, c, e, rr // 2 * 7 + k)
@@ -600,14 +628,103 @@ def effects(t, d, g, G, R, sd):
         slash(d, g, 570, 500, 40, -90, 200, win(4.85, 5.05), w=12)
 
 
+def chest(keys, t, z, gy):
+    x, yoff = fighter_state(keys, t)[:2]
+    return x, gy - 40 * SCALE * z + yoff * z
+
+
+def shock(d, g, cx, cy, u, col=WHITE, r=260):
+    rr_ = 30 + r * u
+    w_ = max(1, int(26 * (1 - u)))
+    d.ellipse([cx - rr_, cy - rr_ * .45, cx + rr_, cy + rr_ * .45], outline=col + (255,), width=w_)
+    g.ellipse([cx - rr_, cy - rr_ * .45, cx + rr_, cy + rr_ * .45], outline=col, width=w_ * 3)
+
+
+def effects2(t, d, g, sd, z, gy):
+    def win(t0, t1): return (t - t0) / (t1 - t0)
+    Y = (255, 220, 120)
+    ground = gy + 6
+    if 5.12 < t < 5.48:                                   # red backflip arc
+        x, y = chest(RK, t, z, gy); slash(d, g, x, y, 70, 0, -300, win(5.12, 5.48), col=(255, 140, 120), w=12)
+    if 5.4 < t < 5.8:
+        dust(sd, 180, 360, ground, win(5.4, 5.8), (240, 242, 238), 41, big=.6, towers=False)
+    if 5.55 < t < 5.8:                                    # green charges up
+        x, y = chest(GK, t, z, gy); particles(d, g, x, y, 90, 1 - win(5.55, 5.8), 10, 42, col=(120, 255, 170))
+    if 5.66 < t < 5.8:
+        x, y = chest(RK, t, z, gy); streak(d, g, x - 260, x, y, 14, WHITE)
+    if 5.78 < t < 6.05:                                   # flying punch meets blade
+        u = win(5.78, 6.05)
+        shock(d, g, 470, 500, u); particles(d, g, 470, 500, 200, u, 18, 43, col=Y)
+        streak(d, g, 200, 760, 500, 40 * (1 - u), WHITE); slash(d, g, 470, 500, 80, -60, 260, u, w=16)
+    if 5.95 < t < 6.35:
+        dust(sd, 600, 820, ground, win(5.95, 6.35), (176, 140, 96), 44, big=.8, towers=False)
+    if 6.1 < t < 6.47:                                    # green backflip arc
+        x, y = chest(GK, t, z, gy); slash(d, g, x, y, 75, 180, 300, win(6.1, 6.47), col=(150, 255, 190), w=12)
+    if 6.42 < t < 6.8:
+        dust(sd, 800, 980, ground, win(6.42, 6.8), (240, 242, 238), 45, big=.6, towers=False)
+    if 6.5 < t < 6.75:                                    # both leap: upward speed streaks
+        for k in (GK, RK):
+            x, y = chest(k, t, z, gy)
+            k_ = (t - 6.5) / .25
+            for j in (-30, 0, 30): d.line([(x + j, y + 70 + 40 * k_), (x + j, y + 130 + 20 * k_)], fill=(255, 255, 255, int(200 * (1 - k_))), width=4)
+    if 6.73 < t < 7.05:                                   # mid-air weapon clash
+        u = win(6.73, 7.05); x, y = chest(GK, 6.75, z, gy)
+        cx_, cy_ = x - 20, y
+        shock(d, g, cx_, cy_, u, Y, 320); particles(d, g, cx_, cy_, 260, u, 24, 46, col=(255, 240, 160))
+        for k in range(4): bolt(d, g, cx_, cy_, cx_ + math.cos(k * 1.6 + 1) * 260, cy_ + math.sin(k * 1.6 + 1) * 160, int(t * 30) * 5 + k, col=(255, 230, 120))
+        streak(d, g, cx_ - 420, cx_ + 420, cy_, 34 * (1 - u), WHITE)
+    if 6.88 < t < 7.12:
+        for k in (GK, RK):
+            x, y = chest(k, t, z, gy); slash(d, g, x, y, 60, 360 * win(6.88, 7.12) * 2, 260, win(6.88, 7.12), w=12)
+    if 7.12 < t < 7.6:                                    # axe slam: ground eruption
+        u = win(7.12, 7.6)
+        spikes(d, g, 830, ground, u, 47); shock(d, g, 830, ground, u, (255, 140, 80), 380)
+        fire_arc(d, g, 830, ground, 220 * (0.4 + u), 60, 180, 360, 26 * (1 - u * .6), u)
+        dust(sd, 640, 1020, ground + 10, u, (176, 140, 96), 48, big=1.1, towers=False)
+    if 7.12 < t < 7.44:                                   # green flips over it
+        x, y = chest(GK, t, z, gy); slash(d, g, x, y, 80, 180, 330, win(7.12, 7.44), col=(150, 255, 190), w=12)
+    if 7.48 < t < 7.64:
+        x, y = chest(GK, t, z, gy); streak(d, g, x, x + 300, y, 20, (150, 255, 190))
+    if 7.6 < t < 7.95:                                    # flying punch connects
+        u = win(7.6, 7.95)
+        shock(d, g, 700, 500, u, WHITE, 340); particles(d, g, 700, 500, 260, u, 22, 49, col=(255, 90, 70))
+        slash(d, g, 700, 500, 90, 140, 260, u, w=18); streak(d, g, 300, 1100, 500, 40 * (1 - u), WHITE)
+    if 7.62 < t < 8.05:                                   # red tumbles away
+        x, y = chest(RK, t, z, gy); slash(d, g, x, y, 60, 360 * win(7.62, 8.05), 240, win(7.62, 8.05), col=(255, 120, 100), w=10)
+    if 8.02 < t < 8.4:
+        dust(sd, 260, 460, ground, win(8.02, 8.4), (176, 140, 96), 50, big=.7, towers=False)
+    if 8.2 < t < 8.42:                                    # both charge in
+        for k, col in ((GK, (150, 255, 190)), (RK, (255, 140, 120))):
+            x, y = chest(k, t, z, gy); x0 = chest(k, t - .08, z, gy)[0]; streak(d, g, x0, x, y, 22, col)
+    if 8.4 < t < 8.95:                                    # final clash: blinding explosion, lightning, fire
+        u = win(8.4, 8.95)
+        shock(d, g, 660, 480, u, WHITE, 600); shock(d, g, 660, 480, min(1, u * 1.4), (255, 150, 60), 420)
+        fire_arc(d, g, 660, 480, 260 * (0.5 + u), 120, 360 * u, 360 * u + 240, 30 * (1 - u * .5), u)
+        for k in range(6): bolt(d, g, 660, 480, 660 + math.cos(k) * 520, 480 + math.sin(k) * 260, int(t * 30) * 3 + k, col=(120, 255, 200))
+        streak(d, g, -100, 1380, 480, 60 * (1 - u), WHITE); particles(d, g, 660, 480, 420, u, 30, 51)
+    if 8.6 < t < 9.6:                                     # after passing through: two cut lines hang in the air
+        u = win(8.6, 9.6)
+        if t < 9.0:
+            d.line([(300, 430), (1020, 540)], fill=(255, 255, 255, 255), width=6)
+            d.line([(300, 540), (1020, 430)], fill=(255, 255, 255, 255), width=6)
+    if 9.0 < t < 9.6:                                     # delayed X-slash detonation
+        u = win(9.0, 9.6)
+        crescent(d, 660, 480, 300, 200, 340, 40 * (1 - u), (255, 80, 60, 255), sy=.5)
+        crescent(d, 660, 480, 300, 20, 160, 40 * (1 - u), (255, 80, 60, 255), sy=.5)
+        shock(d, g, 660, 480, u, (255, 120, 80), 700); particles(d, g, 660, 480, 500, u, 34, 52)
+        fire_arc(d, g, 660, 500, 380 * (0.4 + u), 140, 0, 360, 30 * (1 - u), u)
+
+
 DIM = [(0, 0), (0.12, 0), (0.18, 0.45), (0.27, 0.7), (0.33, 0.8), (0.38, 1), (0.65, 1), (0.7, 0.6), (0.8, 0.35), (0.88, 0), (2.05, 0),
        (2.1, 0.5), (2.17, 0.95), (2.5, 0.92), (2.6, 0.8), (2.68, 0.4), (2.8, 0.1), (2.88, 0), (3.42, 0), (3.5, 0.4),
-       (3.57, 0.92), (4.3, 0.92), (4.4, 0.7), (4.5, 0.45), (4.58, 0), (4.85, 0), (4.9, 0.55), (5.0, 0.85), (5.1, 0.9)]
-VIG = [(0, 0), (0.62, 0), (0.68, 1), (0.85, 0.8), (0.9, 0), (2.6, 0), (2.66, 0.8), (2.85, 0.5), (2.92, 0), (5.1, 0)]
-CZ = [(0, 1), (2.55, 1), (2.75, 1.1), (4.4, 1.12), (5.1, 1.15)]
-CX = [(0, 640), (2.55, 640), (2.8, 670), (3.3, 690), (5.1, 695)]
-CY = [(0, 360), (2.55, 360), (2.8, 375), (5.1, 380)]
-HITS = [0.3, 0.58, 2.0, 2.47, 2.65, 3.72, 3.8, 4.9]
+       (3.57, 0.92), (4.3, 0.92), (4.4, 0.7), (4.5, 0.45), (4.58, 0), (4.85, 0), (4.9, 0.55), (5.0, 0.85), (5.1, 0.9), (5.2, 0),
+       (5.76, 0), (5.8, 0.85), (5.95, 0.85), (6.05, 0), (6.72, 0), (6.75, 0.9), (6.9, 0.9), (7.0, 0), (7.12, 0), (7.15, 0.6),
+       (7.3, 0), (7.6, 0), (7.63, 0.9), (7.8, 0.6), (7.9, 0), (8.38, 0), (8.42, 1), (8.95, 1), (9.0, 0.15), (9.6, 0.5)]
+VIG = [(0, 0), (0.62, 0), (0.68, 1), (0.85, 0.8), (0.9, 0), (2.6, 0), (2.66, 0.8), (2.85, 0.5), (2.92, 0), (5.1, 0), (8.38, 0), (8.45, 1), (9.6, 0.8)]
+CZ = [(0, 1), (2.55, 1), (2.75, 1.1), (4.4, 1.12), (5.1, 1.15), (5.5, 1.05), (5.8, 1.3), (6.2, 1.1), (6.75, 1.28), (7.2, 1.05), (7.62, 1.3), (8.0, 1.1), (8.42, 1.45), (8.6, 1.0), (9.6, 1.08)]
+CX = [(0, 640), (2.55, 640), (2.8, 670), (3.3, 690), (5.1, 695), (5.5, 560), (5.8, 520), (6.4, 700), (6.75, 700), (7.2, 780), (7.62, 700), (8.0, 560), (8.42, 660), (9.6, 660)]
+CY = [(0, 360), (2.55, 360), (2.8, 375), (5.1, 380), (6.5, 380), (6.75, 330), (7.0, 380), (9.6, 380)]
+HITS = [0.3, 0.58, 2.0, 2.47, 2.65, 3.72, 3.8, 4.9, 5.8, 6.75, 7.15, 7.62, 8.42, 9.0]
 CPX, FPX = 1280 / 120, 6            # pixel size of characters and of effects, in output px
 
 
@@ -624,7 +741,7 @@ _Y, _X = np.mgrid[0:H, 0:W].astype(np.float32)
 VMASK = (1 - 0.75 * np.clip((((_X - W / 2) / (W / 2)) ** 2 + ((_Y - H / 2) / (H / 2)) ** 2) - 0.25, 0, 1))[..., None]
 
 
-BIG = [0.3, 2.0, 2.65, 3.72, 4.9]          # hits that get hit-stop, white flash and speed lines
+BIG = [0.3, 2.0, 2.65, 3.72, 4.9, 5.8, 6.75, 7.62, 8.42, 9.0]          # hits that get hit-stop, white flash and speed lines
 STOP = 0.06                                 # hit-stop hold (about 2 frames)
 
 
@@ -667,6 +784,7 @@ def frame(t, bg, dark, tail):
     z, cx, cy = piece(t, CZ), piece(t, CX), piece(t, CY)
     sh = sum(14 * math.exp(-(t - h) * 18) for h in HITS if t >= h)
     cx += sh * math.sin(t * 91); cy += sh * 0.6 * math.cos(t * 77)
+    cx = min(max(cx, 640 / z), W - 640 / z); cy = min(max(cy, 360 / z), H - 360 / z)
     img = Image.fromarray(base.clip(0, 255).astype(np.uint8))
     img = img.transform((W, H), Image.Transform.AFFINE, (1 / z, 0, cx - 640 / z, 0, 1 / z, cy - 360 / z), Image.Resampling.NEAREST)
     gy = (GROUND - cy) * z + 360
@@ -676,6 +794,7 @@ def frame(t, bg, dark, tail):
     gl = Image.new('RGB', (W, H), (0, 0, 0))
     soft = Image.new('RGBA', (W, H), (0, 0, 0, 0))
     effects(t, ImageDraw.Draw(fx), ImageDraw.Draw(gl), G, R, ImageDraw.Draw(soft))
+    effects2(t, ImageDraw.Draw(fx), ImageDraw.Draw(gl), ImageDraw.Draw(soft), z, gy)
     if soft.getbbox():                    # dust sits behind the fighters
         sm = np.asarray(soft.filter(ImageFilter.GaussianBlur(4)).resize((W // 8, H // 8), Image.Resampling.BOX)).astype(np.int16)
         noise = np.random.default_rng(int(t * 30)).integers(-12, 13, sm.shape[:2])[..., None]
@@ -721,7 +840,7 @@ def frame(t, bg, dark, tail):
     img = Image.alpha_composite(img.convert('RGBA'), pixelate(chars, CPX)).convert('RGB')
     fd = ImageDraw.Draw(fx)
     ambient(fd, t0)
-    for h, (sx, sy) in zip(BIG, [(420, 500), (500, 470), (600, 470), (850, 560), (560, 500)]):
+    for h, (sx, sy) in zip(BIG, [(420, 500), (500, 470), (600, 470), (850, 560), (560, 500), (470, 500), (700, 430), (700, 520), (660, 480), (660, 480)]):
         if h <= t0 < h + 0.22: speedlines(fd, sx, sy, (t0 - h) / 0.22, int(h * 100))
     fx = pixelate(fx, FPX, cut=60)
     gl = gl.resize((W // 8, H // 8), Image.Resampling.BILINEAR).filter(ImageFilter.GaussianBlur(2.5)).resize((W, H), Image.Resampling.NEAREST)  # blocky glow
@@ -827,7 +946,7 @@ def audio(path):
     a, c = int(ACTION * SR), int(0.15 * SR)                  # reference drops ~12 dB at the cut, then fades
     env[a:a + c] = np.linspace(1, 0.5, c)
     env[a + c:] = 0.5 * np.linspace(1, 0.3, n - a - c)
-    for t0 in (0.30, 0.56, 1.49, 2.04, 2.25, 3.55, 3.72, 4.48):   # duck music just before each big hit
+    for t0 in (0.30, 0.56, 1.49, 2.04, 2.25, 3.55, 3.72, 4.48, 5.8, 6.75, 7.15, 7.62, 8.42, 9.0):   # duck music just before each big hit
         i0, i1 = int((t0 - 0.09) * SR), int(t0 * SR)
         env[i0:i1] *= np.linspace(1, 0.15, i1 - i0)
         env[i1:i1 + int(.12 * SR)] *= np.linspace(0.15, 1, int(.12 * SR))
@@ -840,7 +959,11 @@ def audio(path):
           (3.5, crackle(0.18)), (3.72, sfx.boom(1.0)), (3.82, crackle(0.6)), (3.95, clang(0.5) * .7),
           (4.2, sfx.whoosh(0.25, 10)), (4.48, sfx.whoosh(0.3, 10)), (4.6, clang(0.6)), (4.8, zap()), (4.92, zap()),
           (4.98, sfx.boom(1.4) * .9), (4.98, clang(1.0) * .8)]
-    for t0 in (0.30, 0.56, 1.49, 2.04, 2.25, 3.55, 3.72, 4.48):   # strongest hits measured in the reference
+    ev += [(5.12, sfx.whoosh(0.3, 8)), (5.66, sfx.whoosh(0.18, 6)), (6.1, sfx.whoosh(0.35, 10)), (6.5, sfx.whoosh(0.3, 8)),
+           (6.9, sfx.whoosh(0.25, 6)), (7.1, sfx.whoosh(0.3, 10)), (7.15, sfx.boom(1.2) * 1.2), (7.15, crackle(0.5)),
+           (7.48, sfx.whoosh(0.16, 6)), (7.75, sfx.whoosh(0.3, 10)), (8.2, sfx.whoosh(0.25, 6)), (8.42, sfx.boom(1.6) * 1.4),
+           (8.42, crackle(0.6)), (8.45, zap()), (8.6, zap()), (9.0, sfx.boom(1.3) * 1.3), (9.0, crackle(0.5))]
+    for t0 in (0.30, 0.56, 1.49, 2.04, 2.25, 3.55, 3.72, 4.48, 5.8, 6.75, 7.62, 8.42, 9.0):   # strongest hits measured in the reference
         snap = rng.standard_normal(int(SR * .04)) * np.exp(-sfx.T(.04) * 70)
         ev += [(t0, sfx.boom(0.7) * 1.1), (t0, clang(0.5) * 1.2), (t0, snap * 3.0)]
     hr = np.random.default_rng(99)                           # own seed: hit levels stay stable while tuning
