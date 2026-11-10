@@ -348,6 +348,10 @@ def draw_fighter(d, keys, t, cloak, z, gy):
         d.polygon([at(neck, 10, -4), at(hip, 18, 6), at(hip, 12, 36 + flap / z), (hip[0] + trail, hip[1] + 22 * z - flap),
                    (hip[0] + trail * .8, hip[1] - 4 * z), at(neck, -9, 0)], fill=GREEN)
         d.polygon([at(neck, -4, 0), (hip[0] + trail, hip[1] + 22 * z - flap), (hip[0] + trail * .8, hip[1] - 4 * z)], fill=GREEN_D)
+    if cloak == 'shirt':   # presenter: plain stickman in a white shirt (no cape, no weapon)
+        sw_ = 9 * z
+        d.polygon([(neck[0] - sw_, neck[1] + 2 * z), (neck[0] + sw_, neck[1] + 2 * z), (hip[0] + sw_ * .9, hip[1]), (hip[0] - sw_ * .9, hip[1])], fill=(244, 246, 250))
+        d.line([neck, (lerp(neck[0], eB[0], .5), lerp(neck[1], eB[1], .5))], fill=(244, 246, 250), width=lw + 4)
     for a, b in [(hip, kF), (kF, fF), (neck, eF), (eF, hF)]:
         d.line([a, b], fill=INK, width=lw)
     for p in (neck, eF, hF, kF, fF):
@@ -355,7 +359,11 @@ def draw_fighter(d, keys, t, cloak, z, gy):
         d.ellipse([p[0] - r, p[1] - r, p[0] + r, p[1] + r], fill=INK)
     r = 18 * z
     d.ellipse([head[0] - r, head[1] - r, head[0] + r, head[1] + r], fill=INK)
-    if cloak == 'green':   # katana: long slightly curved blade, gold guard, wrapped grip
+    if cloak == 'shirt':
+        d.line([neck, (lerp(neck[0], eF[0], .5), lerp(neck[1], eF[1], .5))], fill=(244, 246, 250), width=lw + 4)   # front sleeve
+        d.ellipse([head[0] - r, head[1] - r, head[0] + r, head[1] + r], fill=INK)
+        tip = hF
+    elif cloak == 'green':   # katana: long slightly curved blade, gold guard, wrapped grip
         ln = 70 * z
         nx, ny = -swv[1], swv[0]
         pts_ = [(hF[0] + swv[0] * ln * k + nx * 8 * z * k * k, hF[1] + swv[1] * ln * k + ny * 8 * z * k * k) for k in (0, .35, .7, 1)]

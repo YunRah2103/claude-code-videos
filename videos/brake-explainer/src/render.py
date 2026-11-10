@@ -15,7 +15,7 @@ duel = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(duel)
 sys.path.insert(0, str(ROOT / 'videos/new-car-trap/src'))
 import pix, sfx  # noqa: E402
 
-DUR = 61.0
+DUR = 66.1
 W, H, FPS, SR = 1280, 720, 30, sfx.SR
 VO = ROOT / 'out/brake/vo'
 LINES = json.load(open(HERE / 'script.json'))
@@ -32,7 +32,8 @@ def wav_len(i):
 
 DURS = [wav_len(i) for i in range(len(LINES))]
 GAP = {1: 1.3, 7: 1.2}                       # room for the zoom transitions into / out of the diagram
-START, _t = [], 3.5
+OFF = 5.1                                    # the full duel (0 -> 7.42 s) plays before the car arrives
+START, _t = [], 3.5 + OFF
 for _i, _d in enumerate(DURS):
     START.append(_t); _t += _d + GAP.get(_i, 0.3)
 END_VO = START[-1] + DURS[-1]
@@ -40,7 +41,7 @@ assert END_VO + 1.5 <= DUR, END_VO
 TR1 = (START[2] - 1.5, START[2] - 0.1)      # road -> diagram
 TR2 = (START[8] - 1.4, START[8] - 0.1)      # diagram -> road
 CLASH = END_VO + 0.45                        # fighters resume: final clash
-FIGHT_END = 2.32                             # duel footage (duel time 5.1 -> 7.42)
+FIGHT_END = 2.32                             # road-local time when duel footage ends (duel time 7.42)
 
 
 def ss(x):
@@ -141,30 +142,32 @@ def outro_keys():
     return g, r
 
 
+G2 = [(k[0] + OFF,) + k[1:] for k in G2]; R2 = [(k[0] + OFF,) + k[1:] for k in R2]
 G2, R2 = outro_keys()
 OUTRO_WORDS = [('PEDAL', 'pedal'), ('FLUID', 'fluid'), ('CLAMP', 'clamp'), ('HEAT', 'heat')]
 
 
 def road_frame(t, road, dark, tail):
-    if t < FIGHT_END:                        # the duel itself, now fought on the road
-        img = Image.fromarray(duel.frame(5.1 + t, road, dark, tail)).convert('RGBA')
+    tl = t - OFF                             # road-local clock: 0 = duel time 5.1
+    if tl < FIGHT_END:                       # the duel itself, now fought on the road
+        img = Image.fromarray(duel.frame(t, road, dark, tail)).convert('RGBA')
         fx = Image.new('RGBA', (W, H), (0, 0, 0, 0))
-        car_draw(img, t, ImageDraw.Draw(fx))
+        car_draw(img, tl, ImageDraw.Draw(fx))
         return Image.alpha_composite(img, duel.pixel_fx(fx, duel.FPX)).convert('RGB')
     img = Image.fromarray(road.astype(np.uint8)).convert('RGBA')
     fx = Image.new('RGBA', (W, H), (0, 0, 0, 0)); fxd = ImageDraw.Draw(fx)
     gl = Image.new('RGB', (W, H)); gld = ImageDraw.Draw(gl)
-    skid_and_smoke(img, fxd, t)
-    ox = car_draw(img, t, fxd)
-    if ox is not None and 2.4 <= t < 4.0:
+    skid_and_smoke(img, fxd, tl)
+    ox = car_draw(img, tl, fxd)
+    if ox is not None and 2.4 <= tl < 4.0:
         gld.ellipse([ox, CAR_Y + 8 * CAR_S, ox + 8 * CAR_S, CAR_Y + 18 * CAR_S], fill=(255, 40, 40))
     chars = Image.new('RGBA', (W, H), (0, 0, 0, 0)); cd = ImageDraw.Draw(chars)
     duel.draw_fighter(cd, G2, t, 'green', 1.0, GY)
     duel.draw_fighter(cd, R2, t, 'red', 1.0, GY)
     img = Image.alpha_composite(img, duel.pixelate(chars, duel.CPX))
-    duel.ambient(fxd, 5.1 + t)
-    if 3.38 < t < 3.75:                      # the car's stop: a little shock ring
-        duel.shock(fxd, gld, car_front(3.4) - 10, GY - 20, (t - 3.38) / 0.37, (255, 255, 255), 160)
+    duel.ambient(fxd, t)
+    if 3.38 < tl < 3.75:                     # the car's stop: a little shock ring
+        duel.shock(fxd, gld, car_front(3.4) - 10, GY - 20, (tl - 3.38) / 0.37, (255, 255, 255), 160)
     cards = []
     if t > START[8]:                         # outro word cards
         for k, (txt, w) in enumerate(OUTRO_WORDS):
@@ -206,6 +209,34 @@ STEEL, STEEL_D, PIPE, FLUID, FLUID_HI = (150, 156, 168), (96, 102, 116), (90, 96
 P_PIV = (62, 54)
 ROTOR = (250, 100); R_ROT = 38
 PIPE_PTS = [(150, 89), (208, 89), (208, 60), (236, 60)]
+
+
+OUTL = (8, 10, 18)
+HOT = [(150, 156, 168), (170, 70, 60), (220, 70, 40), (255, 130, 40), (255, 200, 70)]
+
+
+def rotor_pixels(img, h, ang):
+    """Rotor as pixel art: outline, checker-dithered shadow, vent holes, and heat that spreads in dithered steps."""
+    a = np.asarray(img).copy()
+    cx, cy, r = ROTOR[0], ROTOR[1], R_ROT
+    ys, xs = np.mgrid[cy - r - 1:cy + r + 2, cx - r - 1:cx + r + 2]
+    dx, dy = xs - cx, ys - cy; rr = np.hypot(dx, dy)
+    by = duel.BAYER[ys % 4, xs % 4] + 0.5
+    col = np.zeros(xs.shape + (3,), np.float32); col[:] = STEEL
+    shade = (dx + dy) / (r * 1.4)                                      # light from top-left
+    col[(shade > 0.25) & (by < shade)] = STEEL_D
+    col[(shade < -0.45) & (by < -shade - 0.3)] = (190, 196, 206)
+    lvl = np.clip(h * 4.2 - (rr / r) * 1.2 + by * 0.8, 0, 4).astype(int)   # hotter towards the pad track
+    hot = np.array(HOT, np.float32)[lvl]
+    col = np.where((lvl > 0)[..., None], hot, col)
+    for k in range(10):                                               # vent holes
+        q = ang + k * math.tau / 10
+        col[np.hypot(xs - (cx + 27 * math.cos(q)), ys - (cy + 27 * math.sin(q))) < 1.8] = (40, 44, 56)
+    col[(rr > r - 3) & (rr <= r - 1)] = STEEL_D
+    col[(rr > r - 1)] = OUTL
+    m = rr <= r + 0.5
+    a[ys[m], xs[m], :3] = col[m]
+    img.paste(Image.fromarray(a))
 
 
 def press(t):
@@ -254,8 +285,10 @@ def arrow(d, x0, y, x1, col, w=3):
 
 def diagram_lowres(t):
     img = Image.new('RGBA', (LW, LH), NAVY + (255,)); d = ImageDraw.Draw(img)
-    for x in range(0, LW, 16): d.line([(x, 0), (x, 158)], fill=GRID_C)
-    for y in range(0, 158, 16): d.line([(0, y), (LW, y)], fill=GRID_C)
+    for x in range(0, LW, 16):
+        for y in range(0, 158, 2): d.point((x, y), fill=GRID_C)
+    for y in range(0, 158, 16):
+        for x in range(0, LW, 2): d.point((x, y), fill=GRID_C)
     d.rectangle([0, 160, LW, LH], fill=FLOOR); d.line([(0, 160), (LW, 160)], fill=(70, 80, 110))
     p, cl, h = press(t), clamp_amt(t), heat(t)
     # --- pedal + push rod + master cylinder
@@ -267,12 +300,14 @@ def diagram_lowres(t):
     d.line([P_PIV, pad], fill=(60, 64, 76), width=5)
     d.rectangle([pad[0] - 9, pad[1] - 3, pad[0] + 9, pad[1] + 3], fill=(40, 42, 50)); d.line([(pad[0] - 8, pad[1] - 2), (pad[0] + 8, pad[1] - 2)], fill=(90, 94, 104))
     d.ellipse([P_PIV[0] - 4, P_PIV[1] - 4, P_PIV[0] + 4, P_PIV[1] + 4], fill=STEEL)
-    d.rectangle([112, 70, 136, 81], fill=(60, 66, 80)); d.rectangle([114, 74, 134, 80], fill=FLUID)   # reservoir
-    d.rectangle([100, 82, 150, 96], fill=(70, 76, 92)); d.rectangle([102, 84, 148, 94], fill=(36, 40, 52))
+    d.rectangle([111, 69, 137, 82], fill=OUTL); d.rectangle([112, 70, 136, 81], fill=(60, 66, 80)); d.rectangle([114, 74, 134, 80], fill=FLUID)   # reservoir
+    d.line([(113, 71), (135, 71)], fill=(96, 104, 124))
+    d.rectangle([99, 81, 151, 97], fill=OUTL); d.rectangle([100, 82, 150, 96], fill=(70, 76, 92)); d.rectangle([102, 84, 148, 94], fill=(36, 40, 52))
+    d.line([(101, 83), (149, 83)], fill=(110, 118, 140))
     d.rectangle([xp + 3, 84, 148, 94], fill=FLUID if p < .5 else FLUID_HI)
     d.rectangle([xp - 2, 83, xp + 2, 95], fill=STEEL)                                                     # piston
     # --- brake line with pressure pulses
-    d.line(PIPE_PTS, fill=PIPE, width=6); d.line(PIPE_PTS, fill=FLUID, width=2)
+    d.line(PIPE_PTS, fill=OUTL, width=8); d.line(PIPE_PTS, fill=PIPE, width=6); d.line(PIPE_PTS, fill=FLUID, width=2)
     t_go = wt(3, 'races') - 0.6
     if t >= t_go and p > 0.3:
         for k in range(12):
@@ -281,17 +316,15 @@ def diagram_lowres(t):
                 x, y = path_point(PIPE_PTS, s); d.rectangle([x - 2, y - 2, x + 2, y + 2], fill=FLUID_HI)
     # --- rotor (heats up) + hub + caliper
     rot_col = tuple(int(c) for c in (np.array(STEEL) * (1 - h) + np.array([255, 110, 40]) * h))
-    d.ellipse([ROTOR[0] - R_ROT, ROTOR[1] - R_ROT, ROTOR[0] + R_ROT, ROTOR[1] + R_ROT], fill=STEEL_D)
-    d.ellipse([ROTOR[0] - R_ROT + 3, ROTOR[1] - R_ROT + 3, ROTOR[0] + R_ROT - 3, ROTOR[1] + R_ROT - 3], fill=rot_col)
     ang = rotor_angle(t)
-    for k in range(10):
-        q = ang + k * math.tau / 10; x = ROTOR[0] + 27 * math.cos(q); y = ROTOR[1] + 27 * math.sin(q)
-        d.rectangle([x - 1.5, y - 1.5, x + 1.5, y + 1.5], fill=STEEL_D)
+    rotor_pixels(img, h, ang)
+    d = ImageDraw.Draw(img)
     d.ellipse([ROTOR[0] - 13, ROTOR[1] - 13, ROTOR[0] + 13, ROTOR[1] + 13], fill=(54, 58, 70))
     for k in range(5):
         q = ang + k * math.tau / 5; x = ROTOR[0] + 7 * math.cos(q); y = ROTOR[1] + 7 * math.sin(q)
         d.rectangle([x - 1, y - 1, x + 1, y + 1], fill=(200, 204, 214))
-    d.rectangle([234, 52, 268, 70], fill=(170, 34, 44)); d.rectangle([234, 52, 268, 54], fill=(220, 70, 70))
+    d.rectangle([233, 51, 269, 71], fill=OUTL); d.rectangle([234, 52, 268, 70], fill=(170, 34, 44)); d.rectangle([234, 52, 268, 54], fill=(220, 70, 70))
+    d.rectangle([234, 68, 268, 70], fill=(120, 22, 32))
     # --- callout: top-down view of the clamp (pads squeeze the rotor)
     cs = pop(t, wt(5, 'pistons') - 0.1)
     if cs > 0:
@@ -368,6 +401,83 @@ def abs_panel(img, d, t):
 
 
 # narrator (green stickman) in full-res canvas coords
+HOST_X, HOST_GY, HOST_Z, HOST_PX = 150, 646, 1.7, 6
+duel.P.update({                          # presenter gestures (hip-relative, facing right)
+    'idle':  [(2, -46), (1, -35), (8, -22), (10, -10), (-6, -22), (-8, -10), (9, 16), (14, 34), (-9, 16), (-14, 34), 0],
+    'talk1': [(2, -46), (1, -35), (12, -26), (20, -34), (-6, -22), (-8, -10), (9, 16), (14, 34), (-9, 16), (-14, 34), 0],
+    'talk2': [(3, -46), (1, -35), (12, -24), (22, -28), (-10, -24), (-18, -28), (9, 16), (14, 34), (-9, 16), (-14, 34), 0],
+    'point': [(4, -46), (2, -35), (16, -38), (34, -46), (-6, -22), (-8, -10), (9, 16), (14, 34), (-9, 16), (-14, 34), 0],
+    'kneeup': [(3, -46), (1, -35), (12, -24), (18, -30), (-8, -22), (-14, -16), (14, 2), (18, 16), (-9, 16), (-14, 34), 0],
+    'shrug': [(2, -45), (1, -35), (14, -30), (22, -40), (-12, -30), (-20, -40), (9, 16), (14, 34), (-9, 16), (-14, 34), 0]})
+POINTS = [(2, 'pedal'), (2, 'master'), (3, 'fluid'), (3, 'wheel'), (4, 'bigger'), (4, 'multiplies'), (5, 'pads'), (5, 'rotor'),
+          (6, 'motion'), (6, 'heat'), (7, 'abs'), (7, 'gripping'), (7, 'steer')]
+
+
+def host_keys():
+    """Gestures on the words: point when a part is named, beat gestures while talking, a stomp for the pedal."""
+    pts = sorted(wt(i, w) for i, w in POINTS)
+    k = [(0, HOST_X, 0, 'idle', 1)]
+    busy = []
+    for p in pts:
+        k += [(p - 0.15, HOST_X, 0, 'idle', 1), (p, HOST_X + 6, 0, 'point', 1), (p + 0.7, HOST_X + 6, 0, 'point', 1), (p + 0.95, HOST_X, 0, 'idle', 1)]
+        busy.append((p - 0.3, p + 1.05))
+    tp = wt(2, 'press')
+    k += [(tp - 0.45, HOST_X, 0, 'idle', 1), (tp - 0.2, HOST_X, 0, 'kneeup', 1), (tp, HOST_X + 4, 0, 'idle', 1)]
+    busy.append((tp - 0.55, tp + 0.15))
+    beat = 0
+    for i in range(2, 8):                                 # every other word: a small hand beat
+        for j, w in enumerate(WORDS[i]):
+            t0 = START[i] + w['s']
+            if j % 2 or any(a <= t0 <= b for a, b in busy): continue
+            beat ^= 1
+            k += [(t0, HOST_X, 0, 'talk1' if beat else 'talk2', 1)]
+    k += [(START[7] + 2.2, HOST_X, 0, 'shrug', 1), (START[7] + 2.6, HOST_X, 0, 'idle', 1)]
+    k.sort(key=lambda e: e[0])
+    out = []
+    for e in k:                                           # keep keys at least 0.12 s apart so poses can blend
+        if out and e[0] - out[-1][0] < 0.12: continue
+        out.append(e)
+    return out
+
+
+HK = None
+
+
+def host_layer(t, keys=None):
+    """Presenter sprite layer (RGBA, full frame): same stickman, plain, white shirt and glasses, pixel-snapped with a rim."""
+    global HK
+    if keys is None:
+        if HK is None: HK = host_keys()
+        keys = HK
+    chars = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+    duel.draw_fighter(ImageDraw.Draw(chars), keys, t, 'shirt', HOST_Z, HOST_GY)
+    head = duel.LASTJ['shirt'][0][0]
+    k = HOST_PX
+    small = chars.resize((round(W / k), round(H / k)), Image.Resampling.BOX)
+    a = np.asarray(small).copy(); on = a[..., 3] > 100; a[..., 3] = np.where(on, 255, 0)
+    white = a[..., :3].mean(-1) * 255 / np.maximum(a[..., 3], 1) > 120          # snap to two flat tones: no grey mush
+    a[on & white, :3] = (244, 246, 250); a[on & ~white, :3] = duel.INK
+    hx, hy = int(head[0] / k + 0.5), int(head[1] / k)
+    if 0 <= hy < a.shape[0] and 2 <= hx < a.shape[1] - 4:  # glasses: two 2-cell lenses and a bridge, facing right
+        for x in (hx - 1, hx, hx + 2, hx + 3): a[hy, x] = (170, 220, 255, 255)
+        a[hy - 1, hx - 1:hx + 4] = (40, 44, 56, 255); a[hy, hx + 1] = (40, 44, 56, 255)
+        on = a[..., 3] > 0
+    ring = np.zeros_like(on)
+    for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)): ring |= np.roll(np.roll(on, dy, 0), dx, 1)
+    ring &= ~on; a[ring] = (110, 126, 170, 255)
+    return Image.fromarray(a).resize((W, H), Image.Resampling.NEAREST)
+
+
+def host(img, t, alpha):
+    """Composite the corner presenter; alpha < 1 slides him in from the left and fades."""
+    lay = host_layer(t)
+    if alpha < 1:
+        a = np.asarray(lay).copy(); a[..., 3] = (a[..., 3] * alpha).astype(np.uint8); lay = Image.fromarray(a)
+    if alpha < 1: lay = lay.transform((W, H), Image.Transform.AFFINE, (1, 0, int((1 - alpha) * 220), 0, 1, 0))
+    img = img.convert('RGBA'); img.alpha_composite(lay)
+    return img.convert('RGB')
+
+
 def narrator_keys():
     k = [(0, 160, 0, 'stand', 1)]
     tp = wt(2, 'press')
@@ -392,8 +502,8 @@ def diagram_cam():
     s = START
     return [(TR1[0], 1.0, 1000, 400), (TR1[1] - 0.1, 1.0, 1000, 400), (s[2] + 0.5, 1.0, 640, 360), (wt(2, 'press') - .4, 1.25, 470, 410),
             (s[3] - 0.2, 1.25, 470, 410), (s[3] + 0.4, 1.0, 640, 360), (s[4] - 0.2, 1.0, 640, 360),
-            (s[4] + 0.4, 1.15, 640, 450), (s[5] - 0.2, 1.15, 640, 450), (s[5] + 0.4, 1.6, 990, 300),
-            (s[6] - 0.2, 1.6, 990, 300), (s[6] + 0.4, 1.3, 900, 380), (s[7] - 0.1, 1.3, 900, 380),
+            (s[4] + 0.4, 1.25, 640, 450), (s[5] - 0.2, 1.25, 640, 450), (s[5] + 0.4, 1.5, 990, 300),
+            (s[6] - 0.2, 1.5, 990, 300), (s[6] + 0.4, 1.25, 900, 380), (s[7] - 0.1, 1.25, 900, 380),
             (s[7] + 0.9, 1.0, 1920, 360), (TR2[0], 1.0, 1920, 360), (TR2[0] + 0.6, 1.0, 1000, 400), (TR2[1], 1.0, 1000, 400)]
 
 
@@ -406,8 +516,10 @@ def cam_at(keys, t):
     return keys[-1][1:]
 
 
-def zoom(img, z, cx, cy, cw=W, ch=H):
+def zoom(img, z, cx, cy, cw=W, ch=H, snap=None):
     cx = min(max(cx, 640 / z), cw - 640 / z); cy = min(max(cy, 360 / z), ch - 360 / z)
+    if snap:                                 # pan in whole art-pixel steps so pixels never shimmer
+        q = snap / z; cx = 640 / z + round((cx - 640 / z) / q) * q; cy = 360 / z + round((cy - 360 / z) / q) * q
     return img.transform((W, H), Image.Transform.AFFINE, (1 / z, 0, cx - 640 / z, 0, 1 / z, cy - 360 / z), Image.Resampling.NEAREST)
 
 
@@ -421,19 +533,11 @@ def diagram_frame(t, z=None, cx=None, cy=None):
     if h > 0.05:
         r = R_ROT * S4; c = (ROTOR[0] * S4, ROTOR[1] * S4)
         gld.ellipse([c[0] - r, c[1] - r, c[0] + r, c[1] + r], fill=tuple(int(v * h) for v in (255, 90, 30)))
-    chars = Image.new('RGBA', big.size, (0, 0, 0, 0))
-    duel.draw_fighter(ImageDraw.Draw(chars), NK, t, 'green', 1.0, 640)
     cw = big.size[0]
-    small = chars.resize((round(cw / duel.CPX), round(H / duel.CPX)), Image.Resampling.BOX)
-    a = np.asarray(small).copy(); on = a[..., 3] > 90; a[..., 3] = np.where(on, 255, 0)
-    ring = np.zeros_like(on)
-    for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)): ring |= np.roll(np.roll(on, dy, 0), dx, 1)
-    ring &= ~on; a[ring] = (200, 214, 245, 255)                    # light rim so the dark stickman reads on navy
-    big = Image.alpha_composite(big, Image.fromarray(a).resize(big.size, Image.Resampling.NEAREST))
     glow = gl.resize((cw // 8, H // 8)).resize(big.size, Image.Resampling.NEAREST)
     out = Image.fromarray((np.asarray(big.convert('RGB')).astype(np.float32) + np.asarray(glow).astype(np.float32) * .5).clip(0, 255).astype(np.uint8))
     if z is None: z, cx, cy = cam_at(CAM_D, t)
-    return zoom(out, z, cx, cy, cw, H)
+    return zoom(out, z, cx, cy, cw, H, snap=S4 * z)
 
 
 # ---------------------------------------------------------------- composition
@@ -490,6 +594,8 @@ def frame(t, road, dark, tail):
         b = diagram_frame(t)
         k = ss((t - (mid1 - 0.2)) / 0.4) if t < (mid1 + mid2) / 2 else 1 - ss((t - (mid2 - 0.2)) / 0.4)
         img = Image.blend(a, b, k)
+    if mid1 - 0.2 <= t <= mid2 + 0.2:
+        img = host(img, t, ss((t - (mid1 - 0.2)) / 0.5) * (1 - ss((t - (mid2 - 0.3)) / 0.5)))
     img = draw_caption(img, t)
     if t > DUR - 0.5:
         img = Image.fromarray((np.asarray(img).astype(np.float32) * (DUR - t) / 0.5).astype(np.uint8))
@@ -515,12 +621,12 @@ def audio(path):
     with wave.open(str(tmp)) as w:
         da = np.frombuffer(w.readframes(w.getnframes()), np.int16).reshape(-1, 2)[:, 0].astype(np.float32) / 32768
     tmp.unlink()
-    seg = da[int(5.1 * SR):int((5.1 + FIGHT_END + 0.3) * SR)].copy()
+    seg = da[:int((OFF + FIGHT_END + 0.3) * SR)].copy()
     seg[-int(0.3 * SR):] *= np.linspace(1, 0, int(0.3 * SR))
     mix = np.zeros(n); add(mix, 0, seg * 0.9)
-    mus = duel.music(n + int(5.1 * SR))[int(5.1 * SR):]
+    mus = duel.music(n)
     env = np.full(n, 0.16)
-    a0, a1 = int(FIGHT_END * SR), int(3.6 * SR)
+    a0, a1 = int((OFF + FIGHT_END) * SR), int((OFF + 3.6) * SR)
     env[:a0] = 0; env[a0:a1] = np.linspace(0.0, 0.16, a1 - a0) ** 0.5 * 2.2
     vo = np.zeros(n)
     for i in range(len(LINES)): add(vo, int(START[i] * SR), read_vo(i))
@@ -528,7 +634,7 @@ def audio(path):
     env *= 1 - 0.45 * np.clip(speak * 3, 0, 1)                             # duck music under the voice
     env[int((DUR - 0.6) * SR):] *= np.linspace(1, 0, n - int((DUR - 0.6) * SR))
     mix += mus * env + vo * 1.15
-    ev = [(1.8, sfx.vroom(1.3) * .8), (2.4, sfx.screech(1.0) * .9), (3.4, sfx.thump(0.3)), (3.42, duel.clang(0.4) * .3),
+    ev = [(OFF + 1.8, sfx.vroom(1.3) * .8), (OFF + 2.4, sfx.screech(1.0) * .9), (OFF + 3.4, sfx.thump(0.3)), (OFF + 3.42, duel.clang(0.4) * .3),
           (TR1[0], sfx.whoosh(1.0, 20) * .8), (TR2[0] + 0.4, sfx.whoosh(1.0, 20) * .8),
           (wt(2, 'press') - .02, sfx.thump(0.25)), (wt(5, 'clamp'), duel.clang(0.4) * .5), (wt(7, 'abs'), sfx.pop()),
           (CLASH, sfx.boom(1.0)), (CLASH, duel.clang(0.8)), (CLASH - 0.25, sfx.whoosh(0.25, 6))]
