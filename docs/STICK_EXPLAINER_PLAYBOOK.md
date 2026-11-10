@@ -51,6 +51,14 @@ The full 66 s render takes about 3 minutes. Never commit MP4s, WAVs or frames (`
   camera move to `wt()` so a regenerated voice just works.
 - `DUR` must be a literal number (the preview tool parses it); there is an assert that the voice fits.
 
+## 3b. Retention (short-form)
+
+- Open on action: `D0` picks the duel time the video starts at, so a big hit lands within 0.2 s. Keep the
+  hook fight to about 2–3 s before the event.
+- `SPEED` speeds up the voice (ffmpeg `atempo`, pitch kept) and scales the word timings; 1.12 is used.
+- Default gap between lines is 0.15 s; only the transitions get longer gaps (`GAP`).
+- Target 50–55 s for this format.
+
 ## 4. Scene recipe used for the brake video
 
 1. **Hook fight (0 → OFF + 2.3 s):** `duel.frame(t, road, dark, tail)` with a steady camera.
@@ -108,7 +116,7 @@ The full 66 s render takes about 3 minutes. Never commit MP4s, WAVs or frames (`
 
 ## 9. Handoff: current state
 
-- Done: `videos/stick-duel` (12.1 s duel) and `videos/brake-explainer` (66.1 s explainer). Both share the fight
+- Done: `videos/stick-duel` (12.1 s duel) and `videos/brake-explainer` (55 s explainer). Both share the fight
   upgrades: swing smears, impact frames, camera punch, colour split, sparks, slam debris and wind-up aura.
 - Renders are not committed. Regenerate them with the commands in section 2. The voice clips live in
   `out/brake/vo/`; if they are missing, rerun `tts.py` and `align.py` (Gemini free tier: 3 requests/min).

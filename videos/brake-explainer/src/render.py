@@ -15,11 +15,12 @@ duel = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(duel)
 sys.path.insert(0, str(ROOT / 'videos/new-car-trap/src'))
 import pix, sfx  # noqa: E402
 
-DUR = 66.1
+DUR = 55.0
 W, H, FPS, SR = 1280, 720, 30, sfx.SR
 VO = ROOT / 'out/brake/vo'
 LINES = json.load(open(HERE / 'script.json'))
-WORDS = json.load(open(HERE / 'words.json'))
+SPEED = 1.12                                 # voice tempo (pitch kept): punchier pacing for short-form retention
+WORDS = [[dict(w, s=w['s'] / SPEED, e=w['e'] / SPEED) for w in line] for line in json.load(open(HERE / 'words.json'))]
 pix.FONT.update({'Q': ["01110", "10001", "10001", "10001", "10101", "10010", "01101"],
                  'Z': ["11111", "00001", "00010", "00100", "01000", "10000", "11111"],
                  'J': ["00111", "00010", "00010", "00010", "00010", "10010", "01100"],
@@ -27,15 +28,16 @@ pix.FONT.update({'Q': ["01110", "10001", "10001", "10001", "10101", "10010", "01
 
 
 def wav_len(i):
-    with wave.open(str(VO / f'line_{i:02d}.wav')) as w: return w.getnframes() / w.getframerate()
+    with wave.open(str(VO / f'line_{i:02d}.wav')) as w: return w.getnframes() / w.getframerate() / SPEED
 
 
 DURS = [wav_len(i) for i in range(len(LINES))]
 GAP = {1: 1.3, 7: 1.2}                       # room for the zoom transitions into / out of the diagram
-OFF = 5.1                                    # the full duel (0 -> 7.42 s) plays before the car arrives
+D0 = 4.7                                     # duel time the video opens on: first big hit lands at 0.2 s (hook)
+OFF = 5.1 - D0                               # road-local clock offset (duel time 5.1 = road-local 0)
 START, _t = [], 3.5 + OFF
 for _i, _d in enumerate(DURS):
-    START.append(_t); _t += _d + GAP.get(_i, 0.3)
+    START.append(_t); _t += _d + GAP.get(_i, 0.15)
 END_VO = START[-1] + DURS[-1]
 assert END_VO + 1.5 <= DUR, END_VO
 TR1 = (START[2] - 1.5, START[2] - 0.1)      # road -> diagram
@@ -150,7 +152,7 @@ OUTRO_WORDS = [('PEDAL', 'pedal'), ('FLUID', 'fluid'), ('CLAMP', 'clamp'), ('HEA
 def road_frame(t, road, dark, tail):
     tl = t - OFF                             # road-local clock: 0 = duel time 5.1
     if tl < FIGHT_END:                       # the duel itself, now fought on the road
-        img = Image.fromarray(duel.frame(t, road, dark, tail)).convert('RGBA')
+        img = Image.fromarray(duel.frame(tl + 5.1, road, dark, tail)).convert('RGBA')
         fx = Image.new('RGBA', (W, H), (0, 0, 0, 0))
         car_draw(img, tl, ImageDraw.Draw(fx))
         return Image.alpha_composite(img, duel.pixel_fx(fx, duel.FPX)).convert('RGB')
@@ -165,7 +167,7 @@ def road_frame(t, road, dark, tail):
     duel.draw_fighter(cd, G2, t, 'green', 1.0, GY)
     duel.draw_fighter(cd, R2, t, 'red', 1.0, GY)
     img = Image.alpha_composite(img, duel.pixelate(chars, duel.CPX))
-    duel.ambient(fxd, t)
+    duel.ambient(fxd, tl + 5.1)
     if 3.38 < tl < 3.75:                     # the car's stop: a little shock ring
         duel.shock(fxd, gld, car_front(3.4) - 10, GY - 20, (tl - 3.38) / 0.37, (255, 255, 255), 160)
     cards = []
@@ -609,10 +611,9 @@ def add(buf, i, s):
 
 
 def read_vo(i):
-    with wave.open(str(VO / f'line_{i:02d}.wav')) as w:
-        x = np.frombuffer(w.readframes(w.getnframes()), np.int16).astype(np.float32) / 32768
-        sr = w.getframerate()
-    return np.interp(np.arange(int(len(x) * SR / sr)) * sr / SR, np.arange(len(x)), x)
+    raw = subprocess.run(['ffmpeg', '-v', 'error', '-i', str(VO / f'line_{i:02d}.wav'), '-af', f'atempo={SPEED}',
+                          '-ar', str(SR), '-ac', '1', '-f', 'f32le', '-'], capture_output=True, check=True).stdout
+    return np.frombuffer(raw, np.float32).astype(np.float64)
 
 
 def audio(path):
@@ -621,10 +622,10 @@ def audio(path):
     with wave.open(str(tmp)) as w:
         da = np.frombuffer(w.readframes(w.getnframes()), np.int16).reshape(-1, 2)[:, 0].astype(np.float32) / 32768
     tmp.unlink()
-    seg = da[:int((OFF + FIGHT_END + 0.3) * SR)].copy()
+    seg = da[int(D0 * SR):int((5.1 + FIGHT_END + 0.3) * SR)].copy()
     seg[-int(0.3 * SR):] *= np.linspace(1, 0, int(0.3 * SR))
     mix = np.zeros(n); add(mix, 0, seg * 0.9)
-    mus = duel.music(n)
+    mus = duel.music(n + int(D0 * SR))[int(D0 * SR):]
     env = np.full(n, 0.16)
     a0, a1 = int((OFF + FIGHT_END) * SR), int((OFF + 3.6) * SR)
     env[:a0] = 0; env[a0:a1] = np.linspace(0.0, 0.16, a1 - a0) ** 0.5 * 2.2
