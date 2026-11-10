@@ -32,7 +32,7 @@ class FootSlideTests(unittest.TestCase):
 
     def test_fast_ground_dash_leaves_the_ground(self):
         import render as r
-        _, y, *_ = r.fighter_state(r.GK, 8.5)    # 8.42 -> 8.6 s is a 280 px pass-through dash
+        _, y, *_ = r.fighter_state(r.RK, 1.85)   # 1.8 -> 1.9 s is a 213 px dash in 0.1 s
         self.assertLess(y, -10)
 
 
