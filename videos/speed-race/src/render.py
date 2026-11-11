@@ -67,6 +67,7 @@ T_WHO, T_RACE = wt('who'), wt('race')
 END_VO = WORDS[0][-1]['e'] - LEAD
 assert END_VO + 1.0 <= DUR, END_VO
 T_CPASS = wt('roughly')                      # cheetah's nose passes the runner
+T_CB = T_CPASS + 0.3                         # ...and it bursts away
 T_TPASS = T_BUL + 0.1                        # train nose passes
 T_FPASS = T_CAN                              # F1 blasts past: the big hit
 FZ = 0.35                                    # freeze-frame length on "You"
@@ -193,6 +194,13 @@ def bg_frame(L, s):
                 if 0 <= xx < W // G and ((xx - x) / 1.6) ** 2 + (yy - cy) ** 2 <= r * r:
                     canvas[yy, xx] = (250, 251, 250) if yy < cy else (226, 230, 238)
     put(L['trk'], TRK0, 0.7)
+    if T_FPASS - 0.04 <= s < T_FPASS + 0.4:                       # anime speed backdrop: everything but the road burns
+        k = np.linspace(0, 1, ROAD0)[:, None, None]
+        canvas[:ROAD0] = (1 - k) * np.array((70, 14, 26)) + k * np.array((200, 50, 40))
+        rr = np.random.default_rng(int(s * 30))
+        for _ in range(26):
+            y = rr.integers(40, ROAD0); x = rr.integers(-20, W // G); ln = rr.integers(8, 30)
+            canvas[y, max(0, x):max(0, min(W // G, x + ln))] = (255, 200, 110) if rr.random() < .5 else (255, 245, 200)
     put(L['road'], ROAD0, 1.0)
     put(L['fg'], FG0, 1.35)
     return np.repeat(np.repeat(canvas, G, 0), G, 1)
@@ -207,26 +215,31 @@ def gline(g, x0, y0, x1, y1, c, w=2):
             g.px(x + dx, y, c)
 
 
+GALLOP = [  # front legs (near, far), rear legs (near, far) foot positions; body arch
+    (((37, 14), (35, 16)), ((3, 13), (1, 11)), 0),       # full stretch, airborne
+    (((31, 16), (28, 16)), ((6, 15), (4, 14)), 0),       # front feet strike
+    (((22, 16), (19, 15)), ((19, 15), (16, 16)), 1),     # gathered, back arched
+    (((26, 15), (24, 16)), ((14, 16), (11, 16)), 0)]     # rear feet strike, pushing off
+
+
 def cheetah(ph):
     g = pix.Grid(40, 18)
-    B, D, L, K = '#e8a840', '#c07e2a', '#fbe6b4', '#3a2618'
-    arch = 1 if ph == 1 else 0
-    for x in range(9, 31):                                           # body
+    B, D, L, K, HI = '#e8a840', '#b8742a', '#fbe6b4', '#3a2618', '#f8c968'
+    (f1, f2), (r1, r2), arch = GALLOP[ph]
+    gline(g, 26, 9, *f2, D, 2); gline(g, 11, 9, *r2, D, 2)                     # far legs, shaded
+    for x in range(9, 31):                                                     # body: deep chest, tucked waist
         u = (x - 20) / 11
-        t_ = 5 - arch + round(1.5 * u * u); b = 10 - (1 if x < 13 else 0)
-        g.rect(x, t_, x, b, B); g.rect(x, b - 1, x, b, L)
-    g.disc(33, 6, 2.6, B); g.rect(34, 6, 37, 8, B); g.rect(35, 8, 37, 8, L)    # head + muzzle
-    g.px(31, 3, D); g.px(32, 3, D); g.px(34, 5, K); g.px(37, 6, K)
-    gline(g, 34, 6, 33, 8, K, 1)                                                # tear mark
-    if ph == 0:   # stretched: front legs reach, back legs push
-        gline(g, 28, 9, 36, 15, B); gline(g, 26, 9, 33, 16, D); gline(g, 13, 9, 4, 14, B); gline(g, 11, 9, 2, 12, D)
-        tail = [(9, 6), (6, 5), (3, 4), (1, 2)]
-    else:         # gathered: legs cross under the body, back arched
-        gline(g, 27, 9, 21, 15, B); gline(g, 25, 9, 18, 16, D); gline(g, 13, 9, 20, 15, B); gline(g, 11, 9, 16, 16, D)
-        tail = [(9, 7), (6, 8), (3, 8), (1, 6)]
+        t_ = 5 - arch + round(1.5 * u * u); b = 10 - (1 if 12 < x < 20 else 0) + (1 if x > 23 else 0)
+        g.rect(x, t_, x, b, B); g.px(x, t_, HI); g.rect(x, b - 1, x, b, L)
+    g.disc(33, 6 - arch, 2.6, B); g.rect(34, 6 - arch, 37, 8 - arch, B); g.rect(35, 8 - arch, 37, 8 - arch, L)
+    g.px(31, 3 - arch, D); g.px(32, 3 - arch, D); g.px(34, 5 - arch, K); g.px(37, 6 - arch, K)
+    gline(g, 34, 6 - arch, 33, 8 - arch, K, 1)                                 # tear mark
+    gline(g, 28, 9, *f1, B, 2); gline(g, 13, 9, *r1, B, 2)                     # near legs
+    for p in (f1, f2, r1, r2): g.px(p[0], p[1], K); g.px(p[0] + 1, p[1], K)    # paws
+    tail = [(9, 6), (6, 5 + arch), (3, 5 + 2 * arch), (1, 3 + 3 * arch)]
     for (ax, ay), (bx, by) in zip(tail, tail[1:]): gline(g, ax, ay, bx, by, B)
-    g.px(1, 6 if ph else 2, K); g.px(2, 6 if ph else 2, K)
-    for k, (sx, sy) in enumerate([(12, 6), (15, 8), (17, 6), (20, 7), (23, 6), (25, 8), (28, 6), (14, 6), (22, 9), (19, 5)]):
+    g.px(1, 3 + 3 * arch, K); g.px(2, 3 + 3 * arch, K); g.px(4, 5 + 2 * arch, K)
+    for sx, sy in [(12, 6), (15, 8), (17, 6), (20, 7), (23, 6), (25, 8), (28, 6), (14, 6), (22, 9), (19, 5), (27, 8), (16, 9)]:
         if g.g[sy - arch][sx] is not None: g.px(sx, sy - arch, K)
     return pix.up(g.image(), G)
 
@@ -298,7 +311,8 @@ RX = 330                                       # runner's screen x (left third)
 
 def runner_keys():
     f = T_FPASS
-    k = [(0.0, RX, 0, 'run', 1), (T_TPASS - 0.05, RX, 0, 'run', 1), (T_TPASS + 0.1, RX - 24, -30, 'knock', 1),
+    k = [(0.0, RX, 0, 'run', 1), (T_CH - 0.1, RX, 0, 'run', 1), (T_CH + 0.1, RX + 12, 0, 'dash', 1),
+         (T_CB, RX + 12, 0, 'dash', 1), (T_CB + 0.15, RX - 12, 0, 'run', 1), (T_TPASS - 0.05, RX, 0, 'run', 1), (T_TPASS + 0.1, RX - 24, -30, 'knock', 1),
          (T_TPASS + 0.3, RX, 0, 'run', 1),
          (f - 0.18, RX, 0, 'run', 1), (f, RX - 10, 0, 'guardup', 1),
          (f + 0.15, RX + 60, -170, 'knock', 1, -70), (f + 0.4, RX + 140, -300, 'tuck', 1, -330),
@@ -310,7 +324,7 @@ def runner_keys():
 
 
 RK = runner_keys()
-CH_IMG = cheetah(0), cheetah(1)
+CH_IMG = [cheetah(k) for k in range(4)]
 TR_IMG = train()
 F1_IMG = f1car(0), f1car(1)
 SHOCKS = [(T_TPASS, 900), (T_FPASS, 2600)]
@@ -357,29 +371,26 @@ def runner_xy(s):
     return x, GY - 40 * duel.SCALE * Z + y * Z
 
 
-def cheetah_x(s):                              # nose screen x
-    return piece(s, [(T_CH - 0.55, -560), (T_CPASS, RX + 90), (T_DBL + 0.55, W + 600)])
+def cheetah_x(s):                              # nose x: rushes in, runs neck and neck, then bursts away
+    return piece(s, [(T_CH - 0.5, -700), (T_CH - 0.05, RX + 120), (T_CB, RX + 250), (T_CB + 0.45, W + 700)])
 
 
 def train_x(s):                                # nose screen x (train runs right)
-    return 400 + 2000 * (s - T_TPASS)
+    return piece(s, [(T_TPASS - 0.35, -100), (T_TPASS, RX + 200), (T_TPASS + 0.35, RX + 380), (T_TPASS + 1.3, 3700), (T_TPASS + 3.3, 11700)])
 
 
-def f1_x(s):
-    f = T_FPASS
-    if s < f: return 420 + 4200 * (s - f)
-    if s < f + 0.12: return 420 + 4200 * (s - f) * (1 - (s - f) / 0.24)
-    if s < T_YOU: return 420 + 4200 * 0.06 + 240 * (s - f - 0.12)
+def f1_x(s):                                   # streaks in, slow-motion side by side as it blows him away, then gone
+    if s < T_YOU: return piece(s, [(T_FPASS - 0.3, -900), (T_FPASS, RX + 380), (T_FPASS + 0.35, RX + 520), (T_YOU, 1100)])
     a = s - T_YOU
-    return 420 + 252 + 240 * (T_YOU - f - 0.12) + 240 * a + 2600 * a * a
+    return 1100 + 240 * a + 2600 * a * a
 
 
 # ---------------------------------------------------------------- FX
 def hspeedlines(d, s, amt, seed=5):
     if amt <= 0: return
     rr = np.random.default_rng(seed)
-    for _ in range(int(34 * amt)):
-        y = rr.uniform(260, 1640); ln = rr.uniform(160, 460) * (0.6 + amt * 0.6); sp = rr.uniform(1800, 3200)
+    for _ in range(int(40 * amt)):
+        y = rr.uniform(700, 1880); ln = rr.uniform(120, 340) * (0.6 + amt * 0.6); sp = rr.uniform(1800, 3200)
         x = (rr.uniform(0, W + 900) - sp * s) % (W + 900) - 450
         d.line([(x, y), (x + ln, y)], fill=(255, 255, 255, 220), width=int(rr.uniform(4, 9)))
 
@@ -403,8 +414,10 @@ def overtake_fx(fd, gld, sd, s):
             x = cheetah_x(s - a) - 330
             if -200 < x < W + 200: duel.puff(sd, x - a * 400, LANE_NEAR - 20 - 90 * a, 30 + 110 * a, (220, 200, 160), 230 * (1 - a / 0.5))
         duel.streak(fd, gld, cx - 900, cx - 380, LANE_NEAR - 100, 26, (255, 200, 120))
-    if T_CPASS - 0.02 < s < T_CPASS + 0.35:
-        u = (s - T_CPASS) / 0.35; duel.shock(fd, gld, RX + 40, GY - 140, u, (255, 230, 150), 380)
+    if T_CB <= s < T_CB + 0.4:                           # the cheetah's burst
+        u = (s - T_CB) / 0.4; duel.shock(fd, gld, RX + 260, LANE_NEAR - 120, u, (255, 230, 150), 520)
+        duel.dust(sd, RX - 100, RX + 300, LANE_NEAR, u, (220, 200, 160), 5, big=0.8, towers=False)
+        duel.speedlines(fd, RX + 200, LANE_NEAR - 200, u, 31)
     tx = train_x(s)
     if T_TPASS - 0.4 < s < T_TPASS + 1.6:                # train: wind streaks along its body
         for k, yy in enumerate((1180, 1240, 1300)):
@@ -481,8 +494,8 @@ def scene(s, L):
     base = Image.alpha_composite(base, cpx)
     cx = cheetah_x(s)
     if -500 < cx < W + 500:
-        spr = CH_IMG[int(s / 0.075) % 2]
-        base.alpha_composite(spr, (int(cx - spr.width) // G * G, LANE_NEAR - spr.height + (0 if int(s / 0.075) % 2 else -G)))
+        ph = int(s / 0.06) % 4; spr = CH_IMG[ph]
+        base.alpha_composite(spr, (int(cx - spr.width) // G * G, LANE_NEAR - spr.height - (G if ph == 0 else 0)))
     if not T_FPASS <= s < T_FPASS + 2 / FPS: hspeedlines(fd, s, speed_amt(s))
     if T_TPASS < s < T_TPASS + 1.4 or T_FPASS < s < T_YOU: duel.ambient(fd, s * 5, n=14)   # leaves ripped up by the wind
     fxp = duel.pixel_fx(fx, FPX)
@@ -496,17 +509,19 @@ def zoom(img, z, cx, cy):
     return img.transform((W, H), Image.Transform.AFFINE, (1 / z, 0, cx - W / 2 / z, 0, 1 / z, cy - H / 2 / z), Image.Resampling.NEAREST)
 
 
-PUNCH = [(T_CPASS, 0.05, 8), (T_TPASS, 0.08, 18), (T_FPASS, 0.16, 40), (T_LAND, 0.05, 12)]
+BASEZ = 1.5
+PUNCH = [(T_CB, 0.06, 10), (T_TPASS, 0.08, 18), (T_FPASS, 0.16, 40), (T_LAND, 0.05, 12)]
 
 
 def camera(s):
     z, sh = 1.0 + 0.12 * (1 - ss(s / 1.1)), 0.0                                  # hook: camera rushes back from a close-up
+    if T_FPASS - 0.05 <= s < T_FPASS + 0.4: z += 0.1                              # hard cut in for the F1 pass
     for t0, a, amp in PUNCH:
         if s >= t0:
             e = math.exp(-(s - t0) * 9); z += a * e; sh += amp * e
     z += 0.06 * ss((s - (T_FPASS - 0.5)) / 0.5) * (1 - ss((s - T_FPASS) / 0.3))      # push in as the F1 arrives
-    cx = 460 + sh * math.sin(s * 91); cy = 1320 + sh * 0.6 * math.cos(s * 77)
-    return z, round(cx / G) * G, round(cy / G) * G
+    cx = 480 + sh * math.sin(s * 91); cy = 1240 + sh * 0.6 * math.cos(s * 77)
+    return z * BASEZ, round(cx / G) * G, round(cy / G) * G
 
 
 # ---------------------------------------------------------------- UI (pixel font, TikTok safe zone)
@@ -553,12 +568,12 @@ def counter(img, t):
     s = pop(t, pk + 0.45, 0.2) if pk and t < pk + 0.65 else 1
     num = str(v) + ('+' if v == 350 else '')
     col = '#ffd23f' if v < 300 else '#ff5a3c'
-    paste(img, text(lab, 6, '#ffffff'), 48, 300, pop(t, switch - 0.01, 0.18) if switch else 1, left=True)
+    paste(img, text(lab, 6, '#ffffff'), 48, 268, pop(t, switch - 0.01, 0.18) if switch else 1, left=True)
     n = text(num, 16, col)
     if s != 1: n = n.resize((int(n.width * (1 + 0.25 * (s - 1) + 0.0)), int(n.height * (1 + 0.25 * (s - 1)))), Image.Resampling.NEAREST)
     shake = int(6 * math.sin(t * 120)) if pk and pk <= t < pk + 0.45 else 0
-    paste(img, n, 40 + shake, 440, left=True)
-    paste(img, text('KM/H', 6, '#ffffff'), 40 + n.width + 12, 486, left=True)
+    paste(img, n, 40 + shake, 400, left=True)
+    paste(img, text('KM/H', 6, '#ffffff'), 40 + n.width + 12, 446, left=True)
 
 
 BARS = [('YOU', 45, '#f4f6fa', '45'), ('CHEETAH', 93, '#ffa63d', '93'), ('TRAIN', 320, '#5aa0ff', '320'), ('F1', 350, '#ff4040', '350+')]
@@ -608,8 +623,8 @@ def ui(img, t):
     if t < T_SPR - 0.3:                                              # the hook is on screen from the first frame
         s = 1 if t < T_SPR - 0.45 else 1 - ss((t - (T_SPR - 0.45)) / 0.15)
         b = 1 + 0.06 * math.exp(-max(0, t - wt('f1')) * 10) if t >= wt('f1') else 1
-        paste(img, text('COULD YOU OUTRUN', 9), 459, 640, s * b)
-        paste(img, text('AN F1 CAR?', 12, '#ffd23f'), 459, 760, s * b)
+        paste(img, text('COULD YOU OUTRUN', 9), 459, 562, s * b)
+        paste(img, text('AN F1 CAR?', 12, '#ffd23f'), 459, 670, s * b)
     counter(img, t)
     if T_YOU <= t < T_WHO:
         sh = int(10 * math.exp(-(t - T_YOU) * 8) * math.sin(t * 90))
