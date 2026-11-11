@@ -451,7 +451,7 @@ def soften(img, soft, s):
 
 
 def speed_amt(s):
-    return piece(s, [(0, .45), (T_CH - .5, .45), (T_CPASS, .8), (T_DBL + .4, .5), (T_TPASS, 1), (T_TPASS + 1, .55),
+    return piece(s, [(0, 1.1), (1.0, 1.0), (1.6, .45), (T_CH - .5, .45), (T_CPASS, .8), (T_DBL + .4, .5), (T_TPASS, 1), (T_TPASS + 1, .55),
                      (T_FPASS - .3, .7), (T_FPASS, 1.3), (T_LAND, .4), (T_LAND + .3, 0), (rs(T_WHO), 0), (rs(T_WHO) + .5, .45), (99, .45)])
 
 
@@ -500,7 +500,7 @@ PUNCH = [(T_CPASS, 0.05, 8), (T_TPASS, 0.08, 18), (T_FPASS, 0.16, 40), (T_LAND, 
 
 
 def camera(s):
-    z, sh = 1.0, 0.0
+    z, sh = 1.0 + 0.12 * (1 - ss(s / 1.1)), 0.0                                  # hook: camera rushes back from a close-up
     for t0, a, amp in PUNCH:
         if s >= t0:
             e = math.exp(-(s - t0) * 9); z += a * e; sh += amp * e
@@ -770,7 +770,7 @@ def main():
     wav = dst.with_suffix('.wav'); audio(wav)
     p = subprocess.Popen(['ffmpeg', '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{W}x{H}', '-r', str(FPS),
                           '-i', '-', '-ss', str(t_start), '-i', str(wav), '-t', str(t_end - t_start), '-c:v', 'libx264', '-crf', '18',
-                          '-pix_fmt', 'yuv420p', '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11', '-ar', '48000', '-c:a', 'aac', '-b:a', '192k',
+                          '-pix_fmt', 'yuv420p', '-vf', 'setsar=1', '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11', '-ar', '48000', '-c:a', 'aac', '-b:a', '192k',
                           '-shortest', str(dst)], stdin=subprocess.PIPE)
     for i in range(int(round(t_start * FPS)), int(round(t_end * FPS))):
         p.stdin.write(frame(i / FPS, L).tobytes())
