@@ -760,7 +760,7 @@ def audio(path):
     vo = np.zeros(n); add(vo, 0, read_vo())
     mus = duel.music(n)
     speak = np.convolve(np.abs(vo) > 0.02, np.ones(int(0.25 * SR)) / int(0.25 * SR), 'same')
-    env = 0.12 * (1 - 0.5 * np.clip(speak * 3, 0, 1))
+    env = 0.22 * (1 - 0.45 * np.clip(speak * 3, 0, 1))
     mix = mus * env + vo * 1.2
     te = sfx.T(HOOK); fe = 300 + 30 * np.sin(2 * np.pi * 5 * te) + 20 * te                 # cold open: engine scream
     eng = sfx.lp(2 * ((np.cumsum(fe) / SR) % 1) - 1, 3) * 0.5 + sfx.lp(np.random.default_rng(2).standard_normal(len(te)), 6) * 0.6
@@ -787,7 +787,7 @@ def audio(path):
         tt = i / 9; s_ = sc(tt)
         if V(s_) > 400 and abs(_fs(RK, s_)[1]) < 3:
             add(mix, int(tt * SR), sfx.lp(rr.standard_normal(int(SR * .03)), 6) * np.exp(-sfx.T(.03) * 120) * .25)
-    mix = np.tanh(mix * 1.1) * 0.85
+    mix = np.tanh(mix * 1.6) * 0.9                                         # hotter, denser mix for phone speakers
     pcm = (np.stack([mix, mix], 1) * 32767).astype(np.int16)
     with wave.open(str(path), 'wb') as w:
         w.setnchannels(2); w.setsampwidth(2); w.setframerate(SR); w.writeframes(pcm.tobytes())
@@ -818,7 +818,7 @@ def main():
     wav = dst.with_suffix('.wav'); audio(wav)
     p = subprocess.Popen(['ffmpeg', '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{W}x{H}', '-r', str(FPS),
                           '-i', '-', '-ss', str(t_start), '-i', str(wav), '-t', str(t_end - t_start), '-c:v', 'libx264', '-crf', '18',
-                          '-pix_fmt', 'yuv420p', '-vf', 'setsar=1', '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11', '-ar', '48000', '-c:a', 'aac', '-b:a', '192k',
+                          '-pix_fmt', 'yuv420p', '-vf', 'setsar=1', '-af', 'loudnorm=I=-11:TP=-1.0:LRA=7', '-ar', '48000', '-c:a', 'aac', '-b:a', '192k',
                           '-shortest', str(dst)], stdin=subprocess.PIPE)
     for i in range(int(round(t_start * FPS)), int(round(t_end * FPS))):
         p.stdin.write(frame(i / FPS, L).tobytes())
