@@ -336,7 +336,7 @@ def draw_fighter(d, keys, t, cloak, z, gy):
     trail = -f * (40 + min(60, abs(vx) * 0.05)) * z
 
     def at(p, dx, dy): return (p[0] + f * dx * z, p[1] + dy * z)
-    if cloak == 'red':     # long cape behind body
+    if cloak in ('red', 'cape'):     # long cape behind body ('cape' = runner: cape, no weapon)
         d.polygon([at(neck, 3, -4), at(neck, -6, 0), (hip[0] + trail, hip[1] + 14 * z - flap),
                    (hip[0] + trail * .7, hip[1] + 34 * z + flap), at(hip, 6, 26), at(hip, 6, 6)], fill=RED)
         d.polygon([at(neck, -2, 0), (hip[0] + trail * .7, hip[1] + 34 * z + flap), at(hip, -4, 22)], fill=RED_D)
@@ -359,7 +359,8 @@ def draw_fighter(d, keys, t, cloak, z, gy):
         d.ellipse([p[0] - r, p[1] - r, p[0] + r, p[1] + r], fill=INK)
     r = 18 * z
     d.ellipse([head[0] - r, head[1] - r, head[0] + r, head[1] + r], fill=INK)
-    if cloak == 'shirt':
+    if cloak in ('shirt', 'cape'):
+        if cloak == 'cape': return hip, hF, hF
         d.line([neck, (lerp(neck[0], eF[0], .5), lerp(neck[1], eF[1], .5))], fill=(244, 246, 250), width=lw + 4)   # front sleeve
         d.ellipse([head[0] - r, head[1] - r, head[0] + r, head[1] + r], fill=INK)
         tip = hF
