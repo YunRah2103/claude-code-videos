@@ -73,6 +73,7 @@ T_FPASS = T_CAN                              # F1 blasts past: the big hit
 FZ = 0.35                                    # freeze-frame length on "You"
 T_LAND = T_FPASS + 1.05
 T_POLL = END_VO + 0.05
+HOOK = wt('top') - 0.3                         # cold open ends: rewind to the start of the ladder
 LOOP0 = DUR - 0.75                           # last 0.75 s dissolve into frame 0 so the clip loops
 
 
@@ -194,13 +195,13 @@ def bg_frame(L, s):
                 if 0 <= xx < W // G and ((xx - x) / 1.6) ** 2 + (yy - cy) ** 2 <= r * r:
                     canvas[yy, xx] = (250, 251, 250) if yy < cy else (226, 230, 238)
     put(L['trk'], TRK0, 0.7)
-    if T_FPASS - 0.04 <= s < T_FPASS + 0.4:                       # anime speed backdrop: everything but the road burns
+    if s < HOOK or T_FPASS - 0.04 <= s < T_FPASS + 0.4:          # anime speed backdrop: everything but the road burns
         k = np.linspace(0, 1, ROAD0)[:, None, None]
-        canvas[:ROAD0] = (1 - k) * np.array((70, 14, 26)) + k * np.array((200, 50, 40))
+        canvas[:ROAD0] = (1 - k) * np.array((18, 20, 52)) + k * np.array((84, 40, 130))
         rr = np.random.default_rng(int(s * 30))
         for _ in range(26):
             y = rr.integers(40, ROAD0); x = rr.integers(-20, W // G); ln = rr.integers(8, 30)
-            canvas[y, max(0, x):max(0, min(W // G, x + ln))] = (255, 200, 110) if rr.random() < .5 else (255, 245, 200)
+            canvas[y, max(0, x):max(0, min(W // G, x + ln))] = (255, 210, 90) if rr.random() < .4 else (150, 200, 255) if rr.random() < .5 else (255, 255, 255)
     put(L['road'], ROAD0, 1.0)
     put(L['fg'], FG0, 1.35)
     return np.repeat(np.repeat(canvas, G, 0), G, 1)
@@ -311,7 +312,7 @@ RX = 330                                       # runner's screen x (left third)
 
 def runner_keys():
     f = T_FPASS
-    k = [(0.0, RX, 0, 'run', 1), (T_CH - 0.1, RX, 0, 'run', 1), (T_CH + 0.1, RX + 12, 0, 'dash', 1),
+    k = [(0.0, RX, 0, 'dash', 1), (HOOK - 0.1, RX, 0, 'dash', 1), (HOOK + 0.15, RX, 0, 'run', 1), (T_CH - 0.1, RX, 0, 'run', 1), (T_CH + 0.1, RX + 12, 0, 'dash', 1),
          (T_CB, RX + 12, 0, 'dash', 1), (T_CB + 0.15, RX - 12, 0, 'run', 1), (T_TPASS - 0.05, RX, 0, 'run', 1), (T_TPASS + 0.1, RX - 24, -30, 'knock', 1),
          (T_TPASS + 0.3, RX, 0, 'run', 1),
          (f - 0.18, RX, 0, 'run', 1), (f, RX - 10, 0, 'guardup', 1),
@@ -380,6 +381,7 @@ def train_x(s):                                # nose screen x (train runs right
 
 
 def f1_x(s):                                   # streaks in, slow-motion side by side as it blows him away, then gone
+    if s < HOOK: return RX + 330 + 90 * s        # cold open: neck and neck, the car creeping ahead
     if s < T_YOU: return piece(s, [(T_FPASS - 0.3, -900), (T_FPASS, RX + 380), (T_FPASS + 0.35, RX + 520), (T_YOU, 1100)])
     a = s - T_YOU
     return 1100 + 240 * a + 2600 * a * a
@@ -428,7 +430,16 @@ def overtake_fx(fd, gld, sd, s):
         duel.shock(fd, gld, RX + 40, GY - 160, min(1, u * 1.6), (255, 255, 255), 420)
         duel.particles(fd, gld, RX + 20, GY - 30, 420, u, 18, 11, col=(246, 170, 200))
     fx_ = f1_x(s)
-    if T_F1 < s < T_YOU and fx_ > -800:                  # F1: exhaust heat + rooster tail of dust
+    if s < HOOK:                                         # cold open: pulsing shockwaves, sparks, wind
+        u = (s % 0.9) / 0.9
+        if u < 0.5: duel.shock(fd, gld, RX + 40, GY - 150, u * 2, (255, 230, 150), 620)
+        duel.streak(fd, gld, fx_ - 1400, fx_ - 760, LANE_FAR - 110, 30, (255, 150, 60))
+        rr = np.random.default_rng(int(s * 30))
+        for _ in range(14):
+            x, y = RX - 200 + rr.uniform(-250, 400), LANE_FAR - 6 - rr.uniform(0, 60)
+            fd.line([(x, y), (x - rr.uniform(40, 120), y + rr.uniform(-10, 10))], fill=(255, 230, 120, 255), width=6)
+        if s < 0.25: duel.speedlines(fd, RX + 60, GY - 300, s / 0.25, 3)
+    if (s < HOOK or T_F1 < s < T_YOU) and fx_ > -800:                  # F1: exhaust heat + rooster tail of dust
         for k in range(9):
             a = k * 0.05; x = f1_x(s - a) - 760
             duel.puff(sd, x - a * 300, LANE_FAR - 30 - 120 * a, 40 + 140 * a, (226, 220, 206), 240 * (1 - a / 0.45))
@@ -464,7 +475,7 @@ def soften(img, soft, s):
 
 
 def speed_amt(s):
-    return piece(s, [(0, 1.1), (1.0, 1.0), (1.6, .45), (T_CH - .5, .45), (T_CPASS, .8), (T_DBL + .4, .5), (T_TPASS, 1), (T_TPASS + 1, .55),
+    return piece(s, [(0, .7), (HOOK, .7), (HOOK + 0.3, .45), (T_CH - .5, .45), (T_CPASS, .8), (T_DBL + .4, .5), (T_TPASS, 1), (T_TPASS + 1, .55),
                      (T_FPASS - .3, .7), (T_FPASS, 1.3), (T_LAND, .4), (T_LAND + .3, 0), (rs(T_WHO), 0), (rs(T_WHO) + .5, .45), (99, .45)])
 
 
@@ -491,6 +502,11 @@ def scene(s, L):
         base = Image.alpha_composite(base, Image.fromarray(ga))
     chars = Image.new('RGBA', (W, H)); draw_runner(ImageDraw.Draw(chars), s)
     cpx = duel.pixelate(chars, G)
+    if s < HOOK or T_FPASS - 0.04 <= s < T_FPASS + 0.4:          # light 1-cell rim so he reads on the dark backdrop
+        m = np.asarray(cpx)[..., 3] > 0; ring = np.zeros_like(m)
+        for dy, dx in ((G, 0), (-G, 0), (0, G), (0, -G)): ring |= np.roll(np.roll(m, dy, 0), dx, 1)
+        rim = np.zeros((H, W, 4), np.uint8); rim[ring & ~m] = (250, 250, 246, 255)
+        base = Image.alpha_composite(base, Image.fromarray(rim))
     base = Image.alpha_composite(base, cpx)
     cx = cheetah_x(s)
     if -500 < cx < W + 500:
@@ -514,7 +530,7 @@ PUNCH = [(T_CB, 0.06, 10), (T_TPASS, 0.08, 18), (T_FPASS, 0.16, 40), (T_LAND, 0.
 
 
 def camera(s):
-    z, sh = 1.0 + 0.12 * (1 - ss(s / 1.1)), 0.0                                  # hook: camera rushes back from a close-up
+    z, sh = (1.12 + 0.04 * math.exp(-(s % 0.9) * 10), 14.0) if s < HOOK else (1.0, 0.0)   # cold open: tight, shaking
     if T_FPASS - 0.05 <= s < T_FPASS + 0.4: z += 0.1                              # hard cut in for the F1 pass
     for t0, a, amp in PUNCH:
         if s >= t0:
@@ -623,8 +639,9 @@ def ui(img, t):
     if t < T_SPR - 0.3:                                              # the hook is on screen from the first frame
         s = 1 if t < T_SPR - 0.45 else 1 - ss((t - (T_SPR - 0.45)) / 0.15)
         b = 1 + 0.06 * math.exp(-max(0, t - wt('f1')) * 10) if t >= wt('f1') else 1
-        paste(img, text('COULD YOU OUTRUN', 9), 459, 562, s * b)
-        paste(img, text('AN F1 CAR?', 12, '#ffd23f'), 459, 670, s * b)
+        jx = (int(t * 15) % 2 * 2 - 1) * 6 if t < HOOK else 0                     # the caption shudders with the car
+        paste(img, text('COULD YOU OUTRUN', 9), 459 + jx, 562, s * b)
+        paste(img, text('AN F1 CAR?', 12, '#ffd23f'), 459 - jx, 670, s * b)
     counter(img, t)
     if T_YOU <= t < T_WHO:
         sh = int(10 * math.exp(-(t - T_YOU) * 8) * math.sin(t * 90))
@@ -646,6 +663,14 @@ def render(t, L):
     out = np.asarray(img).astype(np.float32)
     dk = 0.55 * ss((s - (T_FPASS - 0.3)) / 0.25) * (s < T_FPASS)                  # dark-flash cut into the F1 hit
     if dk: out *= 1 - dk
+    if s < HOOK:                                                                    # cold open: constant colour shudder
+        k = 4 + int(4 * math.exp(-(s % 0.9) * 8)); out[..., 0] = np.roll(out[..., 0], k, 1); out[..., 2] = np.roll(out[..., 2], -k, 1)
+    if HOOK <= t < HOOK + 0.22:                                                     # VHS rewind back to the start
+        rr = np.random.default_rng(int(t * 30)); g = out.mean(2, keepdims=True); out = out * 0.4 + g * 0.6
+        for y0 in range(0, H, 48):
+            out[y0:y0 + 48] = np.roll(out[y0:y0 + 48], int(rr.integers(-90, 90)), 1)
+        for _ in range(6):
+            y = int(rr.integers(0, H - 12)); out[y:y + 12] = 235
     for hb, amp in ((T_TPASS, 6), (T_FPASS, 14)):                                  # colour-split shudder
         if hb <= s < hb + 0.3:
             k = int(amp * (1 - (s - hb) / 0.3)); out[..., 0] = np.roll(out[..., 0], k, 1); out[..., 2] = np.roll(out[..., 2], -k, 1)
@@ -663,6 +688,10 @@ def render(t, L):
         g = out.mean(2, keepdims=True)
         out = out * (1 - 0.75 * k) + (g * np.array([0.8, 0.9, 1.15]) * 0.85) * 0.75 * k
     img = Image.fromarray(out.clip(0, 255).astype(np.uint8)).convert('RGBA')
+    if HOOK <= t < HOOK + 0.22:
+        d = ImageDraw.Draw(img)
+        for x0 in (380, 470):
+            d.polygon([(x0, 960), (x0 + 84, 900), (x0 + 84, 1020)], fill=(250, 250, 244, 255), outline=(16, 16, 28, 255), width=8)
     ui(img, t)
     return np.asarray(img.convert('RGB'))
 
@@ -733,7 +762,11 @@ def audio(path):
     speak = np.convolve(np.abs(vo) > 0.02, np.ones(int(0.25 * SR)) / int(0.25 * SR), 'same')
     env = 0.12 * (1 - 0.5 * np.clip(speak * 3, 0, 1))
     mix = mus * env + vo * 1.2
-    ev = [(0.0, chip_whoosh(0.35) * 1.2), (0.0, sfx.whoosh(0.4, 12) * .5),
+    te = sfx.T(HOOK); fe = 300 + 30 * np.sin(2 * np.pi * 5 * te) + 20 * te                 # cold open: engine scream
+    eng = sfx.lp(2 * ((np.cumsum(fe) / SR) % 1) - 1, 3) * 0.5 + sfx.lp(np.random.default_rng(2).standard_normal(len(te)), 6) * 0.6
+    eng *= np.minimum(1, (HOOK - te) / 0.12)
+    ev = [(0.0, sfx.fade(eng) * .55), (0.0, sfx.boom(0.9) * 1.0), (0.0, duel.clang(0.4) * .3),
+          (HOOK, chip_whoosh(0.3, 1600, 200) * 1.2), (HOOK, scratch(0.3) * .7),
           (T_SPR, sfx.pop() * .4),
           (T_CH - 0.7, doppler(1.6, 0.7 + T_CPASS - T_CH, 520, saw=False) * .55), (T_CPASS, sfx.whoosh(0.5, 10) * .8),
           (T_TPASS - 0.6, horn(0.55)), (T_TPASS - 0.9, doppler(2.6, 0.9, 180) * .9), (T_TPASS, sfx.boom(0.7) * .55),
