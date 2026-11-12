@@ -5,7 +5,7 @@ Ink line art draws on over a speed-heat overlay that fades out in the first 2 s.
 user's voiceover via words.json (align.py). Audio = user's VO + user's music 18 dB under, -14 LUFS.
 usage: python render.py still OUTDIR t1 t2 ... | python render.py video OUT.mp4 [END [START]] | python render.py scan
 """
-import json, math, subprocess, sys, wave
+import json, math, os, subprocess, sys, wave
 from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
@@ -149,10 +149,16 @@ def lane_state(key, t):
     return dict(dist=d, kmh=kmh, mps=mps, pitch=pitch(c, t), heave=idle + jit - 0.01 * abs(pitch(c, t)), spin=d / R,
                 yaw=cam_yaw(t), elev=8.5 + 2 * ss((t - T_BRK) / 6), cam_d=7.4 - 0.5 * ss((t - T_GO) / 2.5) + 0.3 * ss((t - T_BRK) / 6),
                 fov=30, tx=0.15, heat=1 - ss((t - 0.5) / 1.5), ink=0.12 + 0.88 * ss(t / 1.5), colour=PAINT[key],
-                blur=min(1, max(0, (w - 0.25) / 0.5)))
+                blur=min(1, max(0, (w - 0.25) / 0.5)), aero=ss((kmh - 30) / 140), brake=brake_heat(c, t))
 
 
-LANES = OUT / 'lanes'
+def brake_heat(c, t):
+    if t < T_BRK: return 0.0
+    if t < c['stop']: return ss((t - T_BRK) / 1.2)
+    return math.exp(-(t - c['stop']) / 2.5)
+
+
+LANES = OUT / os.environ.get('LANES', 'lanes2')
 
 
 def draw_lane(img, key, t):
@@ -280,6 +286,137 @@ def ui(img, t):
     text(img, (918, 236), 'Yub', font(FONT_B, 26), (120, 120, 130), 'rt')
 
 
+# ---------------------------------------------------------------- analysis / data overlays (ink + blueprint blue)
+CYAN = (20, 110, 255)
+_BB = {}
+
+
+def car_bbox(key, i):
+    """Screen bbox of the car in its lane (from paint-coloured pixels), smoothed over +-4 frames; cached."""
+    if key not in _BB:
+        n = int(DUR * FPS); raw = np.zeros((n, 4))
+        for j in range(n):
+            a = np.asarray(Image.open(LANES / key / f'f_{j:04d}.png').convert('RGB').reduce(4), np.int16)
+            r, g, b = a[..., 0], a[..., 1], a[..., 2]
+            m = (r > g + 45) & (r > b + 35) if key == 'red' else (b > r + 55) & (b > g + 25) & (r > 90)
+            ys, xs = np.nonzero(m)
+            raw[j] = (np.percentile(xs, 1), np.percentile(ys, 1), np.percentile(xs, 99), np.percentile(ys, 99)) if len(xs) > 50 else raw[j - 1]
+        k = np.ones(9) / 9
+        _BB[key] = np.stack([np.convolve(np.pad(raw[:, q], 4, mode='edge'), k, 'valid') for q in range(4)], 1) * 4
+    x0, y0, x1, y1 = _BB[key][min(i, len(_BB[key]) - 1)]
+    return x0 - 26, y0 + VIEW[key][0] - 22, x1 + 26, y1 + VIEW[key][0] + 16
+
+
+def brackets(d, bb, col, s):
+    x0, y0, x1, y1 = bb; L = 34 * s
+    for (x, y, sx, sy) in ((x0, y0, 1, 1), (x1, y0, -1, 1), (x0, y1, 1, -1), (x1, y1, -1, -1)):
+        d.line([x, y, x + sx * L, y], fill=col, width=4); d.line([x, y, x, y + sy * L], fill=col, width=4)
+
+
+def callout(d, img, p, q, lab, col, s):
+    """Leader line from point p on the car to a label at q (blueprint annotation)."""
+    if s <= 0: return
+    qx = lerp(p[0], q[0], min(1, s)); qy = lerp(p[1], q[1], min(1, s))
+    d.ellipse([p[0] - 6, p[1] - 6, p[0] + 6, p[1] + 6], outline=col, width=3)
+    d.line([p[0], p[1], qx, qy], fill=col, width=2)
+    if s >= 1:
+        f = font(FONT_M, 24); w = d.textlength(lab, font=f); dx = 1 if q[0] >= p[0] else -1
+        d.line([q[0], q[1], q[0] + dx * (w + 16), q[1]], fill=col, width=2)
+        d.text((q[0] + dx * 8 if dx > 0 else q[0] - 8, q[1] - 6), lab, font=f, fill=col, anchor='lb' if dx > 0 else 'rb')
+
+
+def gauge(d, cx, cy, r, v, col, brake):
+    """Ink speed dial (0-400 km/h, 240 deg sweep) + brake-load bar."""
+    d.ellipse([cx - r - 10, cy - r - 10, cx + r + 10, cy + r + 10], fill=(251, 251, 248, 225))
+    d.arc([cx - r, cy - r, cx + r, cy + r], 150, 390, fill=(200, 206, 216), width=10)
+    a = 150 + 240 * min(1, v / 400)
+    if v > 1: d.arc([cx - r, cy - r, cx + r, cy + r], 150, a, fill=col, width=10)
+    for k in range(9):
+        ang = math.radians(150 + 30 * k); r0 = r - (22 if k % 2 == 0 else 15)
+        d.line([cx + r0 * math.cos(ang), cy + r0 * math.sin(ang), cx + (r - 8) * math.cos(ang), cy + (r - 8) * math.sin(ang)], fill=INK, width=3 if k % 2 == 0 else 2)
+    ang = math.radians(a)
+    d.line([cx, cy, cx + (r - 18) * math.cos(ang), cy + (r - 18) * math.sin(ang)], fill=INK, width=5)
+    d.ellipse([cx - 9, cy - 9, cx + 9, cy + 9], fill=INK)
+    d.text((cx, cy + r * 0.55), 'KM/H', font=font(FONT_B, 20), fill=(90, 90, 100), anchor='mm')
+    bx = cx + r + 26; h = 2 * r
+    d.rectangle([bx, cy - r, bx + 16, cy + r], outline=INK, width=2)
+    if brake > 0.01:
+        d.rectangle([bx + 3, cy + r - 3 - (h - 6) * brake, bx + 13, cy + r - 3], fill=(255, int(120 - 80 * brake), 20))
+    d.text((bx + 8, cy + r + 18), 'BRK', font=font(FONT_B, 18), fill=(90, 90, 100), anchor='mm')
+
+
+def speed_graph(d, t):
+    """Speed vs record time, both runs; traces draw on with the clocks so the 12 s gap opens up on the x axis."""
+    if t < T_GO: return
+    a = ss((t - T_GO) / 0.4)
+    x0, y0, x1, y1 = 120, 1660, 1000, 1870; sx = (x1 - x0) / 44; sy = (y1 - y0) / 420
+    g = (205, 214, 228)
+    for k in range(0, 45, 5): d.line([x0 + k * sx, y0, x0 + k * sx, y1], fill=g, width=1)
+    for k in range(0, 401, 100): d.line([x0, y1 - k * sy, x1, y1 - k * sy], fill=g, width=1)
+    d.line([x0, y1, x0 + (x1 - x0) * a, y1], fill=INK, width=3); d.line([x0, y1, x0, y1 - (y1 - y0) * a], fill=INK, width=3)
+    f = font(FONT_M, 20)
+    for k in range(0, 45, 10): d.text((x0 + k * sx, y1 + 8), f'{k}s', font=f, fill=(90, 90, 100), anchor='mt')
+    for k in (0, 200, 400): d.text((x0 - 10, y1 - k * sy), str(k), font=f, fill=(90, 90, 100), anchor='rm')
+    d.text((x0 + 6, y0 - 10), 'SPEED vs TIME  (schematic)', font=font(FONT_B, 22), fill=(90, 90, 100), anchor='lb')
+    tr = {}
+    for key in ('red', 'blue'):                                           # fills first (RGBA draw overwrites), lines on top
+        c = CARS[key]; ts = np.linspace(T_GO, min(t, c['stop'] + 0.02), 140)
+        tr[key] = pts = [(x0 + clock(c, u) * sx, y1 - speed(c, u) * sy) for u in ts]
+        d.polygon([(pts[0][0], y1)] + pts + [(pts[-1][0], y1)], fill=c['col'] + (34,))
+    for key in ('red', 'blue'):
+        c = CARS[key]; pts = tr[key]
+        d.line(pts, fill=c['col'], width=5, joint='curve')
+        hx, hy = pts[-1]
+        d.ellipse([hx - 8, hy - 8, hx + 8, hy + 8], fill=c['col'], outline=PAPER, width=2)
+    if t >= T_12:                                                         # the gap, measured on the graph
+        u = ss((t - T_12) / 0.35); xa, xb = x0 + 29.93 * sx, x0 + 41.96 * sx; y = y1 - 60
+        d.line([xa, y, lerp(xa, xb, u), y], fill=INK, width=3)
+        if u > 0.9:
+            d.polygon([(xa, y), (xa + 12, y - 7), (xa + 12, y + 7)], fill=INK); d.polygon([(xb, y), (xb - 12, y - 7), (xb - 12, y + 7)], fill=INK)
+            d.text(((xa + xb) / 2, y - 8), 'Δ 12.03 s', font=font(FONT_M, 26), fill=INK, anchor='mb')
+
+
+def overlays(img, t):
+    ov = Image.new('RGBA', (W, H), (0, 0, 0, 0)); d = ImageDraw.Draw(ov)
+    i = min(int(round(t * FPS)), int(DUR * FPS) - 1)
+    for key in ('red', 'blue'):
+        c = CARS[key]; y0, y1 = VIEW[key]
+        gauge(d, 150, y1 - 120, 74, speed(c, t), c['col'], brake_heat(c, t))
+        s = pop(t, T_GO + 0.35, 0.3)
+        if s > 0:
+            bb = car_bbox(key, i); brackets(d, bb, c['col'] + (255,), s)
+            f = font(FONT_M, 22)
+            d.text((bb[0], bb[1] - 8), f"TRK {'01' if key == 'red' else '02'} · {c['name']}", font=f, fill=c['col'], anchor='lb')
+            rec = f"REC {c['total']:.2f} s"
+            if not (key == 'red' and t >= T_30):                            # the gap counter takes this corner
+                d.text((bb[2], bb[1] - 8), rec if t >= c['stop'] else f"v {int(speed(c, t)):3d}", font=f, fill=INK, anchor='rb')
+            x0, yt, x1, yb = bb
+            if T_GO + 0.6 <= t < T_BRK + 0.3:                               # airflow annotation over the roof
+                callout(d, ov, (lerp(x0, x1, 0.45), yt + 40), (x0 - 12, yt + 64), 'AIRFLOW', CYAN, pop(t, T_GO + 0.8, 0.35))
+            if T_BRK <= t < c['stop'] + 1.2:                                # brakes heating up
+                callout(d, ov, (lerp(x0, x1, 0.70), lerp(yt, yb, 0.78)), (min(880, x1 - 10), y1 - 40), 'BRAKE HEAT ▲', (230, 90, 20), pop(t, T_BRK + 0.25, 0.35))
+        if c['stop'] <= t < c['stop'] + 0.6:                                # stop: ink ring burst from the clock
+            u = (t - c['stop']) / 0.6
+            for k in range(2):
+                uu = max(0, u - 0.18 * k); r = 40 + 220 * ss(uu); al = int(255 * (1 - uu) ** 1.5)
+                d.ellipse([780 - r, c['hy'] + 48 - r * 0.6, 780 + r, c['hy'] + 48 + r * 0.6], outline=c['col'] + (al,), width=max(1, int(6 * (1 - uu))))
+    for t0 in (T_GO, T_BRK, T_30, T_12):                                    # analysis scan sweep on each phase change
+        u = (t - t0) / 0.5
+        if 0 <= u < 1:
+            y = 600 + 920 * ss(u)
+            for k in range(14): d.line([0, y - k * 5, W, y - k * 5], fill=CYAN + (int(70 * (1 - k / 14) * (1 - u * 0.5)),), width=5)
+            d.line([0, y, W, y], fill=CYAN + (230,), width=2)
+    speed_graph(d, t)
+    if T_30 <= t:                                                           # live gap counter on the red lane
+        c = CARS['red']; g = max(0.0, clock(c, t) - 29.93); done = t >= T_12
+        f = font(FONT_M, 40); txt = f'+{g:05.2f} s'
+        if done:
+            bb = d.textbbox((900, c['hy'] + 96), txt, font=f, anchor='ra'); d.rectangle([bb[0] - 10, bb[1] - 6, bb[2] + 10, bb[3] + 8], fill=INK)
+        d.text((900, c['hy'] + 96), txt, font=f, fill=PAPER if done else RED, anchor='ra')
+        d.text((660, c['hy'] + 118), 'GAP', font=font(FONT_B, 22), fill=(90, 90, 100), anchor='rm')
+    img.alpha_composite(ov)
+
+
 # ---------------------------------------------------------------- frame
 BG = None
 
@@ -290,6 +427,7 @@ def render(t):
     img = BG.convert('RGBA')
     for key in CARS: draw_lane(img, key, t)
     ImageDraw.Draw(img).line([0, VIEW['red'][1], W, VIEW['red'][1]], fill=INK, width=3)
+    overlays(img, t)
     ui(img, t)
     out = img.convert('RGB')
     sh = 0
@@ -345,6 +483,69 @@ def add(buf, i, s):
 def tick(): return sfx.fade(np.sign(np.sin(2 * np.pi * 1800 * sfx.T(0.02))) * 0.12)
 
 
+RNG = np.random.default_rng(11)
+GEARS = [0, 95, 170, 245, 320, 401]
+
+
+def _v(c, n): return np.interp(np.arange(n) / SR, _TS, [speed(c, x) for x in _TS])
+
+
+def bp_noise(n, k1, k2): x = RNG.standard_normal(n); return sfx.lp(x, k1) - sfx.lp(x, k2)
+
+
+def engine_w16(n):
+    """Red: deep multi-cylinder growl; rpm climbs through gears on launch, blips down through gears while braking."""
+    c = CARS['red']; v = _v(c, n); t = np.arange(n) / SR
+    g = np.clip(np.searchsorted(GEARS, v, side='right') - 1, 0, 4)
+    lo, hi = np.take(GEARS, g), np.take(GEARS, g + 1)
+    frac = np.clip((v - lo) / (hi - lo), 0, 1)
+    f0 = np.where(v < 1, 34.0, 52 + 70 * frac + 7 * g)
+    ph = np.cumsum(f0) / SR
+    saw = 2 * (ph % 1) - 1
+    s = sfx.lp(saw, 8) * (1 + 0.35 * np.sin(2 * np.pi * ph * 0.5)) + 0.6 * np.sin(2 * np.pi * ph * 0.5)
+    s += 0.25 * bp_noise(n, 6, 40) * (frac + 0.2)
+    accel = (t >= T_GO) & (t < T_400 + 0.2); brk = (t >= T_BRK) & (v > 1)
+    amp = np.where(v < 1, 0.22, 0.55) + 0.45 * accel - 0.2 * brk
+    amp = sfx.lp(amp, 2400)
+    return s * amp
+
+
+def motor_ev(n):
+    """Blue: inverter whine rising with speed (regen whine falling under braking) + low hum."""
+    c = CARS['blue']; v = _v(c, n); t = np.arange(n) / SR
+    f = 160 + 2400 * (v / 400) ** 0.9
+    ph = np.cumsum(f) / SR
+    s = np.sin(2 * np.pi * ph) + 0.35 * np.sin(4 * np.pi * ph) + 0.18 * np.sin(2 * np.pi * 3.07 * ph)
+    s += 0.5 * np.sin(2 * np.pi * np.cumsum(55 + 140 * v / 400) / SR)
+    amp = sfx.lp(np.where(v < 1, 0.0, 0.10 + 0.22 * np.sqrt(v / 400)) * np.where(t < T_BRK, 1.0, 0.75), 2400)
+    return s * amp
+
+
+def wind(n):
+    t = np.arange(n) / SR
+    v = np.maximum(_v(CARS['red'], n), _v(CARS['blue'], n)) / 400
+    return bp_noise(n, 24, 260) * 1.6 * v ** 2 * (1 + 0.25 * np.sin(2 * np.pi * 0.7 * t))
+
+
+def brakes(n):
+    out = np.zeros(n); t = np.arange(n) / SR
+    for c in CARS.values():
+        v = _v(c, n) / 400; on = (t >= T_BRK) & (v > 0.005)
+        hiss = bp_noise(n, 6, 30) * 0.35 * on * np.sqrt(v) * np.clip((t - T_BRK) / 0.3, 0, 1)
+        out += hiss
+        sq = sfx.screech(0.55) * 1.6; add(out, int((c['stop'] - 0.5) * SR), sq)
+    return out
+
+
+def riser(d):
+    tt = sfx.T(d); x = RNG.standard_normal(len(tt))
+    s = sfx.lp(x, 3) * (tt / d) ** 2 + 0.6 * sfx.sweep(200, 1400, d) * (tt / d) ** 3
+    return sfx.fade(s, 0.01, 0.01)
+
+
+def blip(f=2400, d=0.05): return sfx.fade(np.sin(2 * np.pi * f * sfx.T(d)) * sfx.dec(d, 60))
+
+
 def audio(path):
     n = int(DUR * SR)
     vo = np.zeros(n); add(vo, 0, read_wav(VO_WAV))
@@ -354,13 +555,21 @@ def audio(path):
     fo = np.clip((DUR - np.arange(n) / SR) / 1.6, 0, 1); mus *= fo * fo   # fade the music out at the end
     mus *= np.clip(np.arange(n) / SR / 0.05, 0, 1)
     fx = np.zeros(n)
-    ev = [(0.0, sfx.whoosh(0.4, 20) * .5), (T_GO - 0.05, sfx.vroom(1.2) * .9), (T_GO, sfx.whoosh(0.6, 8) * .6),
+    duck = 1 - 0.65 * np.clip(sfx.lp(np.abs(vo), 4800) / (np.percentile(sfx.lp(np.abs(vo), 4800), 90) + 1e-9), 0, 1)
+    bed = (engine_w16(n) * 1.0 + motor_ev(n) * 0.8 + wind(n) * 0.9 + brakes(n) * 0.8) * sfx.lp(duck, 2400)
+    ev = [(T_12 - 1.0, riser(1.0) * .5), (T_30, sfx.thump() * .9), (T_12, sfx.thump() * 1.0), (T_12, sfx.boom(1.0) * .45),
+          (T_GO + 0.35, blip(1800) * .4), (T_GO + 0.8, blip(2600) * .35), (T_BRK + 0.25, blip(2200) * .35),
+          (T_BRK - 0.3, sfx.whoosh(0.5, 10) * .5), (T_30 - 0.25, sfx.whoosh(0.35, 14) * .35)]
+    for k in range(int((T_12 - T_30) / 0.12)): ev.append((T_30 + 0.12 * k, blip(3200, 0.02) * .18))
+    ev += [(0.0, sfx.whoosh(0.4, 20) * .5), (T_GO - 0.05, sfx.vroom(1.2) * .9), (T_GO, sfx.whoosh(0.6, 8) * .6),
           (T_BRK, sfx.screech(0.6) * .35), (T_30, sfx.ding(1568, 0.5) * .5), (T_12, sfx.ding(1175, 0.6) * .5),
           (T_12 + 0.1, sfx.stamp() * .5), (T_42, sfx.pop() * .4), (T_PARK, sfx.pop() * .5),
           (T_Q, sfx.pop() * .4), (wt('electric'), sfx.pop() * .5), (wt('electric') + 0.12, sfx.pop() * .5), (LOOP0, sfx.whoosh(0.5, 16) * .4)]
     for k in range(10): ev.append((T_GO + k * 0.2, tick() * 0.6))
     for t0, s in ev: add(fx, int(t0 * SR), s)
-    fx *= 10 ** ((L_vo - 12 - lufs(fx)) / 20)                             # effects sit 12 dB under the voice
+    fx *= 10 ** ((L_vo - 12 - lufs(fx)) / 20)                             # hits/UI 12 dB under the voice
+    bed *= 10 ** ((L_vo - 11 - lufs(bed)) / 20)                            # engines/wind/brakes bed, ducked under speech
+    fx = fx + bed
     mix = vo + mus + fx
     g = 10 ** ((-13.4 - lufs(mix)) / 20); mix *= g                          # -14 LUFS after AAC (measured)
     pk = np.abs(mix).max()

@@ -63,10 +63,11 @@ def reset():
     bpy.ops.wm.read_factory_settings(use_empty=True)
 
 
-def mat(name, col, rough=0.6, emit=None):
+def mat(name, col, rough=0.6, emit=None, metal=0.0, coat=0.0):
     m = bpy.data.materials.new(name); m.use_nodes = True
     b = m.node_tree.nodes['Principled BSDF']
     b.inputs['Base Color'].default_value = col; b.inputs['Roughness'].default_value = rough
+    b.inputs['Metallic'].default_value = metal; b.inputs['Coat Weight'].default_value = coat
     if emit:
         b.inputs['Emission Color'].default_value = emit; b.inputs['Emission Strength'].default_value = 1.0
     return m
@@ -90,7 +91,7 @@ def section(x, f):
             (0.66 * Wf, lerp(zf, zc, 0.62)), (0.33 * Wf, lerp(zf, zc, 0.93)), (0, zc)]
 
 
-def body(key, m_body):
+def body(key, m_body, m_well):
     s = SPEC[key]; L = s['L']
     f = {k: smooth_curve(s[k]) for k in ('zb', 'Ws', 'Wm', 'zs', 'Wf', 'zf', 'zc')}
     u = np.linspace(0, 1, 64)
@@ -129,8 +130,9 @@ def body(key, m_body):
             Wx = float(f['Wm'](xw))
             bpy.ops.mesh.primitive_cylinder_add(vertices=96, radius=R + s.get('arch', 0.05), depth=0.6,
                                                 location=(xw, sg * (Wx + 0.2 - 0.02), R), rotation=(math.pi / 2, 0, 0))
-            c = bpy.context.object; c.hide_render = True; c.display_type = 'WIRE'
+            c = bpy.context.object; c.hide_render = True; c.display_type = 'WIRE'; c.data.materials.append(m_well)
             b = o.modifiers.new('arch', 'BOOLEAN'); b.object = c; b.operation = 'DIFFERENCE'; b.solver = 'EXACT'
+            b.material_mode = 'TRANSFER'
     o['f'] = 0
     return o, f
 
@@ -142,13 +144,13 @@ def wheel(key, k, sg, f, mats):
     root.location = (xw, yw, R)
     hub = bpy.data.objects.new(f'{key}_hub{k}{sg}', None); bpy.context.collection.objects.link(hub); hub.parent = root
     parts = []
-    bpy.ops.mesh.primitive_torus_add(major_radius=R - 0.07, minor_radius=0.07, major_segments=96, minor_segments=24)
+    bpy.ops.mesh.primitive_torus_add(major_radius=R - 0.085, minor_radius=0.085, major_segments=96, minor_segments=24)
     t = bpy.context.object; t.scale = (1, 1, 1); t.rotation_euler = (math.pi / 2, 0, 0)
-    t.scale = (1, 1, tw / 0.14 * 0.95); t.data.materials.append(mats['tyre']); parts.append(t)
+    t.scale = (1, 1, tw / 0.17 * 0.95); t.data.materials.append(mats['tyre']); parts.append(t)
     Rr = R * 0.72
     bpy.ops.mesh.primitive_cylinder_add(vertices=96, radius=Rr, depth=tw * 0.85, rotation=(math.pi / 2, 0, 0))
     barrel = bpy.context.object; barrel.data.materials.append(mats['dark']); parts.append(barrel)
-    bpy.ops.mesh.primitive_cylinder_add(vertices=64, radius=Rr * 0.82, depth=0.03, location=(0, -sg * 0.02 * 0 + sg * (tw * 0.1), 0),
+    bpy.ops.mesh.primitive_cylinder_add(vertices=64, radius=Rr * 0.82, depth=0.03, location=(0, sg * (tw * 0.36), 0),
                                         rotation=(math.pi / 2, 0, 0))
     disc = bpy.context.object; disc.data.materials.append(mats['disc']); parts.append(disc)
     n = 10 if key == 'chiron' else 5
@@ -301,7 +303,7 @@ def features(key, bodyo, f, M, car):
             D(f'hlh{sg}', [(sg * 0.33, 0.60), (sg * 0.95, 0.585), (sg * 0.97, 0.66), (sg * 0.55, 0.685), (sg * 0.33, 0.625)],
               'front', m=M['black'], off=0.004)
             for k_, cy in enumerate((0.88, 0.79, 0.69, 0.60)):
-                D(f'led{sg}{k_}', superellipse(sg * cy, 0.635, 0.032, 0.026, 4, 32), 'front', m=M['light'], off=0.008, step=0.008)
+                D(f'led{sg}{k_}', superellipse(sg * cy, 0.635, 0.040, 0.032, 4, 32), 'front', m=M['light'], off=0.008, step=0.008)
             D(f'ci{sg}', [(sg * 0.33, 0.22), (sg * 0.94, 0.22), (sg * 0.95, 0.40), (sg * 0.33, 0.40)], 'front', m=M['mesh'], off=0.004)
             D(f'cib{sg}', [(sg * 0.33, 0.30), (sg * 0.95, 0.30), (sg * 0.95, 0.315), (sg * 0.33, 0.315)], 'front', m=M['body2'], off=0.007, step=0.01)
         D('splitbar', [(-0.95, 0.165), (0.95, 0.165), (0.95, 0.19), (-0.95, 0.19)], 'front', m=M['black'], off=0.004, step=0.01)
@@ -321,6 +323,8 @@ def features(key, bodyo, f, M, car):
             D(f'intake{sg}', [(1.40, 0.40), (1.78, 0.42), (2.02, 0.60), (1.92, 0.76), (1.55, 0.73), (1.40, 0.60)], 'side', m=M['mesh'], sign=sg, off=0.006)
             D(f'door{sg}', [(3.40, 0.84), (3.43, 0.84), (3.43, 0.36), (3.40, 0.36)], 'side', m=M['black'], sign=sg, off=0.003, step=0.008)
             D(f'blade{sg}', [(2.02, 0.60), (3.30, 0.66), (3.30, 0.675), (2.00, 0.615)], 'side', m=M['black'], sign=sg, off=0.004, step=0.008)
+            D(f'hlh{sg}', [(sg * 0.36, 0.555), (sg * 0.88, 0.615), (sg * 0.94, 0.685), (sg * 0.82, 0.695), (sg * 0.36, 0.62)],
+              'front', m=M['black'], off=0.004)
             D(f'hl{sg}', [(sg * 0.40, 0.57), (sg * 0.86, 0.63), (sg * 0.90, 0.67), (sg * 0.82, 0.675), (sg * 0.40, 0.605)],
               'front', m=M['light'], off=0.006, step=0.008)
             D(f'ci{sg}', [(sg * 0.40, 0.21), (sg * 0.88, 0.21), (sg * 0.93, 0.50), (sg * 0.74, 0.53), (sg * 0.40, 0.40)], 'front', m=M['mesh'], off=0.004)
@@ -353,27 +357,94 @@ def bake(o):
         bpy.data.objects.remove(ob)
 
 
+def aero_material():
+    """Blueprint-blue streamline dashes that stream backwards; Value 'flow' = distance travelled, 'aero' = opacity."""
+    m = bpy.data.materials.new('aero'); m.use_nodes = True; nt = m.node_tree; N = nt.nodes
+    for n in list(N):
+        if n.type != 'OUTPUT_MATERIAL': N.remove(n)
+    em = N.new('ShaderNodeEmission'); em.inputs['Color'].default_value = (0.10, 0.42, 1.0, 1); em.inputs['Strength'].default_value = 1.4
+    tr = N.new('ShaderNodeBsdfTransparent'); mx = N.new('ShaderNodeMixShader')
+    tc = N.new('ShaderNodeTexCoord'); sx = N.new('ShaderNodeSeparateXYZ'); nt.links.new(tc.outputs['Object'], sx.inputs[0])
+    fl = N.new('ShaderNodeValue'); fl.name = 'flow'; ae = N.new('ShaderNodeValue'); ae.name = 'aero'
+
+    def M(op, a, b):
+        n = N.new('ShaderNodeMath'); n.operation = op
+        for i, v in enumerate((a, b)):
+            if isinstance(v, (int, float)): n.inputs[i].default_value = v
+            else: nt.links.new(v, n.inputs[i])
+        return n.outputs[0]
+    ph = M('FRACT', M('DIVIDE', M('ADD', sx.outputs['X'], fl.outputs[0]), 0.9), 0)
+    a = M('MULTIPLY', M('POWER', ph, 1.6), ae.outputs[0])                  # comet dashes: bright head, fading tail
+    nt.links.new(a, mx.inputs[0]); nt.links.new(tr.outputs[0], mx.inputs[1]); nt.links.new(em.outputs[0], mx.inputs[2])
+    nt.links.new(mx.outputs[0], N['Material Output'].inputs['Surface'])
+    return m, fl, ae
+
+
+def aero_lines(key, bodyo, car):
+    """Streamlines hugging the real body: rays find the roof / flank, dilated forward so air lifts before the nose."""
+    L = SPEC[key]['L']; bvh = body_bvh(bodyo); m, fl, ae = aero_material()
+    col = bpy.data.collections.new('aero'); bpy.context.scene.collection.children.link(col)
+    xs = np.linspace(L + 2.2, -2.6, 260); dx = xs[0] - xs[1]
+
+    def shape(h, base, lead=0.55, tail=1.1, sm=0.35):
+        h = np.where(np.isnan(h), base, h); out = h.copy()
+        nl, nt_ = int(lead / dx), int(tail / dx)
+        for i in range(len(h)): out[i] = h[max(0, i - nt_):i + nl + 1].max()   # ahead (+x) lifts early, wake decays slowly
+        k = max(1, int(sm / dx)); ker = np.hanning(2 * k + 1); ker /= ker.sum()
+        return np.convolve(np.pad(out, k, mode='edge'), ker, 'valid')
+    lines = []
+    for y, gap in ((0.0, 0.06), (0.0, 0.22), (0.0, 0.42), (0.42, 0.07), (-0.42, 0.07), (0.62, 0.12), (-0.62, 0.12)):
+        h = np.array([(lambda r: r[0].z if r[0] is not None else np.nan)(bvh.ray_cast(Vector((x, y, 3)), Vector((0, 0, -1)))) for x in xs])
+        z = shape(h, 0.30, sm=0.45) + gap
+        lines.append([(x, y, zz) for x, zz in zip(xs, z)])
+    for sg in (1, -1):
+        for zh, gap in ((0.52, 0.08), (0.74, 0.10)):
+            w = np.array([(lambda r: abs(r[0].y) if r[0] is not None else np.nan)(bvh.ray_cast(Vector((x, sg * 3, zh)), Vector((0, -sg, 0)))) for x in xs])
+            yy = shape(w, 0.25, lead=0.7, sm=0.5) + gap
+            lines.append([(x, sg * v, zh) for x, v in zip(xs, yy)])
+    for i, pts in enumerate(lines):
+        o = tube(f'aero{i}', pts, 0.007, m, car); o.visible_shadow = False
+        for c in o.users_collection: c.objects.unlink(o)
+        col.objects.link(o)
+    return col, fl, ae
+
+
+def brake_material(m):
+    """Disc glows orange-hot under braking; Value 'brake' 0..1."""
+    nt = m.node_tree; b = nt.nodes['Principled BSDF']; v = nt.nodes.new('ShaderNodeValue'); v.name = 'brake'
+    b.inputs['Emission Color'].default_value = (1.0, 0.16, 0.02, 1)
+    mu = nt.nodes.new('ShaderNodeMath'); mu.operation = 'MULTIPLY'; mu.inputs[1].default_value = 1.1
+    nt.links.new(v.outputs[0], mu.inputs[0]); nt.links.new(mu.outputs[0], b.inputs['Emission Strength'])
+    return v
+
+
 def build(key):
     reset()
     sc = bpy.context.scene
     tint = TINT[key]
-    mats = dict(body=mat('body', tint, 0.35), tyre=mat('tyre', (0.45, 0.45, 0.47, 1), 0.9), dark=mat('dark', (0.55, 0.55, 0.58, 1)),
-                disc=mat('disc', (0.8, 0.8, 0.8, 1)), rim=mat('rim', (0.97, 0.97, 0.97, 1), 0.3),
-                caliper=mat('caliper', tint, 0.4), glass=mat('glass', (0.42, 0.46, 0.52, 1), 0.1),
-                light=mat('light', (1, 1, 1, 1), 0.2, emit=(1, 1, 1, 1)), black=mat('black', (0.25, 0.25, 0.27, 1), 0.5))
-    mats.update(chrome=mat('chrome', (0.97, 0.97, 0.98, 1), 0.15), mesh=mat('mesh', (0.42, 0.42, 0.45, 1), 0.7),
+    mats = dict(body=mat('body', tint, 0.28, coat=0.6), tyre=mat('tyre', (0.10, 0.10, 0.11, 1), 0.8),
+                dark=mat('dark', (0.22, 0.22, 0.24, 1), 0.5), well=mat('well', (0.05, 0.05, 0.06, 1), 0.9),
+                disc=mat('disc', (0.62, 0.62, 0.64, 1), 0.35, metal=1.0), rim=mat('rim', (0.92, 0.92, 0.94, 1), 0.22, metal=1.0),
+                caliper=mat('caliper', (0.85, 0.12, 0.08, 1) if key == 'chiron' else (0.95, 0.75, 0.10, 1), 0.4),
+                glass=mat('glass', (0.10, 0.12, 0.16, 1), 0.06, coat=1.0),
+                light=mat('light', (1, 1, 1, 1), 0.2, emit=(1, 1, 1, 1)), black=mat('black', (0.10, 0.10, 0.11, 1), 0.45))
+    mats.update(chrome=mat('chrome', (0.95, 0.95, 0.97, 1), 0.12, metal=1.0), mesh=mat('mesh', (0.16, 0.16, 0.17, 1), 0.7),
                 tail=mat('tail', (1, 0.55, 0.5, 1), 0.3, emit=(1, 0.3, 0.25, 1)),
                 body2=mat('body2', tuple(c * 0.8 for c in tint[:3]) + (1,), 0.35))
     car = bpy.data.objects.new('car', None); sc.collection.objects.link(car)
-    bodyo, f = body(key, mats['body']); bodyo.parent = car
+    bodyo, f = body(key, mats['body'], mats['well']); bodyo.parent = car
     features(key, bodyo, f, mats, car)
     mx = SPEC[key]['mirror'][0]; Wm = float(f['Wm'](mx)); zm = float(f['zs'](mx))
     for sg in (1, -1):                                                    # door mirrors on stalks
-        bpy.ops.mesh.primitive_uv_sphere_add(segments=32, ring_count=16, radius=1, location=(mx, sg * (Wm + 0.05), zm + 0.08))
-        h = bpy.context.object; h.scale = (0.11, 0.05, 0.05); h.data.materials.append(mats['body']); h.parent = car
+        bpy.ops.mesh.primitive_uv_sphere_add(segments=32, ring_count=16, radius=1, location=(mx, sg * (Wm + 0.09), zm + 0.10))
+        h = bpy.context.object; h.scale = (0.13, 0.075, 0.055); h.data.materials.append(mats['body']); h.parent = car
         for pl in h.data.polygons: pl.use_smooth = True
-        bpy.ops.mesh.primitive_cube_add(size=1, location=(mx + 0.03, sg * (Wm - 0.0), zm + 0.045))
-        st = bpy.context.object; st.scale = (0.05, 0.11, 0.018); st.data.materials.append(mats['black']); st.parent = car
+        bpy.ops.mesh.primitive_uv_sphere_add(segments=24, ring_count=12, radius=1, location=(mx - 0.06, sg * (Wm + 0.10), zm + 0.10))
+        g = bpy.context.object; g.scale = (0.04, 0.062, 0.042); g.data.materials.append(mats['black']); g.parent = car
+        for pl in g.data.polygons: pl.use_smooth = True
+        bpy.ops.mesh.primitive_cube_add(size=1, location=(mx + 0.04, sg * (Wm + 0.0), zm + 0.06))
+        st = bpy.context.object; st.scale = (0.07, 0.16, 0.03); st.rotation_euler = (sg * math.radians(-18), 0, 0)
+        st.data.materials.append(mats['black']); st.parent = car
         bv = st.modifiers.new('bv', 'BEVEL'); bv.width = 0.006; bv.segments = 2
     bake(bodyo)
     wheels = []
@@ -492,7 +563,20 @@ def floor_material(L):
     nt.links.new(grid, c1.inputs[0])
     c2 = N.new('ShaderNodeMix'); c2.data_type = 'RGBA'; c2.inputs[7].default_value = (0.04, 0.04, 0.05, 1)
     nt.links.new(c1.outputs[2], c2.inputs[6]); nt.links.new(ink, c2.inputs[0])
+    geo = N.new('ShaderNodeNewGeometry'); ws = N.new('ShaderNodeSeparateXYZ'); nt.links.new(geo.outputs['Position'], ws.inputs[0])
+    def SS(v, e0, e1):
+        mr = N.new('ShaderNodeMapRange'); mr.interpolation_type = 'SMOOTHSTEP'; nt.links.new(v, mr.inputs['Value'])
+        mr.inputs['From Min'].default_value = e0; mr.inputs['From Max'].default_value = e1
+        return mr.outputs['Result']
+
+    ex = M('DIVIDE', M('SUBTRACT', ws.outputs['X'], L / 2), L * 0.58); ey = M('DIVIDE', ws.outputs['Y'], 1.18)
+    d = M('SQRT', M('ADD', M('MULTIPLY', ex, ex), M('MULTIPLY', ey, ey)))
+    sh = M('ADD', M('MULTIPLY', M('SUBTRACT', 1.0, SS(d, 0.30, 1.30)), 0.72),
+           M('MULTIPLY', M('SUBTRACT', 1.0, SS(d, 0.50, 0.90)), 0.18))
     nt.links.new(c2.outputs[2], bsdf.inputs['Base Color']); nt.links.new(c2.outputs[2], bsdf.inputs['Emission Color'])
+    dk = N.new('ShaderNodeEmission'); dk.inputs['Color'].default_value = (0.42, 0.44, 0.50, 1); dk.inputs['Strength'].default_value = 1.0
+    ms = N.new('ShaderNodeMixShader'); nt.links.new(sh, ms.inputs[0]); nt.links.new(bsdf.outputs[0], ms.inputs[1])
+    nt.links.new(dk.outputs[0], ms.inputs[2]); nt.links.new(ms.outputs[0], N['Material Output'].inputs['Surface'])
     return m, sm
 
 
@@ -501,6 +585,9 @@ def scene_for(key, w, h):
     sc = bpy.context.scene; setup_render(sc, w, h); white_world(sc)
     L = SPEC[key]['L']
     heat = heat_material(mats['body'], L)
+    acol, flow, aero = aero_lines(key, bodyo, car); brake = brake_material(mats['dark'])
+    ls = sc.view_layers[0].freestyle_settings.linesets[0]                 # no ink outlines on the airflow
+    ls.select_by_collection = True; ls.collection = acol; ls.collection_negation = 'EXCLUSIVE'
     camd = bpy.data.cameras.new('cam'); cam = bpy.data.objects.new('cam', camd); sc.collection.objects.link(cam)
     camd.sensor_fit = 'VERTICAL'; camd.angle = math.radians(30); sc.camera = cam
     fm, smear = floor_material(L)
@@ -511,7 +598,7 @@ def scene_for(key, w, h):
     ld = bpy.data.lights.new('key', 'AREA'); ld.energy = 520; ld.size = 6
     lo = bpy.data.objects.new('key', ld); sc.collection.objects.link(lo); lo.location = (L / 2 + 2, -3, 6)
     lo.rotation_euler = (Vector((L / 2, 0, 0)) - lo.location).to_track_quat('-Z', 'Y').to_euler()
-    return dict(car=car, wheels=wheels, cam=cam, floor=fl, heat=heat, smear=smear, L=L, sc=sc)
+    return dict(car=car, wheels=wheels, cam=cam, floor=fl, heat=heat, smear=smear, L=L, sc=sc, flow=flow, aero=aero, brake=brake)
 
 
 def key_frame(S, key, st, fr):
@@ -532,6 +619,8 @@ def key_frame(S, key, st, fr):
     cam.keyframe_insert('location', frame=fr); cam.keyframe_insert('rotation_euler', frame=fr)
     S['heat'].outputs[0].default_value = st['heat']; S['heat'].outputs[0].keyframe_insert('default_value', frame=fr)
     S['smear'].outputs[0].default_value = min(1.2, st['mps'] / 30 * 0.6); S['smear'].outputs[0].keyframe_insert('default_value', frame=fr)
+    for k_, v_ in (('flow', st['dist'] * 0.55), ('aero', st.get('aero', 0)), ('brake', st.get('brake', 0))):
+        S[k_].outputs[0].default_value = v_; S[k_].outputs[0].keyframe_insert('default_value', frame=fr)
 
 
 def seq(key, states, outdir, i0=0, i1=None, lines_off=False):
