@@ -20,6 +20,10 @@ the Nevera would already be parked. Would you take the electric one? Yes or no?"
 - Intermediate clock and speed readings are interpolated for the animation: each clock gives 75% of its run to
   accelerating and 25% to braking, and time runs compressed while accelerating (shown by the ▶▶ mark). The real
   accel/brake splits are not claimed.
-- Both cars are original line drawings (red: wide, low, C-shaped side line, tall oval front opening; blue: rounded
-  cab-forward teardrop, long sloping rear, full-width light bar). No logos, emblems, brand artwork or photos of
-  people; the names appear only as text labels.
+- The cars are 3D models built in Blender (bpy 4.2) to look close to the real cars, at the user's request. They carry no
+  logos, badges or brand artwork; the names appear only as text labels.
+- Shape references: the Chiron's side, top and front silhouettes were traced from the free 2016 Bugatti Chiron
+  blueprint on getoutlines.com (CC BY 4.0, https://getoutlines.com/blueprints/23142/2016-bugatti-chiron-coupe-blueprints).
+  The Nevera was modelled from its published dimensions (4.750 x 1.986 x 1.208 m, 2.745 m wheelbase) and Creative
+  Commons photos on Wikimedia Commons ("Rimac - Nevera 01-10", "2023 Rimac Nevera" and others), because no free
+  blueprint was available. The reference images are not shown in the video.

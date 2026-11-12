@@ -101,8 +101,9 @@ def dist(c, t): return float(np.interp(t, _TS, c['dist']))
 
 
 # ---------------------------------------------------------------- 3D lanes (scene3d.py renders each car with its own camera)
-import cars3d, scene3d  # noqa: E402
-MODEL = {'red': cars3d.Car('chiron'), 'blue': cars3d.Car('nevera')}
+class _M:
+    def __init__(self, R): self.s = dict(R=R)
+MODEL = {'red': _M((0.355, 0.34)), 'blue': _M((0.36, 0.35))}
 PAINT = {'red': (0.62, 0.05, 0.04), 'blue': (0.07, 0.22, 0.75)}
 VIEW = {'red': (600, 1060), 'blue': (1060, 1520)}            # viewport y ranges
 MPS = 40.0                                                    # floor scroll m/s at 400 km/h (stylised)
@@ -151,10 +152,21 @@ def lane_state(key, t):
                 blur=min(1, max(0, (w - 0.25) / 0.5)))
 
 
+LANES = OUT / 'lanes'
+
+
 def draw_lane(img, key, t):
+    """Paste the Blender-rendered lane frame; during the first 1.5 s the ink lines sweep on over the line-free pass."""
     y0, y1 = VIEW[key]
-    a = scene3d.render_lane(MODEL[key], lane_state(key, t), W, y1 - y0)
-    img.paste(Image.fromarray(a), (0, y0))
+    i = min(int(round(t * FPS)), int(DUR * FPS) - 1)
+    a = Image.open(LANES / key / f'f_{i:04d}.png').convert('RGB')
+    ink = 0.12 + 0.88 * ss(t / 1.5)
+    n = LANES / key / f'n_{i:04d}.png'
+    if ink < 1 and n.exists():
+        b = np.asarray(Image.open(n).convert('RGB'), np.float32); f = np.asarray(a, np.float32)
+        k = np.clip((np.arange(W) / W - ink * 1.25 + 0.25) / 0.08, 0, 1)[None, :, None]
+        a = Image.fromarray((f * (1 - k) + b * k).astype(np.uint8))
+    img.paste(a, (0, y0))
 
 
 # ---------------------------------------------------------------- UI
@@ -363,6 +375,11 @@ def main():
         out = Path(sys.argv[2]); out.mkdir(parents=True, exist_ok=True)
         for s in sys.argv[3:]: Image.fromarray(frame(float(s))).save(out / f'f_{s}.png')
         return
+    if mode == 'states':
+        out = {k: [] for k in CARS}
+        for i in range(int(DUR * FPS)):
+            for k in CARS: out[k].append({q: (v if not isinstance(v, tuple) else list(v)) for q, v in lane_state(k, i / FPS).items()})
+        json.dump(out, open(sys.argv[2], 'w')); return
     if mode == 'scan':
         bad = []
         for i in range(int(DUR * FPS)):
