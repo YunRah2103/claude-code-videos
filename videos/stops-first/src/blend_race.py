@@ -50,7 +50,7 @@ def build_scene(w=1080, h=1920):
     so.rotation_euler = Vector((-0.45, 0.25, -1)).to_track_quat('-Z', 'Y').to_euler()
     camd = bpy.data.cameras.new('cam'); camd.sensor_fit = 'HORIZONTAL'; camd.angle = math.radians(33)
     cam = bpy.data.objects.new('cam', camd); sc.collection.objects.link(cam); sc.camera = cam
-    camd.clip_end = 2500
+    camd.clip_end = 2500; camd.shift_y = 0.16                       # cars sit low, clear of the text band
     return dict(sc=sc, cars=cars, cam=cam, vals=vals)
 
 
@@ -129,8 +129,11 @@ def key_frame(S, st, fr):
             v.outputs[0].default_value = st['h' + tag[0]]; v.outputs[0].keyframe_insert('default_value', frame=fr)
     for k in ('sr', 'sb', 'bz', 'u0r', 'u0b'):
         n = S['vals'][k]; n.outputs[0].default_value = st[k]; n.outputs[0].keyframe_insert('default_value', frame=fr)
-    xc = 0.5 * (st['xr'] + st['xb']) * 0.6 + 2.3                    # chase camera: behind, low, slightly above
-    cam = S['cam']; eye = Vector((xc - 9.5, 0, 2.7)); tgt = Vector((xc + 8.0, 0, 0.0))
+    xc = 0.5 * (st['xr'] + st['xb']) + 2.35                          # orbit around the pair of cars
+    yr, er, d = math.radians(st['yaw']), math.radians(st['el']), st['cd']
+    tgt = Vector((xc, 0, 0.55))
+    eye = tgt + d * Vector((-math.cos(yr) * math.cos(er), math.sin(yr) * math.cos(er), math.sin(er)))
+    cam = S['cam']
     cam.location = eye; cam.rotation_euler = (tgt - eye).to_track_quat('-Z', 'Y').to_euler()
     cam.keyframe_insert('location', frame=fr); cam.keyframe_insert('rotation_euler', frame=fr)
 

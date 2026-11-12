@@ -80,6 +80,13 @@ def pitch(c, t):
 def brake_zone(t): return ss((t - (T_BRK - 1.6)) / 0.6) * (1 - ss((t - (T_12 + 0.4)) / 0.8))
 
 
+def cam(t):
+    """One fluid 360-degree orbit (yaw 0 = straight behind, 90 = red side, 180 = front, 270 = blue side); loops to frame 1."""
+    yaw = 360 * (t / DUR) + 6 * math.sin(2 * math.pi * t / DUR)
+    s2 = math.sin(math.radians(yaw)) ** 2
+    return yaw % 360, 11 + 17 * s2 + 3 * math.sin(math.radians(yaw / 2)) ** 2, 11.6 + 1.2 * s2
+
+
 def states():
     out = []
     u0 = {k: lane(c, T_BRK) + 2.0 for k, c in CARS.items()}      # brake zone starts just ahead of each car at T_BRK
@@ -87,7 +94,7 @@ def states():
         t = i / FPS; r, b = CARS['red'], CARS['blue']
         out.append(dict(t=t, xr=gap_m(t), xb=0.0, sr=lane(r, t), sb=lane(b, t), pr=pitch(r, t), pb=pitch(b, t),
                         hr=heat(r, t), hb=heat(b, t), bz=brake_zone(t), u0r=u0['red'], u0b=u0['blue'],
-                        vr=vnow(r, t), vb=vnow(b, t)))
+                        vr=vnow(r, t), vb=vnow(b, t), yaw=cam(t)[0], el=cam(t)[1], cd=cam(t)[2]))
     return out
 
 
@@ -168,8 +175,8 @@ VP = (540, 650)                                                    # vanishing p
 
 def speedlines(d, t):
     v = max(vnow(CARS['red'], t), vnow(CARS['blue'], t)) / 400
-    if v < 0.15 and t > 0.8: return
-    k = max(v, 0.6 * (1 - ss(t / 0.8)))                              # launch burst on frame 1
+    if t > 3.0: return                                                # only while the camera is still behind the cars
+    k = max(v, 0.6 * (1 - ss(t / 0.8))) * (1 - ss((t - 2.2) / 0.8))   # launch burst on frame 1
     rng = np.random.default_rng(int(t * FPS))
     for _ in range(int(26 * k)):
         a = rng.uniform(0, 2 * math.pi); r0 = rng.uniform(560, 900); ln = rng.uniform(120, 320) * k
