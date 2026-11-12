@@ -104,83 +104,133 @@ DESIGN = {
         body=[(0, 0), (0.30, 0.004), (0.56, 0.02), (0.74, 0.05), (0.88, 0.10), (0.96, 0.17), (0.97, 0.25), (0.86, 0.34),
               (0.80, 0.44), (0.82, 0.54), (0.93, 0.63), (1.0, 0.72), (1.0, 0.82), (0.94, 0.91), (0.80, 0.97), (0.50, 0.995), (0, 1.0)],
         canopy=[(0, 0.33), (0.30, 0.345), (0.45, 0.42), (0.47, 0.52), (0.42, 0.62), (0.26, 0.69), (0, 0.705)],
-        screen=0.40, wheels=(0.205, 0.80), wx=0.84),
+        roof=[(0, 0.43), (0.30, 0.44), (0.36, 0.50), (0.33, 0.585), (0.20, 0.615), (0, 0.62)],
+        shuts=(0.33, 0.56), mirror=0.355, screen=0.40, wheels=(0.205, 0.80), wx=0.84),
     'blue': dict(  # smooth rounded cab-forward teardrop, long sloping tail
         body=[(0, 0), (0.36, 0.006), (0.62, 0.03), (0.80, 0.075), (0.91, 0.14), (0.95, 0.22), (0.92, 0.33), (0.86, 0.45),
               (0.88, 0.58), (0.94, 0.70), (0.94, 0.82), (0.87, 0.92), (0.70, 0.98), (0.40, 0.997), (0, 1.0)],
         canopy=[(0, 0.21), (0.33, 0.235), (0.49, 0.32), (0.51, 0.42), (0.44, 0.54), (0.30, 0.66), (0.13, 0.77), (0, 0.80)],
-        screen=0.30, wheels=(0.20, 0.80), wx=0.82),
+        roof=[(0, 0.33), (0.30, 0.345), (0.38, 0.42), (0.33, 0.52), (0.20, 0.60), (0, 0.63)],
+        shuts=(0.25, 0.52), mirror=0.27, screen=0.30, wheels=(0.20, 0.80), wx=0.82),
 }
 PAD = 60
 
 
-def to_px(P, key=None):
-    P = np.asarray(P, float)
-    return [((PAD + (CAR_W / 2) * (1 + x)) * S2, (PAD + CAR_L * y) * S2) for x, y in P]
+Q = 4                                                        # sprite drawing scale (downsampled to S2 for clean lines)
+TONE, GLASS = (238, 240, 244), (226, 233, 242)
+
+
+def to_px(P, q=None):
+    q = q or Q; P = np.asarray(P, float)
+    return [((PAD + (CAR_W / 2) * (1 + x)) * q, (PAD + CAR_L * y) * q) for x, y in P]
 
 
 def line(d, P, col, w, closed=False):
     pts = to_px(P)
     if closed: pts = pts + pts[:1]
-    d.line(pts, fill=col, width=int(w * S2), joint='curve')
+    d.line(pts, fill=col, width=max(1, int(w * Q)), joint='curve')
+
+
+def scaled(P, sx, sy=1.0, cy=0.5):
+    return [(x * sx, cy + (y - cy) * sy) for x, y in P]
+
+
+def clip_lines(size, mask_poly, draw_fn):
+    """Draw with draw_fn onto a layer, keep only what falls inside mask_poly."""
+    lay = Image.new('RGBA', size, (0, 0, 0, 0)); draw_fn(ImageDraw.Draw(lay))
+    m = Image.new('L', size, 0); ImageDraw.Draw(m).polygon(to_px(mask_poly), fill=255)
+    a = np.asarray(lay).copy(); a[..., 3] = (a[..., 3].astype(np.uint16) * np.asarray(m) // 255).astype(np.uint8)
+    return Image.fromarray(a)
 
 
 def build_car(key):
-    """Static 2x sprite (RGBA) of the body + a list of wheel rectangles in sprite px."""
+    """Static sprite (RGBA, S2 scale): technical top-view illustration with a line-weight hierarchy."""
     D = DESIGN[key]; col = CARS[key]['col']
-    sw, sh = (CAR_W + 2 * PAD) * S2, (CAR_L + 2 * PAD) * S2
-    im = Image.new('RGBA', (sw, sh), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
-    body = smooth(mirror(D['body']), 700)
-    d.polygon(to_px(body), fill=PAPER + (255,))                                 # paper fill hides road + wheel insides
-    line(d, body, INK, 4.5, True)
-    can = smooth(mirror(D['canopy']), 400)
-    line(d, can, INK, 3.5, True)
-    ys = D['screen']                                                              # windscreen edge (curved)
-    scr = [(x, ys + 0.03 * (1 - (x / 0.45) ** 2)) for x in np.linspace(-0.44, 0.44, 40)]
-    line(d, scr, INK, 3)
-    for wy in D['wheels']:
-        for sg in (1, -1):                                                          # fender arch over each wheel
-            line(d, smooth([(sg * 0.86, wy - 0.115), (sg * 0.70, wy - 0.06), (sg * 0.66, wy), (sg * 0.70, wy + 0.06),
-                            (sg * 0.86, wy + 0.115)], 60), INK, 2)
-    if key == 'red':
-        line(d, smooth([(-0.62, 0.035), (-0.3, 0.012), (0, 0.008), (0.3, 0.012), (0.62, 0.035)], 60), INK, 2)  # splitter edge
-        for k in range(-3, 4): line(d, [(0.09 * k, 0.975), (0.09 * k, 0.995)], INK, 2)                         # diffuser fins
+    size = ((CAR_W + 2 * PAD) * Q, (CAR_L + 2 * PAD) * Q)
+    body = smooth(mirror(D['body']), 900)
+    im = Image.new('RGBA', size, (0, 0, 0, 0))
+    sh = Image.new('L', size, 0)                                                   # soft ground shadow
+    ImageDraw.Draw(sh).polygon([(x + 10 * Q, y + 16 * Q) for x, y in to_px(scaled(D['body_full'], 1.02, 1.0))], fill=70)
+    sh = sh.filter(ImageFilter.GaussianBlur(14 * Q))
+    im.paste(Image.new('RGBA', size, (40, 44, 54, 255)), (0, 0), sh)
+    d = ImageDraw.Draw(im)
+    d.polygon(to_px(body), fill=PAPER + (255,))
+    shoulder = smooth(mirror(scaled(D['body'], 0.86, 0.965)), 700)                 # where the top surface rolls over
+    side = Image.new('L', size, 0); sd = ImageDraw.Draw(side)
+    sd.polygon(to_px(body), fill=255); sd.polygon(to_px(shoulder), fill=0)
+    im.paste(Image.new('RGBA', size, TONE + (255,)), (0, 0), side)                 # light tone on the flanks only
+    d = ImageDraw.Draw(im)
+    line(d, shoulder, (120, 124, 134), 1.3, True)
+    can = smooth(mirror(D['canopy']), 500)
+    d.polygon(to_px(can), fill=GLASS + (255,))
+    roof = smooth(mirror(D['roof']), 300)
+    d.polygon(to_px(roof), fill=PAPER + (255,))
+    im.alpha_composite(clip_lines(size, can, lambda dd: [dd.line(to_px([(-0.6 + 0.16 * k, D['canopy'][0][1] - 0.02),
+                                                                        (-0.25 + 0.16 * k, D['canopy'][-1][1] + 0.02)]),
+                                                                fill=(255, 255, 255, 230), width=int(7 * Q)) for k in range(3)]))
+    d = ImageDraw.Draw(im)
+    line(d, roof, INK, 1.8, True)
+    line(d, can, INK, 2.6, True)
+    for wy in D['wheels']:                                                         # fender arches
         for sg in (1, -1):
-            # signature flank line (own design): a sabre crease that dives in at the doors and kicks out over the haunch
-            cr = smooth([(sg * 0.80, 0.11), (sg * 0.74, 0.27), (sg * 0.62, 0.40), (sg * 0.64, 0.55), (sg * 0.78, 0.66),
-                         (sg * 0.90, 0.74)], 120)
-            line(d, cr, col, 4)
-            line(d, [(x * sg, y) for x, y in cr], INK, 1.5)
-            line(d, smooth([(sg * 0.46, 0.035), (sg * 0.72, 0.055), (sg * 0.80, 0.09)], 40), INK, 5)      # slim headlamp
-            for k in range(2):                                                                         # hood vents
-                x0 = 0.12 + 0.17 * k
-                line(d, [(sg * x0, 0.10), (sg * (x0 + 0.12), 0.11), (sg * (x0 + 0.12), 0.20), (sg * x0, 0.19)], INK, 2.2, True)
-            line(d, smooth([(sg * 0.86, 0.335), (sg * 1.02, 0.33), (sg * 1.08, 0.35), (sg * 1.02, 0.375), (sg * 0.86, 0.37)], 40), INK, 2.5, True)  # mirror
-            line(d, smooth([(sg * 0.84, 0.53), (sg * 0.70, 0.57), (sg * 0.68, 0.62), (sg * 0.76, 0.64)], 40), INK, 2.5)  # haunch intake
-            line(d, [(sg * 0.30, 0.968), (sg * 0.70, 0.948)], col, 7)                                  # tail lamps
-        for k in range(6):                                                                             # engine louvres
-            y = 0.74 + 0.022 * k
-            line(d, [(-0.30 + 0.02 * k, y), (0.30 - 0.02 * k, y)], INK, 2)
-        line(d, [(-0.84, 0.885), (0.84, 0.885), (0.84, 0.925), (-0.84, 0.925)], INK, 3, True)           # active wing
-        for k in range(3):                                                                             # roof air scoops
-            line(d, [(-0.12 + 0.12 * k, 0.47), (-0.12 + 0.12 * k, 0.60)], INK, 1.8)
+            line(d, smooth([(sg * 0.88, wy - 0.12), (sg * 0.72, wy - 0.065), (sg * 0.67, wy), (sg * 0.72, wy + 0.065),
+                            (sg * 0.88, wy + 0.12)], 60), INK, 1.6)
+    for y in D['shuts']:                                                           # door / bonnet shut lines on the flanks
+        for sg in (1, -1):
+            xo = float(np.interp(y, [p[1] for p in D['body']], [p[0] for p in D['body']]))
+            line(d, [(sg * xo * 0.985, y), (sg * xo * 0.86, y + 0.004)], INK, 1.2)
+    for sg in (1, -1):                                                             # mirrors on stalks
+        my = D['mirror']; xo = float(np.interp(my, [p[1] for p in D['body']], [p[0] for p in D['body']]))
+        line(d, [(sg * xo * 0.9, my + 0.01), (sg * (xo + 0.06), my + 0.012)], INK, 2.6)
+        m = smooth([(sg * (xo + 0.04), my - 0.012), (sg * (xo + 0.15), my - 0.008), (sg * (xo + 0.17), my + 0.012),
+                    (sg * (xo + 0.13), my + 0.03), (sg * (xo + 0.04), my + 0.028)], 60)
+        d.polygon(to_px(np.vstack([m, m[:1]])), fill=PAPER + (255,)); line(d, m, INK, 2, True)
+    if key == 'red':
+        for sg in (1, -1):
+            cr = smooth([(sg * 0.80, 0.11), (sg * 0.74, 0.27), (sg * 0.63, 0.40), (sg * 0.65, 0.55), (sg * 0.79, 0.66),
+                         (sg * 0.90, 0.745)], 160)                                 # signature sabre crease (own design)
+            line(d, cr, col, 3.2); line(d, scaled(cr, 0.955, 1.0), INK, 0.9)
+            line(d, smooth([(sg * 0.42, 0.032), (sg * 0.70, 0.05), (sg * 0.80, 0.085)], 50), INK, 4.2)   # slim lamp
+            line(d, smooth([(sg * 0.48, 0.045), (sg * 0.70, 0.06)], 30), col, 1.4)                       # DRL
+            for k in range(2):                                                                           # hood vents
+                x0 = 0.11 + 0.17 * k
+                v = [(sg * x0, 0.10), (sg * (x0 + 0.12), 0.11), (sg * (x0 + 0.12), 0.20), (sg * x0, 0.19)]
+                line(d, v, INK, 1.6, True)
+                for j in range(1, 5): line(d, [(sg * (x0 + 0.01), 0.10 + 0.018 * j), (sg * (x0 + 0.11), 0.102 + 0.018 * j)], INK, 0.8)
+            line(d, smooth([(sg * 0.84, 0.53), (sg * 0.70, 0.57), (sg * 0.68, 0.62), (sg * 0.77, 0.645)], 40), INK, 2)  # haunch intake
+            line(d, [(sg * 0.30, 0.968), (sg * 0.70, 0.946)], col, 5)                                    # tail lamps
+            line(d, [(sg * 0.84, 0.875), (sg * 0.84, 0.935)], INK, 2.4)                                  # wing end plates
+        line(d, smooth([(-0.60, 0.03), (-0.3, 0.008), (0, 0.004), (0.3, 0.008), (0.60, 0.03)], 60), INK, 1.4)  # splitter
+        line(d, [(0, 0.03), (0, 0.33)], INK, 0.9)                                                      # bonnet centre line
+        eng = [(-0.30, 0.715), (0.30, 0.715), (0.25, 0.86), (-0.25, 0.86)]                               # engine glass + louvres
+        d.polygon(to_px(eng), fill=GLASS + (255,)); line(d, eng, INK, 1.6, True)
+        for k in range(1, 7):
+            y = 0.715 + 0.0206 * k; w = 0.30 - 0.05 * (k / 7)
+            line(d, [(-w + 0.02, y), (w - 0.02, y)], INK, 0.9)
+        wing = [(-0.84, 0.885), (0.84, 0.885), (0.84, 0.925), (-0.84, 0.925)]
+        d.polygon(to_px(wing), fill=PAPER + (255,)); line(d, wing, INK, 2.4, True)
+        line(d, [(-0.82, 0.905), (0.82, 0.905)], INK, 0.8)
+        for k in range(-3, 4): line(d, [(0.09 * k, 0.978), (0.09 * k, 0.997)], INK, 1.4)               # diffuser fins
     else:
         for sg in (1, -1):
-            line(d, smooth([(sg * 0.40, 0.03), (sg * 0.68, 0.05), (sg * 0.86, 0.10)], 40), INK, 4)       # lamp blade
-            line(d, smooth([(sg * 0.14, 0.75), (sg * 0.30, 0.86), (sg * 0.46, 0.965)], 60), INK, 2.2)    # sloping rear deck
-            line(d, smooth([(sg * 0.90, 0.47), (sg * 0.74, 0.52), (sg * 0.70, 0.60)], 40), INK, 2.5)     # side scoop
-            line(d, smooth([(sg * 0.88, 0.255), (sg * 1.02, 0.25), (sg * 1.07, 0.27), (sg * 1.02, 0.29), (sg * 0.88, 0.29)], 40), INK, 2.5, True)  # mirror
-            line(d, [(sg * 0.30, 0.025), (sg * 0.52, 0.045)], INK, 2)                                    # front intake slit
-        line(d, smooth(mirror([(0, 0.085), (0.16, 0.09), (0.20, 0.13), (0.14, 0.17), (0, 0.175)]), 80), INK, 2.2, True)  # bonnet duct
-        lb = [(x, 0.972 - 0.03 * x * x) for x in np.linspace(-0.86, 0.86, 60)]                         # full-width light bar
-        line(d, lb, col, 9)
-        line(d, [(0, 0.80), (0, 0.97)], INK, 1.5)                                                      # spine of the long tail
+            line(d, smooth([(sg * 0.38, 0.026), (sg * 0.66, 0.045), (sg * 0.86, 0.10)], 50), INK, 3.6)  # lamp blade
+            line(d, smooth([(sg * 0.42, 0.036), (sg * 0.66, 0.052)], 30), col, 1.3)
+            line(d, [(sg * 0.30, 0.022), (sg * 0.52, 0.042)], INK, 1.6)                                   # front intake slit
+            line(d, smooth([(sg * 0.14, 0.76), (sg * 0.30, 0.87), (sg * 0.46, 0.965)], 60), INK, 1.8)    # flying buttress
+            line(d, smooth([(sg * 0.90, 0.47), (sg * 0.74, 0.52), (sg * 0.70, 0.60)], 40), INK, 2)       # side scoop
+            line(d, smooth([(sg * 0.22, 0.05), (sg * 0.30, 0.16), (sg * 0.36, 0.22)], 40), INK, 1.0)     # bonnet creases
+        line(d, smooth(mirror([(0, 0.085), (0.16, 0.09), (0.20, 0.13), (0.14, 0.17), (0, 0.175)]), 80), INK, 1.6, True)
+        line(d, [(0, 0.80), (0, 0.965)], INK, 1.0)
+        for k in range(-4, 5): line(d, [(0.08 * k, 0.982), (0.08 * k, 0.998)], INK, 1.2)              # diffuser
+        lb = [(x, 0.972 - 0.03 * x * x) for x in np.linspace(-0.86, 0.86, 80)]                         # full-width light bar
+        line(d, lb, col, 6.5); line(d, [(x, y + 0.008) for x, y in lb], INK, 0.8)
+    line(d, body, INK, 3.6, True)                                                  # silhouette last, heaviest
+    out = im.resize(((CAR_W + 2 * PAD) * S2, (CAR_L + 2 * PAD) * S2), Image.LANCZOS)
     wheels = []
     for wy in D['wheels']:
         for sg in (1, -1):
-            cx = PAD + (CAR_W / 2) * (1 + sg * D['wx']); cy = PAD + CAR_L * wy
-            wheels.append((cx, cy, sg))
-    return im, wheels
+            wheels.append((PAD + (CAR_W / 2) * (1 + sg * D['wx']), PAD + CAR_L * wy, sg))
+    return out, wheels
 
 
 WH_W, WH_L = 58, 146                                          # tyre footprint (px)
@@ -204,12 +254,13 @@ def glow_layer(key, ox, oy, h):
     g = Image.new('RGBA', (W * S2, H * S2), (0, 0, 0, 0)); d = ImageDraw.Draw(g)
     for cx, cy, sg in WHEELS[key]:
         x = (ox + cx + sg * 20) * S2; y = (oy + cy) * S2
-        for r, a in ((105, 90), (80, 160), (58, 235)):
+        for r, a in ((80, 55), (60, 110), (42, 185)):
             rr = r * S2 * (0.7 + 0.3 * h)
             d.ellipse([x - rr * 0.6, y - rr, x + rr * 0.6, y + rr], fill=(255, int(150 - 90 * h), 20, int(a * h)))
     return g.filter(ImageFilter.GaussianBlur(10 * S2))
 
 
+for _d in DESIGN.values(): _d['body_full'] = smooth(mirror(_d['body']), 500)
 SPRITES, WHEELS = {}, {}
 for _k in CARS: SPRITES[_k], WHEELS[_k] = build_car(_k)
 
