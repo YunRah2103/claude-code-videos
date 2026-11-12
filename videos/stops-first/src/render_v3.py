@@ -17,7 +17,8 @@ from render import wt, pop, ss, lerp, font, FONT, FONT_B, FONT_M, sfx, add, read
 DUR = 18.4
 W, H, FPS, SR = 1080, 1920, 30, sfx.SR
 OUT = v1.OUT
-FRAMES = OUT / 'v3'
+import os
+FRAMES = OUT / os.environ.get('V3FRAMES', 'v3')                # 'v3prev' = 360x640 every 2nd frame (preview)
 INK, PAPER, GREY = (20, 20, 24), (252, 252, 249), (105, 108, 118)
 RED, BLUE, ORANGE = (214, 44, 36), (30, 92, 214), (238, 110, 20)
 FONT_C = '/usr/share/fonts/opentype/inter/InterDisplay-SemiBold.otf'
@@ -198,7 +199,10 @@ def shake(t):
 def render(t):
     BOXES.clear()
     i = min(int(round(t * FPS)), int(DUR * FPS) - 1)
-    im = Image.open(FRAMES / f'f_{i:04d}.png').convert('RGB')
+    p = FRAMES / f'f_{i:04d}.png'
+    if not p.exists(): p = FRAMES / f'f_{i - i % 2:04d}.png'           # preview holds every 2nd frame
+    im = Image.open(p).convert('RGB')
+    if im.size != (W, H): im = im.resize((W, H), Image.BICUBIC)
     sh = shake(t)
     if sh: im = Image.fromarray(np.roll(np.asarray(im), sh, 0))
     d = ImageDraw.Draw(im)
@@ -220,8 +224,59 @@ def frame(t):
     return a
 
 
+# ---------------------------------------------------------------- audio: VO + music 18 dB under, layered SFX, -14 LUFS
+def _v(key, n): return np.interp(np.arange(n) / SR, _TS, CARS[key]['kmh'])
+
+
+def audio(path):
+    n = int(DUR * SR); t = np.arange(n) / SR
+    vo = np.zeros(n); add(vo, 0, read_wav(v1.VO_WAV))
+    mus = np.zeros(n); add(mus, 0, read_wav(v1.MUSIC_WAV))
+    L_vo, L_mu = lufs(vo), lufs(mus)
+    mus *= 10 ** ((L_vo - 18 - L_mu) / 20)
+    fo = np.clip((DUR - t) / 1.6, 0, 1); mus *= fo * fo * np.clip(t / 0.05, 0, 1)
+    vr, vb = _v('red', n), _v('blue', n)
+    g = np.clip(np.searchsorted(v1.GEARS, vr, side='right') - 1, 0, 4)          # red: growl climbing through the gears
+    lo, hi = np.take(v1.GEARS, g), np.take(v1.GEARS, g + 1)
+    fr = np.clip((vr - lo) / (hi - lo), 0, 1)
+    ph = np.cumsum(np.where(vr < 1, 34.0, 52 + 70 * fr + 7 * g)) / SR
+    acc = (t < T_BRK).astype(float)
+    eng = (sfx.lp(2 * (ph % 1) - 1, 8) * (1 + 0.35 * np.sin(np.pi * ph)) + 0.6 * np.sin(np.pi * ph)) \
+        * sfx.lp(np.where(vr < 1, 0.2, 0.45 + 0.4 * acc), 2400)
+    ph = np.cumsum(160 + 2400 * (vb / 400) ** 0.9) / SR                          # blue: inverter whine
+    ev = (np.sin(2 * np.pi * ph) + 0.35 * np.sin(4 * np.pi * ph)) * sfx.lp(np.where(vb < 1, 0, 0.1 + 0.2 * np.sqrt(vb / 400)), 2400)
+    wind = v1.bp_noise(n, 24, 260) * 1.6 * (np.maximum(vr, vb) / 400) ** 2
+    hiss = sum(v1.bp_noise(n, 6, 30) * 0.35 * ((t >= T_BRK) & (v > 1)) * np.sqrt(v / 400) for v in (vr, vb))
+    bed = eng + 0.8 * ev + 0.9 * wind + 0.8 * hiss
+    duck = 1 - 0.65 * np.clip(sfx.lp(np.abs(vo), 4800) / (np.percentile(sfx.lp(np.abs(vo), 4800), 90) + 1e-9), 0, 1)
+    bed *= sfx.lp(duck, 2400)
+    fx = np.zeros(n)
+    evs = [(0.0, sfx.vroom(1.2) * .9), (0.0, sfx.whoosh(0.6, 8) * .6), (0.0, sfx.boom(0.8) * .3),
+           (T_BRK - 0.05, sfx.screech(0.5) * 0.8), (T_BRK, sfx.whoosh(0.5, 10) * .5),
+           (T_30 - 0.45, sfx.screech(0.5) * 1.4), (T_30, sfx.thump() * .9), (T_30, sfx.ding(1568, 0.5) * .5),
+           (T_12 - 1.0, v1.riser(1.0) * .5), (T_12, sfx.thump() * 1.0), (T_12, sfx.stamp() * .6), (T_12, sfx.boom(1.0) * .4),
+           (T_CH, v1.blip(2200) * .3), (T_NE, v1.blip(2600) * .3),
+           (T_Q, sfx.pop() * .4), (T_EL + 0.15, sfx.pop() * .5), (T_EL + 0.27, sfx.pop() * .5), (LOOP0, sfx.whoosh(0.5, 16) * .4)]
+    for t0, x in evs: add(fx, int(t0 * SR), x)
+    fx *= 10 ** ((L_vo - 12 - lufs(fx)) / 20)
+    bed *= 10 ** ((L_vo - 11 - lufs(bed)) / 20)
+    mix = vo + mus + fx + bed
+    gn = 10 ** ((-13.4 - lufs(mix)) / 20); mix *= gn
+    if np.abs(mix).max() > 0.89: mix = np.tanh(mix / 0.89) * 0.89
+    write_wav(path, mix)
+    print(f'audio: vo {L_vo:.1f} LUFS, music {L_vo - 18 - L_mu:+.1f} dB, mix gain {20 * math.log10(gn):+.1f} dB')
+
+
 def main():
     mode = sys.argv[1]
+    if mode == 'video':
+        dst = Path(sys.argv[2]); dst.parent.mkdir(parents=True, exist_ok=True)
+        wav = dst.with_suffix('.wav'); audio(wav)
+        p = subprocess.Popen(['ffmpeg', '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{W}x{H}', '-r', str(FPS),
+                              '-i', '-', '-i', str(wav), '-t', str(DUR), '-c:v', 'libx264', '-crf', '18', '-pix_fmt', 'yuv420p',
+                              '-ar', '48000', '-c:a', 'aac', '-b:a', '192k', '-shortest', str(dst)], stdin=subprocess.PIPE)
+        for i in range(int(round(DUR * FPS))): p.stdin.write(frame(i / FPS).tobytes())
+        p.stdin.close(); sys.exit(p.wait())
     if mode == 'still':
         out = Path(sys.argv[2]); out.mkdir(parents=True, exist_ok=True)
         for x in sys.argv[3:]: Image.fromarray(frame(float(x))).save(out / f'v3_{x}.png')

@@ -138,8 +138,9 @@ def key_frame(S, st, fr):
     cam.keyframe_insert('location', frame=fr); cam.keyframe_insert('rotation_euler', frame=fr)
 
 
-def run(states, outdir, frames):
-    st = json.load(open(states)); S = build_scene(); sc = S['sc']
+def run(states, outdir, frames, w=1080, h=1920, preview=False):
+    st = json.load(open(states)); S = build_scene(w, h); sc = S['sc']
+    if preview: sc.render.line_thickness = 0.9; sc.cycles.samples = 2
     for i, x in enumerate(st): key_frame(S, x, i + 1)
     for ob in list(bpy.data.objects) + list(bpy.data.materials):
         ad = getattr(ob, 'animation_data', None) or (ob.node_tree.animation_data if getattr(ob, 'node_tree', None) else None)
@@ -157,7 +158,11 @@ def run(states, outdir, frames):
 
 if __name__ == '__main__':
     a = sys.argv[1:]
-    if a[0] == 'still':
+    if a[0] == 'preview':                                          # 360x640, every 2nd frame
+        n = len(json.load(open(a[1])))
+        i0, i1 = (int(a[3]), int(a[4])) if len(a) > 4 else (0, n)
+        run(a[1], a[2], range(i0, min(i1, n), 2), 360, 640, True)
+    elif a[0] == 'still':
         run(a[1], a[2], [int(x) for x in a[3:]])
     else:
         n = len(json.load(open(a[0])))
