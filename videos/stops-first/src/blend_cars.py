@@ -16,6 +16,7 @@ sys.path.insert(0, str(HERE))
 from r3d import smooth_curve  # noqa: E402
 
 MBLUR = False
+V3 = False                                            # v3: redesigned front opening + side line
 TINT = {'chiron': (0.86, 0.30, 0.27, 1), 'nevera': (0.30, 0.48, 0.92, 1)}
 
 # ---------------------------------------------------------------- shape data (metres, x from tail, y left, z up)
@@ -288,8 +289,12 @@ def features(key, bodyo, f, M, car):
                       (1.80, 0.34), (2.5, 0.29), (3.38, 0.31)])
         for sg in (1, -1):
             D(f'win{sg}', side_win, 'side', m=M['glass'], sign=sg)
-            D(f'qwin{sg}', superellipse(1.76, 0.975, 0.075, 0.062, 2, 40), 'side', m=M['glass'], sign=sg, step=0.01)
-            tube(f'cline{sg}', project_side(bvh, C, sg, 0.008), 0.018, M['chrome'], car)
+            if V3:                                                                   # own side line: one rising sabre stroke
+                sab = [(x, z) for x, z in zip(np.linspace(3.45, 1.35, 60), np.linspace(0.46, 0.86, 60) + 0.05 * np.sin(np.linspace(0, np.pi, 60)))]
+                tube(f'sabre{sg}', project_side(bvh, sab, sg, 0.008), 0.016, M['chrome'], car)
+            else:
+                D(f'qwin{sg}', superellipse(1.76, 0.975, 0.075, 0.062, 2, 40), 'side', m=M['glass'], sign=sg, step=0.01)
+                tube(f'cline{sg}', project_side(bvh, C, sg, 0.008), 0.018, M['chrome'], car)
             D(f'bpil{sg}', [(1.99, 1.09), (2.02, 1.09), (2.06, 0.845), (2.03, 0.845)], 'side', m=M['black'], sign=sg, off=0.005, step=0.008)
             D(f'door{sg}', [(2.03, 0.84), (2.05, 0.84), (2.37, 0.33), (2.35, 0.33)], 'side', m=M['black'], sign=sg, off=0.003, step=0.008)
             D(f'doorf{sg}', [(3.30, 0.84), (3.32, 0.84), (3.40, 0.32), (3.38, 0.32)], 'side', m=M['black'], sign=sg, off=0.003, step=0.008)
@@ -297,8 +302,13 @@ def features(key, bodyo, f, M, car):
             D(f'sill{sg}', [(1.30, 0.12), (3.25, 0.12), (3.25, 0.20), (1.30, 0.20)], 'side', m=M['black'], sign=sg)
             D(f'rlight{sg}', [(0.0, 0.69), (0.13, 0.70), (0.13, 0.715), (0.0, 0.71)], 'side', m=M['tail'], sign=sg, off=0.006, step=0.008)
         D('screen', [(3.38, -0.78), (3.38, 0.78), (2.90, 0.64), (2.90, -0.64)], 'top', m=M['glass'], off=0.006)
-        D('hs_ring', superellipse(0, 0.41, 0.215, 0.235, 2.3), 'front', m=M['chrome'], off=0.004)
-        D('hs', superellipse(0, 0.41, 0.185, 0.205, 2.3), 'front', m=M['mesh'], off=0.008)
+        if V3:                                                                       # own front opening: wide hexagonal shield
+            hexa = [(0, 0.20), (0.30, 0.24), (0.36, 0.42), (0.20, 0.56), (-0.20, 0.56), (-0.36, 0.42), (-0.30, 0.24)]
+            D('hs_ring', [(x * 1.12, 0.40 + (z - 0.40) * 1.12) for x, z in hexa], 'front', m=M['chrome'], off=0.004)
+            D('hs', hexa, 'front', m=M['mesh'], off=0.008)
+        else:
+            D('hs_ring', superellipse(0, 0.41, 0.215, 0.235, 2.3), 'front', m=M['chrome'], off=0.004)
+            D('hs', superellipse(0, 0.41, 0.185, 0.205, 2.3), 'front', m=M['mesh'], off=0.008)
         for sg in (1, -1):
             D(f'hlh{sg}', [(sg * 0.33, 0.60), (sg * 0.95, 0.585), (sg * 0.97, 0.66), (sg * 0.55, 0.685), (sg * 0.33, 0.625)],
               'front', m=M['black'], off=0.004)
@@ -309,11 +319,20 @@ def features(key, bodyo, f, M, car):
         D('splitbar', [(-0.95, 0.165), (0.95, 0.165), (0.95, 0.19), (-0.95, 0.19)], 'front', m=M['black'], off=0.004, step=0.01)
         for sg in (1, -1):
             D(f'rearmesh{sg}', [(sg * 0.36, 0.40), (sg * 0.86, 0.40), (sg * 0.86, 0.64), (sg * 0.36, 0.64)], 'rear', m=M['mesh'])
-        D('tail', [(-0.92, 0.685), (0.92, 0.685), (0.92, 0.705), (-0.92, 0.705)], 'rear', m=M['tail'], off=0.006, step=0.01)
+        if V3:                                                                       # bolder rear: lamp band + deck wing
+            D('tail', [(-0.94, 0.665), (0.94, 0.665), (0.92, 0.715), (-0.92, 0.715)], 'rear', m=M['tail'], off=0.006, step=0.01)
+            plate('wing', [(0.22, -0.84), (0.58, -0.84), (0.58, 0.84), (0.22, 0.84)], 0.93, 0.955, M['body2'], car)
+            for sg in (1, -1): fin(f'wstand{sg}', 0.32, 0.48, sg * 0.45, 0.78, 0.93, M['black'], car)
+        else:
+            D('tail', [(-0.92, 0.685), (0.92, 0.685), (0.92, 0.705), (-0.92, 0.705)], 'rear', m=M['tail'], off=0.006, step=0.01)
         D('exh', [(-0.28, 0.24), (0.28, 0.24), (0.22, 0.37), (-0.22, 0.37)], 'rear', m=M['black'], off=0.006)
         for k_, yy in enumerate((-0.17, -0.06, 0.06, 0.17)):
             D(f'pipe{k_}', superellipse(yy, 0.30, 0.045, 0.04, 2, 32), 'rear', m=M['chrome'], off=0.012, step=0.01)
-        for yy in np.arange(-0.70, 0.71, 0.14): fin(f'fin{yy:.2f}', -0.05, 0.55, yy, 0.10, 0.28, M['black'], car)
+        if V3:                                                                       # diffuser: backing tray + short fins
+            plate('dtray', [(-0.06, -0.80), (0.60, -0.80), (0.60, 0.80), (-0.06, 0.80)], 0.09, 0.13, M['black'], car)
+            for yy in np.arange(-0.70, 0.71, 0.14): fin(f'fin{yy:.2f}', -0.05, 0.50, yy, 0.12, 0.24, M['black'], car)
+        else:
+            for yy in np.arange(-0.70, 0.71, 0.14): fin(f'fin{yy:.2f}', -0.05, 0.55, yy, 0.10, 0.28, M['black'], car)
         plate('splitter', [(4.20, -0.90), (4.40, -0.78), (4.50, -0.45), (4.52, 0.0), (4.50, 0.45), (4.40, 0.78), (4.20, 0.90)], 0.11, 0.13, M['black'], car)
     else:
         for sg in (1, -1):
@@ -322,7 +341,10 @@ def features(key, bodyo, f, M, car):
             D(f'carbon{sg}', [(1.30, 0.12), (3.40, 0.12), (3.40, 0.36), (2.6, 0.40), (1.95, 0.42), (1.30, 0.36)], 'side', m=M['black'], sign=sg)
             D(f'intake{sg}', [(1.40, 0.40), (1.78, 0.42), (2.02, 0.60), (1.92, 0.76), (1.55, 0.73), (1.40, 0.60)], 'side', m=M['mesh'], sign=sg, off=0.006)
             D(f'door{sg}', [(3.40, 0.84), (3.43, 0.84), (3.43, 0.36), (3.40, 0.36)], 'side', m=M['black'], sign=sg, off=0.003, step=0.008)
-            D(f'blade{sg}', [(2.02, 0.60), (3.30, 0.66), (3.30, 0.675), (2.00, 0.615)], 'side', m=M['black'], sign=sg, off=0.004, step=0.008)
+            if V3:                                                                   # own side line: falling diagonal blade
+                D(f'blade{sg}', [(3.35, 0.44), (3.38, 0.46), (2.05, 0.74), (2.02, 0.72)], 'side', m=M['black'], sign=sg, off=0.004, step=0.008)
+            else:
+                D(f'blade{sg}', [(2.02, 0.60), (3.30, 0.66), (3.30, 0.675), (2.00, 0.615)], 'side', m=M['black'], sign=sg, off=0.004, step=0.008)
             D(f'hlh{sg}', [(sg * 0.36, 0.555), (sg * 0.88, 0.615), (sg * 0.94, 0.685), (sg * 0.82, 0.695), (sg * 0.36, 0.62)],
               'front', m=M['black'], off=0.004)
             D(f'hl{sg}', [(sg * 0.40, 0.57), (sg * 0.86, 0.63), (sg * 0.90, 0.67), (sg * 0.82, 0.675), (sg * 0.40, 0.605)],
@@ -331,10 +353,21 @@ def features(key, bodyo, f, M, car):
         D('roof', [(1.60, -0.46), (3.00, -0.50), (3.00, 0.50), (1.60, 0.46)], 'top', m=M['black'], off=0.004)
         D('screen', [(3.00, -0.62), (3.00, 0.62), (3.58, 0.80), (3.58, -0.80)], 'top', m=M['glass'], off=0.006)
         D('hoodvent', [(3.85, -0.30), (4.22, -0.33), (4.22, 0.33), (3.85, 0.30)], 'top', m=M['black'], off=0.004)
-        D('fintake', [(-0.38, 0.19), (0.38, 0.19), (0.36, 0.35), (-0.36, 0.35)], 'front', m=M['mesh'])
-        D('rearpanel', [(-0.90, 0.40), (0.90, 0.40), (0.90, 0.78), (-0.90, 0.78)], 'rear', m=M['black'])
-        D('lightbar', [(-0.94, 0.795), (0.94, 0.795), (0.94, 0.825), (-0.94, 0.825)], 'rear', m=M['tail'], off=0.008, step=0.01)
-        for yy in np.arange(-0.64, 0.65, 0.16): fin(f'fin{yy:.2f}', -0.05, 0.62, yy, 0.10, 0.30, M['black'], car)
+        if V3:                                                                       # own front opening: low wide wing-shaped slot
+            D('fintake', [(-0.70, 0.16), (0.70, 0.16), (0.52, 0.30), (0.20, 0.26), (-0.20, 0.26), (-0.52, 0.30)], 'front', m=M['mesh'])
+        else:
+            D('fintake', [(-0.38, 0.19), (0.38, 0.19), (0.36, 0.35), (-0.36, 0.35)], 'front', m=M['mesh'])
+        if V3:
+            D('rearpanel', [(-0.70, 0.36), (0.70, 0.36), (0.62, 0.62), (-0.62, 0.62)], 'rear', m=M['mesh'])
+            D('lightbar', [(-0.95, 0.76), (0.95, 0.76), (0.95, 0.815), (-0.95, 0.815)], 'rear', m=M['tail'], off=0.008, step=0.01)
+        else:
+            D('rearpanel', [(-0.90, 0.40), (0.90, 0.40), (0.90, 0.78), (-0.90, 0.78)], 'rear', m=M['black'])
+            D('lightbar', [(-0.94, 0.795), (0.94, 0.795), (0.94, 0.825), (-0.94, 0.825)], 'rear', m=M['tail'], off=0.008, step=0.01)
+        if V3:
+            plate('dtray', [(-0.06, -0.78), (0.66, -0.78), (0.66, 0.78), (-0.06, 0.78)], 0.09, 0.13, M['black'], car)
+            for yy in np.arange(-0.64, 0.65, 0.16): fin(f'fin{yy:.2f}', -0.05, 0.58, yy, 0.12, 0.26, M['black'], car)
+        else:
+            for yy in np.arange(-0.64, 0.65, 0.16): fin(f'fin{yy:.2f}', -0.05, 0.62, yy, 0.10, 0.30, M['black'], car)
         plate('splitter', [(4.40, -0.86), (4.60, -0.74), (4.70, -0.45), (4.73, 0.0), (4.70, 0.45), (4.60, 0.74), (4.40, 0.86)], 0.10, 0.122, M['black'], car)
         plate('ducktail', [(-0.01, -0.70), (0.22, -0.70), (0.22, 0.70), (-0.01, 0.70)], 0.90, 0.92, M['body2'], car)
 
