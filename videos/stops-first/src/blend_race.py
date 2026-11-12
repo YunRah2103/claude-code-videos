@@ -13,6 +13,8 @@ from mathutils import Vector, Matrix
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import blend_cars as B  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'tools/blender3d'))
+import envkit as E  # noqa: E402
 
 B.V3 = True
 LANE_Y = {'chiron': 1.16, 'nevera': -1.16}                   # red left, blue right (camera looks along +x)
@@ -45,13 +47,37 @@ def build_scene(w=1080, h=1920):
     col.objects.link(fl)
     ls = sc.view_layers[0].freestyle_settings.linesets[0]
     ls.select_by_collection = True; ls.collection = col; ls.collection_negation = 'EXCLUSIVE'
+    envc = bpy.data.collections.new('env'); sc.collection.children.link(envc)
+    env = E.build_track_env(edge=3.05, seed=7, lines=envc, nolines=envc)     # lively roadside: stands, crowd, trees, cars
+    ink_layer(sc, ('nolines', 'env'))
     sun = bpy.data.lights.new('sun', 'SUN'); sun.energy = 1.5; sun.angle = math.radians(8)
     so = bpy.data.objects.new('sun', sun); sc.collection.objects.link(so)
     so.rotation_euler = Vector((-0.45, 0.25, -1)).to_track_quat('-Z', 'Y').to_euler()
     camd = bpy.data.cameras.new('cam'); camd.sensor_fit = 'HORIZONTAL'; camd.angle = math.radians(33)
     cam = bpy.data.objects.new('cam', camd); sc.collection.objects.link(cam); sc.camera = cam
     camd.clip_end = 2500; camd.shift_y = 0.16                       # cars sit low, clear of the text band
-    return dict(sc=sc, cars=cars, cam=cam, vals=vals)
+    return dict(sc=sc, cars=cars, cam=cam, vals=vals, env=env)
+
+
+def ink_layer(sc, exclude):
+    """Freestyle only on a separate view layer holding the hero cars (fast); composited over the shaded main layer."""
+    main = sc.view_layers[0]; main.use_freestyle = False
+    ink = sc.view_layers.new('ink'); ink.use_freestyle = True; ink.samples = 1
+    src = main.freestyle_settings.linesets[0]; fs = ink.freestyle_settings; fs.crease_angle = main.freestyle_settings.crease_angle
+    fs.as_render_pass = True
+    ls = fs.linesets[0] if fs.linesets else fs.linesets.new('ink')
+    for k in ('select_by_visibility', 'visibility', 'select_border', 'select_silhouette', 'select_crease',
+              'select_material_boundary', 'select_contour', 'select_external_contour'):
+        setattr(ls, k, getattr(src, k))
+    ls.linestyle = src.linestyle; ls.select_by_collection = False
+    for name in exclude: ink.layer_collection.children[name].exclude = True
+    sc.use_nodes = True; nt = sc.node_tree
+    for n in list(nt.nodes): nt.nodes.remove(n)
+    a = nt.nodes.new('CompositorNodeRLayers'); a.layer = main.name
+    b = nt.nodes.new('CompositorNodeRLayers'); b.layer = 'ink'
+    ov = nt.nodes.new('CompositorNodeAlphaOver'); out = nt.nodes.new('CompositorNodeComposite')
+    nt.links.new(a.outputs['Image'], ov.inputs[1]); nt.links.new(b.outputs['Freestyle'], ov.inputs[2])
+    nt.links.new(ov.outputs[0], out.inputs[0])
 
 
 def track_material():
@@ -103,6 +129,7 @@ def track_material():
     zmark = M('MULTIPLY', M('MAXIMUM', M('MULTIPLY', hatch, 0.55), zband), V['bz'].outputs[0])
     c = mix(grid, (0.80, 0.82, 0.85, 1), (0.40, 0.50, 0.70, 1))
     kcol = mix(left, (0.12, 0.30, 0.86, 1), (0.85, 0.12, 0.08, 1))
+    c = mix(M('GREATER_THAN', aY, 6.2), c, mix(ln(u, 5.0, 0.03), (0.66, 0.76, 0.58, 1), (0.58, 0.68, 0.52, 1)))
     c = mix(kerb, c, (1, 1, 1, 1)); c = mix(kstripe, c, kcol)
     c = mix(M('MAXIMUM', edge, centre), c, (0.08, 0.08, 0.09, 1))
     c = mix(zmark, c, (0.95, 0.42, 0.06, 1))
@@ -127,6 +154,7 @@ def key_frame(S, st, fr):
             h.rotation_euler = (0, st['s' + tag[0]] / C['R'], 0); h.keyframe_insert('rotation_euler', frame=fr)
         for v in C['brakes']:
             v.outputs[0].default_value = st['h' + tag[0]]; v.outputs[0].keyframe_insert('default_value', frame=fr)
+    E.animate(S['env'], st['sr'], st['sb'], fr)
     for k in ('sr', 'sb', 'bz', 'u0r', 'u0b'):
         n = S['vals'][k]; n.outputs[0].default_value = st[k]; n.outputs[0].keyframe_insert('default_value', frame=fr)
     xc = 0.5 * (st['xr'] + st['xb']) + 2.35                          # orbit around the pair of cars

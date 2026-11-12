@@ -85,7 +85,7 @@ def cam(t):
     """One fluid 360-degree orbit (yaw 0 = straight behind, 90 = red side, 180 = front, 270 = blue side); loops to frame 1."""
     yaw = 360 * (t / DUR) + 6 * math.sin(2 * math.pi * t / DUR)
     s2 = math.sin(math.radians(yaw)) ** 2
-    return yaw % 360, 11 + 17 * s2 + 3 * math.sin(math.radians(yaw / 2)) ** 2, 11.6 + 1.2 * s2
+    return yaw % 360, 11 + 19 * s2 + 3 * math.sin(math.radians(yaw / 2)) ** 2, 11.6 - 2.0 * s2
 
 
 def states():
@@ -171,6 +171,8 @@ def panel(d, t):
     text(d, (905, 236), 'Yub', font(FONT_B, 58), (150, 150, 158), 'ra')
 
 
+_y = np.arange(H, dtype=np.float32)[:, None, None]
+SCRIM = 0.78 * np.clip(1 - (_y - 640) / 260, 0, 1)                # soft paper fade behind the text band (readability)
 VP = (540, 650)                                                    # vanishing point of the track
 
 
@@ -205,6 +207,7 @@ def render(t):
     if im.size != (W, H): im = im.resize((W, H), Image.BICUBIC)
     sh = shake(t)
     if sh: im = Image.fromarray(np.roll(np.asarray(im), sh, 0))
+    im = Image.fromarray((np.asarray(im, np.float32) * (1 - SCRIM) + np.array(PAPER, np.float32) * SCRIM).astype(np.uint8))
     d = ImageDraw.Draw(im)
     speedlines(d, t); traces(d, t); panel(d, t)
     car_block(d, 'red', t); car_block(d, 'blue', t); gap_marker(d, t)
