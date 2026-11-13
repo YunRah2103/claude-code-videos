@@ -20,6 +20,7 @@ def loop_speed(t):
     else:          u = 0.5 + 0.5 * math.cos(math.pi * (p - 0.75) / 0.25)
     return 100 + 100 * u
 
-def wheel_angle(i, rad_per_frame_at_100=0.42, sp=speed, fps=FPS):
-    """Cumulative wheel angle at frame i (stylised: slower than real to avoid strobing)."""
-    return sum(rad_per_frame_at_100 * sp(k / fps) / 100 for k in range(i))
+def wheel_angle(i, rad_per_frame_at_100=0.25, sp=speed, fps=FPS):
+    """Cumulative wheel angle at frame i (stylised: slower than real to avoid strobing; max 29 deg/frame,
+    under half the 72-degree spoke symmetry). Negative = rolling towards -X (the car's nose)."""
+    return -sum(rad_per_frame_at_100 * sp(k / fps) / 100 for k in range(i))

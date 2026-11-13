@@ -315,6 +315,7 @@ def style2():
     def move(t):
         x = -6.0 + 2.2 * (t * 1.0 + 0.22 * t * t)   # car slowly accelerates along the road
         root.location = (x, -0.75, 0)
+        root.rotation_euler = (0, 0, math.pi)     # nose (-X local) points along +X travel
         aim(cam, (x - 9.0, -13.5, 13.5), (x + 0.6, -0.5, 0.4))
     return dict(root=root, wheels=wheels, cam=cam, blur=False, samples=24, move=move, rolling=True)
 
@@ -336,7 +337,7 @@ def style4():
     cam = camera((-5.0, -11.0, 3.4), (-0.15, 0, 0.55), lens=36, shift_y=0.1)
     def move(t):
         a = math.radians(-30 + 4.5 * t)
-        r = 14.0 - 0.2 * t
+        r = 15.5 - 0.2 * t
         aim(cam, (r * math.sin(a), -r * math.cos(a), 3.6 - 0.1 * t), (-1.0, 0, 0.5))
     pts = {}
     return dict(root=root, wheels=wheels, cam=cam, blur=True, samples=20, move=move,
@@ -400,7 +401,7 @@ for i in frames:
     s.frame_set(i + 1)
     cfg['move'](t)
     if cfg.get('rolling'):
-        ang = (cfg['root'].location.x + 6.0) / WR
+        ang = -(cfg['root'].location.x + 6.0) / WR
     else:
         ang = beat.wheel_angle(i)
     for w in cfg['wheels']:

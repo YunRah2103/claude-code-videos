@@ -328,10 +328,11 @@ def ribbons(im, a, t, rng):
         p0 = np.array([fx, fy]) + d * L * start + n * (off - 40)
         length = (170 + 90 * s) * r2.uniform(0.8, 1.2)
         ampl = 7 * s * r2.uniform(0.7, 1.3)
+        phase = r2.random()
         pts = []
         for j in range(26):
             u = j / 25.0
-            w = math.sin(6.283 * (u * 1.6 - t * (1.2 + 0.8 * s) + r2.random())) * ampl * u
+            w = math.sin(6.283 * (u * 1.2 - t * (1.2 + 0.8 * s) + phase)) * ampl * u
             p = p0 + d * (L * 0.2 + length * u) + n * w
             pts.append((float(p[0] * 2), float(p[1] * 2)))
         c = cols[k % len(cols)]
@@ -499,8 +500,8 @@ def style4(i):
     # pressure glow on the nose
     g = Image.new('RGBA', (W, H), (0, 0, 0, 0)); gd = ImageDraw.Draw(g)
     pr = 60 + 70 * k
-    gd.ellipse((fx - pr, fy - pr * 1.3, fx + pr * 0.6, fy + pr * 1.0), fill=(255, 70, 30, int(70 + 120 * k)))
-    im.alpha_composite(Image.fromarray(gblur(np.asarray(g, np.float32), 18).clip(0, 255).astype(np.uint8), 'RGBA'))
+    gd.ellipse((fx - pr, fy - pr * 1.2, fx + pr * 0.5, fy + pr * 0.9), fill=(255, 80, 30, int(40 + 90 * k)))
+    im.alpha_composite(Image.fromarray(gblur(np.asarray(g, np.float32), 34).clip(0, 255).astype(np.uint8), 'RGBA'))
     # air arrows: rows aimed at the front; they bend over/under when they hit the nose
     vpx = 520 * speed(t) / 100
     rows = 7
@@ -519,9 +520,9 @@ def style4(i):
             pts = []
             for s in np.linspace(hx - L, hx, 8):
                 over = max(0.0, s - (stop - 140))
-                yy = y0 + side * (over ** 1.6) * 0.06 * (1 + abs(oy) / hcar)
+                yy = y0 + side * min(over ** 1.5 * 0.035 * (1 + abs(oy) / hcar), 150)
                 if r == rows // 2:
-                    yy = y0 - (over ** 1.6) * 0.05
+                    yy = y0 - min(over ** 1.5 * 0.03, 150)
                 pts.append((s, yy))
             fade = 1.0 - smoothstep(stop - 60, stop + 140, hx)
             if fade <= 0.02:
@@ -729,7 +730,7 @@ def style6(i):
     th = dict(yub_bg=(255, 120, 30, 255), yub_fg=(0, 0, 0, 255), tag=(255, 200, 160, 255),
               hook_font='Inter-Black.otf', hook=(255, 255, 255, 255))
     draw_tags(d, 6, th)
-    y0 = draw_hook(d, th) + 6
+    y0 = draw_hook(d, th) + 34
     v = int(round(speed(t)))
     f = font('InterDisplay-Black.otf', 330)
     s = '%d' % v
@@ -750,7 +751,7 @@ def style6(i):
         u = (t - DRAG_AT) / 0.35
         k = ease_out_back(u, 2.2)
         big = font('InterDisplay-Black.otf', max(10, int(380 * (2.2 - 1.2 * k))))
-        yx = 800
+        yx = 870
         fl = font('Inter-Black.otf', 84)
         d.text((SAFE_X0, yx - 20), 'DRAG', font=fl, fill=(255, 120, 30, int(255 * min(1, u * 2))))
         bbx = d.textbbox((0, 0), 'x4', font=big)
