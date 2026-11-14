@@ -75,7 +75,7 @@ def title(key, items):
         _T[key] = (chars, halo)
     return _T[key]
 
-def frame(t):
+def frame(t, tags=True):
     G = glyphs()
     src = np.asarray(pc.frame(t, text=False, tags=False), np.float32) / 255
     c = cells(src)
@@ -134,6 +134,7 @@ def frame(t):
         if last and k_in < 1 and (int(t * 4) % 2 == 0):                 # blinking block cursor while typing
             x_, y_, f = last; l, tp, r, b = f.getbbox("M", anchor="la")
             d.rectangle((x_ + 4, y_ + tp, x_ + 4 + (r - l), y_ + b), fill=(240, 240, 240))
+    if not tags: return im
     d.text((40, 52), "Yub", font=ImageFont.truetype(JB.replace("Bold", "ExtraBold"), 32), fill=(200, 200, 205))
     if R.PREVIEW:
         tf = ImageFont.truetype(JB, 24); tw = tf.getlength("PREVIEW")
