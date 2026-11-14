@@ -191,6 +191,37 @@ def captions(ov, t):
             assert y >= R.SAFE_Y0 and y + 70 <= R.SAFE_Y1
             d.text((cx, y), txt, font=f, fill=(*WHITE, int(255 * a)), anchor="ma")
 
+# ---------- user-supplied photos (kept in out/, not in git) ----------
+PHOTOS = R.OUT / "photos"
+_P = {}
+def photo(name, crop):
+    if name not in _P:
+        f = PHOTOS / name
+        _P[name] = Image.open(f).convert("RGB").crop(crop) if f.exists() else None
+    return _P[name]
+
+def photo_card(ov, name, crop, x, y, w, h, t, t0, t1, label):
+    """Evidence photo: framed card, slow push-in, slide/fade in, label on a soft gradient."""
+    im = photo(name, crop)
+    if im is None or not (t0 <= t < t1 + 0.3): return
+    a = min(prog(t, t0, 0.4), 1 - prog(t, t1 - 0.05, 0.3))
+    if a <= 0: return
+    z = 1.0 + 0.07 * clamp((t - t0) / max(0.1, t1 - t0))
+    iw, ih = im.size; cw, ch = iw / z, ih / z
+    box = ((iw - cw) / 2, (ih - ch) / 2, (iw + cw) / 2, (ih + ch) / 2)
+    pic = im.resize((int(w), int(h)), Image.LANCZOS, box=box)
+    arr = np.asarray(pic, F32)
+    yy = np.linspace(0, 1, int(h))[:, None, None]
+    arr = arr * (1 - 0.55 * np.clip((0.28 - yy) / 0.28, 0, 1)) * 0.95          # dark top edge for the label
+    pic = Image.fromarray(np.uint8(arr)).convert("RGBA")
+    mask = Image.new("L", pic.size, 0); ImageDraw.Draw(mask).rounded_rectangle((0, 0, w - 1, h - 1), radius=12, fill=int(255 * a))
+    yo = int(18 * (1 - oc(a)))
+    ov.paste(pic, (int(x), int(y) + yo), mask)
+    d = ImageDraw.Draw(ov)
+    d.rounded_rectangle((x, y + yo, x + w, y + h + yo), radius=12, outline=(70, 70, 74, int(255 * a)), width=2)
+    d.text((x + 22, y + yo + 16), label, font=mono(38), fill=(*WHITE, int(235 * a)))
+
+
 def brief(im, t, sec):
     ov = Image.new("RGBA", (W, H), (0, 0, 0, 0)); d = ImageDraw.Draw(ov)
     _, start, no, title = sec
@@ -252,6 +283,11 @@ def brief(im, t, sec):
                 d.line((x0 + 380, yb + k_, x0 + 380, yb + min(130, k_ + 8)), fill=(200, 200, 196, int(255 * kb)), width=2)
             d.text((x0 + 190, yb + 65), lab, font=sans(64, "SemiBold"), fill=((*INK, 255) if on else (*WHITE, int(255 * kb))), anchor="mm")
             assert x0 + 380 <= R.SAFE_X1 and yb + 130 <= R.SAFE_Y1
+    if no == 1:                                                         # the real car, on "McLaren F1"
+        photo_card(ov, "car.jpg", (0, 0, 588, 318), X0, 620, 640, 346, t, wstart("McLaren") - 0.1, SECTIONS[1][1], "McLaren F1")
+    if no == 4:                                                         # the real gold-lined bay, on "lined the bay"
+        photo_card(ov, "bay.jpg", (0, 200, 918, 700), X0, 688, 551, 300, t, B["lined"] + 0.25, B["question"] - 0.25,
+                   "the real engine bay")
     captions(ov, t)
     d.text((40, 52), "Yub", font=sans(30, "ExtraBold"), fill=(*WHITE, 210))
     if R.PREVIEW:
