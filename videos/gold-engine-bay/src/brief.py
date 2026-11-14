@@ -86,14 +86,24 @@ def wire_frame(t):
     cols = np.where(gold[:, None], np.array([[226, 178, 60]]), np.array([[60, 60, 64]]))
     draw_segs(d, cam, pg["A"], pg["B"], cols, np.where(gold, 0.9, 0.7), 1)
     wv = ST.wire()
-    mid = (wv["A"] + wv["B"]) / 2
-    _, _, dz = pc.proj(mid, cam)
-    alpha = np.clip(1.5 - dz / 4.2, 0.25, 1.0)
-    cols = np.tile(np.array([[232, 232, 228]]), (len(dz), 1))
+    if "vec" not in _PANEL:
+        _PANEL["vec"] = ST.offsets(wv["part"], 1.0)
+        _PANEL["dist"] = np.linalg.norm((wv["A"] + wv["B"]) / 2 - np.array([0.0, 0.45, 0.0], F32), axis=1)
+    kx = io(prog(t, B["push"] + 0.15, 0.8)) * (1 - io(prog(t, B["reveal"] - 1.0, 0.7)))   # exploded view
+    off = _PANEL["vec"] * kx
+    A_, B_ = wv["A"] + off, wv["B"] + off
+    s0 = 0.0 if t < SECTIONS[1][1] else SECTIONS[4][1]                     # draw-on at the open and at the finale
+    rad = 0.2 + 2.6 * oc(prog(t, s0, 1.5))
+    lead = np.clip(1 - (rad - _PANEL["dist"]) / 0.14, 0, 1) * (rad < 2.7)
+    vis = _PANEL["dist"] < rad
+    _, _, dz = pc.proj((A_ + B_) / 2, cam)
+    alpha = np.clip(1.5 - dz / 4.2, 0.25, 1.0) * vis
+    cols = np.tile(np.array([[232, 232, 228]]), (len(dz), 1)).astype(F32)
     hot = wv["mat"] == scene.HEADER
     cols[hot] = (255, 96, 60)
     cols[wv["mat"] == scene.CARBON] = (170, 170, 168)
-    draw_segs(d, cam, wv["A"], wv["B"], cols, alpha, 2)
+    cols = cols * (1 - lead[:, None]) + np.array([[180, 235, 255]]) * lead[:, None]       # bright scan front
+    draw_segs(d, cam, A_, B_, cols.astype(int), np.clip(alpha + lead * 0.4, 0, 1), 2)
     for P_, u in ST.heat_paths(t, 500, lags=(0.0, 0.012, 0.024)):          # faint heat flow
         x, y, z_ = pc.proj(P_, cam); ok = z_ > 0.05
         for xi, yi, ui in zip(x[ok], y[ok], u[ok]):
@@ -136,9 +146,13 @@ def card(ov, x, y, rows, a, w=None):
     lay = Image.new("RGBA", (W, H), (0, 0, 0, 0)); d = ImageDraw.Draw(lay)
     d.rounded_rectangle((x, y + yo, x + w, y + h + yo), radius=12, fill=(14, 14, 16, 238), outline=(52, 52, 56, 255), width=2)
     cy = y + pad + yo
-    for r in rows:
+    for ri, r in enumerate(rows):
         kind, txt = r[0], r[1] if len(r) > 1 else ""
         f, col, lh = spec[kind]
+        rp = oc(clamp(a * 1.8 - ri * 0.11))                                # rows reveal one after another
+        if rp <= 0: cy += lh; continue
+        if kind not in ("hl", "gap") and rp < 1:
+            n = max(1, int(round(len(txt) * rp))); txt = txt[:n]
         if kind == "hl":
             k = r[2] if len(r) > 2 else 1.0                                  # highlighter sweeps in
             tw = text_w(f, txt) + 16
@@ -150,6 +164,62 @@ def card(ov, x, y, rows, a, w=None):
     if a < 1: lay.putalpha(lay.getchannel("A").point(lambda v: int(v * a)))
     ov.alpha_composite(lay)
     return y + h
+
+def leader(ov, x0, y0, p3, t, a, t0, col=WHITE, box=None):
+    """Animated leader from a card edge to a 3D anchor, ending in a pulsing reticle."""
+    k = oc(clamp((t - t0) / 0.5))
+    if k <= 0 or a <= 0: return
+    tx, ty, tz = pc.proj(np.array([p3], F32), pc.camera(t))
+    if tz[0] <= 0.05: return
+    tx, ty = float(tx[0]), float(ty[0])
+    if box is not None and box[0] - 20 < tx < box[2] + 20:          # target below/above the card: leave from that edge
+        x0, y0 = clamp(tx, box[0] + 30, box[2] - 30), (box[3] if ty > box[3] else box[1])
+        mx = x0
+    else:
+        mx = x0 + (tx - x0) * 0.35
+    pts = [(x0, y0), (mx, y0), (tx, ty)]
+    L1 = abs(mx - x0); L2 = math.hypot(tx - mx, ty - y0); tot = L1 + L2 + 1e-6
+    dl = k * tot
+    d = ImageDraw.Draw(ov)
+    al = int(220 * a)
+    if dl <= L1: d.line((x0, y0, x0 + (mx - x0) * dl / max(L1, 1e-6), y0), fill=(*col, al), width=2); return
+    f = (dl - L1) / max(L2, 1e-6)
+    d.line(pts[:2], fill=(*col, al), width=2)
+    d.line((mx, y0, mx + (tx - mx) * f, y0 + (ty - y0) * f), fill=(*col, al), width=2)
+    if k >= 1:
+        q = 12 + 5 * math.sin(t * 7)
+        d.ellipse((tx - q, ty - q, tx + q, ty + q), outline=(*col, al), width=2)
+        d.ellipse((tx - 4, ty - 4, tx + 4, ty + 4), fill=(*HL, al))
+
+def gold_streams(ov, t, gx, gy):
+    """On "16 grams": gold particles fly out of the foil wall into the cube grid; cube i lands at its tick."""
+    t0 = B["grams"] - 0.1
+    if not (t0 - 0.45 <= t < t0 + 16 * 0.07 + 0.3): return
+    cam = pc.camera(t)
+    d = ImageDraw.Draw(ov)
+    rng = np.random.default_rng(21)
+    src3 = np.column_stack([rng.uniform(-0.7, 1.1, 16 * 14), rng.uniform(0.3, 1.2, 16 * 14), np.full(16 * 14, -0.58)]).astype(F32)
+    sx, sy, sz = pc.proj(src3, cam)
+    for i in range(16):
+        land = t0 + (i + 1) * 0.07
+        cx, cy = gx + (i % 4) * 52 + 18, gy + (i // 4) * 52 + 29
+        for j in range(14):
+            q = i * 14 + j
+            u = clamp((t - (land - 0.45) - j * 0.012) / 0.45)
+            if u <= 0 or u >= 1 or sz[q] <= 0: continue
+            e = u * u * (3 - 2 * u)
+            bend = math.sin(math.pi * e) * (60 + 40 * math.sin(q))
+            x = sx[q] + (cx - sx[q]) * e + bend
+            y_ = sy[q] + (cy - sy[q]) * e - bend * 0.6
+            r = 3 + 2 * (1 - e)
+            d.ellipse((x - r * 2.5, y_ - r * 2.5, x + r * 2.5, y_ + r * 2.5), fill=(*HL, 40))
+            d.ellipse((x - r, y_ - r, x + r, y_ + r), fill=(255, 226, 120, 230))
+        if land <= t < land + 0.18:                                    # flash as the cube fills
+            k = 1 - (t - land) / 0.18
+            d.rectangle((cx - 30, cy - 30, cx + 30, cy + 30), outline=(255, 236, 150, int(220 * k)), width=3)
+
+def count(t, t0, v, dur=0.7):
+    return v * io(clamp((t - t0) / dur))
 
 def cubes(ov, x, y, n, a):
     """Reference-style grid of small wireframe cubes (1 cube = 1 g)."""
@@ -211,6 +281,20 @@ def photo_card(ov, name, crop, x, y, w, h, t, t0, t1, label):
     box = ((iw - cw) / 2, (ih - ch) / 2, (iw + cw) / 2, (ih + ch) / 2)
     pic = im.resize((int(w), int(h)), Image.LANCZOS, box=box)
     arr = np.asarray(pic, F32)
+    ks = clamp((t - t0 - 0.15) / 0.6)                                    # halftone -> photo scan
+    if ks < 1:
+        g = 12; small = np.asarray(pic.resize((int(w) // g, int(h) // g), Image.BILINEAR), F32)
+        dots = Image.new("RGB", pic.size, (8, 8, 9)); dd = ImageDraw.Draw(dots)
+        for j in range(small.shape[0]):
+            for i in range(small.shape[1]):
+                c = small[j, i]; r_ = (c.mean() / 255) ** 0.8 * g * 0.55
+                cx, cy = i * g + g / 2, j * g + g / 2
+                dd.ellipse((cx - r_, cy - r_, cx + r_, cy + r_), fill=tuple(int(v * 1.1) for v in c))
+        da = np.asarray(dots, F32)
+        line = ks * h
+        yy_ = np.arange(int(h))[:, None, None]
+        m = np.clip((line - yy_) / 14, 0, 1)
+        arr = arr * m + da * (1 - m) + np.exp(-((yy_ - line) / 3.0) ** 2) * np.array([200, 235, 255], F32) * 0.9
     yy = np.linspace(0, 1, int(h))[:, None, None]
     arr = arr * (1 - 0.55 * np.clip((0.28 - yy) / 0.28, 0, 1)) * 0.95          # dark top edge for the label
     pic = Image.fromarray(np.uint8(arr)).convert("RGBA")
@@ -238,29 +322,35 @@ def brief(im, t, sec):
     elif no == 2:
         a = prog(t, B["v12"] - 0.2, 0.35)
         hl = io(prog(t, B["heat"] - 0.3, 0.4))
+        a = prog(t, B["v12"] - 0.2, 0.6)
         rows = [("title", "Engine · BMW V12"), ("meta", "mid-mounted · behind the cabin"), ("gap",),
-                ("big", "6.1 L"), ("sub", "about 618 hp")]
+                ("big", f"{count(t, B['v12'], 6.1):.1f} L"), ("sub", f"about {count(t, B['v12'] + 0.2, 618):.0f} hp")]
         if hl > 0: rows += [("gap",), ("hl", "huge heat", hl)]
-        card(ov, X0, y, rows, a, w=640)
+        bot = card(ov, X0, y, rows, a, w=640)
+        leader(ov, X0 + 640, y + 60, (-0.15, 0.64, 0.14), t, a, B["v12"] + 0.3, box=(X0, y, X0 + 640, bot))
     elif no == 3:
         a = prog(t, B["carbon"] - 0.25, 0.35)
         hl = io(prog(t, B["protect"] - 0.1, 0.4))
         rows = [("title", "Body · carbon fibre"), ("meta", "monocoque and panels"), ("gap",),
                 ("sub", "needs insulating from")]
         rows += [("hl", "engine heat", hl)] if hl > 0 else [("sub", "engine heat")]
+        a = prog(t, B["carbon"] - 0.25, 0.6)
         bot = card(ov, X0, y, rows, a, w=640)
-        a2 = prog(t, B["gold"] - 0.2, 0.35)
+        leader(ov, X0 + 640, y + 60, (0.35, 0.72, -0.58), t, a, B["carbon"] + 0.3)
+        a2 = prog(t, B["gold"] - 0.2, 0.6)
         hl2 = io(prog(t, B["infrared"] - 0.05, 0.4))
         if a2 > 0:
             rows2 = [("title", "Gold"), ("sub", "reflects infrared well")] + ([("hl", "heat bounces back", hl2)] if hl2 > 0 else [])
             card(ov, X0 + 360, bot + 24, rows2, a2, w=480)
+            leader(ov, X0 + 360, bot + 84, (-0.76, 0.62, -0.25), t, a2, B["gold"] + 0.3, HL)
     elif no == 4:
-        a = prog(t, B["lined"] - 0.05, 0.35)
-        rows = [("title", "Lining · gold foil"), ("meta", "source · Robb Report, SlashGear"), ("gap",),
-                ("big", "≈ 16 g" if t >= B["grams"] - 0.1 else "—"), ("sub", "1 cube = 1 g"), ("gap",), ("gap",)]
-        bot = card(ov, X0, y, rows, a, w=R.SAFE_X1 - X0)
+        a = prog(t, B["lined"] - 0.05, 0.6)
         n = int(clamp((t - B["grams"] + 0.1) / 0.07, 0, 16))
+        rows = [("title", "Lining · gold foil"), ("meta", "source · Robb Report, SlashGear"), ("gap",),
+                ("big", f"≈ {n} g" if n > 0 else "—"), ("sub", "1 cube = 1 g"), ("gap",), ("gap",)]
+        bot = card(ov, X0, y, rows, a, w=R.SAFE_X1 - X0)
         if a > 0.5: cubes(ov, X0 + 520, y + 160, n, a)
+        gold_streams(ov, t, X0 + 520, y + 160)
     else:
         a = prog(t, B["question"] - 0.1, 0.35)
         f = sans(76, "SemiBold")
@@ -305,17 +395,42 @@ def brief(im, t, sec):
     return base.convert("RGB")
 
 
+RING = {"wire": (200, 230, 255), "ascii": (235, 240, 220), "thermal": (255, 140, 60), "lidar": (255, 205, 90)}
+_YY, _XX = np.mgrid[0:H, 0:W].astype(F32)
+_GR = np.random.default_rng(3)
+
+def punch(im, k):
+    """Zoom kick: k in 0..1 (decaying)."""
+    if k <= 0.002: return im
+    z = 1 + 0.035 * k; cw, ch = W / z, H / z
+    return im.resize((W, H), Image.BICUBIC, box=((W - cw) / 2, (H - ch) / 2, (W + cw) / 2, (H + ch) / 2))
+
 def frame(t):
     t = clamp(t, 0, DUR - 1e-6)
     i = max(j for j, s in enumerate(SECTIONS) if t >= s[1])
     sec = SECTIONS[i]
     im = visual(sec[0], t)
-    k = prog(t, sec[1], XF) if i > 0 else 1.0
-    if k < 1:
-        prev = visual(SECTIONS[i - 1][0], t)
-        im = Image.blend(prev, im, io(k))
+    k = prog(t, sec[1], 0.6) if i > 0 else 1.0
+    if k < 1:                                                       # radial ripple reveal from the engine
+        prev = np.asarray(visual(SECTIONS[i - 1][0], t), F32)
+        cur = np.asarray(punch(im, 1 - io(k)), F32)
+        cx, cy, _ = pc.proj(np.array([[0.0, 0.5, 0.0]], F32), pc.camera(t))
+        dist = np.hypot(_XX - cx[0], _YY - cy[0])
+        r = io(k) * 2300
+        m = np.clip((r - dist) / 40, 0, 1)[..., None]
+        ring = np.exp(-((dist - r) / 10) ** 2)[..., None] * np.array(RING[sec[0]], F32) * 0.95
+        ring += np.exp(-((dist - r) / 60) ** 2)[..., None] * np.array(RING[sec[0]], F32) * 0.25
+        im = Image.fromarray(np.uint8(np.clip(cur * m + prev * (1 - m) + ring * (1 - k), 0, 255)))
+    kick = max(math.exp(-(t - B[b]) * 5) if t >= B[b] else 0 for b in ("heat", "grams"))
+    im = punch(im, kick)
     a = np.asarray(im, F32) * 0.92                                           # slightly muted under the brief
-    return brief(Image.fromarray(np.uint8(a)), t, sec)
+    out = np.asarray(brief(Image.fromarray(np.uint8(a)), t, sec), F32)
+    # film finish: edge chromatic aberration, vignette, fine grain
+    out[..., 0] = np.roll(out[..., 0], 1, axis=1) * 0.5 + out[..., 0] * 0.5
+    out[..., 2] = np.roll(out[..., 2], -1, axis=1) * 0.5 + out[..., 2] * 0.5
+    vig = 1 - 0.22 * np.clip(((_XX / W - 0.5) * 1.6) ** 2 + ((_YY / H - 0.5) * 1.3) ** 2, 0, 1)
+    out = out * vig[..., None] + np.random.default_rng(int(t * FPS)).normal(0, 3.2, (H, W, 1)).astype(F32)
+    return Image.fromarray(np.uint8(np.clip(out, 0, 255)))
 
 
 # ---------- audio: voice + quiet bed ----------
