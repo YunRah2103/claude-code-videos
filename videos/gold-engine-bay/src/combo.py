@@ -218,10 +218,10 @@ def thermal_frame(t, labels=True):
     sm = Image.fromarray(np.uint8(np.clip(img - 0.4, 0, 1) * 255)).resize((W // 4, H // 4), Image.BILINEAR)
     img += np.asarray(sm.filter(ImageFilter.GaussianBlur(6)).resize((W, H), Image.BILINEAR), F32) / 255 * 0.9
     im = Image.fromarray(np.uint8(np.clip(img, 0, 1) * 255)); d = ImageDraw.Draw(im, "RGBA")
+    if not labels: return im
     for j in range(300):                                               # colour scale, right margin (decoration)
         c = tuple(int(255 * v) for v in ST.turbo(1 - j / 300))
         d.line((W - 70, 520 + j * 3, W - 46, 520 + j * 3), fill=c, width=3)
-    if not labels: return im
     ax_, ay_, _ = pc.proj(np.array([[0.35, 0.72, -0.58]], F32), cam)
     ST.label(d, "CARBON FIBRE", 64, 860, 66, (235, 240, 255), (ax_[0], ay_[0]), min(1, max(0, (t - B["carbon"]) / 0.3)))
     hx, hy, _ = pc.proj(np.array([[0.02, 0.92, -0.3]], F32), cam)

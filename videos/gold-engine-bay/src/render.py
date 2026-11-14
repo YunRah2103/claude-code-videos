@@ -20,7 +20,7 @@ DUR, FPS, B, WORDS = TM["dur"], TM["fps"], TM["beats"], TM["words"]
 W, H = 1080, 1920
 OUT = ROOT / "out/gold-engine-bay"
 CACHE = OUT / "cache" / f"plate_{scene.scene_key()}.npz"
-PREVIEW = True                       # phase 1 tag; phase 2 sets False
+PREVIEW = False                      # final export: no preview tag
 
 # ---------- easing ----------
 def clamp(x, a=0.0, b=1.0): return max(a, min(b, x))

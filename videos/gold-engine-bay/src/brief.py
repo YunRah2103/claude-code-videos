@@ -103,7 +103,16 @@ def wire_frame(t):
     base.alpha_composite(glow); base.alpha_composite(lay)
     return base.convert("RGB")
 
+GAIN = {"wire": 1.0, "ascii": 1.08, "thermal": 1.25, "lidar": 1.3}       # lift the murkier looks
+
 def visual(name, t):
+    im = _visual(name, t)
+    if GAIN[name] == 1.0: return im
+    a = np.asarray(im, F32) / 255
+    a = 1 - (1 - np.clip(a * GAIN[name], 0, 1)) ** 1.08                    # brighten, soft shoulder
+    return Image.fromarray(np.uint8(np.clip(a, 0, 1) * 255))
+
+def _visual(name, t):
     if name == "wire": return wire_frame(t)
     if name == "ascii": return combo.ascii_frame(t, ())
     if name == "thermal": return combo.thermal_frame(t, labels=False)
@@ -168,10 +177,12 @@ def captions(ov, t):
         if not (s0 <= t < s1): continue
         a = min(prog(t, s0, 0.18), 1 - prog(t, s1 - 0.15, 0.15))
         f = sans(58, "Medium")
-        words = [w["w"] for w in sg]; lines = [[]]
-        for wd in words:
-            if text_w(f, " ".join(lines[-1] + [wd])) > (R.SAFE_X1 - 2 * X0) and lines[-1]: lines.append([])
-            lines[-1].append(wd)
+        words = [w["w"] for w in sg]; maxw = R.SAFE_X1 - 2 * X0
+        if text_w(f, " ".join(words)) <= maxw:
+            lines = [words]
+        else:                                                         # two lines, balanced widths (no orphans)
+            k = min(range(1, len(words)), key=lambda i: max(text_w(f, " ".join(words[:i])), text_w(f, " ".join(words[i:]))))
+            lines = [words[:k], words[k:]]
         d = ImageDraw.Draw(ov)
         cx = (X0 + R.SAFE_X1 - X0) / 2 + 0
         for li, ln in enumerate(lines):
@@ -183,13 +194,7 @@ def captions(ov, t):
 def brief(im, t, sec):
     ov = Image.new("RGBA", (W, H), (0, 0, 0, 0)); d = ImageDraw.Draw(ov)
     _, start, no, title = sec
-    # header rule: brief number + section title + running clock
-    d.text((X0, 236), f"BRIEF {no:02d} / 05", font=mono(42), fill=(*GREY, 255))
-    d.text((X0 + text_w(mono(42), f"BRIEF {no:02d} / 05  ") , 236), "·  " + title, font=mono(42, "SemiBold"), fill=(*WHITE, 255))
-    mm, ss = divmod(t, 60)
-    d.text((W - 60, 52), f"T+{int(mm):02d}:{ss:05.2f}", font=mono(26), fill=(*DIM, 255), anchor="ra")
-    d.line((X0, 296, X1, 296), fill=(46, 46, 50, 255), width=2)
-    y = 330
+    y = 290
     if no == 1:
         f = sans(92, "SemiBold")
         d.text((X0, y), "Why is there", font=f, fill=(*WHITE, 255))
@@ -278,7 +283,7 @@ def frame(t):
 
 
 # ---------- audio: voice + quiet bed ----------
-def mix(voice, out):
+def mix(voice, out, sfx=False):
     """Voice + sound design (engine bed, cues), SFX ducked under the voice. Also writes stems next to `out`."""
     import sound, wave
     sr = sound.SR
@@ -288,7 +293,7 @@ def mix(voice, out):
     n = int(DUR * sr); v = np.pad(v, (0, max(0, n - len(v))))[:n]
     cards = [B["v12"] - 0.2, B["carbon"] - 0.25, B["gold"] - 0.2, B["lined"] - 0.05, B["question"] - 0.1]
     highlights = [wstart("gold") - 0.1, B["heat"] - 0.3, B["protect"] - 0.1, B["infrared"] - 0.05]
-    fx = sound.sfx_track([(s[0], s[1]) for s in SECTIONS], cards, highlights, B["grams"] - 0.03)
+    fx = sound.sfx_track([(s[0], s[1]) for s in SECTIONS], cards, highlights, B["grams"] - 0.03) if sfx else np.zeros(n, F32)
     env = np.convolve(np.abs(v), np.ones(2400) / 2400, mode="same")
     duck = 1 - np.clip(env * 9, 0, 0.6)                                       # up to ~8 dB under speech
     fx = fx * np.convolve(duck, np.ones(4800) / 4800, mode="same")
@@ -304,17 +309,19 @@ def mix(voice, out):
 
 def _job(i): return np.asarray(frame(i / FPS)).tobytes()
 
-def video(out, voice, a=0.0, b=None):
+def video(out, voice, a=0.0, b=None, sfx=False):
     from multiprocessing import Pool
     pc.data(); combo.ascii_setup(); R.layers(); ST.wire(); panel_grid()
     b = DUR if b is None else b
     out = Path(out); out.parent.mkdir(parents=True, exist_ok=True); wav = out.parent / (out.stem + "_mix.wav")
-    mix(voice, wav)
+    mix(voice, wav, sfx)
     n0, n1 = int(round(a * FPS)), int(round(b * FPS))
     cmd = ["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS),
            "-i", "-", "-ss", str(a), "-t", str((n1 - n0) / FPS), "-i", str(wav), "-c:v", "libx264", "-preset", "medium",
-           "-crf", "20", "-pix_fmt", "yuv420p", "-af", "loudnorm=I=-16:TP=-1.5:LRA=9", "-c:a", "aac", "-b:a", "192k",
-           "-ar", "48000", "-shortest", "-movflags", "+faststart", str(out)]
+           "-crf", "17", "-maxrate", "20M", "-bufsize", "40M", "-profile:v", "high", "-level", "4.2", "-g", "60",
+           "-pix_fmt", "yuv420p", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709",
+           "-af", "loudnorm=I=-14:TP=-1:LRA=7", "-c:a", "aac", "-b:a", "256k", "-ar", "48000", "-ac", "2",
+           "-shortest", "-movflags", "+faststart", str(out)]
     p = subprocess.Popen(cmd, stdin=subprocess.PIPE)
     with Pool(4) as pool:
         for k, buf in enumerate(pool.imap(_job, range(n0, n1), chunksize=2)):
