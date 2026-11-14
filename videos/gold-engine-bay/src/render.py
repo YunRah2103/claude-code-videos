@@ -99,8 +99,8 @@ def layers():
             print("ray-tracing plate (once)...", flush=True)
             scene.render(CACHE)
         z = np.load(CACHE)
-        for k in ("base", "gold", "heat"): _L[k] = Image.fromarray(z[k])
-        for k in ("emis", "weave"): _L[k] = Image.fromarray(z[k])
+        for k in ("toon", "toongold", "heat"): _L[k] = Image.fromarray(z[k])
+        for k in ("emis", "weave", "ink"): _L[k] = Image.fromarray(z[k])
         for k in ("warm", "wipe", "diag", "depth"): _L[k] = Image.fromarray(z[k].astype(np.float32), "F")
         _L["part"] = Image.fromarray(z["part"].astype(np.uint8))
         # where each ray lands on the wrap order (to know when the foil covers it)
@@ -123,24 +123,24 @@ def font(size, w="Black"):
         _F[key] = ImageFont.truetype(path, int(size))
     return _F[key]
 
-CYAN = (70, 226, 255); PANEL = (8, 14, 20)
-GOLD = (246, 196, 82); RED = (255, 64, 44); INK = (22, 23, 27); WHITE = (244, 244, 240)
+LIME = (204, 255, 26); PINK = (255, 46, 116); BLUE = (52, 97, 255); OFFW = (233, 230, 222)
+GOLD = (246, 196, 82); RED = (255, 64, 44); INK = (14, 14, 16); WHITE = OFFW; HEATC = (255, 74, 40)
 SAFE_X1, SAFE_Y0, SAFE_Y1 = int(W * 0.85), int(H * 0.12), int(H * 0.62)
 
 def rgba(c, a): return (*c[:3], int(255 * clamp(a)))
+def f3(c): return np.array(c, np.float32) / 255
 
 def chamfer(x0, y0, x1, y1, c):
     return [(x0 + c, y0), (x1, y0), (x1, y1 - c), (x1 - c, y1), (x0, y1), (x0, y0 + c)]
 
-# ---------- cyber look: scan beams, thermal mode, grid, glitch ----------
+# ---------- graphic look: thermal mode, scan beams, wipes ----------
 ENGINE = [scene.P[n] for n in ("crankcase", "cyl banks", "cam covers", "intake trumpets", "exhaust headers", "gearbox", "coil packs")]
-IRON = np.array([[0, 0, 0], [0.12, 0.02, 0.35], [0.55, 0.05, 0.55], [0.92, 0.25, 0.12], [1.0, 0.62, 0.05],
-                 [1.0, 0.92, 0.45], [1.0, 1.0, 0.95]], np.float32)
+THERM = np.array([[0.04, 0.04, 0.08], [0.12, 0.16, 0.62], [0.55, 0.15, 0.85], [1.0, 0.18, 0.45],
+                  [1.0, 0.5, 0.1], [0.85, 1.0, 0.15], [1.0, 1.0, 0.92]], np.float32)
 _UV = (np.linspace(0, 1, H)[:, None] * 0.85 + np.linspace(0, 1, W)[None, :] * 0.15).astype(np.float32)
 
-def iron(v):
-    x = np.clip(v, 0, 1) * (len(IRON) - 1); i = np.minimum(x.astype(int), len(IRON) - 2); f = (x - i)[..., None]
-    return IRON[i] * (1 - f) + IRON[i + 1] * f
+def therm(v):                       # posterised thermal palette (flat bands)
+    return THERM[np.clip((v * (len(THERM) - 0.01)).astype(int), 0, len(THERM) - 1)]
 
 def thermal_beams(t):
     """Scan-line positions (screen u) switching thermal view on at "heat" and off at "gold"."""
@@ -148,33 +148,39 @@ def thermal_beams(t):
 
 def idle_beam(t): return ((t * 4 / DUR + 0.38) % 1) * 1.25 - 0.12
 
-GLITCH = ("reveal", "heat", "carbon", "gold", "question")
-def glitch_amt(t): return max(1 - prog(t, B[b], 0.13) if t >= B[b] else 0 for b in GLITCH)
+WIPES = ("reveal", "carbon", "gold", "grams", "question")
+def wipe_k(t):
+    for b in WIPES:
+        k = prog(t, B[b] - 0.14, 0.36)
+        if 0 < k < 1: return k
+    return None
 
-def glitch(a, t, k):
-    rng = np.random.default_rng(int(t * FPS) + 7)
-    out = a.copy()
-    for _ in range(7):
-        y0 = int(rng.integers(0, H - 80)); h = int(rng.integers(6, 70)); dx = int(rng.integers(-80, 80) * k)
-        out[y0:y0 + h] = np.roll(a[y0:y0 + h], dx, axis=1)
-    sh = int(10 * k)
-    out[..., 0] = np.roll(out[..., 0], sh, axis=1); out[..., 2] = np.roll(out[..., 2], -sh, axis=1)
-    return out
+def draw_wipe(im, k):
+    """Slanted lime slab with an ink stripe crossing the frame (poster-style cut)."""
+    d = ImageDraw.Draw(im)
+    x = -700 + (W + 1100) * io(k)
+    d.polygon([(x, 0), (x + 330, 0), (x + 330 - 260, H), (x - 260, H)], fill=LIME)
+    d.polygon([(x - 70, 0), (x - 20, 0), (x - 280, H), (x - 330, H)], fill=INK)
 
-def words_line(d, x, y, toks, size, t, a, hi_gold=(), spoken=None):
-    """Draw tokens left to right; gold if in hi_gold or currently spoken."""
+def words_line(d, x, y, toks, size, t, a, hi_gold=(), spoken=None, col=INK, chip=LIME):
+    """Tokens left to right. Spoken word sits on a lime chip; hi_gold words on an ink chip in gold."""
     f = font(size)
     for i, tok in enumerate(toks):
-        col = GOLD if (tok.strip("?.,").upper() in hi_gold or (spoken and spoken(i))) else WHITE
-        d.text((x, y), tok, font=f, fill=rgba(col, a))
+        w = f.getlength(tok)
+        c = col
+        if tok.strip("?.,").upper() in hi_gold:
+            d.rectangle((x - 8, y + size * 0.08, x + w + 8, y + size * 1.08), fill=rgba(INK, a)); c = GOLD
+        if spoken and spoken(i):
+            d.rectangle((x - 8, y + size * 0.08, x + w + 8, y + size * 1.08), fill=rgba(chip, a)); c = INK
+        d.text((x, y), tok, font=f, fill=rgba(c, a))
         x += f.getlength(tok + " ")
 
 
 # ---------- overlay pieces ----------
-PILLS = [  # text, dot colour, appear beat, leave beat, screen xy (top-left), 3D anchor
-    ("V12 · 6.1 L", (205, 120, 70), "v12", "gold", (64, 640), (-0.15, 0.64, 0.14)),
-    ("INFRARED HEAT", RED, "heat", "question+-0.35", (64, 420), (0.02, 0.92, -0.3)),
-    ("CARBON FIBRE", (150, 150, 155), "carbon", "question+-0.35", (330, 860), (0.35, 0.72, -0.58)),
+PILLS = [  # text, tab colour, appear beat, leave beat, screen xy (top-left), 3D anchor
+    ("V12 · 6.1 L", LIME, "v12", "gold", (64, 640), (-0.15, 0.64, 0.14)),
+    ("INFRARED HEAT", HEATC, "heat", "question+-0.35", (64, 420), (0.02, 0.92, -0.3)),
+    ("CARBON FIBRE", BLUE, "carbon", "question+-0.35", (330, 860), (0.35, 0.72, -0.58)),
     ("REFLECTED", GOLD, "lined+0.7", "question+-0.35", (420, 530), (-0.5, 0.92, -0.42)),
     ("GOLD FOIL ≈ 16 g", GOLD, "grams", "question+-0.35", (64, 640), (-0.76, 0.62, -0.25)),
 ]
@@ -184,39 +190,43 @@ def beat(spec):
     name, _, off = spec.partition("+")
     return B[name] + (float(off) if off else 0.0)
 
-def draw_pill(d, glow, t, text, dot, x, y, a, s, target, hero=0.0):
-    f = font(PILL_SIZE * s, "MonoExtraBold")
-    h = PILL_H * s; pad = 24 * s; r = 10 * s
-    w = pad * 2 + r * 2 + 16 * s + f.getlength(text)
-    x1, y1 = x + w, y + h
-    edge = dot if dot in (RED, GOLD) else CYAN
-    if target is not None and a > 0:                     # elbow leader + square reticle
+def draw_label(ov, t, idx, text, tab, x, y, a, s, target, hero=0.0):
+    """Numbered label block: coloured index tab, off-white body, ink outline + offset shadow."""
+    f = font(PILL_SIZE * s, "MonoExtraBold"); fi = font(PILL_SIZE * s, "MonoExtraBold")
+    h = PILL_H * s; tw = 92 * s; pad = 20 * s; sh = 8
+    w = tw + pad + f.getlength(text) + pad * 1.2
+    reveal = io(clamp(a * 1.5))
+    d = ImageDraw.Draw(ov)
+    if target is not None and reveal > 0.3:              # elbow leader: ink with off-white core
         tx, ty = target
-        right = tx > (x + x1) / 2
-        sx, sy = (x1 if right else x), y + h / 2
-        ex = sx + (36 if right else -36)
-        k = oc(clamp(a * 1.4 - 0.2))
+        right = tx > x + w / 2
+        sx, sy = (x + w if right else x), y + h / 2
+        ex = sx + (40 if right else -40)
+        k = oc(prog(reveal, 0.3, 0.7) if reveal < 1 else 1)
         pts = [(sx, sy), (ex, sy), (ex + (tx - ex) * k, sy + (ty - sy) * k)]
-        d.line(pts, fill=rgba(edge, 0.85 * a), width=3, joint="curve")
+        d.line(pts, fill=rgba(INK, a), width=10, joint="curve")
+        d.line(pts, fill=rgba(OFFW, a), width=4, joint="curve")
         if k > 0.95:
-            q = 13 + 4 * (0.5 + 0.5 * math.sin(t * LOOP * 8)); c = 7
-            for ax, ay in ((-1, -1), (1, -1), (1, 1), (-1, 1)):
-                cx_, cy_ = tx + ax * q, ty + ay * q
-                d.line([(cx_ - ax * c, cy_), (cx_, cy_), (cx_, cy_ - ay * c)], fill=rgba(edge, a), width=3)
-            d.rectangle((tx - 3, ty - 3, tx + 3, ty + 3), fill=rgba(WHITE, a))
-    if hero > 0:
-        glow.polygon(chamfer(x - 10, y - 10, x1 + 10, y1 + 10, 22 * s), fill=rgba(GOLD, 0.85 * hero * a))
-    fill = tuple(int(v) for v in np.array(PANEL) * (1 - hero) + np.array((70, 52, 12)) * hero)
-    d.polygon(chamfer(x, y, x1, y1, 18 * s), fill=rgba(fill, 0.86 * a), outline=rgba(edge, a), width=3)
-    cy = y + h / 2
-    d.rectangle((x + pad, cy - r, x + pad + 2 * r, cy + r), fill=rgba(edge, a))
-    n = int(round(len(text) * clamp(a * 1.6 - 0.1)))          # typewriter reveal
-    tx0 = x + pad + 2 * r + 16 * s
-    d.text((tx0, cy), text[:n], font=f, fill=rgba(WHITE, a), anchor="lm")
+            q = 13 + 3 * math.sin(t * LOOP * 8)
+            d.rectangle((tx - q, ty - q, tx + q, ty + q), fill=rgba(INK, a))
+            d.rectangle((tx - q + 5, ty - q + 5, tx + q - 5, ty + q - 5), fill=rgba(tab, a))
+    tile = Image.new("RGBA", (int(w) + sh + 2, int(h) + sh + 2), (0, 0, 0, 0)); g = ImageDraw.Draw(tile)
+    g.rectangle((sh, sh, w + sh, h + sh), fill=INK)
+    body = tuple(int(v) for v in np.array(OFFW) * (1 - hero) + np.array(GOLD) * hero)
+    g.rectangle((0, 0, w, h), fill=body, outline=INK, width=3)
+    g.rectangle((0, 0, tw, h), fill=tab, outline=INK, width=3)
+    g.text((tw / 2, h / 2), f"{idx:02d}", font=fi, fill=INK, anchor="mm")
+    n = int(round(len(text) * clamp(a * 1.6 - 0.2)))
+    g.text((tw + pad, h / 2), text[:n], font=f, fill=INK, anchor="lm")
     if n < len(text):
         cw = f.getlength(text[:n])
-        d.rectangle((tx0 + cw + 2, cy - h * 0.28, tx0 + cw + 2 + 0.55 * PILL_SIZE * s, cy + h * 0.28), fill=rgba(edge, a))
-    return x1
+        g.rectangle((tw + pad + cw + 3, h * 0.22, tw + pad + cw + 3 + 0.55 * PILL_SIZE * s, h * 0.78), fill=INK)
+    cw = max(1, int(tile.width * reveal))
+    tile = tile.crop((0, 0, cw, tile.height))
+    if a < 1:
+        tile.putalpha(tile.getchannel("A").point(lambda v: int(v * a)))
+    ov.alpha_composite(tile, (int(x), int(y)))
+    return x + w + sh
 
 def wave(d, p0, p1, t, col, width, a, amp=11, lam=46, speed=1.0, frac=1.0):
     x0, y0 = p0; x1, y1 = p1
@@ -240,132 +250,119 @@ def reflect(src, hit, nrm, length=0.42):
     r = d - 2 * (d @ nrm) * nrm
     return hit + r * length
 
-def particles(d, t, box):
+def particles(d, t):
+    """Flat graphic debris: pink/lime squares and ink plus-marks drifting up."""
     rng = np.random.default_rng(4)
-    for i in range(46):
+    for i in range(34):
         x0, y0 = rng.random() * W, rng.random() * H
         cyc = rng.integers(1, 3); ph = rng.random() * 6.28
         y = (y0 - H * cyc * t / DUR) % H
-        x = x0 + 26 * math.sin(t * LOOP * rng.integers(2, 5) + ph)
-        ember = i < 22
-        r = 2 + 3 * rng.random() if ember else 1.5 + 2 * rng.random()
-        tw = 0.5 + 0.5 * math.sin(t * LOOP * rng.integers(5, 12) + ph)
-        col = (255, 120 + int(60 * rng.random()), 50) if ember else CYAN
-        a = (0.35 + 0.5 * tw) * (0.9 if ember else 0.35)
-        d.ellipse((x - r, y - r, x + r, y + r), fill=rgba(col, a))
-    for i in range(5):                                          # out-of-focus foreground bokeh
-        x = (rng.random() * W + 40 * math.sin(t * LOOP + i)) % W
-        y = (rng.random() * H - H * t / DUR) % H
-        r = 26 + 30 * rng.random()
-        d.ellipse((x - r, y - r, x + r, y + r), fill=rgba((255, 150, 80), 0.07))
+        x = x0 + 22 * math.sin(t * LOOP * rng.integers(2, 5) + ph)
+        r = 3 + 4 * rng.random()
+        kind = i % 3
+        if kind == 0:
+            d.rectangle((x - r, y - r, x + r, y + r), fill=rgba(PINK, 0.9))
+        elif kind == 1:
+            d.rectangle((x - r, y - r, x + r, y + r), fill=rgba(LIME, 0.9))
+        else:
+            d.line((x - 8, y, x + 8, y), fill=rgba(OFFW, 0.8), width=3); d.line((x, y - 8, x, y + 8), fill=rgba(OFFW, 0.8), width=3)
 
 
 # ---------- frame ----------
 def frame(t, info=None):
     t = clamp(t, 0, DUR - 1e-6)
     box, focus = cam(t)
-    base, gold = crop("base", box), crop("gold", box)
-    lum0 = base @ np.array([0.3, 0.59, 0.11], np.float32)
-    base = base * 0.55 + lum0[..., None] * np.array([0.74, 0.9, 1.08], np.float32) * 0.4   # cool steel grade
+    base, gold = crop("toon", box), crop("toongold", box)
+    gold = np.clip(gold * np.array([1.0, 1.1, 1.3], np.float32), 0, 1)     # cleaner yellow-gold
     part = np.asarray(layers()["part"].resize((W, H), Image.NEAREST, box=box))
     wipe = crop("wipe", box, Image.BILINEAR)
     fp = foil_p(t)
-    fm = np.clip((fp - wipe) / 0.012, 0, 1)[..., None]
+    fm = np.clip((fp - wipe) / 0.006, 0, 1)[..., None]
     img = base * (1 - fm) + gold * fm
-    edge = np.exp(-((wipe - fp) / 0.010) ** 2) * (wipe < 5) * (0 < fp < 1.07)
-    img += edge[..., None] * np.array([1.0, 0.78, 0.42]) * 0.9
+    edge = (np.abs(wipe - fp) < 0.008) & (wipe < 5) & (0 < fp < 1.07)
+    img[edge] = f3((255, 248, 210))
     sweep = io(prog(t, B["grams"], 1.4)) * (1 - prog(t, B["question"], 0.3))
     if 0 < sweep < 1:
         diag = crop("diag", box, Image.BILINEAR)
-        img += (np.exp(-((diag - (-1.0 + 2.2 * sweep)) / 0.03) ** 2)[..., None] * fm * np.array([1.0, 0.85, 0.55]) * 0.3)
+        band = (np.abs(diag - (-1.0 + 2.2 * sweep)) < 0.025)[..., None] * (fm > 0.5)
+        img = np.where(band, f3((255, 250, 225)), img)
     hi = heat_i(t)
-    img += crop("heat", box) * (0.38 * hi)
+    img += crop("heat", box) * (0.3 * hi) * np.array([1.0, 0.4, 0.6], np.float32)
     e = crop("emis", box) * hi
-    img += 0.8 * (e[..., None] * np.array([0.95, 0.13, 0.03]) + (e ** 3)[..., None] * np.array([1.0, 0.55, 0.12]))
+    for thr, c in ((0.15, (230, 30, 70)), (0.45, HEATC), (0.75, (255, 170, 60)), (0.95, (255, 245, 200))):
+        img[e > thr] = f3(c)
     warm = crop("warm", box, Image.BILINEAR)
     wv = crop("weave", box)
-    wr = warm_r(t)
-    wm = np.clip((wr - warm) / 0.10, 0, 1) * (0.75 + 0.25 * math.sin(t * LOOP * 9))
-    img += (wm * (0.35 + 0.9 * wv))[..., None] * (1 - fm) * np.array([0.85, 0.12, 0.04]) * 0.5
-    # thermal camera view, wiped in/out by scan beams
+    wm = np.clip((warm_r(t) - warm) / 0.10, 0, 1) * (0.8 + 0.2 * math.sin(t * LOOP * 9)) * (1 - fm[..., 0])
+    for thr, c in ((0.05, (110, 20, 50)), (0.4, (220, 30, 80)), (0.75, HEATC)):
+        sel = wm > thr
+        img[sel] = f3(c) * (0.7 + 0.5 * wv[sel])[:, None]
+    # thermal camera view, wiped in/out by scan beams (posterised bands)
     bon, boff = thermal_beams(t)
-    tmask = (np.clip((bon - _UV) / 0.02, 0, 1) * np.clip((_UV - boff) / 0.02, 0, 1))[..., None]
+    tmask = (np.clip((bon - _UV) / 0.004, 0, 1) * np.clip((_UV - boff) / 0.004, 0, 1))[..., None]
     if tmask.max() > 0:
         eng = np.isin(part, ENGINE)
+        lum0 = base @ np.array([0.3, 0.59, 0.11], np.float32)
         tv = (0.06 + 0.10 * lum0 + 0.24 * eng + 0.45 * e + 0.22 * (crop("heat", box) @ np.array([1, 0, 0], np.float32)) * hi
-              + 0.38 * wm * (0.6 + 0.4 * wv) * (1 - fm[..., 0]) - 0.05 * fm[..., 0])
-        img = img * (1 - tmask) + iron(tv) * 0.95 * tmask
-    # holographic floor grid (masked to floor pixels)
+              + 0.38 * wm * (0.6 + 0.4 * wv) - 0.05 * fm[..., 0])
+        img = img * (1 - tmask) + therm(tv) * tmask
+    # technical floor grid (ink, masked to floor pixels)
     gi = Image.new("L", (W, H), 0); gd = ImageDraw.Draw(gi)
     for x in np.arange(-1.5, 1.8, 0.25):
         gd.line([to_screen(box, (x, 0.001, -0.58)), to_screen(box, (x, 0.001, 1.3))], fill=255, width=2)
     for z in np.arange(-0.5, 1.3, 0.25):
         gd.line([to_screen(box, (-1.6, 0.001, z)), to_screen(box, (1.8, 0.001, z))], fill=255, width=2)
-    grid = np.asarray(gi, np.float32) / 255 * (part == scene.P["floor"])
-    img += grid[..., None] * np.array(CYAN, np.float32) / 255 * (0.22 + 0.08 * math.sin(t * LOOP * 6))
-    # wireframe edges: always faint, bright in the trail of the scan beams
-    dpt = crop("depth", box, Image.BILINEAR)
-    ed = np.zeros((H, W), np.float32)
-    ed[1:] = np.maximum(ed[1:], (part[1:] != part[:-1]) | (np.abs(dpt[1:] - dpt[:-1]) > 0.06))
-    ed[:, 1:] = np.maximum(ed[:, 1:], (part[:, 1:] != part[:, :-1]) | (np.abs(dpt[:, 1:] - dpt[:, :-1]) > 0.06))
-    ed *= dpt < 30
+    grid = np.asarray(gi, np.float32) / 255 * (part == scene.P["floor"]) * (1 - tmask[..., 0])
+    img *= (1 - 0.22 * grid)[..., None]
+    # ink outlines; lime where a scan beam just passed
+    ink = crop("ink", box, Image.BILINEAR)[..., None]
     bi = idle_beam(t)
-    trail = np.exp(-np.clip(bi - _UV, 0, None) / 0.07) * (_UV < bi)
+    trail = np.exp(-np.clip(bi - _UV, 0, None) / 0.06) * (_UV < bi)
     for b in (bon, boff):
-        if -0.1 < b < 1.1: trail = np.maximum(trail, np.exp(-np.abs(b - _UV) / 0.06))
-    estr = 0.10 + 0.85 * trail + 0.3 * tmask[..., 0]
-    img += (ed * estr)[..., None] * np.array(CYAN, np.float32) / 255
-    for b, k in ((bi, 0.35), (bon, 1.0), (boff, 1.0)):                  # the beams themselves
+        if -0.1 < b < 1.1: trail = np.maximum(trail, np.exp(-np.abs(b - _UV) / 0.05))
+    inkc = f3(INK) * (1 - trail[..., None]) + f3(LIME) * trail[..., None]
+    img = img * (1 - ink) + inkc * ink
+    for b, wdt in ((bi, 0.0022), (bon, 0.0035), (boff, 0.0035)):    # beams: lime line, ink edges
         if -0.1 < b < 1.1:
-            img += (np.exp(-((b - _UV) / 0.004) ** 2) * k)[..., None] * np.array([0.5, 0.95, 1.1], np.float32)
-            img += (np.exp(-((b - _UV) / 0.03) ** 2) * 0.12 * k)[..., None] * np.array(CYAN, np.float32) / 255
+            dd = np.abs(b - _UV)[..., None]
+            img = np.where(dd < wdt, f3(LIME), np.where(dd < wdt + 0.0012, f3(INK), img))
     img *= 1 - dim(t)
     # depth of field (focus follows the camera target)
-    depth = dpt
-    coc = np.clip(np.abs(depth - focus) / 1.1 - 0.08, 0, 1)[..., None]
+    depth = crop("depth", box, Image.BILINEAR)
+    coc = np.clip(np.abs(depth - focus) / 1.4 - 0.1, 0, 1)[..., None]
     small = Image.fromarray(np.uint8(np.clip(img, 0, 1) * 255)).resize((W // 2, H // 2), Image.BILINEAR)
-    bl = np.asarray(small.filter(ImageFilter.GaussianBlur(7)).resize((W, H), Image.BILINEAR), np.float32) / 255
+    bl = np.asarray(small.filter(ImageFilter.GaussianBlur(5)).resize((W, H), Image.BILINEAR), np.float32) / 255
     img = img * (1 - coc) + bl * coc
-    # overlays: heat rays + their glow
+    # heat rays: flat strokes with ink outline
     ov = Image.new("RGBA", (W, H), (0, 0, 0, 0)); d = ImageDraw.Draw(ov)
-    gl = Image.new("RGBA", (W, H), (0, 0, 0, 0)); g = ImageDraw.Draw(gl)
     ra = 1.0 - 0.6 * dim(t) / 0.42
     hw = layers()["hitwipe"]
     n_ref = 0
     for si, hi_ in RAYS:
         src, hit = scene.HOT[si], scene.HITS[hi_]
         p0, p1 = to_screen(box, src), to_screen(box, hit)
-        wave(g, p0, p1, t, RED, 16, 0.55 * ra); wave(d, p0, p1, t, (255, 90, 60), 5, 0.95 * ra)
+        wave(d, p0, p1, t, INK, 9, ra); wave(d, p0, p1, t, HEATC, 5, ra)
         covered = clamp((fp - hw[hi_]) / 0.05)
         if covered > 0:
             n_ref += 1
             nrm = np.array([1.0, 0, 0]) if abs(hit[0] + 0.76) < 0.01 else np.array([0, 0, 1.0])
             p2 = to_screen(box, reflect(src, hit, nrm))
-            wave(g, p1, p2, t, GOLD, 16, 0.5 * covered * ra, speed=1.0, frac=covered)
-            wave(d, p1, p2, t, (255, 214, 120), 5, 0.95 * covered * ra, frac=covered)
-            fl = 1 - prog(t, B["gold"] + (hw[hi_]) * (B["lined"] + 1.1 - B["gold"]), 0.5)
+            wave(d, p1, p2, t, INK, 9, covered * ra, frac=covered)
+            wave(d, p1, p2, t, GOLD, 5, covered * ra, frac=covered)
+            fl = 1 - prog(t, B["gold"] + hw[hi_] * (B["lined"] + 1.1 - B["gold"]), 0.5)
             if 0 < fl < 1:
-                r = 30 * (1 - fl) + 10
-                g.ellipse((p1[0] - r, p1[1] - r, p1[0] + r, p1[1] + r), fill=rgba(GOLD, fl))
-    particles(d, t, box)
-    glb = np.asarray(gl.filter(ImageFilter.GaussianBlur(9)), np.float32) / 255
-    img += glb[..., :3] * glb[..., 3:] * 1.4
+                r = 40 * (1 - fl) + 8
+                d.ellipse((p1[0] - r, p1[1] - r, p1[0] + r, p1[1] + r), outline=rgba(GOLD, fl), width=6)
+    particles(d, t)
     o = np.asarray(ov, np.float32) / 255
     img = img * (1 - o[..., 3:]) + o[..., :3] * o[..., 3:]
-    # bloom
-    sm = Image.fromarray(np.uint8(np.clip(img - 0.7, 0, 1) * 255)).resize((W // 4, H // 4), Image.BILINEAR)
-    b1 = np.asarray(sm.filter(ImageFilter.GaussianBlur(5)).resize((W, H), Image.BILINEAR), np.float32) / 255
-    b2 = np.asarray(sm.filter(ImageFilter.GaussianBlur(16)).resize((W, H), Image.BILINEAR), np.float32) / 255
-    img += b1 * 0.55 + b2 * 0.7
-    yy = np.linspace(-1, 1, H)[:, None]; xx = np.linspace(-1, 1, W)[None, :]
-    img *= (1 - 0.35 * np.clip(xx ** 2 * 0.6 + yy ** 2 * 0.5, 0, 1))[..., None]
-    img *= (0.955 + 0.045 * ((np.arange(H) // 2) % 2))[:, None, None]       # scanlines
+    # glow only from the hottest parts
+    sm = Image.fromarray(np.uint8(np.clip(img - 0.85, 0, 1) * 255)).resize((W // 4, H // 4), Image.BILINEAR)
+    img += np.asarray(sm.filter(ImageFilter.GaussianBlur(8)).resize((W, H), Image.BILINEAR), np.float32) / 255 * 0.6
     im = Image.fromarray(np.uint8(np.clip(img, 0, 1) * 255))
+    k = wipe_k(t)
+    if k is not None: draw_wipe(im, k)
     els = hud(im, t, box)
-    a = np.asarray(im).copy()
-    a[..., 0] = np.roll(a[..., 0], 2, axis=1); a[..., 2] = np.roll(a[..., 2], -2, axis=1)   # chromatic fringe
-    gk = glitch_amt(t)
-    im = Image.fromarray(glitch(a, t, gk) if gk > 0 else a)
     if info is not None:
         ids, cnt = np.unique(part, return_counts=True)
         info["parts"] = [scene.PARTS[i] for i, c in zip(ids, cnt) if i and c > W * H * 0.002]
@@ -374,92 +371,98 @@ def frame(t, info=None):
 
 
 def hud(im, t, box):
-    """Text, pills, poll, tags. Returns the names of visible overlay elements."""
+    """Graphic layout: slabs, numbered labels, poll blocks, frame furniture. Returns visible element names."""
     ov = Image.new("RGBA", (W, H), (0, 0, 0, 0)); d = ImageDraw.Draw(ov)
-    gl = Image.new("RGBA", (W, H), (0, 0, 0, 0)); g = ImageDraw.Draw(gl)
     els = []
-    # headline (cold open + loop back)
-    ha = max(1 - prog(t, B["reveal"] - 0.25, 0.25), prog(t, (B["outro"] + B["end"]) / 2, (B["end"] - B["outro"]) / 2 - 0.08) if t >= B["outro"] else 0)
-    if t < 0.0001 or ha > 0:
-        ha = 1.0 if t < B["reveal"] - 0.25 else ha
-        sc = Image.new("L", (W, H), 0)
-        ImageDraw.Draw(sc).rectangle((0, 180, W, 700), fill=int(150 * ha))
-        im.paste(Image.new("RGB", (W, H), (8, 8, 10)), mask=sc.filter(ImageFilter.GaussianBlur(70)))
-        d.text((64, 238), "McLAREN F1 // ENGINE BAY", font=font(58, "MonoExtraBold"), fill=rgba(CYAN, ha))
+    # frame furniture (decoration only, outside the safe text area)
+    off = (t / DUR * round(DUR * 0.8) * 56) % 56
+    d.rectangle((W - 62, 340, W - 30, 1500), fill=rgba(INK, 0.95))
+    for k_ in range(-2, 24):
+        y_ = 340 + k_ * 56 + off
+        d.polygon([(W - 58, y_), (W - 34, y_ - 24), (W - 34, y_ - 4), (W - 58, y_ + 20)], fill=rgba(LIME, 1))
+    d.rectangle((W - 62, 300, W - 30, 340), fill=rgba(INK, 1)); d.rectangle((W - 62, 1500, W - 30, 1540), fill=rgba(INK, 1))
+    rng = np.random.default_rng(11)
+    d.rectangle((52, 1770, 330, 1846), fill=rgba(OFFW, 0.95), outline=rgba(INK, 1), width=3)
+    x_ = 64
+    while x_ < 318:
+        bw = int(rng.integers(2, 8)); d.rectangle((x_, 1782, x_ + bw, 1834), fill=rgba(INK, 1)); x_ += bw + int(rng.integers(3, 8))
+    for cx_, cy_ in ((W - 70, 1808), (W - 70, 120)):
+        d.ellipse((cx_ - 18, cy_ - 18, cx_ + 18, cy_ + 18), outline=rgba(INK, 1), width=4)
+        d.line((cx_ - 30, cy_, cx_ + 30, cy_), fill=rgba(INK, 1), width=4); d.line((cx_, cy_ - 30, cx_, cy_ + 30), fill=rgba(INK, 1), width=4)
+        d.ellipse((cx_ - 18, cy_ - 18, cx_ + 18, cy_ + 18), outline=rgba(OFFW, 1), width=1)
+    # headline: ink kicker strip + lime slab, slides out on "Not", back in for the loop
+    kout = io(prog(t, B["reveal"] - 0.14, 0.3))
+    kin = io(prog(t, (B["outro"] + B["end"]) / 2, (B["end"] - B["outro"]) / 2 - 0.08))
+    xo = -W * (1 - kin) if t >= B["outro"] else -W * kout
+    if xo > -W + 1:
+        fk = font(58, "MonoExtraBold")
+        d.rectangle((48 + xo, 228, 888 + xo, 300), fill=rgba(INK, 1))
+        d.text((70 + xo, 264), "McLAREN F1 / ENGINE BAY", font=fk, fill=rgba(LIME, 1), anchor="lm")
+        d.rectangle((58 + xo, 310, 898 + xo, 660), fill=rgba(INK, 1))                         # offset shadow
+        d.polygon(chamfer(48 + xo, 300, 888 + xo, 650, 0)[:2] + [(888 + xo, 610), (848 + xo, 650), (48 + xo, 650)], fill=rgba(LIME, 1))
         for i, line in enumerate(("WHY IS THERE", "GOLD IN THIS", "ENGINE?")):
-            words_line(d, 64, 318 + i * 112, line.split(), 104, t, ha, hi_gold=("GOLD",))
+            words_line(d, 76 + xo, 312 + i * 110, line.split(), 100, t, 1.0, hi_gold=("GOLD",))
+        bx = 700 + xo
+        for j in range(16):
+            bw = 3 + (j * 7) % 6
+            d.rectangle((bx, 560, bx + bw, 620), fill=rgba(INK, 1)); bx += bw + 5
+        for j in range(3):
+            tx_ = 790 + xo + j * 30
+            d.polygon([(tx_, 345), (tx_ + 22, 345), (tx_ + 11, 326)], fill=rgba(INK, 1))
         els += ["kicker", "headline"]
-    # callout pills
-    for text, dot, a0, a1, xy, anchor in PILLS:
+    # numbered callout labels
+    for idx, (text, tab, a0, a1, xy, anchor) in enumerate(PILLS, 1):
         t0, t1 = beat(a0), beat(a1)
         if not (t0 <= t < t1 + 0.3): continue
         a = min(prog(t, t0, 0.35), 1 - prog(t, t1, 0.3))
-        s = 0.55 + 0.45 * ob(prog(t, t0, 0.4))
-        hero = 0.0
+        s, hero = 1.0, 0.0
         if text.startswith("GOLD FOIL"):
-            hero = 1 - io(prog(t, t0 + 1.0, 0.6))
-            s *= 1 + 0.18 * hero
-        x1 = draw_pill(d, g, t, text, dot, xy[0], xy[1], a, s, to_screen(box, np.array(anchor)), hero)
+            hero = 1 - io(prog(t, t0 + 1.0, 0.6)); s = 1 + 0.15 * hero
+        x1 = draw_label(ov, t, idx, text, tab, xy[0], xy[1], a, s, to_screen(box, np.array(anchor)), hero)
         assert x1 <= SAFE_X1 + 1 and SAFE_Y0 <= xy[1] and xy[1] + PILL_H * s <= SAFE_Y1 + 1, text
-        els.append("pill:" + text)
-    # spoken captions (sentences 2-4; the headline and poll carry the others)
+        els.append("label:" + text)
+    d = ImageDraw.Draw(ov)
+    # spoken captions: ink slab, current word on a lime chip
     cap = caption(t)
     if cap:
         toks, cur, a = cap
         f = font(64)
         wsum = sum(f.getlength(x + " ") for x in toks) - f.getlength(" ")
-        x, y = 64, 1082
-        d.polygon(chamfer(x - 26, y - 16, x + wsum + 22, y + 92, 18), fill=rgba(PANEL, 0.84 * a), outline=rgba(CYAN, 0.55 * a), width=2)
-        d.rectangle((x - 26, y - 16, x - 18, y + 92 - 18), fill=rgba(CYAN, a))
-        words_line(d, x, y, toks, 64, t, a, spoken=lambda i: i == cur)
+        x, y = 70, 1082
+        d.rectangle((x - 22 + 8, y - 16 + 8, x + wsum + 24 + 8, y + 92 + 8), fill=rgba(LIME, a))
+        d.rectangle((x - 22, y - 16, x + wsum + 24, y + 92), fill=rgba(INK, a))
+        words_line(d, x, y, toks, 64, t, a, spoken=lambda i: i == cur, col=OFFW)
         els.append("caption")
     # poll
     a = min(prog(t, B["question"], 0.3), 1 - prog(t, B["outro"], (B["end"] - B["outro"]) / 2))
     if a > 0.01:
         qi = [i for i, w in enumerate(WORDS) if w["w"].lower() == "would"][0]
-        lines = ("WOULD YOU LINE", "YOUR CAR", "WITH GOLD?")
+        k = io(prog(t, B["question"] - 0.1, 0.35)); xs = W * (1 - k)
+        d.rectangle((58 + xs, 310, 898 + xs, 660), fill=rgba(INK, a))
+        d.rectangle((48 + xs, 300, 888 + xs, 650), fill=rgba(OFFW, a), outline=rgba(INK, a), width=4)
         n = 0
-        for li, line in enumerate(lines):
+        for li, line in enumerate(("WOULD YOU LINE", "YOUR CAR", "WITH GOLD?")):
             toks = line.split()
-            k = oc(prog(t, B["question"] + 0.08 * li, 0.35))
             spoken = (lambda base: (lambda i: WORDS[qi + base + i]["s"] <= t < WORDS[qi + base + i]["e"] + 0.1))(n)
-            words_line(d, 64, 330 + li * 112 + 30 * (1 - k), toks, 104, t, a * k, hi_gold=("GOLD?",), spoken=spoken)
+            words_line(d, 76 + xs, 318 + li * 108, toks, 90, t, a, hi_gold=("GOLD",), spoken=spoken)
             n += len(toks)
         for j, (lab, x0) in enumerate((("YES", 64), ("NO", 512))):
-            k = ob(prog(t, B["question"] + 0.5 + 0.12 * j, 0.45))
-            yy0 = 720 + 40 * (1 - k)
+            kb = ob(prog(t, B["question"] + 0.4 + 0.12 * j, 0.45))
+            yy0 = 720 + 60 * (1 - kb)
             wi = WORDS[qi + 7 + 2 * j]
             on = wi["s"] - 0.05 <= t < wi["e"] + 0.35
-            pulse = 0.5 + 0.5 * math.sin(t * LOOP * 10)
-            col = GOLD if j == 0 else CYAN
-            fill = (40, 32, 14) if j == 0 else PANEL
-            if on:
-                g.polygon(chamfer(x0 - 12, yy0 - 12, x0 + 418, yy0 + 192, 40), fill=rgba(col, 0.8 * a))
-            d.polygon(chamfer(x0, yy0, x0 + 406, yy0 + 180, 32), fill=rgba(fill, 0.9 * a * k),
-                      outline=rgba(col, a * k), width=4 + int(3 * pulse * on))
-            d.text((x0 + 203, yy0 + 90), lab, font=font(84), fill=rgba(col if not on else WHITE, a * k), anchor="mm")
+            sh = 16 if on else 10
+            d.rectangle((x0 + sh, yy0 + sh, x0 + 406 + sh - 16, yy0 + 180 + sh - 16), fill=rgba(PINK if on else INK, a * kb))
+            d.rectangle((x0, yy0, x0 + 390, yy0 + 164), fill=rgba(LIME if j == 0 else OFFW, a * kb), outline=rgba(INK, a * kb), width=5)
+            d.text((x0 + 195, yy0 + 82), lab, font=font(96), fill=rgba(INK, a * kb), anchor="mm")
         els += ["poll question", "poll YES", "poll NO"]
-    # HUD chrome: corner brackets, edge ruler, tiny status line (decoration only)
-    for cx_, cy_, sx_, sy_ in ((26, 26, 1, 1), (W - 26, 26, -1, 1), (26, H - 26, 1, -1), (W - 26, H - 26, -1, -1)):
-        d.line([(cx_, cy_ + 70 * sy_), (cx_, cy_), (cx_ + 70 * sx_, cy_)], fill=rgba(CYAN, 0.55), width=3)
-    for y_ in range(300, 1640, 40):
-        L_ = 20 if y_ % 200 == 100 else 9
-        d.line([(W - 40 - L_, y_), (W - 40, y_)], fill=rgba(CYAN, 0.35), width=2)
-    yb = 300 + 1340 * clamp(idle_beam(t))
-    d.polygon([(W - 66, yb), (W - 84, yb - 9), (W - 84, yb + 9)], fill=rgba(CYAN, 0.8))
-    bon, boff = thermal_beams(t)
-    mode = "THERMAL" if bon > 0.5 and boff < 0.5 else "VISIBLE"
-    blink = (int(t * 2) % 2 == 0)
-    d.text((130, 56), ("● " if blink else "  ") + f"REC  MODE:{mode}", font=font(24, "MonoBold"), fill=rgba(CYAN, 0.75))
-    # corner tags (tiny, outside the safe text area)
-    d.text((40, 52), "Yub", font=font(34, "ExtraBold"), fill=rgba(WHITE, 0.75))
+    # corner tags (tiny)
+    d.rectangle((36, 40, 112, 82), fill=rgba(INK, 0.9)); d.text((74, 61), "Yub", font=font(30, "ExtraBold"), fill=rgba(LIME, 1), anchor="mm")
     if PREVIEW:
-        tf = font(24, "Bold"); tw = tf.getlength("PREVIEW")
-        d.rounded_rectangle((W - 52 - tw, 50, W - 32, 86), radius=8, outline=rgba(RED, 0.85), width=2)
-        d.text((W - 42 - tw, 68), "PREVIEW", font=tf, fill=rgba(RED, 0.85), anchor="lm")
-    glb = gl.filter(ImageFilter.GaussianBlur(14))
-    base = im.convert("RGBA")
-    base.alpha_composite(glb); base.alpha_composite(ov)
+        tf = font(24, "MonoBold"); tw = tf.getlength("PREVIEW")
+        d.rectangle((W - 52 - tw, 44, W - 32, 80), fill=rgba(PINK, 0.95))
+        d.text((W - 42 - tw, 62), "PREVIEW", font=tf, fill=rgba(INK, 1), anchor="lm")
+    base = im.convert("RGBA"); base.alpha_composite(ov)
     im.paste(base.convert("RGB"))
     return els + ["tag Yub"] + (["tag PREVIEW"] if PREVIEW else [])
 

@@ -343,6 +343,66 @@ def shade(Pp, N, D, mat, part, top, shadow, ao, gold=False):
     return col.astype(F32), weave
 
 
+# ---------- graphic (cel) look ----------
+OFF = (0.91, 0.90, 0.87); INKC = (0.055, 0.055, 0.06)
+LIME = (0.80, 1.0, 0.10); BLUE = (0.20, 0.38, 1.0)
+TOON = {  # light, mid, shadow bands
+    FLOOR: ((0.74, 0.74, 0.71), (0.62, 0.62, 0.60), (0.47, 0.47, 0.46)),
+    CARBON: ((0.17, 0.17, 0.18), (0.115, 0.115, 0.125), (0.07, 0.07, 0.08)),
+    CUT: (LIME, (0.66, 0.86, 0.06), (0.45, 0.6, 0.03)),
+    ALLOY: ((0.64, 0.66, 0.68), (0.48, 0.50, 0.53), (0.31, 0.32, 0.35)),
+    COPPER: ((0.84, 1.0, 0.22), (0.64, 0.86, 0.06), (0.38, 0.55, 0.02)),
+    CHROME: ((0.80, 0.81, 0.83), (0.52, 0.53, 0.56), (0.26, 0.26, 0.28)),
+    HEADER: ((0.36, 0.34, 0.34), (0.25, 0.23, 0.23), (0.15, 0.14, 0.14)),
+    RUBBER: ((0.13, 0.13, 0.14), (0.09, 0.09, 0.10), (0.06, 0.06, 0.065)),
+    RIM: ((0.56, 0.57, 0.59), (0.41, 0.42, 0.44), (0.27, 0.28, 0.30)),
+    FUEL: ((0.34, 0.52, 1.0), (0.20, 0.36, 0.92), (0.11, 0.20, 0.62)),
+    DARK: ((0.95, 0.95, 0.92), (0.80, 0.80, 0.78), (0.58, 0.58, 0.57)),
+}
+GOLD_T = ((1.0, 0.84, 0.26), (0.90, 0.63, 0.12), (0.63, 0.40, 0.06))
+
+def toon(Pp, N, D, mat, part, top, shadow, ao, pix, gold=False):
+    """Flat 3-band cel shading + hard specular + halftone dots in the shadow band."""
+    n = len(mat); col = np.zeros((n, 3), F32)
+    m = mat.copy()
+    walls = mat == CARBON
+    m[walls & (np.abs(N[:, 1]) > 0.9)] = CUT
+    face = walls & (m != CUT)
+    Nn = N.copy()
+    if gold and face.any():
+        u, v, _ = wall_uv(Pp[face], N[face]); e = 0.004
+        h0 = foil_height(u, v)
+        du = (foil_height(u + e, v) - h0) / e; dv = (foil_height(u, v + e) - h0) / e
+        side = np.abs(N[face, 0]) > 0.7
+        tu = np.where(side[:, None], np.array([0, 0, 1.0]), np.array([1.0, 0, 0]))
+        Nn[face] = nrm(N[face] - 0.007 * (du[:, None] * tu + dv[:, None] * np.array([0, 1.0, 0])))
+    L = np.clip(dot(Nn, KEY), 0, 1) * shadow * 0.85 + 0.25 * np.clip(dot(Nn, FILL), 0, 1) + 0.12 * ao
+    band = np.where(L > 0.58, 0, np.where(L > 0.26, 1, 2))
+    for k, tones in TOON.items():
+        sel = m == k
+        if gold and k == CARBON: sel = sel & ~face
+        for b in range(3):
+            col[sel & (band == b)] = tones[b]
+    if gold:
+        for b in range(3): col[face & (band == b)] = GOLD_T[b]
+    if face.any() and not gold:                                  # twill: alternate tows lighter
+        u, v, _ = wall_uv(Pp[face], N[face]); horiz, cross = carbon_tex(u, v)
+        col[face] *= np.where(horiz, 1.35, 0.85)[:, None] * (0.85 + 0.3 * np.sin(cross * np.pi))[:, None]
+    col[(mat == CHROME) & top] = INKC
+    H1 = nrm(KEY - D)
+    sp = np.clip(dot(Nn, H1), 0, 1) ** np.where(face & gold, 60, 90) * shadow
+    shiny = np.isin(m, (ALLOY, COPPER, CHROME, RIM, FUEL, HEADER)) | (face & gold)
+    col[shiny & (sp > 0.55)] = (0.99, 0.99, 0.96)
+    col[face & ~np.bool_(gold) & (sp > 0.7)] = (0.32, 0.32, 0.34)
+    # halftone: dot screen in the shadow band (pitch 9 plate px)
+    px, py = pix
+    cx, cy = (px % 9) - 4, (py % 9) - 4
+    dots = (cx * cx + cy * cy) < (2.2 + 1.6 * (1 - ao)) ** 2
+    col[(band == 2) & dots & (m != CUT)] *= 0.72
+    col[mat == 0] = OFF
+    return col
+
+
 def tonemap(x):
     x = x * 0.72
     a, b, c, d, e = 2.51, 0.03, 2.43, 0.59, 0.14
@@ -397,6 +457,22 @@ def render(cache):
         args = (Pp[sl], N[sl], Dall[sl], M[sl], PART[sl], TOP[sl], SH[sl], ao[sl])
         base[sl], weave[sl] = shade(*args)
         gold[sl], _ = shade(*args, gold=True)
+    # graphic layers: cel colour + ink outline mask
+    ys_, xs_ = np.divmod(np.arange(n), PW)
+    toonc = np.zeros((n, 3), F32); toong = np.zeros((n, 3), F32)
+    for y0 in range(0, n, step * PW):
+        sl = slice(y0, min(n, y0 + step * PW))
+        args = (Pp[sl], N[sl], Dall[sl], M[sl], PART[sl], TOP[sl], SH[sl], ao[sl], (xs_[sl], ys_[sl]))
+        toonc[sl] = toon(*args); toong[sl] = toon(*args, gold=True)
+    P2, D2, N3 = PART.reshape(PH, PW), depth, N.reshape(PH, PW, 3)
+    ink = np.zeros((PH, PW), bool)
+    for a_, b_ in (((slice(1, None), slice(None)), (slice(None, -1), slice(None))),
+                   ((slice(None), slice(1, None)), (slice(None), slice(None, -1)))):
+        e_ = ((P2[a_] != P2[b_]) | (np.abs(D2[a_] - D2[b_]) > 0.012 * D2[a_])
+              | (((N3[a_] * N3[b_]).sum(-1) < 0.75) & (D2[a_] < 30) & (D2[b_] < 30)))
+        ink[a_] |= e_
+    ink2 = ink.copy()                                            # dilate to ~3 px
+    ink2[1:] |= ink[:-1]; ink2[:-1] |= ink[1:]; ink2[:, 1:] |= ink[:, :-1]; ink2[:, :-1] |= ink[:, 1:]
     # bevel highlight on normal edges (fakes rounded edges)
     N2 = N.reshape(PH, PW, 3)
     edge = np.zeros((PH, PW), F32)
@@ -436,7 +512,10 @@ def render(cache):
                emis=np.clip(em * 255, 0, 255).astype(np.uint8).reshape(PH, PW),
                weave=np.clip(weave * 255, 0, 255).astype(np.uint8).reshape(PH, PW),
                warm=warm.reshape(PH, PW), wipe=wipe.reshape(PH, PW), diag=diag.reshape(PH, PW),
-               depth=depth, part=PART.reshape(PH, PW))
+               depth=depth, part=PART.reshape(PH, PW),
+               toon=(np.clip(toonc, 0, 1) * 255).astype(np.uint8).reshape(PH, PW, 3),
+               toongold=(np.clip(toong, 0, 1) * 255).astype(np.uint8).reshape(PH, PW, 3),
+               ink=(ink2 * 255).astype(np.uint8))
     Path(cache).parent.mkdir(parents=True, exist_ok=True)
     np.savez(cache, **out)
     return out
