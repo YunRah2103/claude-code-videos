@@ -175,7 +175,7 @@ def ascii_titles(t):
 
 
 # ---------- thermal flow with reflection off the foil ----------
-def thermal_frame(t):
+def thermal_frame(t, labels=True):
     z = pc.data(); cam = pc.camera(t)
     if "dh" not in ST._DH:
         hp = np.stack(scene.HOT).astype(F32)
@@ -221,6 +221,7 @@ def thermal_frame(t):
     for j in range(300):                                               # colour scale, right margin (decoration)
         c = tuple(int(255 * v) for v in ST.turbo(1 - j / 300))
         d.line((W - 70, 520 + j * 3, W - 46, 520 + j * 3), fill=c, width=3)
+    if not labels: return im
     ax_, ay_, _ = pc.proj(np.array([[0.35, 0.72, -0.58]], F32), cam)
     ST.label(d, "CARBON FIBRE", 64, 860, 66, (235, 240, 255), (ax_[0], ay_[0]), min(1, max(0, (t - B["carbon"]) / 0.3)))
     hx, hy, _ = pc.proj(np.array([[0.02, 0.92, -0.3]], F32), cam)
