@@ -161,7 +161,22 @@ def card(ov, x, y, rows, a, w=None):
         elif f is not None:
             d.text((x + pad, cy), txt, font=f, fill=(*col, 255))
         cy += lh
-    if a < 1: lay.putalpha(lay.getchannel("A").point(lambda v: int(v * a)))
+    if a < 1:
+        lay.putalpha(lay.getchannel("A").point(lambda v: int(v * a)))
+        th = (1 - oc(a)) * math.radians(70)                              # rotate in about the left edge
+        bx0, by0, bx1, by1 = int(x), int(y + yo), int(x + w) + 2, int(y + h + yo) + 2
+        tile = lay.crop((bx0, by0, bx1, by1)); tw_, th_ = tile.size
+        p_ = 1 / (1 + 0.8 * math.sin(th))
+        nw = max(2, tw_ * math.cos(th))
+        dst = [(0, 0), (nw, th_ * (1 - p_) / 2), (nw, th_ * (1 + p_) / 2), (0, th_)]
+        srcq = [(0, 0), (tw_, 0), (tw_, th_), (0, th_)]
+        A_ = []; b_ = []
+        for (X, Y), (u, v) in zip(dst, srcq):
+            A_.append([X, Y, 1, 0, 0, 0, -u * X, -u * Y]); b_.append(u)
+            A_.append([0, 0, 0, X, Y, 1, -v * X, -v * Y]); b_.append(v)
+        coef = np.linalg.solve(np.array(A_, float), np.array(b_, float))
+        warped = tile.transform((tw_, th_), Image.PERSPECTIVE, tuple(coef), Image.BICUBIC)
+        lay = Image.new("RGBA", (W, H), (0, 0, 0, 0)); lay.paste(warped, (bx0, by0))
     ov.alpha_composite(lay)
     return y + h
 
@@ -255,11 +270,21 @@ def captions(ov, t):
             lines = [words[:k], words[k:]]
         d = ImageDraw.Draw(ov)
         cx = (X0 + R.SAFE_X1 - X0) / 2 + 0
+        wi = 0
         for li, ln in enumerate(lines):
-            txt = " ".join(ln)
             y = CAP_Y + li * 72 - (len(lines) - 1) * 36
             assert y >= R.SAFE_Y0 and y + 70 <= R.SAFE_Y1
-            d.text((cx, y), txt, font=f, fill=(*WHITE, int(255 * a)), anchor="ma")
+            x = cx - text_w(f, " ".join(ln)) / 2
+            for wd in ln:                                              # karaoke: words pop in as they are spoken
+                w_ = sg[wi]; wi += 1
+                ww = text_w(f, wd)
+                pp = oc(prog(t, w_["s"] - 0.04, 0.16))
+                now = w_["s"] - 0.04 <= t < w_["e"] + 0.05
+                col = HL if now else WHITE
+                al = int(255 * a * (0.22 + 0.78 * pp))
+                fz = sans(int(58 * (1 + 0.22 * (1 - pp) * (pp > 0))), "Medium") if 0 < pp < 1 else f
+                d.text((x + ww / 2, y + 35 + 8 * (1 - pp)), wd, font=fz, fill=(*col, al), anchor="mm")
+                x += ww + text_w(f, " ")
 
 # ---------- user-supplied photos (kept in out/, not in git) ----------
 PHOTOS = R.OUT / "photos"
@@ -399,6 +424,69 @@ RING = {"wire": (200, 230, 255), "ascii": (235, 240, 220), "thermal": (255, 140,
 _YY, _XX = np.mgrid[0:H, 0:W].astype(F32)
 _GR = np.random.default_rng(3)
 
+_COLS = np.random.default_rng(8).uniform(0, 0.45, W // 24 + 1).astype(F32)
+_SN = np.asarray(Image.fromarray(np.uint8(np.random.default_rng(9).random((H // 20, W // 20)) * 255)).resize((W, H), Image.BICUBIC), F32) / 255
+
+def mblur(a, amt):
+    """Horizontal motion blur of `amt` px (average of shifted copies)."""
+    if amt < 1.5: return a
+    acc = np.zeros_like(a)
+    for sft in np.linspace(-amt, amt, 7): acc += np.roll(a, int(sft), axis=1)
+    return acc / 7
+
+def transition(i, k, prev, cur, t, name):
+    """A different hand-off per section: cascade, heat dissolve, laser scan, radial ring."""
+    col = np.array(RING[name], F32)
+    if i == 1:                                                         # characters rain down column by column
+        ci = (_XX // 24).astype(int)
+        front = (k * 1.5 - _COLS[ci]) * H * 1.1
+        m = np.clip((front - _YY) / 30, 0, 1)[..., None]
+        glow = np.exp(-((_YY - front) / 18) ** 2)[..., None] * col * 0.8
+    elif i == 2:                                                       # heat-shimmer dissolve
+        wob = np.sin(_YY / 23 + t * 30) * 14 * math.sin(math.pi * k)
+        xi = np.clip((_XX + wob).astype(int), 0, W - 1); yi = _YY.astype(int)
+        prev, cur = prev[yi, xi], cur[yi, xi]
+        m = np.clip((k * 1.3 - _SN) / 0.12, 0, 1)[..., None]
+        glow = np.exp(-((_SN - (k * 1.3 - 0.06)) / 0.03) ** 2)[..., None] * col * 0.9
+    elif i == 3:                                                       # laser scan sweep
+        line = io(k) * (H + 60) - 30
+        m = np.clip((line - _YY) / 6, 0, 1)[..., None]
+        glow = (np.exp(-((_YY - line) / 3) ** 2) * 1.0 + np.exp(-((_YY - line) / 50) ** 2) * 0.3)[..., None] * col
+    else:                                                              # radial ring from the engine
+        cx, cy, _ = pc.proj(np.array([[0.0, 0.5, 0.0]], F32), pc.camera(t))
+        dist = np.hypot(_XX - cx[0], _YY - cy[0]); r = io(k) * 2300
+        m = np.clip((r - dist) / 40, 0, 1)[..., None]
+        glow = (np.exp(-((dist - r) / 10) ** 2) * 0.95 + np.exp(-((dist - r) / 60) ** 2) * 0.25)[..., None] * col
+    out = cur * m + prev * (1 - m) + glow * (1 - k * 0.6)
+    out = mblur(out, 10 * math.sin(math.pi * k))
+    return Image.fromarray(np.uint8(np.clip(out, 0, 255)))
+
+def shockwave(im, t):
+    """On "huge heat": a ring of hot air blasts out from the engine and bends the image."""
+    u = (t - B["heat"] + 0.05) / 0.9
+    if not 0 < u < 1: return im
+    a = np.asarray(im, F32)
+    cx, cy, _ = pc.proj(np.array([[0.0, 0.4, 0.2]], F32), pc.camera(t))
+    dx, dy = _XX - cx[0], _YY - cy[0]; dist = np.hypot(dx, dy) + 1e-3
+    r = oc(u) * 1900
+    amp = 60 * (1 - u) * np.exp(-((dist - r) / 55) ** 2)
+    xi = np.clip((_XX - dx / dist * amp).astype(int), 0, W - 1); yi = np.clip((_YY - dy / dist * amp).astype(int), 0, H - 1)
+    out = a[yi, xi] + (np.exp(-((dist - r) / 14) ** 2) * (1 - u))[..., None] * np.array([255, 120, 50], F32) * 1.1
+    return Image.fromarray(np.uint8(np.clip(out, 0, 255)))
+
+def gold_flare(im, t):
+    """On "reflects": a gold light sweep and a burst of rays off the foil."""
+    t0 = wstart("reflects") - 0.05; u = (t - t0) / 0.8
+    if not 0 < u < 1: return im
+    a = np.asarray(im, F32)
+    band = np.exp(-(((_XX + _YY * 0.6) / (W + H * 0.6) - (oc(u) * 1.4 - 0.2)) / 0.05) ** 2)
+    a = a + band[..., None] * np.array([255, 205, 90], F32) * 0.55 * (1 - u)
+    cx, cy, _ = pc.proj(np.array([[-0.76, 0.62, -0.25]], F32), pc.camera(t))
+    ang = np.arctan2(_YY - cy[0], _XX - cx[0]); dist = np.hypot(_XX - cx[0], _YY - cy[0])
+    rays = (np.cos(ang * 14 + t * 2) ** 16) * np.exp(-dist / 700) * np.clip(1 - dist / (oc(u) * 1600 + 1), 0, 1)
+    a = a + rays[..., None] * np.array([255, 215, 120], F32) * 0.7 * (1 - u)
+    return Image.fromarray(np.uint8(np.clip(a, 0, 255)))
+
 def punch(im, k):
     """Zoom kick: k in 0..1 (decaying)."""
     if k <= 0.002: return im
@@ -410,17 +498,11 @@ def frame(t):
     i = max(j for j, s in enumerate(SECTIONS) if t >= s[1])
     sec = SECTIONS[i]
     im = visual(sec[0], t)
-    k = prog(t, sec[1], 0.6) if i > 0 else 1.0
-    if k < 1:                                                       # radial ripple reveal from the engine
-        prev = np.asarray(visual(SECTIONS[i - 1][0], t), F32)
-        cur = np.asarray(punch(im, 1 - io(k)), F32)
-        cx, cy, _ = pc.proj(np.array([[0.0, 0.5, 0.0]], F32), pc.camera(t))
-        dist = np.hypot(_XX - cx[0], _YY - cy[0])
-        r = io(k) * 2300
-        m = np.clip((r - dist) / 40, 0, 1)[..., None]
-        ring = np.exp(-((dist - r) / 10) ** 2)[..., None] * np.array(RING[sec[0]], F32) * 0.95
-        ring += np.exp(-((dist - r) / 60) ** 2)[..., None] * np.array(RING[sec[0]], F32) * 0.25
-        im = Image.fromarray(np.uint8(np.clip(cur * m + prev * (1 - m) + ring * (1 - k), 0, 255)))
+    k = prog(t, sec[1], 0.65) if i > 0 else 1.0
+    if k < 1:
+        im = transition(i, k, np.asarray(visual(SECTIONS[i - 1][0], t), F32), np.asarray(punch(im, 1 - io(k)), F32), t, sec[0])
+    im = shockwave(im, t)
+    im = gold_flare(im, t)
     kick = max(math.exp(-(t - B[b]) * 5) if t >= B[b] else 0 for b in ("heat", "grams"))
     im = punch(im, kick)
     a = np.asarray(im, F32) * 0.92                                           # slightly muted under the brief
