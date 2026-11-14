@@ -174,7 +174,7 @@ def voc(x): return 1 - (1 - x) ** 3
 
 
 # ---------- frame ----------
-def frame(t):
+def frame(t, text=True, tags=True):
     z = data()
     cam = camera(t)
     pos, f, r, u, th, fdist = cam
@@ -235,12 +235,12 @@ def frame(t):
         splat(acc, hx[hv], hy[hv], hc[hv] * kw)
         splat(acc, hx[hv] + 1, hy[hv], hc[hv] * kw * 0.5)
     # point text (a dark pocket behind the headline keeps it legible)
-    if t < B["reveal"] + 0.8:
+    if text and t < B["reveal"] + 0.8:
         k_h = 1 - io(prog(t, B["reveal"], 0.8))
         yy_ = np.arange(H)[:, None]; xx_ = np.arange(W)[None, :]
         pocket = np.exp(-(((yy_ - 450) / 260.0) ** 4 + ((xx_ - 380) / 520.0) ** 4)) * 0.7 * k_h
         acc *= (1 - pocket)[..., None]
-    for key, items, a0, a1 in LABELS:
+    for key, items, a0, a1 in (LABELS if text else []):
         ta = 0.0 if a0 is None else B[a0]
         if t < ta or (a1 and t > B[a1] + 1.0): continue
         tx, ty, tc, ph, jit = text_points(key, items, step=2)
@@ -267,6 +267,7 @@ def frame(t):
     yy = np.linspace(-1, 1, H)[:, None]; xx = np.linspace(-1, 1, W)[None, :]
     img *= (1 - 0.35 * np.clip(xx ** 2 * 0.6 + yy ** 2 * 0.5, 0, 1))[..., None]
     im = Image.fromarray(np.uint8(np.clip(img, 0, 1) * 255))
+    if not tags: return im
     d_ = ImageDraw.Draw(im)                                         # tiny corner tags only
     d_.text((40, 52), "Yub", font=ImageFont.truetype(FD + "Inter-ExtraBold.otf", 34), fill=(200, 200, 205))
     if R.PREVIEW:
