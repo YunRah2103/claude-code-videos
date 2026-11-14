@@ -233,8 +233,9 @@ def brief(im, t, sec):
         for ln in lines:
             d.text((X0, lay_y), ln, font=f, fill=(*WHITE, int(255 * a))); lay_y += 96
         for j, (lab, x0) in enumerate((("Yes", X0), ("No", X0 + 420))):
-            wd = [w for w in WORDS if w["w"].strip("?").lower() == lab.lower()][0]
-            on = wd["s"] - 0.05 <= t < wd["e"] + 0.5
+            wi = [i for i, w in enumerate(WORDS) if w["w"].strip("?").lower() == lab.lower()][-1]
+            nxt = WORDS[wi + 2]["s"] - 0.05 if wi + 2 < len(WORDS) else DUR       # "Yes" holds until "no"
+            on = WORDS[wi]["s"] - 0.05 <= t < nxt
             kb = prog(t, B["question"] + 0.3 + 0.12 * j, 0.3)
             yb = lay_y + 40
             if on: d.rectangle((x0, yb, x0 + 380, yb + 130), fill=(*HL, int(255 * kb)))
