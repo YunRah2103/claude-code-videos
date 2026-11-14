@@ -99,7 +99,7 @@ def layers():
             print("ray-tracing plate (once)...", flush=True)
             scene.render(CACHE)
         z = np.load(CACHE)
-        for k in ("toon", "toongold", "heat"): _L[k] = Image.fromarray(z[k])
+        for k in ("toon", "toongold", "base", "gold", "heat"): _L[k] = Image.fromarray(z[k])
         for k in ("emis", "weave", "ink"): _L[k] = Image.fromarray(z[k])
         for k in ("warm", "wipe", "diag", "depth"): _L[k] = Image.fromarray(z[k].astype(np.float32), "F")
         _L["part"] = Image.fromarray(z["part"].astype(np.uint8))
