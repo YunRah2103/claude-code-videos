@@ -279,28 +279,27 @@ def frame(t):
 
 # ---------- audio: voice + quiet bed ----------
 def mix(voice, out):
-    sys.path.insert(0, str(R.ROOT / "videos/new-car-trap/src"))
-    import sfx, wave
-    sr = 48000
+    """Voice + sound design (engine bed, cues), SFX ducked under the voice. Also writes stems next to `out`."""
+    import sound, wave
+    sr = sound.SR
     raw = subprocess.run(["ffmpeg", "-v", "error", "-i", str(voice), "-ac", "1", "-ar", str(sr), "-f", "s16le", "-"],
                          capture_output=True, check=True).stdout
     v = np.frombuffer(raw, np.int16).astype(F32) / 32768
     n = int(DUR * sr); v = np.pad(v, (0, max(0, n - len(v))))[:n]
-    tt = np.arange(n) / sr
-    bed = 0.018 * np.sin(2 * np.pi * 55 * tt) + 0.010 * np.sin(2 * np.pi * 82.4 * tt) + 0.006 * np.sin(2 * np.pi * 110 * tt)
-    bed *= 0.75 + 0.25 * np.sin(2 * np.pi * tt / 9)
-    env = np.convolve(np.abs(v), np.ones(4800) / 4800, mode="same")
-    bed *= 1 - np.clip(env * 6, 0, 0.55)                                    # duck under the voice
-    fx = np.zeros(n, F32)
-    for _, s, *_ in SECTIONS[1:]:
-        w_ = sfx.whoosh(0.5); i0 = int(max(0, s - 0.25) * sr); w_ = w_[: n - i0]
-        fx[i0:i0 + len(w_)] += 0.05 * w_ / np.abs(w_).max()
-    for b in ("v12", "carbon", "gold", "grams", "question"):
-        p_ = sfx.pop(); i0 = int(B[b] * sr); p_ = p_[: n - i0]
-        fx[i0:i0 + len(p_)] += 0.035 * p_ / np.abs(p_).max()
-    x = np.clip(v + bed + fx, -1, 1)
-    with wave.open(str(out), "wb") as f:
-        f.setnchannels(1); f.setsampwidth(2); f.setframerate(sr); f.writeframes((x * 32767).astype("<i2").tobytes())
+    cards = [B["v12"] - 0.2, B["carbon"] - 0.25, B["gold"] - 0.2, B["lined"] - 0.05, B["question"] - 0.1]
+    highlights = [wstart("gold") - 0.1, B["heat"] - 0.3, B["protect"] - 0.1, B["infrared"] - 0.05]
+    fx = sound.sfx_track([(s[0], s[1]) for s in SECTIONS], cards, highlights, B["grams"] - 0.03)
+    env = np.convolve(np.abs(v), np.ones(2400) / 2400, mode="same")
+    duck = 1 - np.clip(env * 9, 0, 0.6)                                       # up to ~8 dB under speech
+    fx = fx * np.convolve(duck, np.ones(4800) / 4800, mode="same")
+    x = v + fx
+    x = x / max(1.0, np.abs(x).max() / 0.95)
+    def write(path, sig):
+        with wave.open(str(path), "wb") as f:
+            f.setnchannels(1); f.setsampwidth(2); f.setframerate(sr); f.writeframes((np.clip(sig, -1, 1) * 32767).astype("<i2").tobytes())
+    write(out, x)
+    stem = Path(out).with_suffix("")
+    write(str(stem) + "_voice.wav", v); write(str(stem) + "_sfx.wav", fx)
 
 
 def _job(i): return np.asarray(frame(i / FPS)).tobytes()
@@ -309,7 +308,7 @@ def video(out, voice, a=0.0, b=None):
     from multiprocessing import Pool
     pc.data(); combo.ascii_setup(); R.layers(); ST.wire(); panel_grid()
     b = DUR if b is None else b
-    out = Path(out); out.parent.mkdir(parents=True, exist_ok=True); wav = out.with_suffix(".mix.wav")
+    out = Path(out); out.parent.mkdir(parents=True, exist_ok=True); wav = out.parent / (out.stem + "_mix.wav")
     mix(voice, wav)
     n0, n1 = int(round(a * FPS)), int(round(b * FPS))
     cmd = ["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS),
@@ -323,8 +322,7 @@ def video(out, voice, a=0.0, b=None):
             if k % 90 == 0: print(f"frame {n0 + k}/{n1}", flush=True)
     p.stdin.close()
     assert p.wait() == 0
-    wav.unlink(missing_ok=True)
-    print(f"wrote {out}")
+    print(f"wrote {out} (+ {wav.name}, _voice / _sfx stems)")
 
 
 if __name__ == "__main__":
