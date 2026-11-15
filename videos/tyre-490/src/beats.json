@@ -4,10 +4,10 @@
   1080,
   1920
  ],
- "dur": 17.0,
+ "dur": 21.0,
  "wps_estimate": 2.8,
- "script": "What does 490 kilometres an hour do to a tyre? It spins it about 4,100 times a minute. And hits it with roughly 5,300 g. So Michelin reinforced the Bugatti's record tyres, and X-rayed every single one. Even a tiny flaw is dangerous. Would you ride it? Yes or no?",
- "note": "Phase 1 times are estimates (2.8 words/s). Phase 2: replace words[].t with aligned times, set est=false, re-render.",
+ "script": "What does 490 kilometres an hour do to a tyre? That's 136 metres every second. It spins the tyre about 4,100 times a minute, with roughly 5,300 g. So Michelin reinforced the Bugatti's record tyres, tested them on a rig built for Space Shuttle tyres, and X-rayed every single one. Even a tiny flaw is dangerous. Would you ride it? Yes or no?",
+ "note": "Phase 1: beat times are the brief's layout; words[].t are 2.8 w/s estimates. Phase 2: put aligned times in words[].t with est=false; beat starts then follow anchor words.",
  "words": [
   {
    "w": "What",
@@ -60,142 +60,142 @@
    "est": true
   },
   {
-   "w": "It",
+   "w": "That's",
    "t": 3.571,
    "est": true
   },
   {
-   "w": "spins",
+   "w": "136",
    "t": 3.929,
    "est": true
   },
   {
-   "w": "it",
+   "w": "metres",
    "t": 4.286,
    "est": true
   },
   {
-   "w": "about",
+   "w": "every",
    "t": 4.643,
    "est": true
   },
   {
-   "w": "4,100",
+   "w": "second.",
    "t": 5.0,
    "est": true
   },
   {
-   "w": "times",
+   "w": "It",
    "t": 5.357,
    "est": true
   },
   {
-   "w": "a",
+   "w": "spins",
    "t": 5.714,
    "est": true
   },
   {
-   "w": "minute.",
+   "w": "the",
    "t": 6.071,
    "est": true
   },
   {
-   "w": "And",
+   "w": "tyre",
    "t": 6.429,
    "est": true
   },
   {
-   "w": "hits",
+   "w": "about",
    "t": 6.786,
    "est": true
   },
   {
-   "w": "it",
+   "w": "4,100",
    "t": 7.143,
    "est": true
   },
   {
-   "w": "with",
+   "w": "times",
    "t": 7.5,
    "est": true
   },
   {
-   "w": "roughly",
+   "w": "a",
    "t": 7.857,
    "est": true
   },
   {
-   "w": "5,300",
+   "w": "minute,",
    "t": 8.214,
    "est": true
   },
   {
-   "w": "g.",
+   "w": "with",
    "t": 8.571,
    "est": true
   },
   {
-   "w": "So",
+   "w": "roughly",
    "t": 8.929,
    "est": true
   },
   {
-   "w": "Michelin",
+   "w": "5,300",
    "t": 9.286,
    "est": true
   },
   {
-   "w": "reinforced",
+   "w": "g.",
    "t": 9.643,
    "est": true
   },
   {
-   "w": "the",
+   "w": "So",
    "t": 10.0,
    "est": true
   },
   {
-   "w": "Bugatti's",
+   "w": "Michelin",
    "t": 10.357,
    "est": true
   },
   {
-   "w": "record",
+   "w": "reinforced",
    "t": 10.714,
    "est": true
   },
   {
-   "w": "tyres,",
+   "w": "the",
    "t": 11.071,
    "est": true
   },
   {
-   "w": "and",
+   "w": "Bugatti's",
    "t": 11.429,
    "est": true
   },
   {
-   "w": "X-rayed",
+   "w": "record",
    "t": 11.786,
    "est": true
   },
   {
-   "w": "every",
+   "w": "tyres,",
    "t": 12.143,
    "est": true
   },
   {
-   "w": "single",
+   "w": "tested",
    "t": 12.5,
    "est": true
   },
   {
-   "w": "one.",
+   "w": "them",
    "t": 12.857,
    "est": true
   },
   {
-   "w": "Even",
+   "w": "on",
    "t": 13.214,
    "est": true
   },
@@ -205,110 +205,189 @@
    "est": true
   },
   {
-   "w": "tiny",
+   "w": "rig",
    "t": 13.929,
    "est": true
   },
   {
-   "w": "flaw",
+   "w": "built",
    "t": 14.286,
    "est": true
   },
   {
-   "w": "is",
+   "w": "for",
    "t": 14.643,
    "est": true
   },
   {
-   "w": "dangerous.",
+   "w": "Space",
    "t": 15.0,
    "est": true
   },
   {
-   "w": "Would",
+   "w": "Shuttle",
    "t": 15.357,
    "est": true
   },
   {
-   "w": "you",
+   "w": "tyres,",
    "t": 15.714,
    "est": true
   },
   {
-   "w": "ride",
+   "w": "and",
    "t": 16.071,
    "est": true
   },
   {
-   "w": "it?",
+   "w": "X-rayed",
    "t": 16.429,
    "est": true
   },
   {
-   "w": "Yes",
+   "w": "every",
    "t": 16.786,
    "est": true
   },
   {
-   "w": "or",
+   "w": "single",
    "t": 17.143,
    "est": true
   },
   {
-   "w": "no?",
+   "w": "one.",
    "t": 17.5,
+   "est": true
+  },
+  {
+   "w": "Even",
+   "t": 17.857,
+   "est": true
+  },
+  {
+   "w": "a",
+   "t": 18.214,
+   "est": true
+  },
+  {
+   "w": "tiny",
+   "t": 18.571,
+   "est": true
+  },
+  {
+   "w": "flaw",
+   "t": 18.929,
+   "est": true
+  },
+  {
+   "w": "is",
+   "t": 19.286,
+   "est": true
+  },
+  {
+   "w": "dangerous.",
+   "t": 19.643,
+   "est": true
+  },
+  {
+   "w": "Would",
+   "t": 20.0,
+   "est": true
+  },
+  {
+   "w": "you",
+   "t": 20.357,
+   "est": true
+  },
+  {
+   "w": "ride",
+   "t": 20.714,
+   "est": true
+  },
+  {
+   "w": "it?",
+   "t": 21.071,
+   "est": true
+  },
+  {
+   "w": "Yes",
+   "t": 21.429,
+   "est": true
+  },
+  {
+   "w": "or",
+   "t": 21.786,
+   "est": true
+  },
+  {
+   "w": "no?",
+   "t": 22.143,
    "est": true
   }
  ],
  "beats": [
   {
    "id": "cold_open",
-   "start": 0.0,
+   "start": 0,
    "end": 1.2,
    "anchor_word": 0,
    "text": "WHAT DOES 490 KM/H DO TO A TYRE?"
   },
   {
-   "id": "rpm",
+   "id": "car",
    "start": 1.2,
-   "end": 3.0,
+   "end": 3.5,
    "anchor_word": 10,
+   "text": "136 M / SECOND"
+  },
+  {
+   "id": "rpm",
+   "start": 3.5,
+   "end": 6.0,
+   "anchor_word": 15,
    "text": "4,100 RPM"
   },
   {
    "id": "g_force",
-   "start": 3.0,
-   "end": 5.5,
-   "anchor_word": 21,
-   "text": "5,300 g"
+   "start": 6.0,
+   "end": 8.5,
+   "anchor_word": 24,
+   "text": "5,300 g / 1 KG STONE ~ 5.3 TONNES"
   },
   {
    "id": "belts",
-   "start": 5.5,
-   "end": 9.0,
-   "anchor_word": 27,
+   "start": 8.5,
+   "end": 11.0,
+   "anchor_word": 28,
    "text": "REINFORCED BELTS"
   },
   {
+   "id": "rig",
+   "start": 11.0,
+   "end": 14.0,
+   "anchor_word": 35,
+   "text": "TEST RIG / UP TO 511 KM/H / BUILT FOR SPACE SHUTTLE TYRES"
+  },
+  {
    "id": "xray",
-   "start": 9.0,
-   "end": 12.0,
-   "anchor_word": 33,
+   "start": 14.0,
+   "end": 16.0,
+   "anchor_word": 46,
    "text": "EVERY TYRE X-RAYED"
   },
   {
    "id": "flaw",
-   "start": 12.0,
-   "end": 14.0,
-   "anchor_word": 39,
+   "start": 16.0,
+   "end": 18.0,
+   "anchor_word": 50,
    "text": "EVEN A TINY FLAW"
   },
   {
    "id": "poll",
-   "start": 14.0,
-   "end": 17.0,
-   "anchor_word": 45,
-   "text": "WOULD YOU RIDE IT?"
+   "start": 18.0,
+   "end": 21.0,
+   "anchor_word": 56,
+   "text": "WOULD YOU RIDE IT? YES / NO"
   }
  ]
 }
