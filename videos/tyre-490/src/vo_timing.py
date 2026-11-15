@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 
 HERE = Path(__file__).parent
-GAP, LEAD0, TAIL = .12, .2, .9          # min gap between lines, first-line start, hold after last word
+GAP, LEAD0, TAIL = .2, .2, 1.8          # min gap between lines, first-line start, hold after last word
 sys.path.insert(0, str(HERE))
 sys.path.append(str(HERE.parent.parent / 'new-car-trap/src'))      # shared sfx.py
 
@@ -25,6 +25,7 @@ def timing(vo):
     words = json.load(open(HERE / 'words.json'))
     brief = [b.get('brief_start', b['start']) for b in B['beats']]
     assert len(brief) == len(lines) == len(words), 'one script line per beat'
+    lines = [' '.join(w['w'] for w in ws) for ws in words]      # what was actually spoken
     offs, end = [], 0.0
     for i, ws in enumerate(words):
         first = ws[0]['s']

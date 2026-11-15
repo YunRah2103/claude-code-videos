@@ -15,7 +15,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageChops
 HERE = os.path.dirname(os.path.abspath(__file__))
 B = json.load(open(os.path.join(HERE, 'beats.json')))
 W, H = B['size']; FPS = B['fps']
-DUR = 23.167  # literal for tools/video.py preview; must match beats.json
+DUR = 23.533  # literal for tools/video.py preview; must match beats.json
 assert abs(DUR - B['dur']) < 1e-6
 PREVIEW = os.environ.get('PREVIEW', '1') == '1'
 
@@ -36,9 +36,9 @@ BEAT = resolve_beats(B)
 def T(i): return BEAT[i]['start']
 
 
-def word_t(text, after=0.0):
+def word_t(text, after=0.0, default=None):
     """Start time of the first spoken word matching text at/after a time (phase 2 sync)."""
-    return next(w['t'] for w in B['words'] if w['w'].strip('.,?!').lower() == text.lower() and w['t'] >= after)
+    return next((w['t'] for w in B['words'] if w['w'].strip('.,?!').lower() == text.lower() and w['t'] >= after), default)
 
 
 # ---- easing (same family everywhere) ------------------------------------
@@ -74,7 +74,7 @@ FLAWHIT = t5 + 1.0                               # flaw pulse punch
 EARLY = (.62, .92)                               # cold-open red flaw flash (the stakes)
 LOOP = DUR - .5                                  # back to the cold-open tyre: last frame -> frame 1
 CAR2 = word_t("That's")                          # second, lower car shot: 136 m / second
-YES_T, NO_T = word_t('Yes', t6), word_t('no', t6)
+YES_T, NO_T = word_t('Yes', t6, t6 + 1.0), word_t('no', t6, t6 + 1.6)   # fixed beats if not spoken
 TRANSITIONS = [TC, CAR2, t1, t2, STAMP, t3, TR, t4, t5, t6, LOOP]
 
 

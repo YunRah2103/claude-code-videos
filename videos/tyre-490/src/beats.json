@@ -4,465 +4,447 @@
   1080,
   1920
  ],
- "dur": 23.167,
+ "dur": 23.533,
  "wps_estimate": 2.8,
- "script": "What does four hundred and ninety kilometres an hour do to a tyre? That's one hundred and thirty six metres every second. It spins the tyre about four thousand one hundred times a minute, with roughly five thousand three hundred g. So Michelin reinforced the Bugatti's record tyres, tested them on a rig built for Space Shuttle tyres, and X-rayed every single one. Even a tiny flaw is dangerous. Would you ride it? Yes or no?",
+ "script": "What does four hundred and ninety kilometres an hour do to a tyre? That's one hundred and thirty six metres every second. It spins the tyre about four thousand one hundred times a minute, with roughly five thousand three hundred g. So Michelin reinforced the Bugatti's record tyres, tested them on a rig built for Space Shuttle tyres, and X-rayed every single one. Even a tiny flaw is dangerous. Would you ride it?",
  "note": "Phase 2: word times from PocketSphinx alignment of the Fenrir clips; beats start on their anchor word.",
  "words": [
   {
    "w": "What",
-   "t": 0.36,
-   "e": 0.58,
+   "t": 0.2,
+   "e": 0.54,
    "est": false
   },
   {
    "w": "does",
-   "t": 0.58,
-   "e": 0.83,
+   "t": 0.54,
+   "e": 0.82,
    "est": false
   },
   {
    "w": "four",
-   "t": 0.83,
-   "e": 1.02,
+   "t": 0.82,
+   "e": 1.13,
    "est": false
   },
   {
    "w": "hundred",
-   "t": 1.02,
-   "e": 1.3,
+   "t": 1.13,
+   "e": 1.41,
    "est": false
   },
   {
    "w": "and",
-   "t": 1.3,
-   "e": 1.39,
+   "t": 1.41,
+   "e": 1.56,
    "est": false
   },
   {
    "w": "ninety",
-   "t": 1.39,
-   "e": 1.66,
+   "t": 1.56,
+   "e": 1.89,
    "est": false
   },
   {
    "w": "kilometres",
-   "t": 1.66,
-   "e": 2.13,
+   "t": 1.89,
+   "e": 2.42,
    "est": false
   },
   {
    "w": "an",
-   "t": 2.13,
-   "e": 2.19,
+   "t": 2.42,
+   "e": 2.5,
    "est": false
   },
   {
    "w": "hour",
-   "t": 2.19,
-   "e": 2.41,
+   "t": 2.5,
+   "e": 2.75,
    "est": false
   },
   {
    "w": "do",
-   "t": 2.41,
-   "e": 2.65,
+   "t": 2.75,
+   "e": 3.06,
    "est": false
   },
   {
    "w": "to",
-   "t": 2.65,
-   "e": 2.81,
+   "t": 3.06,
+   "e": 3.23,
    "est": false
   },
   {
    "w": "a",
-   "t": 2.81,
-   "e": 2.85,
+   "t": 3.23,
+   "e": 3.27,
    "est": false
   },
   {
    "w": "tyre?",
-   "t": 2.85,
-   "e": 3.34,
+   "t": 3.27,
+   "e": 3.71,
    "est": false
   },
   {
    "w": "That's",
-   "t": 3.46,
-   "e": 3.7,
+   "t": 3.91,
+   "e": 4.17,
    "est": false
   },
   {
    "w": "one",
-   "t": 3.7,
-   "e": 3.86,
+   "t": 4.17,
+   "e": 4.46,
    "est": false
   },
   {
    "w": "hundred",
-   "t": 3.86,
-   "e": 4.21,
+   "t": 4.46,
+   "e": 4.7,
    "est": false
   },
   {
    "w": "and",
-   "t": 4.21,
-   "e": 4.31,
+   "t": 4.7,
+   "e": 4.83,
    "est": false
   },
   {
    "w": "thirty",
-   "t": 4.31,
-   "e": 4.56,
-   "est": false
-  },
-  {
-   "w": "six",
-   "t": 4.56,
-   "e": 4.78,
-   "est": false
-  },
-  {
-   "w": "metres",
-   "t": 4.78,
+   "t": 4.83,
    "e": 5.14,
    "est": false
   },
   {
-   "w": "every",
+   "w": "six",
    "t": 5.14,
-   "e": 5.48,
+   "e": 5.39,
+   "est": false
+  },
+  {
+   "w": "metres",
+   "t": 5.39,
+   "e": 5.76,
+   "est": false
+  },
+  {
+   "w": "every",
+   "t": 5.76,
+   "e": 5.99,
    "est": false
   },
   {
    "w": "second.",
-   "t": 5.48,
-   "e": 5.97,
+   "t": 5.99,
+   "e": 6.41,
    "est": false
   },
   {
    "w": "It",
-   "t": 6.09,
-   "e": 6.24,
+   "t": 6.61,
+   "e": 6.77,
    "est": false
   },
   {
    "w": "spins",
-   "t": 6.24,
-   "e": 6.68,
+   "t": 6.77,
+   "e": 7.13,
    "est": false
   },
   {
    "w": "the",
-   "t": 6.68,
-   "e": 6.78,
+   "t": 7.13,
+   "e": 7.22,
    "est": false
   },
   {
    "w": "tyre",
-   "t": 6.78,
-   "e": 7.15,
+   "t": 7.22,
+   "e": 7.55,
    "est": false
   },
   {
    "w": "about",
-   "t": 7.15,
-   "e": 7.39,
+   "t": 7.55,
+   "e": 7.78,
    "est": false
   },
   {
    "w": "four",
-   "t": 7.39,
-   "e": 7.71,
+   "t": 7.78,
+   "e": 8.04,
    "est": false
   },
   {
    "w": "thousand",
-   "t": 7.71,
-   "e": 8.13,
+   "t": 8.04,
+   "e": 8.36,
    "est": false
   },
   {
    "w": "one",
-   "t": 8.13,
-   "e": 8.35,
+   "t": 8.36,
+   "e": 8.56,
    "est": false
   },
   {
    "w": "hundred",
-   "t": 8.35,
-   "e": 8.69,
+   "t": 8.56,
+   "e": 8.79,
    "est": false
   },
   {
    "w": "times",
-   "t": 8.69,
-   "e": 8.98,
+   "t": 8.79,
+   "e": 9.06,
    "est": false
   },
   {
    "w": "a",
-   "t": 8.98,
-   "e": 9.02,
+   "t": 9.06,
+   "e": 9.1,
    "est": false
   },
   {
    "w": "minute,",
-   "t": 9.02,
-   "e": 9.35,
+   "t": 9.1,
+   "e": 9.41,
    "est": false
   },
   {
    "w": "with",
-   "t": 9.47,
-   "e": 9.61,
+   "t": 9.61,
+   "e": 9.78,
    "est": false
   },
   {
    "w": "roughly",
-   "t": 9.61,
-   "e": 9.88,
+   "t": 9.78,
+   "e": 10.15,
    "est": false
   },
   {
    "w": "five",
-   "t": 9.88,
-   "e": 10.17,
+   "t": 10.15,
+   "e": 10.53,
    "est": false
   },
   {
    "w": "thousand",
-   "t": 10.17,
-   "e": 10.54,
+   "t": 10.53,
+   "e": 10.92,
    "est": false
   },
   {
    "w": "three",
-   "t": 10.54,
-   "e": 10.71,
+   "t": 10.92,
+   "e": 11.09,
    "est": false
   },
   {
    "w": "hundred",
-   "t": 10.71,
-   "e": 11.03,
+   "t": 11.09,
+   "e": 11.36,
    "est": false
   },
   {
    "w": "g.",
-   "t": 11.03,
-   "e": 11.1,
+   "t": 11.36,
+   "e": 11.68,
    "est": false
   },
   {
    "w": "So",
-   "t": 11.22,
-   "e": 11.46,
+   "t": 11.88,
+   "e": 12.14,
    "est": false
   },
   {
    "w": "Michelin",
-   "t": 11.46,
-   "e": 11.96,
-   "est": false
-  },
-  {
-   "w": "reinforced",
-   "t": 11.96,
-   "e": 12.54,
-   "est": false
-  },
-  {
-   "w": "the",
-   "t": 12.54,
+   "t": 12.14,
    "e": 12.6,
    "est": false
   },
   {
-   "w": "Bugatti's",
+   "w": "reinforced",
    "t": 12.6,
-   "e": 13.08,
+   "e": 13.19,
+   "est": false
+  },
+  {
+   "w": "the",
+   "t": 13.19,
+   "e": 13.26,
+   "est": false
+  },
+  {
+   "w": "Bugatti's",
+   "t": 13.26,
+   "e": 13.72,
    "est": false
   },
   {
    "w": "record",
-   "t": 13.08,
-   "e": 13.46,
+   "t": 13.72,
+   "e": 14.1,
    "est": false
   },
   {
    "w": "tyres,",
-   "t": 13.46,
-   "e": 13.93,
+   "t": 14.1,
+   "e": 14.58,
    "est": false
   },
   {
    "w": "tested",
-   "t": 14.05,
-   "e": 14.41,
+   "t": 14.78,
+   "e": 15.15,
    "est": false
   },
   {
    "w": "them",
-   "t": 14.41,
-   "e": 14.56,
+   "t": 15.15,
+   "e": 15.3,
    "est": false
   },
   {
    "w": "on",
-   "t": 14.56,
-   "e": 14.67,
+   "t": 15.3,
+   "e": 15.39,
    "est": false
   },
   {
    "w": "a",
-   "t": 14.67,
-   "e": 14.7,
+   "t": 15.39,
+   "e": 15.42,
    "est": false
   },
   {
    "w": "rig",
-   "t": 14.7,
-   "e": 15.05,
+   "t": 15.42,
+   "e": 15.74,
    "est": false
   },
   {
    "w": "built",
-   "t": 15.05,
-   "e": 15.28,
+   "t": 15.74,
+   "e": 15.97,
    "est": false
   },
   {
    "w": "for",
-   "t": 15.28,
-   "e": 15.38,
+   "t": 15.97,
+   "e": 16.1,
    "est": false
   },
   {
    "w": "Space",
-   "t": 15.38,
-   "e": 15.73,
+   "t": 16.1,
+   "e": 16.45,
    "est": false
   },
   {
    "w": "Shuttle",
-   "t": 15.73,
-   "e": 16.01,
+   "t": 16.45,
+   "e": 16.68,
    "est": false
   },
   {
    "w": "tyres,",
-   "t": 16.01,
-   "e": 16.57,
+   "t": 16.68,
+   "e": 17.14,
    "est": false
   },
   {
    "w": "and",
-   "t": 16.69,
-   "e": 16.89,
+   "t": 17.34,
+   "e": 17.51,
    "est": false
   },
   {
    "w": "X-rayed",
-   "t": 16.89,
-   "e": 17.36,
+   "t": 17.51,
+   "e": 18.07,
    "est": false
   },
   {
    "w": "every",
-   "t": 17.36,
-   "e": 17.67,
+   "t": 18.07,
+   "e": 18.4,
    "est": false
   },
   {
    "w": "single",
-   "t": 17.67,
-   "e": 18.11,
+   "t": 18.4,
+   "e": 18.72,
    "est": false
   },
   {
    "w": "one.",
-   "t": 18.11,
-   "e": 18.54,
+   "t": 18.72,
+   "e": 19.02,
    "est": false
   },
   {
    "w": "Even",
-   "t": 18.66,
-   "e": 18.92,
+   "t": 19.22,
+   "e": 19.47,
    "est": false
   },
   {
    "w": "a",
-   "t": 18.92,
-   "e": 18.98,
+   "t": 19.47,
+   "e": 19.53,
    "est": false
   },
   {
    "w": "tiny",
-   "t": 18.98,
-   "e": 19.35,
+   "t": 19.53,
+   "e": 19.88,
    "est": false
   },
   {
    "w": "flaw",
-   "t": 19.35,
-   "e": 19.69,
+   "t": 19.88,
+   "e": 20.13,
    "est": false
   },
   {
    "w": "is",
-   "t": 19.69,
-   "e": 19.91,
+   "t": 20.13,
+   "e": 20.24,
    "est": false
   },
   {
    "w": "dangerous.",
-   "t": 19.91,
-   "e": 20.57,
+   "t": 20.24,
+   "e": 20.77,
    "est": false
   },
   {
    "w": "Would",
-   "t": 20.69,
-   "e": 20.83,
+   "t": 20.97,
+   "e": 21.13,
    "est": false
   },
   {
    "w": "you",
-   "t": 20.83,
-   "e": 20.93,
+   "t": 21.13,
+   "e": 21.27,
    "est": false
   },
   {
    "w": "ride",
-   "t": 20.93,
-   "e": 21.19,
+   "t": 21.27,
+   "e": 21.48,
    "est": false
   },
   {
    "w": "it?",
-   "t": 21.19,
-   "e": 21.41,
-   "est": false
-  },
-  {
-   "w": "Yes",
-   "t": 21.41,
-   "e": 21.76,
-   "est": false
-  },
-  {
-   "w": "or",
-   "t": 21.76,
-   "e": 21.89,
-   "est": false
-  },
-  {
-   "w": "no?",
-   "t": 21.89,
-   "e": 22.24,
+   "t": 21.48,
+   "e": 21.72,
    "est": false
   }
  ],
@@ -477,7 +459,7 @@
   },
   {
    "id": "car",
-   "start": 1.39,
+   "start": 1.56,
    "end": 3.5,
    "anchor_word": 5,
    "text": "136 M / SECOND",
@@ -485,7 +467,7 @@
   },
   {
    "id": "rpm",
-   "start": 6.09,
+   "start": 6.61,
    "end": 6.0,
    "anchor_word": 22,
    "text": "4,100 RPM",
@@ -493,7 +475,7 @@
   },
   {
    "id": "g_force",
-   "start": 9.47,
+   "start": 9.61,
    "end": 8.5,
    "anchor_word": 34,
    "text": "5,300 g / 1 KG STONE ~ 5.3 TONNES",
@@ -501,7 +483,7 @@
   },
   {
    "id": "belts",
-   "start": 11.22,
+   "start": 11.88,
    "end": 11.0,
    "anchor_word": 41,
    "text": "REINFORCED BELTS",
@@ -509,7 +491,7 @@
   },
   {
    "id": "rig",
-   "start": 14.05,
+   "start": 14.78,
    "end": 14.0,
    "anchor_word": 48,
    "text": "TEST RIG / UP TO 511 KM/H / BUILT FOR SPACE SHUTTLE TYRES",
@@ -517,7 +499,7 @@
   },
   {
    "id": "xray",
-   "start": 16.69,
+   "start": 17.34,
    "end": 16.0,
    "anchor_word": 58,
    "text": "EVERY TYRE X-RAYED",
@@ -525,7 +507,7 @@
   },
   {
    "id": "flaw",
-   "start": 18.66,
+   "start": 19.22,
    "end": 18.0,
    "anchor_word": 63,
    "text": "EVEN A TINY FLAW",
@@ -533,7 +515,7 @@
   },
   {
    "id": "poll",
-   "start": 20.69,
+   "start": 20.97,
    "end": 21.0,
    "anchor_word": 69,
    "text": "WOULD YOU RIDE IT? YES / NO",
@@ -542,13 +524,13 @@
  ],
  "vo_offsets": [
   0.2,
-  3.25,
-  5.85,
-  9.4,
-  11.15,
-  13.82,
-  16.55,
-  18.56,
-  20.45
+  3.91,
+  6.61,
+  9.61,
+  11.88,
+  14.78,
+  17.34,
+  19.22,
+  20.97
  ]
 }
