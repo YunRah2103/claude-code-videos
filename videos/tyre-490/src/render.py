@@ -15,7 +15,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageChops
 HERE = os.path.dirname(os.path.abspath(__file__))
 B = json.load(open(os.path.join(HERE, 'beats.json')))
 W, H = B['size']; FPS = B['fps']
-DUR = 21.0  # literal for tools/video.py preview; must match beats.json
+DUR = 23.167  # literal for tools/video.py preview; must match beats.json
 assert abs(DUR - B['dur']) < 1e-6
 PREVIEW = os.environ.get('PREVIEW', '1') == '1'
 
@@ -34,6 +34,11 @@ def resolve_beats(b):
 
 BEAT = resolve_beats(B)
 def T(i): return BEAT[i]['start']
+
+
+def word_t(text, after=0.0):
+    """Start time of the first spoken word matching text at/after a time (phase 2 sync)."""
+    return next(w['t'] for w in B['words'] if w['w'].strip('.,?!').lower() == text.lower() and w['t'] >= after)
 
 
 # ---- easing (same family everywhere) ------------------------------------
@@ -68,7 +73,9 @@ STAMP = t2 + 1.2                                 # 5,300 g slam
 FLAWHIT = t5 + 1.0                               # flaw pulse punch
 EARLY = (.62, .92)                               # cold-open red flaw flash (the stakes)
 LOOP = DUR - .5                                  # back to the cold-open tyre: last frame -> frame 1
-TRANSITIONS = [TC, t1, t2, STAMP, t3, TR, t4, t5, t6, LOOP]
+CAR2 = word_t("That's")                          # second, lower car shot: 136 m / second
+YES_T, NO_T = word_t('Yes', t6), word_t('no', t6)
+TRANSITIONS = [TC, CAR2, t1, t2, STAMP, t3, TR, t4, t5, t6, LOOP]
 
 
 def scene(t):
@@ -137,7 +144,7 @@ CAMKEYS = [(0, .75, eo, (.95, -.2, 0, 4.0, 0, 0)),
            (t5 + .6, 1.4, io, (1.15, -.3, .05, 2.5, -30, 160))]
 
 
-KICKS = ([TC + .6, TC + 1.2, TC + 1.8] + [t3 + 1.0, t3 + 1.6, t3 + 2.2] + [TR + 1.0, TR + 1.8, TR + 2.5]
+KICKS = ([TC + .7, CAR2 + .7, CAR2 + 1.4, CAR2 + 2.1, t1 + 2.2] + [t3 + 1.0, t3 + 1.6, t3 + 2.2] + [TR + 1.0, TR + 1.8, TR + 2.5]
          + [t5 + .4, t5 + 1.5] + [t6 + .6, t6 + 1.2, t6 + 1.75, t6 + 2.3])
 
 
@@ -389,7 +396,12 @@ def car_offset(t):                               # poll: car blasts past, then t
 
 
 def cam_car(t):
-    if t < t6:
+    if CAR2 <= t < t1:                            # low tracking shot by the rear wheel, ruler flying past
+        k = eo(prog(t, CAR2, .6))
+        tgt = np.array([-.9, .45, 0])
+        yaw, pitch, dist, roll = -.42 + .3 * io(prog(t, CAR2, t1 - CAR2)), -.14 - .06 * k, 6.2 - 1.2 * k, .04
+        amp = 6 + 16 * (1 - k)
+    elif t < t6:
         k = eo(prog(t, TC, .7))
         tgt = np.array([-1.35, .34, -.95]) * (1 - k) + np.array([0, .55, 0]) * k
         yaw = -.55 * (1 - k) - .12 + .3 * io(prog(t, TC, t1 - TC))   # side profile, like the jaguar
@@ -915,7 +927,7 @@ def hud_layer(t, elems, an):
     x0, y0 = TXT_X - 20 + dx, 280 + dy
     sd = int(t * 30)                              # re-roll scramble glyphs every frame
     # headline: frame 1 fully legible; returns for the loop
-    k = max(text_k(t, -1, TC), prog(t, LOOP, SCR))
+    k = max(text_k(t, -1, CAR2), prog(t, LOOP, SCR))
     tl = t if t < DUR / 2 else t - DUR
     if k > 0:
         elems.append('headline')
@@ -931,15 +943,15 @@ def hud_layer(t, elems, an):
             else:
                 dr.text((xx, yy), txt, font=F_HEAD, fill=A(WHT, k))
     # car: 136 m / second
-    k = text_k(t, TC + .1, t1)
+    k = text_k(t, CAR2 + .05, t1)
     if k > 0:
         elems.append('speed_callout')
         bracket_box(dr, x0, y0, x0 + 840, y0 + 330, k)
         dr.text((x0 + 28, y0 + 22), scramble("AT 490 KM/H, ABOUT", k, 21 + sd), font=F_LAB, fill=A(LABC, k))
-        v = 136 * eo(prog(t, TC + .15, .9))
+        v = 136 * eo(prog(t, CAR2 + .1, .9))
         xe = odometer(dr, hud, x0 + 24, y0 + 84, v, 3, F_VAL, A(WHT, k), A((70, 76, 88), k), comma=False)
         dr.text((xe + 18, y0 + 136), scramble("M / SECOND", k, 22 + sd), font=F_UNIT, fill=A(ORG, k))
-        dr.text((x0 + 28, y0 + 252), scramble(f"DISTANCE {136 * (t - TC):06.1f} M", k, 23), font=F_LAB,
+        dr.text((x0 + 28, y0 + 252), scramble(f"DISTANCE {136 * (t - CAR2):06.1f} M", k, 23), font=F_LAB,
                 fill=A(SUBC, k))
     # rpm
     k = text_k(t, t1 + .1, t2)
@@ -1053,7 +1065,7 @@ def hud_layer(t, elems, an):
             if ki <= 0: continue
             x = TXT_X + i * 360 - 60 * (1 - ki) + dx
             y = 520 + dy
-            sel = (i == 0 and t6 + 1.0 <= t < t6 + 1.75) or (i == 1 and t6 + 1.75 <= t < LOOP - .1)
+            sel = (i == 0 and YES_T <= t < NO_T) or (i == 1 and NO_T <= t < LOOP - .1)
             dr.rectangle([x, y, x + 320, y + 124], fill=A(WHT, .92 * ki) if sel else (6, 7, 10, int(170 * ki)),
                          outline=A(WHT, .8 * ki), width=2)
             tw = F_BTN.getlength(lab)

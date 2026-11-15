@@ -11,7 +11,8 @@ import numpy as np
 
 HERE = Path(__file__).parent
 GAP, LEAD0, TAIL = .12, .2, .9          # min gap between lines, first-line start, hold after last word
-sys.path.insert(0, str(HERE.parent.parent / 'new-car-trap/src'))
+sys.path.insert(0, str(HERE))
+sys.path.append(str(HERE.parent.parent / 'new-car-trap/src'))      # shared sfx.py
 
 
 def clip_len(p):
@@ -27,7 +28,7 @@ def timing(vo):
     offs, end = [], 0.0
     for i, ws in enumerate(words):
         first = ws[0]['s']
-        start = LEAD0 if i == 0 else max(end + GAP - first, brief[i] - first)   # line i speaks on beat i
+        start = LEAD0 if i == 0 else end + GAP - first      # lines back to back; beats follow the voice
         offs.append(round(start, 3))
         end = start + ws[-1]['e']
     flat, anchors = [], []
@@ -35,8 +36,11 @@ def timing(vo):
         anchors.append(len(flat))
         flat += [{'w': w['w'], 't': round(o + w['s'], 3), 'e': round(o + w['e'], 3), 'est': False} for w in ws]
     dur = math.ceil((end + TAIL) * 30) / 30
+    ANCHOR = {'car': 'ninety'}         # hook stays ~1.2 s: the car cuts in mid-question
     for b, a, s in zip(B['beats'], anchors, brief):
         b['brief_start'], b['anchor_word'] = s, a
+        if b['id'] in ANCHOR:
+            b['anchor_word'] = next(i for i, w in enumerate(flat) if w['w'].strip('.,?') == ANCHOR[b['id']])
     B['beats'][0]['start'] = 0.0
     for b in B['beats'][1:]:
         b['start'] = flat[b['anchor_word']]['t']
