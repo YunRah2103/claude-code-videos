@@ -109,7 +109,7 @@ def stretch(t):                                  # EXAGGERATED tread growth
 def streak_amp(t):
     if t < TC: return .6 + 1.1 * (1 - eo(prog(t, 0, 1.1)))
     if t >= LOOP: return 1.7
-    return {'car': .35, 'rig': .8}.get(scene(t), .65 if t < t4 else .45)
+    return {'car': .7, 'rig': 1.1}.get(scene(t), (.65 if t < t3 else .95) if t < t4 else .85)
 
 
 def streak_speed(t): return 1.7 if scene(t) == 'car' else omega(t) / 15 + .4
@@ -497,7 +497,7 @@ def spark_rate(t):
     on = (t < TC - .5) or (t1 + .3 < t < t2 - .5) or (TR + .6 < t < t4 - .5) or (t >= LOOP)
     if not on: return 0.0
     r = .55 * (1 - prog(t, .6, .6)) + .55 * (t >= LOOP) + .12 + .25 * heat(t)
-    return r * (.6 if scene(t) == 'rig' else 1)
+    return r * (1.1 if scene(t) == 'rig' else 1)
 
 
 def draw_sparks(t, contact, sparks):
@@ -672,8 +672,9 @@ def lidar_tyre_k(t): return prog(t, t5 - .1, .3) * (1 - prog(t, t6 - .2, .2)) if
 def lidar_tyre(t, cv):
     P = spun(LT_P, -phi(t), 0, t)
     xy, z = project(P, *cv)
-    sx = -1.2 + 2.4 * (((t - t5) * .8) % 1)          # sweeping scan plane
+    sx = -1.2 + 2.4 * (((t - t5) * 1.6) % 1)         # sweeping scan plane
     v = (.45 + 1.6 * np.exp(-((P[:, 0] - sx) / .06) ** 2)) * np.clip(3.2 / np.maximum(z, .5), 0, 1.2)
+    v = v * np.random.default_rng(int(t * 30)).uniform(.45, 1.25, len(v))   # LiDAR return shimmer
     near_f = np.linalg.norm(LT_P - flaw_local(TH_F), axis=1) < .07
     pc = splat(xy[~near_f], v[~near_f], np.zeros((H, W), np.float32))
     pr = splat(xy[near_f], np.full(near_f.sum(), 1.0), np.zeros((H, W), np.float32))
@@ -1126,7 +1127,7 @@ def tyre_frame(t, elems, an, rig=False):
         elems.append('section')
         lay, an['belt'] = section_layers(t, sk)
         fl = L(lay['fill'])[..., 0].reshape(ROWS, CH, COLS, CW).mean(axis=(1, 3))
-        img += glyphs(fl * (.3 + .15 * math.sin(t * 40)) * sk, t)[..., None] * FAR * .7   # ASCII flicker
+        img += glyphs(fl * (.5 + .25 * math.sin(t * 40)) * sk, t)[..., None] * FAR * 1.0   # ASCII flicker
         bl = L(lay['belt'])
         img += L(lay['sec']) * WHITE + blur(lay['secb'], 2.5)[..., None] * FAR * .8
         img += bl * (ACC * .6 + HOT * .4) + small_blur(bl.repeat(3, 2), 5) * ACC * 1.6
@@ -1194,7 +1195,7 @@ def ascii_fine(rgb, t, gain=1.6):
     cells = rgb.reshape(ROWS2, CH2, COLS2, CW2, 3).mean(axis=(1, 3))
     lum = cells.max(-1)
     lv = np.clip((lum * gain * (FTAB.shape[0] - 1)).astype(int), 0, FTAB.shape[0] - 1)
-    rnd = np.random.default_rng(int(t * 15)).integers(0, 1 << 30, lv.shape)
+    rnd = np.random.default_rng(int(t * 30)).integers(0, 1 << 30, lv.shape)   # shimmer every frame
     idx = FTAB[lv, rnd % FLEN[lv]]
     g = FATLAS[idx].transpose(0, 2, 1, 3).reshape(ROWS2 * CH2, COLS2 * CW2)
     col = np.clip(cells / (lum[..., None] + 1e-4), 0, 1).repeat(CH2, 0).repeat(CW2, 1)
