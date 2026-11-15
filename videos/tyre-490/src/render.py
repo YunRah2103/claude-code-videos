@@ -191,7 +191,11 @@ def spun(P, a, st, t):
     m = r >= .985                                  # tread grows + ripples (exaggerated)
     grow = 1 + st * (1 + .35 * np.sin(8 * th + 40 * t)) * m
     Q[:, 0], Q[:, 1] = P[:, 0] * grow, P[:, 1] * grow
-    return np.c_[Q[:, 0] * c - Q[:, 1] * s, Q[:, 0] * s + Q[:, 1] * c, Q[:, 2]]
+    x, y = Q[:, 0] * c - Q[:, 1] * s, Q[:, 0] * s + Q[:, 1] * c
+    near_patch = np.exp(-((y + 1) / .16) ** 2) * (np.abs(x) < .6)
+    z = Q[:, 2] * (1 + .07 * near_patch * (np.abs(Q[:, 2]) > .3))   # sidewall bulge
+    y = np.maximum(y, -.975)                                      # flat contact patch
+    return np.c_[x, y, z]
 
 
 def draw_runs(draws, xy, z, zc, fill_near, width, near_key, tag):
@@ -399,6 +403,8 @@ def bracket_box(dr, x0, y0, x1, y1, a=255):
 
 
 def leader(dr, a, b, alpha):
+    k = eo(alpha)                                  # leader draws out from the box
+    b = (a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k)
     dr.line([a, b], fill=(220, 228, 240, int(140 * alpha)), width=2)
     x, y = b
     dr.ellipse([x - 7, y - 7, x + 7, y + 7], outline=(255, 120, 60, int(230 * alpha)), width=2)
@@ -648,6 +654,156 @@ def flaw_screen(t):
     return tuple(xy[0]), math.degrees(TH_F + a) % 360
 
 
+
+# ---- thermal skin -----------------------------------------------------------
+def _quads():
+    A = np.linspace(0, 2 * np.pi, 73)
+    Q, PF, LA = [], [], []
+    pf = [.45, .6, .8, .95, 1, 1, .95, .8, .6, .45]
+    for j in range(len(PROFILE) - 1):
+        (r0, z0), (r1, z1) = PROFILE[j], PROFILE[j + 1]
+        for i in range(72):
+            a0, a1 = A[i], A[i + 1]
+            Q.append([[r0 * math.cos(a0), r0 * math.sin(a0), z0], [r1 * math.cos(a0), r1 * math.sin(a0), z1],
+                      [r1 * math.cos(a1), r1 * math.sin(a1), z1], [r0 * math.cos(a1), r0 * math.sin(a1), z0]])
+            PF.append(pf[j]); LA.append(i)
+    return np.array(Q), np.array(PF), np.array(LA)
+
+
+QUADS, QPF, QLA = _quads()
+QTEX = .5 + .5 * np.sin(QLA * 1.7) * np.cos(QLA * .45)          # rotating hot-spot texture
+
+
+def _lut(stops):
+    x = np.linspace(0, 1, 256)
+    return np.stack([np.interp(x, [s[0] for s in stops], [s[1][c] for s in stops]) for c in range(3)], -1).astype(np.float32)
+
+
+THERM_LUT = _lut([(0, (0, 0, 0)), (.2, (.16, .01, .04)), (.45, (.55, .06, .04)), (.7, tuple(ACC)),
+                  (.88, (1, .62, .25)), (1, tuple(HOT))])
+
+
+def thermal_k(t):
+    k = .7 + .3 * io(prog(t, t1, 1.0))
+    k *= 1 - eo(prog(t, t4, .4))
+    return k + .7 * io(prog(t, t6, .8))
+
+
+def thermal_layer(t, camv):
+    st = stretch(t)
+    P = spun(QUADS.reshape(-1, 3), -phi(t), st, t)
+    xy, z = project(P, *camv)
+    xy, z = xy.reshape(-1, 4, 2), z.reshape(-1, 4)
+    c = P.reshape(-1, 4, 3).mean(1)
+    dth = np.angle(np.exp(1j * (np.arctan2(c[:, 1], c[:, 0]) + np.pi / 2)))
+    T = heat(t) * QPF * (.42 + .5 * np.exp(-(dth / .7) ** 2) + .12 * QTEX)
+    T = np.clip(T * .9, 0, 1)
+    im = Image.new('L', (W, H)); d = ImageDraw.Draw(im)
+    for i in np.argsort(-z.mean(1)):
+        if z[i].min() < .3: continue
+        d.polygon([tuple(p) for p in xy[i]], fill=int(255 * T[i]))
+    return np.asarray(im.filter(ImageFilter.GaussianBlur(2)))
+
+
+# ---- LiDAR --------------------------------------------------------------------
+_LG = np.random.default_rng(21)
+LG_X, LG_Z = _LG.uniform(-7, 7, 10000), _LG.uniform(-3.2, 3.2, 10000)
+
+
+def splat(xy, v, out):
+    x, y = xy[:, 0].astype(int), xy[:, 1].astype(int)
+    m = (x >= 0) & (x < W - 1) & (y >= 0) & (y < H - 1) & (v > .01)
+    x, y, v = x[m], y[m], v[m]
+    for dx, dy in ((0, 0), (1, 0), (0, 1), (1, 1)):
+        np.add.at(out, (y + dy, x + dx), v)
+    return out
+
+
+def lidar_ground(t, camv):
+    x = (LG_X - phi(t) + 7) % 14 - 7                # rolls with the tyre
+    P = np.c_[x, np.full_like(x, -1.0), LG_Z]
+    xy, z = project(P, *camv)
+    d = np.hypot(x, LG_Z)
+    ring = sum(np.exp(-((d - ((t * .55 + o) % 1) * 7) / .1) ** 2) for o in (0, .5))
+    v = (.3 + 1.4 * ring) * np.clip(1 - np.abs(x) / 7, 0, 1) * np.clip(1 - np.abs(LG_Z) / 3.2, 0, 1)
+    v = v * (z > .4) * np.clip(2.5 / np.maximum(z, .4), 0, 1.3)
+    return np.minimum(splat(xy, v, np.zeros((H, W), np.float32)), 1.2)
+
+
+_LT = np.random.default_rng(22)
+_ang, _pj = _LT.uniform(0, 2 * np.pi, 16000), _LT.uniform(0, len(PROFILE) - 1.001, 16000)
+_j = _pj.astype(int); _f = _pj - _j
+_pr = np.array(PROFILE)
+_r = _pr[_j, 0] * (1 - _f) + _pr[_j + 1, 0] * _f
+_zz = _pr[_j, 1] * (1 - _f) + _pr[_j + 1, 1] * _f
+LT_P = np.c_[_r * np.cos(_ang), _r * np.sin(_ang), _zz]
+
+
+def lidar_tyre_k(t): return prog(t, t5 - .1, .3) * (1 - prog(t, t6 - .2, .2))
+
+
+def lidar_tyre(t, camv):
+    a = -phi(t)
+    P = spun(LT_P, a, 0, t)
+    xy, z = project(P, *camv)
+    sx = -1.2 + 2.4 * (((t - t5) * .8) % 1)          # sweeping scan plane
+    v = (.45 + 1.6 * np.exp(-((P[:, 0] - sx) / .06) ** 2)) * np.clip(3.2 / np.maximum(z, .5), 0, 1.2)
+    fpt = np.array([.86 * math.cos(TH_F), .86 * math.sin(TH_F), -.43])
+    near_f = np.linalg.norm(LT_P - fpt, axis=1) < .07
+    pc = splat(xy[~near_f], v[~near_f], np.zeros((H, W), np.float32))
+    pr = splat(xy[near_f], np.full(near_f.sum(), 1.0), np.zeros((H, W), np.float32))
+    return np.minimum(pc, 1.2), np.minimum(pr, 1.5)
+
+
+# ---- CFD airflow (potential flow + spin circulation + wake) -------------------
+FY = np.arange(70, H - 40, 22, dtype=np.float32)
+FPH = np.random.default_rng(31).uniform(0, 40, len(FY))
+TXTMASK = np.ones((H, W), np.float32); TXTMASK[230:1190, :918] = .35
+
+
+def flow_amp(t):
+    a = 1 - .8 * eo(prog(t, t4, .5)) + .8 * eo(prog(t, t6, .6))
+    return a - .15 * sec_k(t)
+
+
+def section_obstacle(t):
+    v = sec_view(t)
+    return v[4], v[5] - 130, 1400 * .55 / v[3]
+
+
+def flow_layers(t, ob, amp):
+    ox, oy, a = ob
+    n, steps, ds = len(FY), 80, 16.0
+    x = np.full(n, W + 30.0); y = FY.copy()
+    X, Y, S = np.zeros((steps, n)), np.zeros((steps, n)), np.zeros((steps, n))
+    alive = np.ones(n, bool)
+    G = .35 * a * omega(t) / 15
+    for i in range(steps):
+        zx, zy = x - ox, y - oy
+        r2 = np.maximum(zx * zx + zy * zy, 1)
+        a2r4 = a * a / (r2 * r2)
+        vx = -(1 - a2r4 * (zx * zx - zy * zy)) - G * zy / r2
+        vy = 2 * a2r4 * zx * zy + G * zx / r2
+        wk = (zx < 0) * np.exp(-(zy / (1.1 * a)) ** 2) * np.clip(-zx / a, 0, 1)
+        vy += .45 * wk * np.sin(zx / (.8 * a) * np.pi + 7 * t)
+        sp = np.hypot(vx, vy) + 1e-6
+        alive &= r2 > (a * 1.02) ** 2
+        X[i], Y[i], S[i] = x, y, sp * alive
+        x = x + vx / sp * ds; y = y + vy / sp * ds
+    fl = Image.new('L', (W, H)); fh = Image.new('L', (W, H))
+    dl, dh = ImageDraw.Draw(fl), ImageDraw.Draw(fh)
+    rate = 26 * (.6 + .4 * omega(t) / 15)
+    for j in range(n):
+        hot = oy + .45 * a < FY[j] < oy + 1.5 * a
+        d = dh if hot else dl
+        vis = ((np.arange(steps) + FPH[j] - rate * t) % 9) < 5.5     # moving dashes
+        for i in range(steps - 1):
+            if vis[i] and S[i, j] > 0 and S[i + 1, j] > 0:
+                b = min(1.0, .45 + .5 * S[i, j]) * amp
+                d.line([(X[i, j], Y[i, j]), (X[i + 1, j], Y[i + 1, j])], fill=int(255 * b), width=2)
+    return (np.asarray(fl, np.float32) / 255 * TXTMASK, np.asarray(fh, np.float32) / 255 * TXTMASK)
+
+
 # ---- frame ----------------------------------------------------------------
 YY, XX = np.mgrid[0:H, 0:W].astype(np.float32)
 VIG = (1 - .55 * (((XX - W / 2) / (W * .75)) ** 2 + ((YY - H * .55) / (H * .7)) ** 2)).clip(.35, 1)[..., None]
@@ -677,7 +833,21 @@ def frame(t, info=None):
     far = blur(acc['far'], 3)[..., None] * dim
     gnd = blur(acc['ground'], 1.2)[..., None] * dim
     tcol = WHITE * (1 - min(1, h * .75)) + ACC * min(1, h * .75)
-    img = BG + near * WHITE + far * FAR * .7 + gnd * FAR * .6 + tread * tcol
+    img = BG + near * WHITE + far * FAR * .7 + gnd * FAR * .35 + tread * tcol
+    tk = thermal_k(t) * dim
+    if tk > .02:                                  # thermal skin under the wireframe
+        img += THERM_LUT[thermal_layer(t, camv)] * tk * .8
+    lk = lidar_tyre_k(t)
+    if lk > 0:                                    # LiDAR point cloud of the tyre (flaw beat)
+        pc, pr = lidar_tyre(t, camv)
+        img = img * (1 - .6 * lk) + pc[..., None] * XRC * lk + pr[..., None] * RED * 1.4 * lk
+    img += lidar_ground(t, camv)[..., None] * XRC * .9 * dim
+    fa = flow_amp(t)
+    if fa > .02:
+        ob = section_obstacle(t) if sk > .5 else (camv[4], camv[5], 1400 * 1.08 / camv[3])
+        fl, fh = flow_layers(t, ob, fa)
+        img += fl[..., None] * FAR * 1.5 + small_blur(fl[..., None].repeat(3, 2), 3) * FAR * .5 + fh[..., None] * ACC * (.4 + .6 * min(1, h))
+        img += small_blur(fh[..., None].repeat(3, 2), 3) * ACC * .5
     gl = Image.new('L', (W, H)); g = ImageDraw.Draw(gl)
     (cx0, cy0) = contact[0]
     rr = 70 + 60 * h
@@ -691,6 +861,10 @@ def frame(t, info=None):
         img += glyphs(fl * .28 * sk, t)[..., None] * FAR * .55          # ASCII rubber texture
         bl = L(lay['belt'])
         img += L(lay['sec']) * WHITE + blur(lay['secb'], 2.5)[..., None] * FAR * .8
+        by = anchors['belt'][1]                   # thermal gradient: hottest at the belts
+        tg = np.clip(1 - np.abs(YY - by) / 260, 0, 1) ** 1.4 * blur(lay['fill'], 3) * sk
+        gsum = sum(io(prog(t, t3 + .7 + .35 * i, .4)) for i in range(3)) / 3
+        img += THERM_LUT[(np.clip(tg * (.35 + .65 * gsum), 0, 1) * 255).astype(np.uint8)] * .75
         img += bl * (ACC * .6 + HOT * .4) + small_blur(bl.repeat(3, 2), 5) * ACC * 1.6
     kf = prog(t, t5 + .15, .2) * (1 - prog(t, t6 - .15, .15))
     if kf > 0:
@@ -715,7 +889,7 @@ def frame(t, info=None):
     sp = np.asarray(sp, np.float32) / 255
     img += sp + small_blur(sp, 3) * 1.2
     st, amp = streaks(t)
-    if amp > .05: elems.append('ascii_streaks')
+    if amp > .05 or fa > .02: elems.append('airflow')
     img += st
     img += small_blur(img, 5) * .35 + small_blur(img, 22) * .45          # bloom
     xs = xray_state(t)
