@@ -81,8 +81,8 @@ def scene(t):
 def omega(t):                                    # apparent tyre spin, rad/s (readable, not 68 rev/s)
     if t < t1 or t >= t6: return 15.0
     if t < t4: return 3 + 13 * io(prog(t, t1, 1.5))   # visible spin-up
-    if t < t5: return 16 - 14.8 * eo(prog(t, t4, .8))
-    return 1.2 - 1.08 * prog(t, t5, .3)
+    if t < t5: return 16 - 13 * eo(prog(t, t4, .8))
+    return 3.0                                    # slow inspection turn
 
 
 _TT = np.linspace(0, DUR, int(DUR * 600) + 1)
@@ -109,7 +109,7 @@ def stretch(t):                                  # EXAGGERATED tread growth
 def streak_amp(t):
     if t < TC: return .6 + 1.1 * (1 - eo(prog(t, 0, 1.1)))
     if t >= LOOP: return 1.7
-    return {'car': .7, 'rig': 1.1}.get(scene(t), (.65 if t < t3 else .95) if t < t4 else .85)
+    return {'car': 1.0 if t < t6 else 1.3, 'rig': 1.1}.get(scene(t), (.65 if t < t3 else .95) if t < t4 else .85)
 
 
 def streak_speed(t): return 1.7 if scene(t) == 'car' else omega(t) / 15 + .4
@@ -134,7 +134,16 @@ CAMKEYS = [(0, .75, eo, (.95, -.2, 0, 4.0, 0, 0)),
            (t4, .01, lin, (.28, -.08, 0, 3.6, -10, -10)),           # face-on for the scan
            (t4 + .02, 1.98, io, (.52, -.16, .04, 3.2, 10, 0)),
            (t5, .6, eo, (.55, -.15, -.02, 3.1, -10, 120)),          # push toward the flaw
-           (t5 + .6, 1.4, io, (.7, -.21, 0, 2.7, 0, 140))]
+           (t5 + .6, 1.4, io, (1.15, -.3, .05, 2.5, -30, 160))]
+
+
+KICKS = ([TC + .6, TC + 1.2, TC + 1.8] + [t3 + 1.0, t3 + 1.6, t3 + 2.2] + [TR + 1.0, TR + 1.8, TR + 2.5]
+         + [t5 + .4, t5 + 1.5] + [t6 + .6, t6 + 1.2, t6 + 1.75, t6 + 2.3])
+
+
+def kick(t):
+    """Beat-synced camera kicks in the calmer shots (punch-in + jolt)."""
+    return max([bump(t, k, .03, .3) for k in KICKS] + [0.0])
 
 
 def shake(t, amp):
@@ -152,9 +161,9 @@ def cam_base(t):
     pitch += .06 * math.sin(.9 * t)
     roll += .035 * math.sin(1.3 * t)
     yaw += .05 * math.sin(.7 * t)
-    dist -= .35 * bump(t, STAMP, .04, .5) + .25 * bump(t, FLAWHIT, .04, .45)
+    dist -= .35 * bump(t, STAMP, .04, .5) + .25 * bump(t, FLAWHIT, .04, .45) + .3 * kick(t)
     amp = (22 * (1 - eo(prog(t, 0, 1.0))) + 3 + 26 * bump(t, STAMP, .02, .45) + 10 * bump(t, t1, .02, .3)
-           + 14 * bump(t, FLAWHIT, .02, .35) + 6 * bump(t, t3, .02, .3) + 4 * bump(t, t4, .02, .3))
+           + 14 * bump(t, FLAWHIT, .02, .35) + 6 * bump(t, t3, .02, .3) + 4 * bump(t, t4, .02, .3) + 22 * kick(t))
     sx, sy = shake(t, amp)
     return (yaw, pitch, roll, dist, 548 + cxo + 18 * math.sin(.5 * t) + sx,
             1215 + cyo + 12 * math.sin(.65 * t + 1) + sy, 0.0, 0.0, 0.0)
@@ -171,7 +180,8 @@ def cam_rig(t):
     pitch = -.2 + .14 * k + .04 * math.sin(.7 * t)
     dist = 3.6 + 9.4 * k - 1.2 * io(prog(t, t4 - 1.1, 1.1))
     ty = -1.0 * (1 - k) - 2.4 * k
-    sx, sy = shake(t, 3 + 10 * bump(t, TR, .02, .4))
+    sx, sy = shake(t, 3 + 10 * bump(t, TR, .02, .4) + 24 * kick(t))
+    dist -= 1.4 * kick(t)
     return (yaw, pitch, .03 * math.sin(.9 * t), dist, 540 + 14 * math.sin(.6 * t) + sx,
             1260 + 10 * math.sin(.7 * t) + sy, 0.0, ty, 0.0)
 
@@ -375,7 +385,7 @@ def travel(t): return CAR_V * t
 
 def car_offset(t):                               # poll: car blasts past, then the camera locks on
     if t < t6: return 0.0
-    return -14 + 17 * oc(prog(t, t6, 1.2)) - 3 * io(prog(t, t6 + 1.2, .9))
+    return -14 + 17 * oc(prog(t, t6, 1.2)) - 3 * io(prog(t, t6 + 1.2, .9)) + 1.6 * math.sin(2.2 * (t - t6)) * prog(t, t6 + 1.2, .5)
 
 
 def cam_car(t):
@@ -383,15 +393,18 @@ def cam_car(t):
         k = eo(prog(t, TC, .7))
         tgt = np.array([-1.35, .34, -.95]) * (1 - k) + np.array([0, .55, 0]) * k
         yaw = -.55 * (1 - k) - .12 + .3 * io(prog(t, TC, t1 - TC))   # side profile, like the jaguar
-        pitch, dist, roll = -.1 - .12 * k, 1.4 + 6.0 * k, .12 * (1 - k)
+        pitch, dist, roll = -.1 - .32 * k, 1.4 + 7.0 * k, .12 * (1 - k)
         amp = 6 + 22 * (1 - k)
     else:
         tgt = np.array([-car_offset(t), .6, 0])
-        yaw, pitch, dist, roll = -.1 + .2 * io(prog(t, t6, 2.4)), -.2, 8.2, 0.0
+        yaw, pitch, dist, roll = -.1 + .2 * io(prog(t, t6, 2.4)), -.42, 8.6, 0.0
         amp = 6 + 14 * bump(t, t6 + .45, .1, .6)
     sx, sy = shake(t, amp)
-    return (yaw, pitch + .03 * math.sin(.9 * t), roll + .03 * math.sin(1.2 * t), dist,
-            540 + 20 * math.sin(.6 * t) + sx, 1230 + 10 * math.sin(.8 * t) + sy, *tgt)
+    dist += .5 * math.sin(1.7 * t) - 1.1 * kick(t)   # breathing chase dolly + kicks
+    sx, sy = sx + 30 * kick(t) * math.sin(t * 71), sy + 22 * kick(t) * math.cos(t * 63)
+    yaw += .12 * math.sin(1.1 * t)
+    return (yaw, pitch + .05 * math.sin(1.4 * t), roll + .05 * math.sin(1.2 * t), dist,
+            540 + 50 * math.sin(1.3 * t) + sx, 1180 + 28 * math.sin(1.9 * t) + sy, *tgt)
 
 
 def draw_car(ts, cv, dr, v):
@@ -422,7 +435,7 @@ def draw_car(ts, cv, dr, v):
         draw_runs(dr, xy, z, cv[3] + 400, int(v * .8 * clamp(1 - x0 / 120)), 2, 'ground', ftol=1e9)
 
 
-MARK_EVERY = 25.0
+MARK_EVERY = 10.0
 
 
 def car_markers(t, cv):
@@ -537,8 +550,9 @@ def _atlas(chars):
 
 ATLAS = _atlas(RAMP)
 _G = np.random.default_rng(3)
-STREAK = dict(row=_G.integers(0, ROWS, 300), v=_G.uniform(45, 130, 300), L=_G.uniform(6, 30, 300),
-              ph=_G.uniform(0, 400, 300), amp=_G.uniform(.5, 1.2, 300), hot=_G.uniform(0, 1, 300))
+_NS = 520
+STREAK = dict(row=_G.integers(0, ROWS, _NS), v=_G.uniform(55, 150, _NS), L=_G.uniform(6, 30, _NS),
+              ph=_G.uniform(0, 400, _NS), amp=_G.uniform(.5, 1.2, _NS), hot=_G.uniform(0, 1, _NS))
 ROWW = np.ones(ROWS, np.float32)
 ROWW[230 // CH:1190 // CH] = .3                  # keep text zone calm
 
@@ -758,8 +772,9 @@ def sec_view(t):
     k = eo(prog(t, t3, .7))
     dist = 3.25 + 6 * (1 - k) - 1.7 * io(prog(t, TR - .3, .3)) - .25 * io(prog(t, t3 + .7, 1.6))
     m = io(prog(t, t3, TR - t3))
-    sx, sy = shake(t, 2 + 6 * bump(t, t3 + .7, .05, .3) + 6 * bump(t, t3 + 1.75, .05, .3))
-    return (.15 + .75 * m + .06 * math.sin(1.6 * t), .36 - .2 * m + .04 * math.sin(1.3 * t), .04 * math.sin(1.1 * t),
+    sx, sy = shake(t, 2 + 6 * bump(t, t3 + .7, .05, .3) + 22 * kick(t))
+    dist -= .5 * kick(t)
+    return (.0 + 1.1 * m + .09 * math.sin(1.9 * t), .36 - .2 * m + .04 * math.sin(1.3 * t), .04 * math.sin(1.1 * t),
             dist, 480 + 24 * math.sin(.9 * t) + sx, 1110 + 14 * math.sin(1.1 * t) + sy)
 
 
@@ -1063,7 +1078,7 @@ YY, XX = np.mgrid[0:H, 0:W].astype(np.float32)
 VIG = (1 - .55 * (((XX - W / 2) / (W * .75)) ** 2 + ((YY - H * .55) / (H * .7)) ** 2)).clip(.35, 1)[..., None]
 
 
-def blur(im, r): return np.asarray(im.filter(ImageFilter.GaussianBlur(r)), np.float32) / 255
+def blur(im, r): return np.asarray(im.filter(ImageFilter.GaussianBlur(float(r))), np.float32) / 255
 def L(im): return np.asarray(im, np.float32)[..., None] / 255
 
 
@@ -1098,7 +1113,7 @@ def tyre_frame(t, elems, an, rig=False):
     sk = sec_k(t)
     if sk > .02:                                  # tyre falls behind the section: dim + defocus
         near, tread = blur(acc['near'], 5 * sk)[..., None], blur(acc['tread'], 5 * sk)[..., None]
-        dim = 1 - .7 * sk
+        dim = 1 - .5 * sk
         near, tread = near * dim, tread * dim
     else:
         near, tread, dim = L(acc['near']), L(acc['tread']), 1.0
@@ -1194,8 +1209,9 @@ FATLAS, FTAB, FLEN = _fine_atlas()
 def ascii_fine(rgb, t, gain=1.6):
     cells = rgb.reshape(ROWS2, CH2, COLS2, CW2, 3).mean(axis=(1, 3))
     lum = cells.max(-1)
-    lv = np.clip((lum * gain * (FTAB.shape[0] - 1)).astype(int), 0, FTAB.shape[0] - 1)
-    rnd = np.random.default_rng(int(t * 30)).integers(0, 1 << 30, lv.shape)   # shimmer every frame
+    rnd = np.random.default_rng(int(t * 30)).integers(0, 1 << 30, lum.shape)   # shimmer every frame
+    jit = (rnd >> 20) % 7 - 3                     # +-3 density levels: jaguar-style sparkle
+    lv = np.clip((lum * gain * (FTAB.shape[0] - 1)).astype(int) + jit * (lum > .06), 0, FTAB.shape[0] - 1)
     idx = FTAB[lv, rnd % FLEN[lv]]
     g = FATLAS[idx].transpose(0, 2, 1, 3).reshape(ROWS2 * CH2, COLS2 * CW2)
     col = np.clip(cells / (lum[..., None] + 1e-4), 0, 1).repeat(CH2, 0).repeat(CW2, 1)
@@ -1203,6 +1219,39 @@ def ascii_fine(rgb, t, gain=1.6):
 
 
 LIGHT = np.array([-.25, .75, -.6]); LIGHT /= np.linalg.norm(LIGHT)
+
+
+def unproject(sx, sy, cv, f=1400.0):
+    """Camera ray for screen points -> world origin and direction (inverse of project)."""
+    yaw, pitch, roll, dist, cx, cy, tx, ty, tz = cv
+    def back(x3, y3, z3):
+        cr, sr = math.cos(roll), math.sin(roll)
+        x1, y2 = x3 * cr + y3 * sr, -x3 * sr + y3 * cr
+        z2 = z3 - dist
+        cp, sp = math.cos(pitch), math.sin(pitch)
+        y, z1 = y2 * cp + z2 * sp, -y2 * sp + z2 * cp
+        c, s_ = math.cos(yaw), math.sin(yaw)
+        return np.stack([x1 * c - z1 * s_ + tx, y + ty, x1 * s_ + z1 * c + tz])
+    o = back(np.zeros_like(sx), np.zeros_like(sx), np.zeros_like(sx))
+    p = back((sx - cx) / f, -(sy - cy) / f, np.ones_like(sx))
+    return o, p - o
+
+
+CELL_Y, CELL_X = np.mgrid[0:ROWS2, 0:COLS2].astype(np.float64)
+
+
+def asphalt_cells(t, cv):
+    """Hashed ASCII asphalt per glyph cell, rushing past at road speed."""
+    o, d = unproject(CELL_X * CW2 + CW2 / 2, CELL_Y * CH2 + CH2 / 2, cv)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        k = -o[1] / d[1]
+    x, z = o[0] + k * d[0], o[2] + k * d[2]
+    ok = (k > 0) & (np.abs(z) < 3.6) & (x < 160) & (x > -60)
+    ix, iz = np.floor((x + travel(t)) / .5), np.floor(z / .35)
+    hsh = (np.sin(ix * 12.9898 + iz * 78.233) * 43758.5453) % 1
+    v = np.where(hsh > .55, .05 + .22 * (hsh - .55) / .45, .0)     # sparse, dim: car stays the subject
+    v = np.where(ok, v * np.clip(1.4 - np.nan_to_num(k) / 60, 0, 1), 0)
+    return v.repeat(CH2, 0).repeat(CW2, 1).astype(np.float32)
 
 
 def car_shade(t, cv):
@@ -1245,7 +1294,7 @@ def car_shade(t, cv):
         lam = max(0.0, n @ LIGHT)
         glass = 4 <= j <= 6 and abs(q[:, 0].mean() + .3) < 1.0
         xm = q[:, 0].mean()
-        v = (.12 if glass else .35 + .65 * lam ** 1.2) * (1.0 if j >= 0 else .5)
+        v = (.12 if glass else .45 + .55 * lam ** 1.2) * (1.0 if j >= 0 else .5)
         if j in (0, 1, 8, 9): v *= .45                             # dark rocker
         if j in (1, 2, 7, 8) and -.9 < xm < .2: v = .05            # side intake
         if j in (3, 6): v = min(1, v * 1.3)                        # shoulder highlight
@@ -1270,7 +1319,8 @@ def car_shade(t, cv):
     xy, z = project(np.array([(-2.27, .66, -.85), (-2.27, .66, .85), (-2.27, .78, .85), (-2.27, .78, -.85)]), *cv)
     if z.min() > .3:
         d.polygon([tuple(p) for p in xy], fill=(255, 92, 23))
-    return np.asarray(im, np.float32) / 255
+    out = np.asarray(im, np.float32) / 255
+    return np.maximum(out, asphalt_cells(t, cv)[..., None])
 
 
 def car_frame(t, elems, an):
