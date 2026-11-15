@@ -57,13 +57,19 @@ F_LAB, F_CHIP, F_TAG = F('Regular', 30), F('Bold', 40), F('Regular', 24)
 TXT_X = 64                                       # safe text: x < 918, 230 < y < 1190
 
 # ---- timeline (all anchored to beat starts) -----------------------------
-t1, t2, t3 = T('rpm'), T('g_force'), T('belts')
+t1, t2, t3, t4, t5, t6 = (T(x) for x in ('rpm', 'g_force', 'belts', 'xray', 'flaw', 'poll'))
 STAMP = t2 + 1.15                                 # 5,300 g slam
-TRANSITIONS = [t1, t2, STAMP, t3]
+FLAWHIT = t5 + 1.1                                # flaw pulse punch
+LOOP = DUR - .5                                   # poll out, headline back in (loops to frame 1)
+TRANSITIONS = [t1, t2, STAMP, t3, t4, t5, t6, LOOP - .05]
 
 
 def omega(t):                                    # apparent spin, rad/s (readable, not 68 rev/s)
-    return 15.0 if t < t1 else 11.0 + 5.0 * io(prog(t, t1, 1.2))
+    if t < t1: return 15.0
+    if t < t4: return 11.0 + 5.0 * io(prog(t, t1, 1.2))
+    if t < t5: return 16 - 14.8 * eo(prog(t, t4, .8))
+    if t < t6: return 1.2 - 1.08 * prog(t, t5, .3)
+    return .12 + 14.88 * io(prog(t, t6, DUR - .3 - t6))
 
 
 _TT = np.linspace(0, DUR, int(DUR * 600) + 1)
@@ -71,30 +77,68 @@ _PHI = np.concatenate([[0], np.cumsum([omega(x) for x in _TT[1:]]) * (_TT[1] - _
 def phi(t): return float(np.interp(t, _TT, _PHI))
 
 
-def heat(t):
+def _heat1(t):
     h = .3 + .35 * io(prog(t, t1, t2 - t1)) + .35 * io(prog(t, t2, STAMP - t2))
     return min(1.2, h + .5 * bump(t, STAMP, .05, .6))
 
 
+def heat(t):
+    if t < t4: return _heat1(t)
+    h = _heat1(t4) + (.12 - _heat1(t4)) * eo(prog(t, t4, .6))
+    return h + .18 * io(prog(t, t6, DUR - t6))   # ends at .3 = frame-1 value
+
+
 def stretch(t):                                  # EXAGGERATED tread growth
-    return .085 * io(prog(t, t1 + .25, .9)) * (1 + .25 * bump(t, STAMP, .05, .5))
+    return .085 * io(prog(t, t1 + .25, .9)) * (1 + .25 * bump(t, STAMP, .05, .5)) * (1 - io(prog(t, t3, .5)))
+
+
+def streak_amp(t):
+    a = .6 + 1.1 * (1 - eo(prog(t, 0, 1.1)))
+    a -= .28 * eo(prog(t, t3, .5)) + .14 * eo(prog(t, t4, .5))
+    a += .27 * eo(prog(t, t6, .5)) + 1.25 * io(prog(t, DUR - .6, .6))
+    return a
+
+
+#      yaw   pitch  roll  dist  cx-off cy-off
+S0 = (1.5, -.3, .22, 2.7, 0, 140)
+CAMKEYS = [(0, .75, eo, (.95, -.2, 0, 4.0, 0, 0)),
+           (t1, 1.6, io, (.7, -.2, 0, 3.6, 0, 0)),
+           (t2, 2.0, io, (1.08, -.2, 0, 3.9, 0, 0)),
+           (t3, .8, eo, (.9, -.25, .03, 1.9, -20, 430)),          # dolly into the tread
+           (t3 + .8, 2.6, io, (1.15, -.32, -.03, 1.75, -40, 450)),
+           (t4, .8, eo, (.28, -.08, 0, 3.6, -10, -10)),           # face-on for the scan
+           (t4 + .8, 2.2, io, (.42, -.13, .02, 3.3, 0, 0)),
+           (t5, .7, eo, (.55, -.15, -.02, 3.1, -10, 120)),          # push toward the flaw
+           (t5 + .7, 1.3, io, (.62, -.18, 0, 2.8, 0, 140)),
+           (t6, .8, eo, (1.0, -.2, 0, 4.1, 0, 0))]
+
+
+def cam_base(t):
+    st = list(S0)
+    for tk, d, f, S in CAMKEYS:
+        w = f(prog(t, tk, d))
+        if w <= 0: break
+        st = [a + (b - a) * w for a, b in zip(st, S)]
+    yaw, pitch, roll, dist, cxo, cyo = st
+    pitch += .06 * math.sin(.9 * t)
+    roll += .035 * math.sin(1.3 * t)
+    yaw += .05 * math.sin(.7 * t)
+    dist -= .35 * bump(t, STAMP, .04, .5) + .25 * bump(t, FLAWHIT, .04, .45)
+    amp = (22 * (1 - eo(prog(t, 0, 1.0))) + 3 + 26 * bump(t, STAMP, .02, .45) + 8 * bump(t, t1, .02, .3)
+           + 14 * bump(t, FLAWHIT, .02, .35) + 6 * bump(t, t3, .02, .3))
+    sx = amp * (math.sin(t * 61) * .6 + math.sin(t * 37 + 1) * .4)
+    sy = amp * (math.sin(t * 53 + 2) * .6 + math.sin(t * 29) * .4)
+    cx = 548 + cxo + 18 * math.sin(.5 * t) + sx
+    cy = 1215 + cyo + 12 * math.sin(.65 * t + 1) + sy
+    return yaw, pitch, roll, dist, cx, cy
 
 
 def cam(t):
-    k = eo(prog(t, 0, .75))
-    yaw = 1.5 - .55 * k
-    yaw += -.25 * io(prog(t, t1, 1.6)) + .38 * io(prog(t, t2, 2.0))
-    dist = 2.7 + 1.3 * k - .4 * io(prog(t, t1, 1.6)) + .3 * io(prog(t, t2, 2.0))
-    dist -= .35 * bump(t, STAMP, .04, .5)
-    pitch = -.2 + .06 * math.sin(.9 * t) - .1 * (1 - k)
-    roll = .22 * (1 - k) + .035 * math.sin(1.3 * t)
-    yaw += .05 * math.sin(.7 * t)
-    amp = 22 * (1 - eo(prog(t, 0, 1.0))) + 3 + 26 * bump(t, STAMP, .02, .45) + 8 * bump(t, t1, .02, .3)
-    sx = amp * (math.sin(t * 61) * .6 + math.sin(t * 37 + 1) * .4)
-    sy = amp * (math.sin(t * 53 + 2) * .6 + math.sin(t * 29) * .4)
-    cx = 548 + 18 * math.sin(.5 * t) + sx
-    cy = 1215 + 140 * (1 - k) + 12 * math.sin(.65 * t + 1) + sy
-    return yaw, pitch, roll, dist, cx, cy
+    w = io(prog(t, DUR - .6, .6))                  # last frames converge on frame 1
+    a = cam_base(t)
+    if w <= 0: return a
+    b = cam_base(t - DUR)
+    return tuple(x + (y - x) * w for x, y in zip(a, b))
 
 
 # ---- geometry (generic tyre + 5-spoke wheel, no brand) -------------------
@@ -211,7 +255,9 @@ SP = dict(tb=_R.uniform(-.6, DUR, _N), life=_R.uniform(.18, .55, _N), v=_R.unifo
 
 
 def spark_rate(t):
-    return .55 * (1 - prog(t, .6, .6)) + .12 + .25 * heat(t) + .9 * bump(t, STAMP, .02, .35)
+    gate = 1 - prog(t, t3 - .6, .3) + prog(t, LOOP, .15)
+    r = .55 * (1 - prog(t, .6, .6)) + .55 * prog(t, DUR - .4, .4) + .12 + .25 * heat(t) + .9 * bump(t, STAMP, .02, .35)
+    return r * gate
 
 
 def draw_sparks(t, contact, sparks):
@@ -266,7 +312,7 @@ def glyphs(lum, t):
 
 def streaks(t):
     sp = omega(t) / 15
-    amp = 1.1 * (1 - eo(prog(t, 0, 1.1))) + .6
+    amp = streak_amp(t)
     c = np.arange(COLS)[None, :]
     L = STREAK['L'][:, None] * (.7 + .5 * sp)
     pos = (STREAK['ph'][:, None] - STREAK['v'][:, None] * (.7 + .6 * sp) * t) % (COLS + 60) - 30
@@ -359,22 +405,23 @@ def leader(dr, a, b, alpha):
     dr.ellipse([x - 2, y - 2, x + 2, y + 2], fill=(255, 140, 80, int(255 * alpha)))
 
 
-def hud_layer(t, top, cnt_sparks, elems):
+def hud_layer(t, top, cnt_sparks, elems, anchors):
     hud = Image.new('RGBA', (W, H))
     dr = ImageDraw.Draw(hud)
     drift = (6 * math.sin(1.1 * t), 5 * math.sin(.8 * t + 1))
     # headline (frame 1 fully legible)
-    k = text_k(t, -1, t1)
+    k = max(text_k(t, -1, t1), prog(t, LOOP, .25))
+    tl = t if t < DUR / 2 else t - DUR             # end frames match frame 1
     if k > 0:
         elems.append('headline')
-        s = 1 + .05 * (1 - eo(prog(t, 0, .5)))
+        s = 1 + .05 * (1 - eo(prog(tl, 0, .5)))
         y = 262
         for i, line in enumerate(["WHAT DOES", "490 KM/H DO", "TO A TYRE?"]):
             txt = scramble(line, k, 11 + i + int(t * 20))
             xx = TXT_X + drift[0] * .5
             yy = y + i * 98 * s + drift[1] * .5
             if i == 1:                             # heat underline sweep under 490 KM/H
-                u = eo(prog(t, .05, .5))
+                u = eo(prog(tl, .05, .5))
                 dr.rectangle([xx, yy + 90, xx + 404 * u, yy + 96], fill=(255, 92, 23, int(255 * k)))
                 dr.text((xx, yy), txt[:8], font=F_HEAD, fill=(255, 112, 44, int(255 * k)))
                 dr.text((xx + F_HEAD.getlength(txt[:8]), yy), txt[8:], font=F_HEAD, fill=(240, 244, 250, int(255 * k)))
@@ -424,11 +471,181 @@ def hud_layer(t, top, cnt_sparks, elems):
         dr.text((x0 + 28, y0 + 214), scramble("ROUGHLY, AT 490 KM/H", k, 6), font=F_CHIP,
                 fill=(200, 208, 220, int(255 * k)))
         leader(dr, (x0 + 700, y0 + 300), tuple(top[1]), k)
+    LAB, WHT, ORG, REDC = (150, 160, 175), (240, 244, 250), (255, 112, 44), (255, 64, 46)
+    def A(c, a): return c + (int(255 * a),)
+    revs = 4100 / 60 * max(0.0, t - t1)
+    # belts callout
+    k = text_k(t, t3 + .15, t4)
+    if k > 0:
+        elems.append('belts_callout')
+        x0, y0 = TXT_X - 20 + drift[0], 290 + drift[1]
+        bracket_box(dr, x0, y0, x0 + 760, y0 + 330, int(255 * min(1, k * 2)))
+        dr.text((x0 + 28, y0 + 24), scramble(f"CROSS-SECTION // REVS {revs:07.1f}", k, 41 + int(t * 20)),
+                font=F_LAB, fill=A(LAB, k))
+        dr.text((x0 + 24, y0 + 64), scramble("REINFORCED", k, 42), font=F_HEAD, fill=A(WHT, k))
+        dr.text((x0 + 24, y0 + 156), scramble("BELTS", k, 43), font=F_HEAD, fill=A(ORG, k))
+        dr.text((x0 + 28, y0 + 262), scramble("TO WITHSTAND ~5,300 g", k, 44), font=F_CHIP, fill=A((200, 208, 220), k))
+        if 'belt' in anchors:
+            leader(dr, (x0 + 560, y0 + 330), anchors['belt'], k)
+    # x-ray callout
+    k = text_k(t, t4 + .1, t5)
+    if k > 0:
+        elems.append('xray_callout')
+        x0, y0 = TXT_X - 20 + drift[0], 290 + drift[1]
+        pn, pct = anchors.get('pass', (2, 100.0))
+        bracket_box(dr, x0, y0, x0 + 760, y0 + 330, int(255 * min(1, k * 2)))
+        dr.text((x0 + 28, y0 + 24), scramble(f"QUALITY CHECK // PASS {pn}/2  {pct:05.1f}%", k, 51 + int(t * 20)),
+                font=F_LAB, fill=A(LAB, k))
+        dr.text((x0 + 24, y0 + 64), scramble("EVERY TYRE", k, 52), font=F_HEAD, fill=A(WHT, k))
+        dr.text((x0 + 24, y0 + 156), scramble("X-RAYED", k, 53), font=F_HEAD, fill=A(WHT, k))
+        dr.text((x0 + 28, y0 + 262), scramble("EVERY SINGLE ONE", k, 54), font=F_CHIP, fill=A((200, 208, 220), k))
+        if 'scan' in anchors:
+            leader(dr, (x0 + 760, y0 + 330), anchors['scan'], k)
+    # flaw callout + lock-on brackets
+    k = text_k(t, t5 + .1, t6)
+    if k > 0 and 'flaw' in anchors:
+        elems.append('flaw_callout')
+        x0, y0 = TXT_X - 20 + drift[0], 290 + drift[1]
+        fx, fy = anchors['flaw']
+        bracket_box(dr, x0, y0, x0 + 760, y0 + 330, int(255 * min(1, k * 2)))
+        dr.text((x0 + 28, y0 + 24), scramble(f"INSPECTION // ANGLE {anchors['flaw_ang']:05.1f} DEG", k, 61 + int(t * 20)),
+                font=F_LAB, fill=A(LAB, k))
+        dr.text((x0 + 24, y0 + 64), scramble("EVEN A", k, 62), font=F_HEAD, fill=A(WHT, k))
+        dr.text((x0 + 24, y0 + 156), scramble("TINY FLAW", k, 63), font=F_HEAD, fill=A(REDC, k))
+        dr.text((x0 + 28, y0 + 262), scramble("IS DANGEROUS", k, 64), font=F_CHIP, fill=A((200, 208, 220), k))
+        dr.line([(x0 + 560, y0 + 330), (fx, fy)], fill=A((255, 120, 110), .6 * k), width=2)
+        sz = 34 + 120 * (1 - eo(prog(t, t5 + .2, .5))) + 6 * math.sin(t * 9)
+        for sx, sy in [(-1, -1), (1, -1), (-1, 1), (1, 1)]:
+            cx_, cy_ = fx + sx * sz, fy + sy * sz
+            dr.line([(cx_, cy_ - sy * 16), (cx_, cy_), (cx_ - sx * 16, cy_)], fill=A(REDC, k), width=3)
+    # poll
+    k = text_k(t, t6, LOOP)
+    if k > 0:
+        elems += ['question', 'poll']
+        for i, line in enumerate(["WOULD YOU", "RIDE IT?"]):
+            dr.text((TXT_X + drift[0] * .5, 262 + i * 98 + drift[1] * .5), scramble(line, k, 71 + i + int(t * 20)),
+                    font=F_HEAD, fill=A(WHT, k))
+        for i, lab in enumerate(["YES", "NO"]):
+            ki = eo(prog(t, t6 + .3 + .12 * i, .35)) * k
+            if ki <= 0: continue
+            x = TXT_X + i * 360 - 60 * (1 - ki) + drift[0]
+            y = 520 + drift[1]
+            sel = (i == 0 and 15.1 <= t < 15.9) or (i == 1 and 15.9 <= t < LOOP - .1)
+            dr.rectangle([x, y, x + 320, y + 124], fill=A(WHT, .92 * ki) if sel else (6, 7, 10, int(170 * ki)),
+                         outline=A(WHT, .8 * ki), width=2)
+            tw = F_BTN.getlength(lab)
+            dr.text((x + 160 - tw / 2, y + 20), lab, font=F_BTN, fill=A((10, 12, 16) if sel else WHT, ki))
+        dr.text((TXT_X + drift[0], 680 + drift[1]), scramble("COMMENT: YES OR NO?", k, 75), font=F_CHIP,
+                fill=A((170, 178, 190), k))
     # tiny tags
     dr.text((40, 36), "Yub", font=F_TAG, fill=(200, 205, 215, 200)); elems.append('yub_tag')
     if PREVIEW:
         dr.text((W - 140, H - 60), "PREVIEW", font=F_TAG, fill=(255, 255, 255, 110))
     return hud
+
+
+F_BTN = F('Bold', 72)
+
+
+# ---- cross-section (belts beat) --------------------------------------------
+def _mirror(half):                                # left half (u<0) -> full closed-order list
+    return half + [(-u, v) for u, v in reversed(half)]
+
+
+def _top():                                       # tread top with 4 grooves
+    pts = [(-.66, 1.0)]
+    for c in (-.45, -.15, .15, .45):
+        pts += [(c - .04, 1.0), (c - .03, .93), (c + .03, .93), (c + .04, 1.0)]
+    return pts + [(.66, 1.0)]
+
+
+_OUT_L = [(-.70, 0), (-.80, .15), (-.92, .40), (-.98, .62), (-.95, .82), (-.84, .95)]
+SEC_OUT = _OUT_L + _top() + [(-u, v) for u, v in reversed(_OUT_L)]
+SEC_LIN = _mirror([(-.58, .06), (-.66, .18), (-.78, .40), (-.84, .56), (-.78, .66), (-.62, .69)])
+SEC_PLY = _mirror([(-.62, .02), (-.73, .17), (-.85, .40), (-.91, .59), (-.87, .72), (-.72, .755)])
+BELTS = [(.80, .78), (.85, .74), (.905, .82)]     # (v, half-width): two steel belts + cap ply
+
+
+def sec_k(t): return prog(t, t3 + .02, .3) * (1 - prog(t, t4 - .12, .12))
+
+
+def sec_view(t):
+    k = eo(prog(t, t3, .7))
+    dist = 3.25 + 6 * (1 - k) - 1.7 * io(prog(t, t4 - .3, .3))
+    m = io(prog(t, t3, 3.5))
+    return (.3 + .32 * m + .04 * math.sin(1.1 * t), .32 - .12 * m, .02 * math.sin(.9 * t), dist,
+            480 + 10 * math.sin(.7 * t), 1110 + 8 * math.sin(.8 * t))
+
+
+def _p3(pts, z): a = np.array(pts, float); return np.c_[a[:, 0], a[:, 1] - .5, np.full(len(a), z)]
+
+
+def section_layers(t, k):
+    v = sec_view(t)
+    lay = {n: Image.new('L', (W, H)) for n in ('sec', 'secb', 'belt', 'fill')}
+    d = {n: ImageDraw.Draw(im) for n, im in lay.items()}
+    def P(pts, z): return [tuple(p) for p in project(_p3(pts, z), *v)[0]]
+    zf, zb = -.12, .32
+    for pts in (SEC_OUT, SEC_LIN, SEC_PLY):
+        d['sec'].line(P(pts, zf), fill=int(235 * k), width=3 if pts is SEC_OUT else 2)
+        d['secb'].line(P(pts, zb), fill=int(200 * k), width=2)
+    for a, b in zip(P(SEC_OUT, zf)[::2], P(SEC_OUT, zb)[::2]):
+        d['secb'].line([a, b], fill=int(160 * k), width=2)
+    for su in (-1, 1):                            # bead cores
+        ring_pts = [(su * .64 + .045 * math.cos(a), .06 + .045 * math.sin(a)) for a in np.linspace(0, 6.3, 20)]
+        d['sec'].line(P(ring_pts, zf), fill=int(235 * k), width=2)
+    d['fill'].polygon(P(SEC_OUT, zf), fill=255)
+    d['fill'].polygon(P(SEC_LIN, zf), fill=0)
+    for i, (bv, hw) in enumerate(BELTS):
+        g = io(prog(t, t3 + .7 + .35 * i, .4))
+        us = np.linspace(-hw, hw, 40)
+        pts = P([(u, bv - .05 * u * u) for u in us], zf)
+        d['sec'].line(pts, fill=int(220 * k * (1 - g)), width=3)
+        d['belt'].line(pts, fill=int(255 * k * g), width=7)
+        d['belt'].line(P([(u, bv - .05 * u * u) for u in us], zb), fill=int(150 * k * g), width=3)
+    ka = prog(t, t3 + 2.4, .25) * k               # outward pull the belts resist
+    if ka > 0:
+        for u in (-.55, -.275, 0, .275, .55):
+            L = .12 + .05 * math.sin(9 * t + u * 4)
+            a, b = P([(u, 1.05), (u, 1.05 + L)], zf)
+            d['sec'].line([a, b], fill=int(230 * ka), width=3)
+            hx, hy = P([(u - .035, 1.0 + L), (u + .035, 1.0 + L)], zf)
+            d['sec'].line([hx, b, hy], fill=int(230 * ka), width=3)
+    anchor = P([(.45, .85 - .05 * .45 * .45)], zf)[0]
+    return lay, anchor
+
+
+# ---- x-ray scan -------------------------------------------------------------
+XRC = np.array([.80, .88, 1.0], np.float32)
+XCOL = np.arange(W, dtype=np.float32)
+VFADE = np.clip(np.minimum((np.arange(H) - 380) / 200, (1820 - np.arange(H)) / 200), 0, 1).astype(np.float32)
+
+
+def xray_state(t):
+    if t < t4 + .3 or t > t4 + 2.95: return None
+    if t < t4 + 1.7:
+        s = io(prog(t, t4 + .3, 1.3)); x = -40 + 1160 * s; pn = 1
+    else:
+        s = io(prog(t, t4 + 1.7, 1.2)); x = 1120 - 1160 * s; pn = 2
+    return np.clip((x - XCOL) / 40, 0, 1), x, pn, 100 * s
+
+
+def xray_of(img, t):
+    cells = img.reshape(ROWS, CH, COLS, CW, 3).mean(axis=(1, 3)).max(-1)
+    g = glyphs(np.clip(cells * 3.2, 0, 1), t + .5)
+    return g[..., None] * XRC * 1.35 + .02
+
+
+# ---- flaw -------------------------------------------------------------------
+RED = np.array([1.0, .13, .08], np.float32)
+TH_F = .95 + phi(t5 + .6)                         # lands upper-right of the hub during the beat
+
+
+def flaw_screen(t):
+    a = -phi(t)
+    P = np.array([[.86 * math.cos(TH_F), .86 * math.sin(TH_F), -.43]])
+    xy, _ = project(spun(P, a, 0, t), *cam(t))
+    return tuple(xy[0]), math.degrees(TH_F + a) % 360
 
 
 # ---- frame ----------------------------------------------------------------
@@ -437,6 +654,7 @@ VIG = (1 - .55 * (((XX - W / 2) / (W * .75)) ** 2 + ((YY - H * .55) / (H * .7)) 
 
 
 def blur(im, r): return np.asarray(im.filter(ImageFilter.GaussianBlur(r)), np.float32) / 255
+def L(im): return np.asarray(im, np.float32)[..., None] / 255
 
 
 def small_blur(arr, r):
@@ -446,21 +664,51 @@ def small_blur(arr, r):
 
 def frame(t, info=None):
     elems = ['tyre']
+    anchors = {}
     acc, contact, top, camv = wire_layers(t)
     h = heat(t)
-    near = np.asarray(acc['near'], np.float32)[..., None] / 255
-    tread = np.asarray(acc['tread'], np.float32)[..., None] / 255
-    far = blur(acc['far'], 3)[..., None]
-    gnd = blur(acc['ground'], 1.2)[..., None]
+    sk = sec_k(t)
+    if sk > .02:                                  # tyre falls behind the section: dim + defocus
+        near, tread = blur(acc['near'], 5 * sk)[..., None], blur(acc['tread'], 5 * sk)[..., None]
+        dim = 1 - .7 * sk
+        near, tread = near * dim, tread * dim
+    else:
+        near, tread, dim = L(acc['near']), L(acc['tread']), 1.0
+    far = blur(acc['far'], 3)[..., None] * dim
+    gnd = blur(acc['ground'], 1.2)[..., None] * dim
     tcol = WHITE * (1 - min(1, h * .75)) + ACC * min(1, h * .75)
     img = BG + near * WHITE + far * FAR * .7 + gnd * FAR * .6 + tread * tcol
-    # contact-patch heat + tread glow
     gl = Image.new('L', (W, H)); g = ImageDraw.Draw(gl)
     (cx0, cy0) = contact[0]
     rr = 70 + 60 * h
-    g.ellipse([cx0 - rr * 1.8, cy0 - rr * .6, cx0 + rr * 1.8, cy0 + rr * .6], fill=int(200 * min(1, h)))
-    glow = small_blur(np.asarray(gl, np.float32)[..., None].repeat(3, 2) / 255, 10)
+    g.ellipse([cx0 - rr * 1.8, cy0 - rr * .6, cx0 + rr * 1.8, cy0 + rr * .6], fill=int(200 * min(1, h) * dim))
+    glow = small_blur(L(gl).repeat(3, 2), 10)
     img += glow * ACC * 1.1 + small_blur(tread.repeat(3, 2), 6) * ACC * h * 1.4
+    if sk > .02:
+        elems.append('section')
+        lay, anchors['belt'] = section_layers(t, sk)
+        fl = L(lay['fill'])[..., 0].reshape(ROWS, CH, COLS, CW).mean(axis=(1, 3))
+        img += glyphs(fl * .28 * sk, t)[..., None] * FAR * .55          # ASCII rubber texture
+        bl = L(lay['belt'])
+        img += L(lay['sec']) * WHITE + blur(lay['secb'], 2.5)[..., None] * FAR * .8
+        img += bl * (ACC * .6 + HOT * .4) + small_blur(bl.repeat(3, 2), 5) * ACC * 1.6
+    kf = prog(t, t5 + .15, .2) * (1 - prog(t, t6 - .15, .15))
+    if kf > 0:
+        elems.append('flaw_marker')
+        (fx, fy), anchors['flaw_ang'] = flaw_screen(t)
+        anchors['flaw'] = (fx, fy)
+        rl = Image.new('L', (W, H)); rd = ImageDraw.Draw(rl)
+        pulse = .5 + .5 * math.sin(2 * math.pi * 2.2 * (t - t5)) + bump(t, FLAWHIT, .03, .4)
+        r = 5 + 4 * pulse
+        rd.ellipse([fx - r, fy - r, fx + r, fy + r], fill=int(255 * kf))
+        frac = ((t - t5) * 1.3) % 1
+        rr = 12 + 70 * frac
+        rd.ellipse([fx - rr, fy - rr, fx + rr, fy + rr], outline=int(255 * kf * (1 - frac)), width=3)
+        gs = 1 + .5 * bump(t, FLAWHIT, .03, .5)
+        rd.line([(fx + x * gs, fy + y * gs) for x, y in [(-16, -7), (-7, 2), (0, -4), (8, 6), (17, 0)]],
+                fill=int(255 * kf), width=2)
+        rlf = L(rl)
+        img += rlf * RED * 1.3 + small_blur(rlf.repeat(3, 2), 4) * RED * (1.4 + pulse)
     sp = Image.new('RGB', (W, H))
     n = draw_sparks(t, contact, sp)
     if n: elems.append('sparks')
@@ -469,8 +717,18 @@ def frame(t, info=None):
     st, amp = streaks(t)
     if amp > .05: elems.append('ascii_streaks')
     img += st
-    # bloom
-    img += small_blur(img, 5) * .35 + small_blur(img, 22) * .45
+    img += small_blur(img, 5) * .35 + small_blur(img, 22) * .45          # bloom
+    xs = xray_state(t)
+    if xs is not None:
+        elems.append('xray_scan')
+        m, x, pn, pct = xs
+        anchors['pass'] = (pn, pct)
+        mm = m[None, :, None]
+        img = img * (1 - mm) + xray_of(img, t) * mm
+        if -20 < x < W + 20:
+            prof = np.exp(-((XCOL - x) / 5) ** 2) * 1.3 + np.exp(-((XCOL - x) / 70) ** 2) * .22
+            img += prof[None, :, None] * VFADE[:, None, None] * XRC
+            anchors['scan'] = (x, camv[5])
     m = transition_mask(t)
     if m.max() > 0:
         mm = m.repeat(CH)[:, None, None]
@@ -478,9 +736,14 @@ def frame(t, info=None):
     img *= VIG
     img += np.random.default_rng(int(t * FPS)).normal(0, .012, (H // 2, W // 2, 1)).repeat(2, 0).repeat(2, 1)
     out = Image.fromarray((np.clip(img, 0, 1) * 255).astype(np.uint8)).convert('RGBA')
-    out.alpha_composite(hud_layer(t, top, n, elems))
+    out.alpha_composite(hud_layer(t, top, n, elems, anchors))
     if info is not None: info.extend(elems)
     return np.asarray(out.convert('RGB'))
+
+
+def _work(i):
+    info = []
+    return frame(i / FPS, info).tobytes(), info
 
 
 def main():
@@ -490,17 +753,19 @@ def main():
         for s in sys.argv[3:]:
             Image.fromarray(frame(float(s))).save(os.path.join(d, f'f_{s}.png'))
         return
+    from multiprocessing import Pool
     out = sys.argv[2]
     end = float(sys.argv[3]) if len(sys.argv) > 3 else DUR
     start = float(sys.argv[4]) if len(sys.argv) > 4 else 0.0
     p = subprocess.Popen(['ffmpeg', '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{W}x{H}',
                           '-r', str(FPS), '-i', '-', '-c:v', 'libx264', '-preset', 'medium', '-crf', '17',
                           '-pix_fmt', 'yuv420p', '-movflags', '+faststart', out], stdin=subprocess.PIPE)
+    idx = range(int(round(start * FPS)), int(round(end * FPS)))
     log = []
-    for i in range(int(round(start * FPS)), int(round(end * FPS))):
-        info = []
-        p.stdin.write(frame(i / FPS, info).tobytes())
-        log.append({'f': i, 't': round(i / FPS, 3), 'n': len(info), 'elems': info})
+    with Pool(int(os.environ.get('JOBS', os.cpu_count() or 2))) as pool:
+        for i, (buf, info) in zip(idx, pool.imap(_work, idx, chunksize=2)):
+            p.stdin.write(buf)
+            log.append({'f': i, 't': round(i / FPS, 3), 'n': len(info), 'elems': info})
     p.stdin.close(); p.wait()
     json.dump(log, open(os.path.splitext(out)[0] + '_elements.json', 'w'))
     print('max elements/frame:', max(x['n'] for x in log))
