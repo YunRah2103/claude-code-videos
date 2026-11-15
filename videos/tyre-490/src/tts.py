@@ -1,14 +1,15 @@
-"""Generate one Gemini TTS (voice Fenrir) clip per script line: vo/line_NN.wav (24 kHz mono)."""
-import base64, json, subprocess, sys, time, wave
+"""Generate one Gemini TTS clip per script line: vo/line_NN.wav (24 kHz mono). Voice: Orus (VOICE env overrides)."""
+import base64, json, os, subprocess, sys, time, wave
 from pathlib import Path
 
+VOICE = os.environ.get("VOICE", "Orus")
 URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent"
 STYLE = "Read this like an energetic, punchy short-video narrator, brisk pace, clear and confident, British English: "
 
 def synth(text, dst):
     body = {"contents": [{"parts": [{"text": STYLE + text}]}],
             "generationConfig": {"responseModalities": ["AUDIO"],
-                                 "speechConfig": {"voiceConfig": {"prebuiltVoiceConfig": {"voiceName": "Fenrir"}}}}}
+                                 "speechConfig": {"voiceConfig": {"prebuiltVoiceConfig": {"voiceName": VOICE}}}}}
     # the network proxy injects the real key; the header value here is a placeholder
     r = subprocess.run(["curl", "-sS", "-m", "120", "-X", "POST", URL, "-H", "Content-Type: application/json",
                         "-H", "x-goog-api-key: placeholder", "-d", json.dumps(body)], capture_output=True, text=True, check=True)
