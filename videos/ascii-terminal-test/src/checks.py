@@ -113,6 +113,8 @@ while True:
     rows.append(cv2.cvtColor(f, cv2.COLOR_BGR2GRAY)[1372:1395, 40:1040].astype(np.float32))
 win = cv2.createHanningWindow(rows[0].shape[::-1], cv2.CV_32F)
 fx = np.array([cv2.phaseCorrelate(a, b, win)[0][0] for a, b in zip(rows, rows[1:] + rows[:1])])
+SP = 15.0 * (1 + 0.32 * 5)                                             # dot spacing of row 5 (periodic: wrap aliases)
+fx = (fx + SP / 2) % SP - SP / 2
 R['floor_speed_px_per_frame_by_second'] = [round(float(fx[i * 30:(i + 1) * 30].mean()), 2) for i in range(5)]
 d2 = np.abs(np.roll(fx, -1) - fx)
 R['floor_speed_change_px_per_frame2'] = dict(median=round(float(np.median(d2)), 3), max=round(float(d2.max()), 3))
