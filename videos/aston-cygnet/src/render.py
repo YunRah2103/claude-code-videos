@@ -796,11 +796,16 @@ def overlays(t):
     return img if used else None
 
 # ================================================================ captions (tesla-locked system)
+def ctext(w): return w['w'].lstrip('.')
+CAP_Y = 1128
+CAP_SIZE = 78
 def chunks():
     out = []
     for ln in sorted(LINES):
         cur = []
         for w in LINES[ln]:
+            if cur and font(CAP_SIZE).getlength(' '.join(ctext(x) for x in cur + [w])) > 800:
+                out.append(cur); cur = []                   # split rather than shrink below the min text size
             cur.append(w)
             if w['w'][-1] in '.?!,' or len(cur) == 3:
                 out.append(cur); cur = []
@@ -812,9 +817,6 @@ def chunks():
         res.append(dict(words=c, s=c[0]['s'], e=DUR if i == len(out) - 1 else end))
     return res
 CHUNKS = chunks()
-def ctext(w): return w['w'].lstrip('.')
-CAP_Y = 1128
-CAP_SIZE = 78
 def cap_size(ws):
     size = CAP_SIZE
     while font(size).getlength(' '.join(ws)) > 800 and size > 60: size -= 2
@@ -970,7 +972,7 @@ def build_audio(voice, out_wav):
                        capture_output=True, text=True).stderr
     m = json.loads(r[r.rindex('{'):r.rindex('}') + 1])
     af = (f"loudnorm=I=-14:TP=-1.5:LRA=11:measured_I={m['input_i']}:measured_TP={m['input_tp']}:measured_LRA={m['input_lra']}"
-          f":measured_thresh={m['input_thresh']}:offset={m['target_offset']}:linear=true")
+          f":measured_thresh={m['input_thresh']}:offset={m['target_offset']}")
     subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', tmp, '-af', af, '-ar', '48000', '-ac', '2', out_wav], check=True)
     os.remove(tmp)
 
