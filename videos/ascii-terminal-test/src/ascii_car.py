@@ -156,7 +156,7 @@ ROWSPEC = []                            # perspective floor dot rows: (y, radius
 y = FLOOR0 + 8.0
 for k in range(11):
     sc = 1.0 + 0.32 * k
-    ROWSPEC.append((y, 1.3 * sc, 15.0 * sc, int(round(9 * sc)), 0.55 * math.exp(-k / 7)))
+    ROWSPEC.append((y, 1.3 * sc, 15.0 * sc, 36, 0.55 * math.exp(-k / 7)))
     y += 13.0 * sc
 STREAKS = [(780 + 37 * i % 380, 120 + (i * 151) % 260, (2 + i % 3), 0.10 + 0.05 * (i % 3)) for i in range(9)]
 

@@ -71,7 +71,7 @@ for a, b in zip(frames, frames[1:] + frames[:1]):
     diffs.append(float(np.abs(a.astype(int) - b).mean()))
 flow = np.array(flow)
 R['flow_px_per_frame_by_second'] = [round(flow[i * 30:(i + 1) * 30].mean(), 2) for i in range(len(flow) // 30)]
-R['car_speed_px_per_frame_by_second'] = [round(spd[i * 30:(i + 1) * 30].mean(), 2) for i in range(len(spd) // 30)]
+if not STATIC: R['car_speed_px_per_frame_by_second'] = [round(spd[i * 30:(i + 1) * 30].mean(), 2) for i in range(len(spd) // 30)]
 flowc = np.array(flowc)
 fv = np.array(floorv)
 R['floor_flow_px_per_frame_by_second'] = [round(float(np.linalg.norm(fv[i * 30:(i + 1) * 30].mean(0))), 2) for i in range(5)]
@@ -103,6 +103,19 @@ if not STATIC:
   R['car_speed_px_per_frame'] = dict(mean=round(float(spd.mean()), 2), max=round(float(spd.max()), 2))
   jc = jerk(cen)
   R['mask_centroid_accel_px_per_frame2'] = dict(rms=round(float(np.sqrt((jc ** 2).mean())), 3), max=round(float(jc.max()), 3))
+# floor motion measured at full resolution (phase correlation on the floor dot row 5, y 1372-1395)
+cap = cv2.VideoCapture(mp4)
+rows = []
+while True:
+    ok, f = cap.read()
+    if not ok:
+        break
+    rows.append(cv2.cvtColor(f, cv2.COLOR_BGR2GRAY)[1372:1395, 40:1040].astype(np.float32))
+win = cv2.createHanningWindow(rows[0].shape[::-1], cv2.CV_32F)
+fx = np.array([cv2.phaseCorrelate(a, b, win)[0][0] for a, b in zip(rows, rows[1:] + rows[:1])])
+R['floor_speed_px_per_frame_by_second'] = [round(float(fx[i * 30:(i + 1) * 30].mean()), 2) for i in range(5)]
+d2 = np.abs(np.roll(fx, -1) - fx)
+R['floor_speed_change_px_per_frame2'] = dict(median=round(float(np.median(d2)), 3), max=round(float(d2.max()), 3))
 R['loop_seam_diff_vs_neighbours'] = round(diffs[-1] / np.median(diffs[-6:-1] + diffs[:5]), 2)
 br = subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=bit_rate,duration', '-of', 'json', mp4],
                     capture_output=True, text=True).stdout
