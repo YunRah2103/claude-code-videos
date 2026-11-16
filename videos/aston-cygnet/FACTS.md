@@ -15,6 +15,10 @@ The skit is a dramatisation set at the 2011 UK launch. Every number spoken or sh
 
 No statement about current used values or resale is made.
 
+Photos in the opening (`assets/`) were supplied by the user. The Cygnet photo shows dealer branding and
+gold calipers/large wheels, so it may be a later special Cygnet rather than a standard 2011 car; no spec
+from that photo is used. The road crash in the parking-lot scene is cartoon background gag, not a claim.
+
 ## Allowed numbers
 
 | Spoken / shown | Fact |

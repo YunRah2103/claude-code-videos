@@ -33,6 +33,7 @@ T_S4 = LE[15] + 0.9
 WHY1 = LS[12] - 0.15                       # "Why?" card: T_S3 .. WHY1
 BEAT = (LE[16], LS[17])
 T_TOYOTA0 = word_t(0, 'Toyota')
+T_ASTON = word_t(0, 'Aston')
 T_THIRTY, T_POUNDS = word_t(3, 'thirty'), word_t(3, 'pounds')
 T_TEN = word_t(4, 'ten')
 T_LEATHER = word_t(5, 'leather')
@@ -128,56 +129,325 @@ def toyota_ovals(d, cx, cy, s=1.0, col=(200, 204, 212), w=5):
 # ================================================================ cars (side profile, front to the left)
 CAR_CTRL = [(0.012, .15), (0.0, .30), (.012, .42), (.07, .48), (.16, .52), (.27, .57), (.37, .78), (.45, .92), (.62, .96),
             (.84, .94), (.95, .87), (.99, .72), (1.0, .50), (.995, .28), (.975, .15), (.86, .14), (.5, .15), (.14, .14)]
+def shade(d, pts, c0, c1, v0, v1):
+    """Fill a polygon with a vertical gradient c0 (design y v0) -> c1 (design y v1)."""
+    m = Image.new('L', d.i.size, 0)
+    ImageDraw.Draw(m).polygon([d.p(*q) for q in pts], fill=255)
+    y0, y1 = d.p(0, v0)[1], d.p(0, v1)[1]
+    h, w = d.i.size[1], d.i.size[0]
+    a = np.clip((np.arange(h) - y0) / max(1, y1 - y0), 0, 1)[:, None, None]
+    g = np.broadcast_to(np.array(c0) * (1 - a) + np.array(c1) * a, (h, w, 3)).astype(np.uint8)
+    d.i.paste(Image.fromarray(g), (0, 0), m)
+
+def wheel(d, wx, wy, r, aston):
+    d.ell(wx, wy, r, r, (22, 22, 26))
+    d.ell(wx, wy, r * .9, r * .9, None, (46, 46, 52), max(2, r * .06))
+    d.ell(wx, wy, r * .68, r * .68, (58, 60, 66))                       # brake disc behind the spokes
+    if aston:
+        d.chord(wx, wy, r * .62, r * .62, 200, 290, (214, 170, 60))     # caliper
+    rim = CHROME if aston else (184, 188, 196)
+    d.ell(wx, wy, r * .68, r * .68, None, rim, max(3, r * .1))
+    n = 10 if aston else 5
+    for a in range(n):
+        ra = math.radians(a * 360 / n + 18)
+        for off in ((0,) if aston else (-.09, .09)):
+            d.line([(wx + r * .12 * math.cos(ra + off), wy + r * .12 * math.sin(ra + off)),
+                    (wx + r * .64 * math.cos(ra + off * 1.6), wy + r * .64 * math.sin(ra + off * 1.6))], rim, max(2, r * (.07 if aston else .09)))
+    d.ell(wx, wy, r * .15, r * .15, rim, (80, 84, 92), 2)
+    d.ell(wx, wy, r * .07, r * .07, AM_GREEN if aston else (200, 40, 40))
+
 def city_car(d, x0, ground, L, kind):
-    """Toyota iQ / Aston Martin Cygnet: same body, different face, lights and trim."""
+    """Toyota iQ / Aston Martin Cygnet side profile (front to the left): same body, different face and trim."""
     Hh = L / 2.0
     def P(u, v): return (x0 + u * L, ground - v * Hh)
     aston = kind == 'cygnet'
-    body = (AM_GREEN, AM_GREEN2, AM_GREEN3) if aston else ((226, 229, 234), (250, 251, 253), (176, 180, 188))
-    d.ell(x0 + L * .5, ground + 4, L * .56, 16, (0, 0, 0, 70))
-    d.poly(spline([P(u, v) for u, v in CAR_CTRL], 8), body[0], (24, 26, 34), 5)
-    d.poly(spline([P(.02, .16), P(.5, .17), P(.98, .16), P(.99, .30), P(.5, .28), P(.01, .29)], 6), body[2])
-    d.line(spline([P(.06, .46), P(.30, .52), P(.62, .55), P(.95, .55)], 8, closed=False), body[1], 4)
-    # glass
-    gh = [P(.29, .60), P(.38, .78), P(.455, .885), P(.62, .915), P(.83, .895), P(.925, .83), P(.955, .66), P(.94, .60)]
-    d.poly(spline(gh, 6), (30, 40, 54), (20, 22, 28), 4)
-    d.poly([P(.585, .60), P(.61, .60), P(.62, .91), P(.595, .91)], body[0])
-    d.line([P(.36, .70), P(.43, .82)], (130, 150, 175), 5)
-    if aston:                                           # leather interior glimpse: tan seat through the glass
-        d.poly(spline([P(.64, .62), P(.66, .80), P(.71, .82), P(.70, .62)], 4), (176, 112, 66))
-        d.line([P(.665, .66), P(.68, .79)], (120, 70, 40), 2)
-    # door, handle, mirror
-    d.line([P(.27, .57), P(.25, .20)], tuple(int(c * .7) for c in body[0]), 3)
-    d.line([P(.62, .58), P(.63, .20)], tuple(int(c * .7) for c in body[0]), 3)
-    d.rect(*P(.50, .50), *P(.56, .475), CHROME if aston else (190, 194, 200), r=3)
-    d.poly([P(.30, .62), P(.35, .63), P(.35, .68), P(.30, .67)], body[0], (24, 26, 34), 3)
-    if aston:
-        # signature grille at the nose (chrome frame, horizontal bars) + side strake
-        g = spline([P(-.005, .41), P(.035, .41), P(.045, .30), P(.03, .21), P(.0, .20)], 4)
-        d.poly(g, (24, 26, 30), CHROME, 4)
-        for v in (.24, .28, .32, .36):
-            d.line([P(.003, v), P(.035, v)], CHROME2, 2)
-        d.poly([P(.15, .40), P(.24, .42), P(.24, .44), P(.15, .43)], CHROME)
-        d.poly(spline([P(.03, .46), P(.10, .50), P(.16, .49), P(.08, .44)], 4), (250, 252, 255), (24, 26, 34), 3)
-        d.line([P(.05, .465), P(.13, .485)], (120, 200, 255), 2)
-        wings(d, *P(.05, .515), 0.08, CHROME, bar=False)
-        d.poly([P(.975, .58), P(.998, .58), P(.998, .78), P(.965, .76)], (210, 30, 40), (60, 10, 14), 3)
-    else:
-        d.poly(spline([P(.0, .26), P(.03, .27), P(.04, .33), P(.0, .33)], 4), (40, 42, 48))
-        d.poly(spline([P(.02, .43), P(.13, .50), P(.17, .47), P(.11, .41)], 4), (238, 242, 248), (24, 26, 34), 3)
-        d.ell(*P(.10, .455), 6, 6, (255, 190, 60))
-        toyota_ovals(d, *P(.03, .37), 0.18, (150, 154, 162), 4)
-        d.poly([P(.97, .55), P(.998, .55), P(.998, .80), P(.96, .78)], (230, 60, 50), (60, 10, 14), 3)
-    # wheels
-    r = Hh * .19
+    if aston: base, hi, lo, sill = AM_GREEN, (64, 146, 112), (10, 50, 36), (8, 34, 26)
+    else: base, hi, lo, sill = (210, 213, 218), (250, 251, 253), (150, 154, 162), (96, 100, 108)
+    d.ell(x0 + L * .5, ground + 4, L * .58, 15, (0, 0, 0, 90))
+    body = spline([P(u, v) for u, v in CAR_CTRL], 8)
+    shade(d, body, hi, lo, ground - .96 * Hh, ground - .2 * Hh)
+    shade(d, spline([P(.02, .16), P(.5, .17), P(.98, .16), P(.99, .27), P(.5, .25), P(.01, .26)], 6), lo, sill,
+          ground - .27 * Hh, ground - .15 * Hh)
+    d.line(spline([P(.03, .43), P(.30, .47), P(.62, .49), P(.97, .50)], 8, closed=False), hi + (200,), 3)   # shoulder light
+    d.line(spline([P(.06, .33), P(.5, .34), P(.95, .33)], 8, closed=False), lo + (160,), 3)                 # lower crease
+    # wheel wells + arch lips
+    r = Hh * .21
     for u in (.165, .825):
         wx, wy = P(u, 0)[0], ground - r
-        d.ell(wx, wy, r, r, (22, 22, 26))
-        d.ell(wx, wy, r * .66, r * .66, CHROME if aston else (170, 174, 182), (80, 84, 92), 3)
-        for a in range(10 if aston else 5):
-            ra = math.radians(a * (36 if aston else 72) + 18)
-            d.line([(wx, wy), (wx + r * .6 * math.cos(ra), wy + r * .6 * math.sin(ra))], (96, 100, 110), 3 if aston else 6)
-        d.ell(wx, wy, r * .14, r * .14, AM_GREEN if aston else (60, 62, 70))
+        d.chord(wx, wy, r * 1.2, r * 1.2, 180, 360, (16, 16, 18))
+        d.rect(wx - r * 1.2, wy - 2, wx + r * 1.2, ground - 4, (16, 16, 18))
+        d.arc(wx, wy, r * 1.24, r * 1.24, 190, 350, hi, 4)
+    d.poly(body, None, (24, 26, 34), 5)
+    # glass with reflections, black pillars
+    gh = spline([P(.29, .60), P(.38, .78), P(.455, .885), P(.62, .915), P(.83, .895), P(.925, .83), P(.955, .66), P(.94, .60)], 6)
+    shade(d, gh, (86, 106, 130), (18, 24, 34), ground - .92 * Hh, ground - .6 * Hh)
+    d.poly(gh, None, (20, 22, 28), 4)
+    for u0, u1 in ((.33, .37), (.70, .76)):
+        d.poly([P(u0, .62), P(u0 + .03, .62), P(u1 + .05, .86), P(u1 + .015, .86)], (255, 255, 255, 46))
+    d.poly([P(.585, .60), P(.612, .60), P(.622, .91), P(.594, .91)], (22, 22, 26))
+    d.poly([P(.875, .60), P(.90, .60), P(.905, .88), P(.88, .89)], (22, 22, 26))
+    if aston:                                           # tan leather through the glass
+        d.poly(spline([P(.64, .62), P(.66, .80), P(.71, .82), P(.70, .62)], 4), (176, 112, 66))
+        d.line([P(.665, .66), P(.68, .79)], (120, 70, 40), 2)
+    # door, handle, mirror, fuel flap
+    d.line([P(.27, .57), P(.25, .20)], lo, 3)
+    d.line([P(.62, .58), P(.63, .20)], lo, 3)
+    d.rect(*P(.50, .505), *P(.56, .478), CHROME if aston else (176, 180, 188), r=3)
+    d.poly(spline([P(.30, .61), P(.36, .63), P(.36, .69), P(.31, .69)], 4), base, (24, 26, 34), 3)
+    d.ell(*P(.80, .54), L * .018, L * .018, None, lo, 2)
+    if aston:
+        g = spline([P(-.006, .43), P(.04, .43), P(.05, .30), P(.035, .19), P(-.002, .18)], 4)
+        d.poly(g, (20, 22, 26), CHROME, 5)
+        for v in (.22, .26, .30, .34, .38):
+            d.line([P(.002, v), P(.04, v)], CHROME2, 2)
+        d.poly([P(.25, .38), P(.33, .40), P(.33, .43), P(.25, .42)], CHROME)          # side strake
+        lamp = spline([P(.02, .46), P(.10, .51), P(.17, .52), P(.10, .45)], 4)
+        d.poly(lamp, (240, 246, 255), (24, 26, 34), 3)
+        d.line([P(.05, .47), P(.14, .505)], (110, 200, 255), 3)
+        wings(d, *P(.10, .54), 0.075, CHROME, bar=False)
+        d.poly([P(.975, .58), P(.998, .58), P(.998, .78), P(.965, .76)], (210, 30, 40), (60, 10, 14), 3)
+    else:
+        d.poly(spline([P(-.002, .21), P(.035, .22), P(.04, .32), P(.0, .32)], 4), (36, 38, 44))
+        d.ell(*P(.03, .24), L * .012, L * .012, (240, 240, 230))
+        lamp = spline([P(.015, .44), P(.09, .48), P(.19, .54), P(.17, .49), P(.08, .42)], 4)
+        d.poly(lamp, (232, 238, 246), (24, 26, 34), 3)
+        d.ell(*P(.09, .465), L * .02, L * .02, (196, 210, 228), (110, 120, 136), 2)
+        d.ell(*P(.155, .505), 5, 5, (255, 190, 60))
+        toyota_ovals(d, *P(.02, .40), 0.16, (120, 124, 132), 3)
+        d.poly([P(.97, .55), P(.998, .55), P(.998, .80), P(.96, .78)], (230, 60, 50), (60, 10, 14), 3)
+    for u in (.165, .825):
+        wheel(d, P(u, 0)[0], ground - r, r, aston)
+
+# ---- generic background cars for the road (facing right)
+SED_CTRL = [(0.0, .20), (0.01, .40), (.07, .47), (.26, .52), (.36, .76), (.62, .78), (.78, .54), (.97, .49), (1.0, .34),
+            (.99, .18), (.9, .15), (.1, .15)]
+@lru_cache(None)
+def road_car(col, L, roof=None):
+    img = Image.new('RGBA', (int(L * 1.2) * K, int(L * .7) * K), (0, 0, 0, 0))
+    d = D(img, ox=-L * .1, oy=-L * .6)
+    Hh = L * .34
+    def P(u, v): return (u * L, -v * Hh)
+    lo = tuple(int(c * .62) for c in col); hi = tuple(min(255, int(c * 1.25) + 20) for c in col)
+    body = spline([P(u, v) for u, v in SED_CTRL], 8)
+    shade(d, body, hi, lo, -.78 * Hh, -.15 * Hh)
+    d.poly(body, None, (24, 26, 34), 3)
+    gl = spline([P(.38, .53), P(.43, .72), P(.6, .74), P(.73, .53)], 4)
+    shade(d, gl, (90, 110, 134), (20, 26, 36), -.74 * Hh, -.53 * Hh)
+    d.line([P(.56, .53), P(.565, .74)], lo, 4)
+    if roof:
+        d.rect(*P(.47, .86), *P(.56, .76), roof, r=3)
+    d.poly([P(.0, .38), P(.06, .44), P(.08, .38)], (250, 250, 236))
+    d.poly([P(.98, .44), P(1.0, .44), P(1.0, .34), P(.98, .34)], (230, 50, 40))
+    r = Hh * .3
+    for u in (.2, .8):
+        d.ell(u * L, -r, r, r, (22, 22, 26)); d.ell(u * L, -r, r * .55, r * .55, (170, 174, 182))
+    return img
+
+def paste_rot(img, layer, cx, cy, rot=0.0, flip=False):
+    if flip: layer = layer.transpose(Image.FLIP_LEFT_RIGHT)
+    if rot: layer = layer.rotate(rot, resample=Image.BICUBIC, expand=True)
+    img.paste(layer, (int(cx * K - layer.width / 2), int(cy * K - layer.height / 2)), layer)
+
+def car_at(img, col, L, x, ground, facing=1, rot=0.0, lift=0.0, roof=None):
+    """x = car centre. Rotation is about the body centre."""
+    paste_rot(img, road_car(col, L, roof), x, ground - .25 * L - lift, rot * facing, flip=facing < 0)
+
+# ================================================================ background people
+def cast(skin, hair, suit, pants=None, shoe='26262a', shirt='f4f4f6', tie=None, glasses=False, style='part', badge=False):
+    sk = hexc(skin); su = hexc(suit)
+    return dict(skin=sk, skin2=tuple(int(c * .86) for c in sk), hair=hexc(hair), suit=su, suit2=tuple(int(c * .72) for c in su),
+                shirt=hexc(shirt), tie=hexc(tie) if tie else None, pants=hexc(pants or suit), shoe=hexc(shoe),
+                glasses=glasses, hairstyle=style, lids=0.0, badge=badge)
+NPC = dict(recep=cast('8d5a3b', '111014', '1c1d22', tie='0d4f3a', badge=True),
+           cleaner=cast('e8b996', '5a3a22', '3f6f8f', pants='2f4f68', shirt='dfe8ee', style='messy'),
+           walker=cast('f2d0b0', 'b04a2a', '6b4a8a', pants='2a2a30', style='messy'),
+           cust1=cast('c58c64', '2b1d16', 'b8452f', pants='30343c'),
+           cust2=cast('f0c9a8', 'd9b36a', '2f5d4a', pants='d8d0c0', glasses=True),
+           exec1=cast('dcae8c', '9a9a9a', '2a2a2e', tie='6a1020'),
+           exec2=cast('6e4630', '151212', '23304a', tie='c9a24a', glasses=True),
+           victim=cast('e6b490', '3a2a1a', 'e0a030', pants='3a4a6a', style='messy'),
+           p2=cast('9c6a48', '111111', 'c03040', pants='222222', style='messy'),
+           p3=cast('f2c8a6', 'e0c070', '4a8ac0', pants='303030'),
+           p4=cast('7a4c34', '1a1a1a', '40a060', pants='1a1a1a', style='messy'),
+           p5=cast('e0b090', '603018', '808890', pants='404050'))
+
+def mk(lp='rest', rp='rest', **kw):
+    st = dict(lpose=POSES[lp] if isinstance(lp, str) else lp, rpose=POSES[rp] if isinstance(rp, str) else rp,
+              out_lpose=lp in OUTBEND if isinstance(lp, str) else False, out_rpose=rp in OUTBEND if isinstance(rp, str) else False)
+    st.update(kw)
+    return st
+
+def npc(img, X, FY, s, cfg, st):
+    """Draw a cast member at scale s with feet at (X, FY)."""
+    person(D(img, k=K * s, ox=-X / s, oy=FEET_Y - FY / s), 0, FEET_Y, cfg, st)
+
+def npc_rot(img, X, CY, s, cfg, st, rot):
+    """Rotated cast member (for the flying pedestrian); (X, CY) = body centre."""
+    S = int(1300 * s * K) + 2
+    lay = Image.new('RGBA', (S, S), (0, 0, 0, 0))
+    person(D(lay, k=K * s, ox=-650, oy=FEET_Y - 450 - 650), 0, FEET_Y, cfg, st)
+    paste_rot(img, lay, X, CY, rot)
+
+def walkst(t, rate=11, **kw):
+    st = mk(**kw); st['walk'] = t * rate; st['dy'] = -abs(math.sin(t * rate)) * 10
+    return st
+
+def stars(d, x, y, t, s=1.0):
+    for i in range(3):
+        a = t * 5 + i * 2.1
+        sx, sy = x + math.cos(a) * 22 * s, y + math.sin(a) * 7 * s
+        pts = [(sx + math.cos(math.radians(k * 72 - 90)) * (8 if k % 1 == 0 else 3) * s, sy + math.sin(math.radians(k * 72 - 90)) * 8 * s) for k in range(5)]
+        d.poly([pts[j] for j in (0, 2, 4, 1, 3)], (255, 220, 60))
+
+def showroom_life(img, t, sc):
+    f = int(t * FPS)
+    # receptionist behind the desk (left): on the phone in scene 1, typing in scene 4
+    if sc == 0:
+        st = mk('rest', (-46, -128), prop={'rpose': 'phone'}, look=1, brows='up',
+                mouth=(.5 + .5 * math.sin(t * 17)) if (t % 3.1) < 1.9 else 0.0, smile=1)
+    else:
+        jig = math.sin(t * 23) * 6
+        st = mk((-40 + jig, 220), (-40 - jig, 220), look=1, eyes='', brows='flat')
+    st['blink'] = (t % 4.1) < .12
+    npc(img, 96, 1004, .40, NPC['recep'], st)
+    d = D(img)
+    d.rect(150, 806, 214, 852, (30, 32, 36), r=4, ol=(80, 84, 90), w=2)   # monitor
+    d.rect(176, 852, 188, 880, (60, 64, 70))
+    d.rect(-10, 878, 222, 892, (150, 112, 74))                            # desk top + front
+    d.rect(-10, 892, 210, 990, (96, 68, 46), ol=(60, 40, 26), w=3)
+    d.rect(-10, 930, 210, 936, (196, 170, 120))
+    if sc == 0:
+        # cleaner polishing the rear of the car, a colleague crossing with a coffee
+        wob = math.sin(t * 9)
+        st = mk((150 + 26 * wob, 110 + 16 * math.cos(t * 9)), 'rest', prop={'lpose': 'cloth'}, look=-1, smile=1)
+        st['blink'] = (t % 3.7) < .12; st['dy'] = math.sin(t * 9) * 3
+        npc(img, 812, 978, .42, NPC['cleaner'], st)
+        x = 960 - 130 * t
+        if -80 < x < 1000:
+            npc(img, x, 952, .34, NPC['walker'], walkst(t, 9, lp='rest', rp=(60, 210), prop={'rpose': 'cup'}, look=-1))
+    else:
+        # a couple admiring the car on the right
+        nod = math.sin(t * 2.4) * 3
+        st1 = mk('point', 'rest', look=-1, brows='up', smile=1); st1['dy'] = nod; st1['blink'] = (t % 3.3) < .12
+        st2 = mk('rest', (-70, -110), out_rpose=True, look=-1, brows='flat'); st2['blink'] = ((t + 1) % 3.6) < .12
+        npc(img, 806, 982, .42, NPC['cust1'], st1)
+        npc(img, 884, 988, .40, NPC['cust2'], st2)
+
+def board_life(img, t):
+    # two board members at the table ends: one asleep, one fist-pumps on "Correct."
+    bob = math.sin(t * 1.3) * 5
+    st = mk('cross', 'cross', look=0, smile=0); st['blink'] = True; st['dy'] = bob
+    npc(img, 70, 1352, .5, NPC['exec1'], st)
+    up = T_CORRECT <= t < T_CORRECT + 1.4
+    st = mk('cross', 'raise1' if up else 'cross', look=-1, smile=1 if up else 0, brows='up' if up else 'flat')
+    st['blink'] = (t % 3.9) < .12
+    npc(img, 852, 1352, .5, NPC['exec2'], st)
+    img.paste(bg_board().crop((0, 990 * K, W * K, 1100 * K)), (0, 990 * K))
+    d = D(img)
+    for i in range(3):                                      # floating z's
+        ph = (t * .6 + i / 3) % 1
+        d.text(104 + ph * 40, 860 - ph * 90, 'z', 22 + 14 * ph, (240, 240, 250, int(255 * (1 - ph))))
+
+# ---- the road behind the parking lot: traffic, then a hit-and-run and a flipped car (background only)
+FAR_SW, FAR_G, NEAR_G, NEAR_SW = 536, 586, 632, 662
+LT = dict(hit=3.6, flip=4.0, land=5.0, bump=6.8)
+RL, PS = 200, .085                                          # road car length, pedestrian scale
+def lot_life(img, t):
+    tau = t - T_S2
+    d = D(img)
+    hit, flip, land, bump = (LT[k] for k in ('hit', 'flip', 'land', 'bump'))
+    def brake_x(tt):                                        # front bumper of the red car
+        if tt < hit: return 240 + 520 * (tt - hit)
+        e = min(tt - hit, 1.2); return 240 + 520 * e - 215 * e * e
+    if tau > hit:                                           # skid marks
+        for dy in (-3, -14):
+            d.line([(250, NEAR_G + dy), (brake_x(tau) - 50, NEAR_G + dy)], (28, 28, 32, 180), 5)
+    # far sidewalk: a stroller (mostly behind the stats card later)
+    npc(img, 760 - 34 * tau, FAR_SW, PS * .92, NPC['p2'], walkst(t, 9, look=-1))
+    # far lane (leftbound)
+    car_at(img, (238, 238, 240), RL, 1040 - 260 * tau, FAR_G, -1)
+    if 2.2 < tau < flip:                                    # the car that swerves and flips
+        car_at(img, (60, 110, 200), RL, 1160 - 330 * (tau - 2.2), FAR_G, -1, rot=-7 * prog(tau, 3.7, .3))
+    elif tau >= flip:
+        k_ = prog(tau, flip, land - flip)
+        x = 566 + 90 * (1 - oc(k_)) - 24 * prog(tau, land, .5)
+        lift = 70 * 4 * k_ * (1 - k_)
+        car_at(img, (60, 110, 200), RL, x, FAR_G + 8 * k_, -1, rot=-(540 * oc(k_)) if tau < land else -180, lift=lift)
+        if land <= tau < land + .6:                         # sparks
+            rr = np.random.default_rng(int(t * FPS))
+            for _ in range(12):
+                a = rr.uniform(-2.6, -.5); v = rr.uniform(24, 70) * (1 + (tau - land) * 2)
+                d.line([(x + 70, FAR_G), (x + 70 + math.cos(a) * v, FAR_G + math.sin(a) * v)], (255, 200, 60), 3)
+        if tau >= land:                                     # smoke column (stays under the card)
+            for i in range(8):
+                ph = ((tau - land) * .5 + i / 8) % 1
+                d.ell(x + 20 * math.sin(i * 2 + tau) + ph * 30, FAR_G - 40 - ph * 70, 16 + 26 * ph, 14 + 22 * ph,
+                      (120, 120, 126, int(170 * (1 - ph))))
+    if tau > 6.0:                                           # van stuck behind it, honking
+        x = 1180 - 300 * min(tau - 6.0, 1.0) + 150 * min(tau - 6.0, 1.0) ** 2
+        car_at(img, (250, 250, 250), 220, max(x, 880), FAR_G, -1, roof=(230, 60, 40))
+    # the pedestrian: walking on his phone, stepping out, launched, landed in the far lane
+    v = NPC['victim']
+    if tau < 2.4:
+        npc(img, 120 + 45 * tau, NEAR_SW, PS, v, walkst(t, 9, rp='phone', prop={'rpose': 'phone'}, look=1))
+    elif tau < hit:
+        k_ = prog(tau, 2.4, hit - 2.4)
+        npc(img, 228 + 12 * k_, NEAR_SW - 34 * k_, PS, v, walkst(t, 7, rp='phone', prop={'rpose': 'phone'}, look=1))
+    elif tau < hit + 1.0:
+        e = tau - hit
+        x = 240 + 300 * e; y = (NEAR_SW - 34) + (FAR_G + 8 - NEAR_SW + 34) * e - 440 * e * (1 - e)
+        npc_rot(img, x, y - 450 * PS, PS, v, mk('up', 'up', eyes='wide', brows='up'), 810 * e)
+        px, py = 250 + 420 * e, 610 - 520 * e * (1 - e) - 30 * e
+        d = D(img); d.rect(px - 4, py - 6, px + 4, py + 6, (24, 24, 28))
+    else:
+        e = tau - hit - 1.0
+        bounce = 14 * math.sin(e / .3 * math.pi) if e < .3 else 0
+        thumbs = tau > 8.5
+        st = mk('rest', 'raise1' if thumbs else 'rest', eyes='' if thumbs else 'wide', smile=1 if thumbs else -1)
+        st['blink'] = not thumbs and (tau % 1.2) < .6
+        npc_rot(img, 540, FAR_G - 4 - bounce, PS, v, st, 90)
+        d = D(img)
+        if not thumbs:
+            stars(d, 500, FAR_G - 26, tau, 1.3)
+        d.rect(664, FAR_G - 10, 672, FAR_G + 2, (24, 24, 28))
+    # near lane (rightbound)
+    car_at(img, (80, 80, 90), RL, -220 + 260 * (tau + 1.5), NEAR_G, 1)
+    if 2.4 < tau:
+        xf = brake_x(tau)
+        shake = math.sin(tau * 80) * 4 if bump <= tau < bump + .3 else 0
+        car_at(img, (210, 30, 36), RL, xf - RL / 2 + shake, NEAR_G, 1)
+        if tau > hit + 1.2 and (tau * 2.5) % 1 < .5:        # hazards
+            d.ell(xf - RL + 4, NEAR_G - 40, 7, 7, (255, 170, 30)); d.ell(xf - 4, NEAR_G - 40, 7, 7, (255, 170, 30))
+        if hit <= tau < hit + .25:                          # impact flash
+            k_ = prog(tau, hit, .25)
+            for i in range(8):
+                a = math.radians(i * 45)
+                d.line([(244 + 16 * math.cos(a), 600 + 16 * math.sin(a)), (244 + (24 + 40 * k_) * math.cos(a), 600 + (24 + 40 * k_) * math.sin(a))],
+                       (255, 230, 90, int(255 * (1 - k_))), 5)
+    if tau > 5.5:                                           # taxi rear-ends the red car
+        stop = brake_x(9) - RL - RL / 2
+        xt = min(-220 + 340 * (tau - 5.5), stop)
+        car_at(img, (250, 200, 30), RL, xt, NEAR_G, 1, roof=(40, 40, 40))
+        for th in (7.0, 8.1, 9.5):                          # honk lines
+            if th <= tau < th + .35:
+                for j in range(3):
+                    d.arc(xt + RL / 2 + 6, NEAR_G - 60, 12 + j * 11, 12 + j * 11, 300, 60, (255, 255, 255, 230), 4)
+    # near sidewalk: panic, a guy filming, a helper, and an oblivious jogger
+    if tau > 4.6:
+        x = 700 + 130 * math.sin((tau - 4.6) * 1.7)
+        npc(img, x, NEAR_SW, PS, NPC['p2'], walkst(t, 22, lp='up', rp='up', look=1 if math.cos((tau - 4.6) * 1.7) > 0 else -1, eyes='wide'))
+    filming = tau > 5.2
+    npc(img, 860, NEAR_SW, PS, NPC['p3'], mk('rest', 'raise1' if filming else 'phone', prop={'rpose': 'phone'}, look=-1))
+    if tau > 5.5:
+        x = 60 + min(1, (tau - 5.5) / 1.4) * 360
+        st = walkst(t, 20, lp='up', rp='up', eyes='wide') if tau < 6.9 else mk('up' if (tau * 3) % 2 < 1 else 'rest', 'up', eyes='wide')
+        npc(img, x, NEAR_SW, PS, NPC['p5'], st)
+    npc(img, -60 + 110 * tau, NEAR_SW + 2, PS, NPC['p4'], walkst(t, 16, lp='open', rp='open', look=1))
+    d = D(img)
+    d.rect(0, NEAR_SW - 26, W, NEAR_SW - 22, (214, 214, 210))
+    d.rect(0, NEAR_SW - 10, W, NEAR_SW - 6, (214, 214, 210))
+    for x in range(0, W, 64):
+        d.rect(x, NEAR_SW - 32, x + 5, NEAR_SW + 6, (192, 192, 188))
 
 @lru_cache(None)
 def car_layer(kind, L):
@@ -222,44 +492,40 @@ def bg_showroom():
     d.ell(CX, 905, 400, 50, (14, 16, 16))
     d.ell(CX, 897, 394, 44, (50, 56, 54), (196, 170, 120), 5)
     d.ell(CX, 897, 340, 34, (62, 68, 66))
-    # plinth sign + plant
-    d.rect(812, 760, 905, 905, (28, 34, 32), r=8, ol=(196, 170, 120), w=3)
-    d.text(858, 800, 'CYGNET', 17, (236, 228, 205), path=FONT_X)
-    d.rect(40, 820, 98, 900, (60, 64, 62), r=6)
-    for a in range(-60, 61, 20):
-        r_ = math.radians(a - 90)
-        d.line([(69, 822), (69 + 70 * math.cos(r_), 822 + 90 * math.sin(r_))], (40, 96, 60), 9)
     return img
 
 @lru_cache(None)
 def bg_lot():
-    HOR = 700
-    arr = np.concatenate([grad(HOR * K, W * K, (96, 150, 206), (236, 214, 186)), grad((H - HOR) * K, W * K, (98, 100, 106), (70, 72, 78))])
+    SKY = 516
+    arr = np.concatenate([grad(SKY * K, W * K, (96, 150, 206), (236, 214, 186)), grad((H - SKY) * K, W * K, (98, 100, 106), (70, 72, 78))])
     img = Image.fromarray(arr.astype(np.uint8)); d = D(img)
-    d.ell(820, 300, 90, 90, (255, 236, 200, 120)); d.ell(820, 300, 52, 52, (255, 246, 222))
-    for cx_, cy_, s in ((180, 190, 1.0), (640, 130, .8)):  # clouds
+    d.ell(820, 250, 90, 90, (255, 236, 200, 120)); d.ell(820, 250, 52, 52, (255, 246, 222))
+    for cx_, cy_, s in ((180, 150, 1.0), (640, 100, .8)):
         for dx, dy, r in ((0, 0, 50), (50, -20, 60), (110, 0, 46), (55, 14, 50)):
             d.ell(cx_ + dx * s, cy_ + dy * s, r * s, r * .7 * s, (250, 246, 240, 200))
     rng = np.random.default_rng(5); x = -20
     while x < W:                                          # skyline
-        bw, bh = rng.integers(70, 150), rng.integers(120, 330)
+        bw, bh = rng.integers(70, 150), rng.integers(110, 300)
         col = mix((130, 150, 176), (160, 168, 186), rng.random())
-        d.rect(x, HOR - bh, x + bw, HOR + 4, col)
-        for wy in range(int(HOR - bh + 20), HOR - 10, 34):
-            for wx in range(int(x + 12), int(x + bw - 14), 26):
-                d.rect(wx, wy, wx + 12, wy + 16, (176, 192, 214))
+        d.rect(x, SKY - bh, x + bw, SKY + 4, col)
+        for wy in range(int(SKY - bh + 20), SKY - 14, 30):
+            for wx in range(int(x + 12), int(x + bw - 14), 24):
+                d.rect(wx, wy, wx + 11, wy + 14, (176, 192, 214))
         x += bw + rng.integers(4, 20)
-    d.rect(0, HOR - 6, W, HOR + 30, (64, 112, 70))           # hedge strip
-    for hx in range(-10, W, 34):
-        d.ell(hx, HOR - 4, 26, 18, (72, 124, 78))
-    d.rect(0, HOR + 30, W, HOR + 44, (190, 190, 186))         # kerb
-    for k_, lx in enumerate((300, 640)):                      # bay lines in perspective
-        d.poly([(lx - 4, HOR + 44), (lx + 4, HOR + 44), (lx + (lx - CX) * .9 + 8, 1010), (lx + (lx - CX) * .9 - 8, 1010)], (236, 236, 230))
+    d.rect(0, SKY, W, 540, (196, 194, 188))                # far sidewalk
+    d.rect(0, 540, W, 642, (62, 64, 70))                   # road
+    d.rect(0, 542, W, 545, (236, 236, 230)); d.rect(0, 637, W, 640, (236, 236, 230))
+    for x in range(-20, W, 80):
+        d.rect(x, 594, x + 40, 598, (240, 220, 120))
+    d.rect(0, 642, W, 666, (196, 194, 188))                # near sidewalk
+    d.rect(0, 666, W, 674, (170, 170, 166))                # kerb
+    for lx in (300, 640):                                  # bay lines in perspective
+        d.poly([(lx - 4, 674), (lx + 4, 674), (lx + (lx - CX) * .9 + 8, 1010), (lx + (lx - CX) * .9 - 8, 1010)], (236, 236, 230))
     d.poly([(-20, 1000), (W, 1000), (W, 1014), (-20, 1014)], (236, 236, 230))
-    for px_ in (70, 870):                                     # lamp posts
-        d.rect(px_ - 5, 170, px_ + 5, HOR + 40, (60, 64, 72))
-        d.line([(px_, 176), (px_ + (40 if px_ < CX else -40), 166)], (60, 64, 72), 8)
-        d.ell(px_ + (52 if px_ < CX else -52), 170, 22, 9, (240, 240, 226))
+    for px_ in (40, 900):                                  # lamp posts on the far side
+        d.rect(px_ - 4, 300, px_ + 4, 532, (60, 64, 72))
+        d.line([(px_, 304), (px_ + (34 if px_ < CX else -34), 296)], (60, 64, 72), 7)
+        d.ell(px_ + (44 if px_ < CX else -44), 300, 18, 7, (240, 240, 226))
     for y in range(1100, H, 210):
         d.line([(0, y), (W, y + 20)], (84, 86, 92), 3)
     return img
@@ -301,9 +567,9 @@ SALES = dict(skin=hexc('f0c6a2'), skin2=hexc('d9a882'), hair=hexc('e3bd57'), sui
 OL = (26, 26, 46)
 POSES = {'rest': (10, 323), 'clasp': (-100, 286), 'open': (120, 170), 'point': (235, 70), 'up': (70, -290),
          'head': (-92, -158), 'shrug': (128, 108), 'cross': (-176, 168), 'thanks': (-100, 92), 'raise1': (40, -230),
-         'offer': (210, 120), 'chin': (-70, -110), 'hip': (90, 230), 'present': (240, -230)}
+         'offer': (210, 120), 'chin': (-70, -110), 'hip': (90, 230), 'present': (240, -230), 'phone': (-46, -128), 'reach': (70, -250)}
 UA, FA = 168, 158
-OUTBEND = {'up', 'head', 'raise1', 'chin'}
+OUTBEND = {'up', 'head', 'raise1', 'chin', 'reach'}
 def ik(S, T, side, out=False):
     dx, dy = T[0] - S[0], T[1] - S[1]
     d_ = max(1e-3, min(math.hypot(dx, dy), UA + FA - 2))
@@ -336,7 +602,7 @@ def person(d, x, fy, c, st):
         d.poly([(x + s * 42, top - 14), (x + s * 70, top + 70), (x + s * 50, top + 80), (x + s * 14, top + 190)], c['suit2'])
     for by in (230, 290):
         d.ell(x + 2, top + by, 7, 7, c['suit2'])
-    if not c['glasses']:                                  # dealer name badge with a tiny wing mark
+    if c.get('badge', not c['glasses']):                  # dealer name badge with a tiny wing mark
         d.rect(x + 46, top + 92, x + 100, top + 118, (245, 245, 248), r=4)
         wings(d, x + 73, top + 105, 0.1, AM_GREEN, bar=False)
     hx = x + st.get('look', 0) * 0.3
@@ -410,7 +676,14 @@ def person(d, x, fy, c, st):
         d.ell(T[0] + dx / n * 10, T[1] + dy_ / n * 10, 21, 21, c['skin'], OL, 4)
         prop = st.get('prop', {}).get(key)
         hx2, hy2 = T[0] + dx / n * 10, T[1] + dy_ / n * 10
-        if prop == 'card':                                # black credit card
+        if prop == 'phone':
+            d.rect(hx2 - 11, hy2 - 44, hx2 + 11, hy2 + 8, (24, 24, 28), r=5, ol=(90, 90, 100), w=3)
+        elif prop == 'cup':
+            d.rect(hx2 - 15, hy2 - 44, hx2 + 15, hy2 + 4, (246, 246, 244), r=4, ol=OL, w=3)
+            d.rect(hx2 - 15, hy2 - 32, hx2 + 15, hy2 - 18, (150, 96, 56))
+        elif prop == 'cloth':
+            d.ell(hx2, hy2 - 4, 28, 18, (250, 214, 70), OL, 3)
+        elif prop == 'card':                                # black credit card
             d.rect(hx2 - 6, hy2 - 52, hx2 + 70, hy2 - 4, (24, 24, 30), r=6, ol=(200, 170, 90), w=3)
             d.rect(hx2 + 4, hy2 - 40, hx2 + 22, hy2 - 28, (210, 180, 100), r=2)
 
@@ -446,8 +719,8 @@ def buyer_sched():
 def sales_sched():
     s = [(0.0, 'clasp', 'clasp', {})]
     s += [(LS[3] + .05, 'open', 'clasp', {}), (LE[3] + .1, 'clasp', 'clasp', {}),
-          (LS[7] + .05, 'present', 'clasp', {}), (LE[7], 'clasp', 'clasp', {}),
-          (T_GRILLE - .1, 'present', 'clasp', {}), (LE[11] + .1, 'clasp', 'clasp', {}),
+          (LS[7] + .05, 'clasp', 'reach', {}), (LE[7], 'clasp', 'clasp', {}),
+          (T_GRILLE - .1, 'clasp', 'reach', {}), (LE[11] + .1, 'clasp', 'clasp', {}),
           (LS[13] + .05, 'present', 'clasp', {}), (LE[13] + .1, 'clasp', 'clasp', {}),
           (LS[17] + .05, 'open', 'clasp', {}), (LE[17] + .3, 'clasp', 'clasp', {})]
     return sorted(s, key=lambda e: e[0])
@@ -530,19 +803,22 @@ def world(t, sc=None):
     sc = scene_at(t) if sc is None else sc
     if sc in (0, 3):
         img = bg_showroom().copy()
+        showroom_life(img, t, sc)
         paste_car(img, 'cygnet', CX - 290, 894, 580)
     elif sc == 1:
         img = bg_lot().copy()
-        paste_car(img, 'iq', 40, 868, 390)
-        paste_car(img, 'cygnet', 488, 868, 390)
+        lot_life(img, t)
+        paste_car(img, 'iq', 40, 902, 390)
+        paste_car(img, 'cygnet', 488, 902, 390)
         d = D(img)
         for x_, txt, bgc in ((235, 'TOYOTA iQ', (230, 232, 236)), (682, 'ASTON MARTIN CYGNET', AM_GREEN)):
             f = font(24 * K); w_ = f.getlength(txt) / K
-            d.rect(x_ - w_ / 2 - 14, 638, x_ + w_ / 2 + 14, 676, bgc, r=8)
-            d.text(x_, 657, txt, 24, (30, 30, 36) if bgc != AM_GREEN else (240, 236, 220))
+            d.rect(x_ - w_ / 2 - 14, 680, x_ + w_ / 2 + 14, 714, bgc, r=8)
+            d.text(x_, 697, txt, 24, (30, 30, 36) if bgc != AM_GREEN else (240, 236, 220))
     else:
         img = bg_board().copy()
         board_screen(D(img), t)
+        board_life(img, t)
     d = D(img)
     f = int(round(t * FPS))
     t_in = SCENES[sc]
@@ -623,6 +899,19 @@ def price_tag(txt, sub, col, w=560):
     return tag
 
 @lru_cache(None)
+def photo_card(name, label, bar):
+    ph = Image.open(os.path.join(HERE, '..', 'assets', name)).convert('RGB')
+    w = 400; h = int(w * ph.height / ph.width)
+    ph = ph.resize((w * K, h * K), Image.LANCZOS)
+    card = Image.new('RGBA', ((w + 28) * K, (h + 84) * K), (0, 0, 0, 0)); cd = D(card)
+    cd.rect(6, 8, w + 26, h + 82, (0, 0, 0, 90), r=10)
+    cd.rect(0, 0, w + 20, h + 74, (250, 250, 248), r=10)
+    card.paste(ph, (10 * K, 10 * K))
+    cd.rect(10, h + 18, w + 10, h + 64, bar, r=8)
+    cd.text(w / 2 + 10, h + 42, label, 28, (24, 24, 30) if bar != AM_GREEN else (240, 236, 220))
+    return card
+
+@lru_cache(None)
 def stamp_img(txt, col, size=96):
     f = font(size * K); w_ = int(f.getlength(txt) / K) + 90
     st_ = Image.new('RGBA', (w_ * K, int(size * 1.9) * K), (0, 0, 0, 0)); sd = D(st_)
@@ -682,7 +971,7 @@ def inset(kind):
 def panel(d, x0, y0, x1, y1, a, col=(14, 16, 22)):
     d.rect(x0, y0, x1, y1, col + (int(236 * a),), r=30)
 
-ONSCREEN = ['ASTON MARTIN', 'CYGNET', 'TOYOTA iQ', 'ASTON MARTIN CYGNET', '£30,995', 'ASTON MARTIN CYGNET · 2011',
+ONSCREEN = ['=', 'ASTON MARTIN', 'CYGNET', 'TOYOTA iQ', 'ASTON MARTIN CYGNET', '£30,995', 'ASTON MARTIN CYGNET · 2011',
             'FROM ABOUT £10,000', 'TOYOTA iQ · 2011', 'TOYOTA', '+ LEATHER', 'ENGINE', '1.33 L', '97 HP', '0–62 MPH', '11.8 s',
             'SAME', 'NEW', 'GRILLE', 'LIGHTS', 'LEATHER', 'WHY?', 'AVERAGE CO₂', 'VANTAGE', 'VANQUISH', 'TARGET', 'AVERAGE', '✓']
 
@@ -692,12 +981,22 @@ def overlays(t):
     used = False
     sc = scene_at(t)
     if sc == 0:
-        # "TOYOTA" stamp slapped across the car
-        sa = window(t, T_TOYOTA0 + .05, LS[3] - .1, .05, .3)
+        # the real cars, side by side: Cygnet photo, then the iQ it is built on, then the TOYOTA stamp
+        pa = window(t, T_ASTON - .05, LS[3] - .05, .1, .3)
+        if pa > 0:
+            used = True
+            put(img, photo_card('aston_cygnet.jpg', 'ASTON MARTIN CYGNET', AM_GREEN), 683, 450, popin(t, T_ASTON, .35), pa, rot=-4)
+            if t >= T_TOYOTA0 - .05:
+                put(img, photo_card('toyota_iq.jpg', 'TOYOTA iQ', (230, 232, 236)), 236, 470, popin(t, T_TOYOTA0 - .05, .35), pa, rot=4)
+            if t >= LS[1]:
+                k_ = popin(t, LS[1], .3); d = D(img)
+                d.ell(459, 460, 46 * k_, 46 * k_, GREEN + (int(250 * pa),), (14, 40, 24, int(255 * pa)), 5)
+                d.text(459, 464, '=', 70 * max(k_, .05), (255, 255, 255, int(255 * pa)))
+        sa = window(t, T_TOYOTA0 + .05, LS[3] - .05, .05, .3)
         if sa > 0:
             used = True
             s = 1 + 1.1 * (1 - oc(prog(t, T_TOYOTA0 + .05, .14)))
-            put(img, stamp_img('TOYOTA', RED), CX, 760, s, sa, rot=-9)
+            put(img, stamp_img('TOYOTA', RED), 690, 548, s * .62, sa, rot=-10)
         # price tags
         ta = window(t, T_THIRTY - .05, LS[5] + .15, .15, .3)
         if ta > 0:
@@ -723,11 +1022,11 @@ def overlays(t):
             al = int(255 * ca)
             shake = math.sin(t * 70) * 6 * (1 - prog(t, T_EVERY, .4)) if T_EVERY <= t < T_EVERY + .4 else 0
             ox = shake
-            panel(d, 70 + ox, 206, 850 + ox, 592, ca)
-            d.text(470 + ox, 254, 'TOYOTA iQ', 34, (235, 236, 240, al))
-            d.text(720 + ox, 254, 'CYGNET', 34, (190, 230, 205, al))
-            d.line([(100 + ox, 286), (820 + ox, 286)], (70, 74, 84, al), 3)
-            rows = [(370, 'ENGINE', '97 HP', '1.33 L', T_ENG, T_HP), (476, '0–62 MPH', '11.8 s', '', T_SPEED, T_SPEED + .25)]
+            panel(d, 70 + ox, 136, 850 + ox, 432, ca)
+            d.text(470 + ox, 174, 'TOYOTA iQ', 34, (235, 236, 240, al))
+            d.text(720 + ox, 174, 'CYGNET', 34, (190, 230, 205, al))
+            d.line([(100 + ox, 202), (820 + ox, 202)], (70, 74, 84, al), 3)
+            rows = [(266, 'ENGINE', '97 HP', '1.33 L', T_ENG, T_HP), (352, '0–62 MPH', '11.8 s', '', T_SPEED, T_SPEED + .25)]
             for y, lab, val, sub, t_lab, t_val in rows:
                 if t < t_lab - .05: continue
                 ra = min(ca, prog(t, t_lab - .05, .2))
@@ -744,24 +1043,24 @@ def overlays(t):
                         d.text(595 + ox, y + (9 if sub else 0) + 1, '=', 44 * ek, (14, 40, 24, al))
             if t >= T_EVERY:
                 s = popin(t, T_EVERY, .3)
-                d.text(595 + ox, 548, 'SAME', 40 * max(s, .05), GREEN + (al,))
+                d.text(595 + ox, 404, 'SAME', 40 * max(s, .05), GREEN + (al,))
         # three "NEW" insets with leader lines to the Cygnet
-        for i, (kind, tw, cx_, tx, ty) in enumerate((('grille', T_GRILLE, 170, 496, 810), ('lights', T_LIGHTS, 459, 523, 774),
-                                                     ('leather', T_LEATH2, 748, 749, 728))):
+        for i, (kind, tw, cx_, tx, ty) in enumerate((('grille', T_GRILLE, 170, 496, 844), ('lights', T_LIGHTS, 459, 523, 808),
+                                                     ('leather', T_LEATH2, 748, 749, 762))):
             ia = window(t, tw - .05, T_S3 + .05, .08, .2)
             if ia <= 0: continue
             used = True
             s = popin(t, tw, .32)
             lk = prog(t, tw + .1, .2)
             if lk > 0:
-                sx_, sy_ = cx_, 470 + 118
+                sx_, sy_ = cx_, 318 + 118
                 d.line([(sx_, sy_), (sx_ + (tx - sx_) * lk, sy_ + (ty - sy_) * lk)], (255, 255, 255, int(230 * ia)), 5)
                 d.ell(tx, ty, 9 * lk, 9 * lk, TAG + (int(255 * ia),), (30, 30, 30, int(255 * ia)), 3)
-            put(img, inset(kind), cx_, 470, s, ia)
+            put(img, inset(kind), cx_, 318, s, ia)
             d = D(img)
             if s > .3:
-                d.rect(cx_ - 46, 330, cx_ + 46, 368, RED + (int(255 * ia),), r=10)
-                d.text(cx_, 350, 'NEW', 28, (255, 255, 255, int(255 * ia)))
+                d.rect(cx_ - 46, 176, cx_ + 46, 214, RED + (int(255 * ia),), r=10)
+                d.text(cx_, 196, 'NEW', 28, (255, 255, 255, int(255 * ia)))
     elif sc == 2:
         # the "Why?" card, then a corner tag while the question is asked
         wk = window(t, T_S3 - .05, WHY1 + .3, .05, .3)
@@ -850,8 +1149,10 @@ def caption_boxes():
 
 def captions(img, t):
     if T_S3 <= t < WHY1 + .1: return                       # "Why?" card owns the screen
-    for ci, c in enumerate(CHUNKS):
-        if c['s'] - 0.02 <= t < c['e']:
+    live = [ci for ci, c in enumerate(CHUNKS) if c['s'] - 0.02 <= t < c['e']]
+    for ci in live[-1:]:
+        c = CHUNKS[ci]
+        if True:
             act = -1
             for i, w in enumerate(c['words']):
                 if w['s'] - .02 <= t: act = i
@@ -947,6 +1248,17 @@ def build_audio(voice, out_wav):
     for s_ in SCENES[1:]:                                   # scene-change accent: whoosh + soft thump
         add(s_ - .22, sfx.whoosh(.45, 18), .5); add(s_ + .12, sfx.thump(), .35)
     add(T_S2 + .4, sfx.vroom(), .10)
+    def horn(d=.32):
+        tt = np.arange(int(SR * d)) / SR
+        return (np.sign(np.sin(2 * np.pi * 415 * tt)) + np.sign(np.sin(2 * np.pi * 520 * tt))) * .25 * np.minimum(1, (d - tt) * 30)
+    L0 = T_S2
+    for k_ in range(3): add(L0 + 1.0 + k_ * 1.6, sfx.whoosh(.9, 60), .10)      # passing cars
+    add(L0 + LT['hit'] - .35, sfx.screech(), .14); add(L0 + LT['hit'], sfx.thump(), .22); add(L0 + LT['hit'] + .02, sfx.pop(), .10)
+    add(L0 + LT['hit'] + 1.0, sfx.fall(), .10)
+    add(L0 + LT['flip'] - .3, sfx.screech(.5), .12); add(L0 + LT['land'], sfx.crash(), .26)
+    add(L0 + LT['bump'], sfx.crash(.4), .12)
+    for th in (7.0, 8.1, 9.5): add(L0 + th, horn(), .10)
+    add(L0 + 7.4, horn(.5), .06)
     for k_ in range(3): add(T_S2 + .9 + k_ * 4.1, chirp(), .5)
     add(T_ENG, sfx.pop(), .3); add(T_HP + .25, sfx.ding(), .16)
     add(T_SPEED, sfx.pop(), .3); add(T_SPEED + .5, sfx.ding(1760), .16)
