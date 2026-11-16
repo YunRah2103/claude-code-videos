@@ -71,8 +71,9 @@ def scene_at(t):
 
 
 # ---------------------------------------------------------------- drawing helpers (float luminance canvases)
-F_DIG = ImageFont.truetype('/usr/share/fonts/truetype/jetbrains-mono/JetBrainsMono-ExtraBold.ttf', 280)
-F_DIG_M = ImageFont.truetype('/usr/share/fonts/truetype/jetbrains-mono/JetBrainsMono-ExtraBold.ttf', 210)
+F_DIG = ImageFont.truetype('/usr/share/fonts/truetype/jetbrains-mono/JetBrainsMono-ExtraBold.ttf', 340)
+F_DIG_M = ImageFont.truetype('/usr/share/fonts/truetype/jetbrains-mono/JetBrainsMono-ExtraBold.ttf', 280)
+F_DIG_R = ImageFont.truetype('/usr/share/fonts/truetype/jetbrains-mono/JetBrainsMono-ExtraBold.ttf', 230)
 F_CODE = ImageFont.truetype(RD.FONT, 50)
 F_TAG = ImageFont.truetype(RD.FONT_THIN, 50)
 SH16 = 16
@@ -231,7 +232,7 @@ def canvas1(t):
         v8(tmp, th + k * _omega(t) * 2 * math.pi / (FPS * SUB * 3), t)
         img += tmp / 3
     c = count560(t)
-    digits(img, f'{c:3d}', 450, 745, F_DIG)
+    digits(img, f'{c:3d}', 450, 740, F_DIG)
     g = t - HIT560
     if 0 < g < 0.6:                                                # shockwave on the 560 hit
         circle(img, (450, 745), 170 + 520 * g, max(0.0, 1 - g / 0.6), 6)
@@ -269,7 +270,7 @@ def canvas2(t):
         f = math.exp(-abs(((ti + math.pi / 2) % math.pi) - math.pi / 2) / 0.22)   # flash at each reversal
         if f > 0.05:
             circle(img, (x, ay), 40 + 50 * (1 - f), f, 4)
-    digits(img, f'{count280(t):3d}', 470, 640, F_DIG_M)
+    digits(img, f'{count280(t):3d}', 470, 650, F_DIG_M)
     g = t - HIT280
     if 0 < g < 0.5:
         circle(img, (470, 640), 130 + 420 * g, max(0.0, 1 - g / 0.5), 5)
@@ -280,13 +281,13 @@ def canvas2(t):
 def canvas3(t):
     tau = 1.55 + (t - CASC[2][0]) * 1.0                            # light sweep crosses during the scene
     img = AC.car_canvas(tau).copy()
-    digits(img, f'{int(rpm(t)) // 10 * 10:4d}', 330, 600, F_DIG_M)
+    digits(img, f'{int(rpm(t)) // 10 * 10:4d}', 345, 615, F_DIG_R)
     return img
 
 
 def canvas4(t):
     img = AC.side_canvas(t % AC.DUR).copy()
-    digits(img, f'{int(rpm(t)) // 10 * 10:4d}', 330, 600, F_DIG_M)
+    digits(img, f'{int(rpm(t)) // 10 * 10:4d}', 345, 615, F_DIG_R)
     return img
 
 
@@ -365,7 +366,40 @@ def leader_targets(sc, t):
 TEXT_BOXES = []          # (scene, x0, y0, x1, y1, height) for the layout check
 
 
-def code_card(sc, t, img):
+TYPE_RATE = 62.0                      # chars/s, terminal typing after each scene lands
+
+
+def type_start(sc):
+    if sc in (0, 4):
+        return None                                               # loop scene / continued card: always complete
+    for T, D, a, b in CASC:
+        if b == sc:
+            return T + 0.80 * D
+    return None
+
+
+def typed(sc, t):
+    st = type_start(sc)
+    total = sum(len(x) for x in CODE[sc][1])
+    if st is None:
+        return total
+    return int(np.clip((t - st) * TYPE_RATE, 0, total))
+
+
+def typing_events():
+    """(time, scene) for every typed character: the audio adds a key click for each"""
+    ev = []
+    for sc in range(6):
+        st = type_start(sc)
+        if st is not None:
+            ev += [(st + k / TYPE_RATE, sc) for k in range(sum(len(x) for x in CODE[sc][1]))]
+    return ev
+
+
+SCRAMBLE = '01#%&@$*<>{}'
+
+
+def code_card(sc, t, img, M=None):
     tag, lines = CODE[sc]
     im = Image.new('L', (W, 560), 0)
     d = ImageDraw.Draw(im)
@@ -373,28 +407,136 @@ def code_card(sc, t, img):
     d.rounded_rectangle((CX0 - 14, TAGY - 6, CX0 + tw + 14, TAGY + 64), 12, outline=150, width=3)
     d.text((CX0, TAGY), tag, font=F_TAG, fill=170)
     boxes = [(CX0 - 14, TAGY - 6, CX0 + tw + 14, TAGY + 64)]
-    for i, s in enumerate(lines):
+    left = typed(sc, t)
+    total = sum(len(x) for x in lines)
+    cur = None
+    for i, s_full in enumerate(lines):
         y = L0 + i * LH
-        lead = len(s) - len(s.lstrip())
-        cut = s.find('#') if '#' in s and not s.lstrip().startswith('"') else s.find('//')
-        code, cmt = (s[:cut], s[cut:]) if cut > 0 else ((s, '') if tok_val(s) == 1.0 else ('', s))
+        boxes.append(d.textbbox((CX0, y), s_full, font=F_CODE))
+        s = s_full[:max(left, 0)]
+        left -= len(s_full)
+        if len(s) < len(s_full) and cur is None:
+            cur = (CX0 + d.textlength(s, font=F_CODE), y)
+        if not s:
+            continue
+        cut = s_full.find('#') if '#' in s_full and not s_full.lstrip().startswith('"') else s_full.find('//')
+        if cut > 0:
+            code, cmt = s[:cut], s[cut:]
+        elif tok_val(s_full) < 1.0:
+            code, cmt = '', s
+        else:
+            code, cmt = s, ''
         if code:
             d.text((CX0, y), code, font=F_CODE, fill=255)
         if cmt:
             d.text((CX0 + d.textlength(s[:len(s) - len(cmt)], font=F_CODE), y), cmt, font=F_CODE, fill=140)
-        bb = d.textbbox((CX0, y), s, font=F_CODE)
-        boxes.append(bb)
-    if (t * 2.2) % 1 < 0.6:                                        # blinking terminal cursor
+    if cur is not None and typed(sc, t) > 0:                      # typing: scrambled glyph + solid cursor
+        d.text(cur, SCRAMBLE[int(t * 40) % len(SCRAMBLE)], font=F_CODE, fill=200)
+        d.rectangle((cur[0] + CHW + 4, cur[1] + 6, cur[0] + CHW + 30, cur[1] + 60), fill=230)
+    elif cur is None and (t * 2.2) % 1 < 0.6:                     # done: blinking cursor
         last = lines[-1]
         cx = CX0 + d.textlength(last, font=F_CODE) + 8
         d.rectangle((cx, L0 + (len(lines) - 1) * LH + 6, cx + 26, L0 + (len(lines) - 1) * LH + 60), fill=230)
     a = np.asarray(im, np.float32) / 255
     img[:560] = np.maximum(img[:560], a)
-    for (x0, y0), (x1, y1) in leader_targets(sc, t):
-        line(img, (x0, y0), (x0 + 40, y0), 0.75, 2)
-        line(img, (x0, y0), (x1, y1), 0.75, 2)
-        circle(img, (x1, y1), 9, 0.9, 2)
+    st = type_start(sc)
+    la = 1.0 if st is None else sstep(st + total / TYPE_RATE, st + total / TYPE_RATE + 0.15, t)
+    if la > 0:
+        for (x0, y0), (x1, y1) in leader_targets(sc, t):
+            if M is not None:
+                x1, y1 = M[0, 0] * x1 + M[0, 2], M[1, 1] * y1 + M[1, 2]
+            xm, ym = x0 + (x1 - x0) * la, y0 + (y1 - y0) * la
+            line(img, (x0, y0), (x0 + 40, y0), 0.75, 2)
+            line(img, (x0, y0), (xm, ym), 0.75, 2)
+            if la > 0.98:
+                circle(img, (x1, y1), 9, 0.9, 2)
     return boxes
+
+
+# ---------------------------------------------------------------- camera: slow push-ins, heartbeat pulses, punch + shake on hits
+FOCUS = {0: (600, 1080), 1: (450, 1000), 2: (480, 1000), 3: (540, 1036), 4: (540, 1110), 5: (490, 1130)}
+
+
+def scene_span(sc):
+    ins = [T for T, D, a, b in CASC if b == sc]
+    outs = [T + D for T, D, a, b in CASC if a == sc]
+    return ins[0], outs[0]
+
+
+def punch(t, t0, amp, tau):
+    return amp * math.exp(-(t - t0) / tau) if t >= t0 else 0.0
+
+
+def camera(sc, t):
+    sx = sy = 0.0
+    if sc == 0:
+        tau = t - DUR if t > DUR / 2 else t                       # unwrap: continuous across the loop
+        z = 1.0 + 0.06 * sstep(CASC[-1][0] - DUR, CASC[0][0] + CASC[0][1], tau)
+        dt = (((t / BP) - 0.31) % 1.0) * BP
+        z += 0.022 * math.exp(-dt / 0.09)
+    else:
+        a, b = scene_span(sc)
+        if sc == 3:
+            z = 1.0
+        elif sc == 4:
+            z = 0.97 + 0.03 * sstep(a, b, t) + punch(t, SCREAM, 0.025, 0.25)
+        else:
+            z = 1.0 + 0.06 * sstep(a, b, t)
+        if sc == 1:
+            z += punch(t, HIT560, 0.09, 0.16)
+            e = punch(t, HIT560, 16, 0.22)
+            sx, sy = e * math.sin(2 * math.pi * 23 * t), e * 0.7 * math.cos(2 * math.pi * 19 * t)
+        if sc == 2:
+            z += punch(t, HIT280, 0.05, 0.16)
+            e = punch(t, HIT280, 9, 0.2)
+            sx, sy = e * math.sin(2 * math.pi * 23 * t), e * 0.7 * math.cos(2 * math.pi * 19 * t)
+        if sc in (3, 4):
+            e = 3.0 * rpm(t) / 8400 + punch(t, SCREAM, 9, 0.3)
+            sx, sy = e * math.sin(2 * math.pi * 13 * t), e * 0.6 * math.sin(2 * math.pi * 17 * t + 1)
+        if sc == 5:
+            z += punch(t, wt('pick'), 0.04, 0.25)
+    fx, fy = FOCUS[sc]
+    return np.array([[z, 0, (1 - z) * fx + sx], [0, z, (1 - z) * fy + sy]], np.float32)
+
+
+def flash(t):
+    return punch(t, HIT560, 0.45, 0.07) + punch(t, HIT280, 0.22, 0.07) + punch(t, SCREAM, 0.18, 0.09)
+
+
+# ---------------------------------------------------------------- dim data-rain background (looping, adds depth)
+_rr = np.random.default_rng(3)
+RAIN = [(c, int(_rr.integers(3, 8)), int(_rr.integers(8, 20)), float(_rr.random()), _rr.integers(2, len(AC.GLYPHS), 40))
+        for c in range(AC.COLS) if _rr.random() < 0.26]
+
+
+def rain(t):
+    out = np.zeros((H, W), np.float32)
+    for c, k, L, ph, gl in RAIN:
+        span = H + L * AC.CH
+        head = (k * span * t / DUR + ph * span) % span                # k whole passes per loop -> seamless
+        for j in range(L):
+            y = int(head - j * AC.CH)
+            if 0 <= y < H - AC.CH:
+                a = 0.24 if j == 0 else 0.11 * (1 - j / L)
+                out[y:y + AC.CH, c * AC.CW:(c + 1) * AC.CW] = np.maximum(out[y:y + AC.CH, c * AC.CW:(c + 1) * AC.CW],
+                                                                       AC.ATLAS[gl[j % 40]] * a)
+    return out
+
+
+def streaks(t):
+    """'-' glyph speed streaks behind the side-view car, speed follows the rpm"""
+    out = np.zeros((H, W), np.float32)
+    g = AC.GLYPHS.index('-')
+    v = 2600 * rpm(t) / 8400
+    for k in range(14):
+        y = 930 + (k * 97) % 330
+        L = 6 + (k * 5) % 9
+        x = (k * 233 + v * t) % (W + L * AC.CW) - L * AC.CW
+        for j in range(L):
+            xx = int(x - j * AC.CW)
+            if 0 <= xx < W - AC.CW:
+                out[y:y + AC.CH, xx:xx + AC.CW] = np.maximum(out[y:y + AC.CH, xx:xx + AC.CW], AC.ATLAS[g] * 0.7 * (1 - j / L))
+    return out * (1 - AC.SIDEM)
 
 
 # ---------------------------------------------------------------- scene renderer (ASCII via the approved matcher)
@@ -427,15 +569,17 @@ class Scenes:
         m = self.m[sc]
         img = np.zeros((H, W), np.float32)
         img[AC.Y0:AC.Y0 + AC.ROWS * AC.CH, :AC.COLS * AC.CW] = AC.plane_of(m.gid, 0.62 + 0.45 * np.sqrt(np.clip(m.P.mean(2), 0, 1)))
-        if sc in (3, 4):                                           # rev shake (whole-cell translation: no glyph churn)
-            amp = 3.5 * rpm(t) / 8400
-            dx, dy = int(round(amp * math.sin(2 * math.pi * 13 * t))), int(round(amp * 0.6 * math.sin(2 * math.pi * 17 * t + 1)))
-            img[560:] = np.roll(np.roll(img[560:], dx, 1), dy, 0)
+        if sc in (3, 4):
             mot = np.zeros((H, W), np.float32)
             for k in range(SUB):
                 mot += AC.motion_layer((t + (k - 1.5) / (FPS * SUB)) % AC.DUR, FLOOR[sc]) / SUB
             img = np.maximum(img, mot)
-        boxes = code_card(sc, t, img)
+        if sc == 4:
+            img = np.maximum(img, streaks(t))
+        M = camera(sc, t)
+        img = cv2.warpAffine(img, M, (W, H), flags=cv2.INTER_LINEAR)
+        img = np.maximum(img, rain(t))
+        boxes = code_card(sc, t, img, M)
         return img, boxes
 
 
@@ -511,6 +655,7 @@ def frames(indices, want):
             img = cascade(ia, ib, t, T, D)
             meta_sc = f'{a}->{b}'
         m = S.m[sc] if k is None else None
+        img = img + flash(t)
         yield i, post(img), dict(i=int(i), t=round(t, 4), scene=meta_sc, boxes=[list(map(float, b)) for b in boxes],
                                  glyph_change=float(m.last_change) if m is not None and hasattr(m, 'last_change') else None,
                                  flicker=float(m.flicker) if m is not None and hasattr(m, 'flicker') else None)
