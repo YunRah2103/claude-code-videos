@@ -6,9 +6,11 @@ platform-ladder: `tts.py`, `sfx.py` unchanged; `align.py` adds "2022"/"BMW" spel
 trims raw pauses and starts the first word at 0.3 s; `render.py` adds a BMW coupe-SUV skin, map room, subscription
 screen and press-conference sets, info cards and five new oddities.
 
-Background oddities (never mentioned): melting snowman in a blue scarf (showroom); flamingo on one leg (map room);
-sheep chewing on top of a filing cabinet (subscription office); llama with a press pass among the reporters (press
-conference); mother duck leading three ducklings along the wall (showroom again).
+Background oddities (never mentioned, kept off-centre): a snowman soaking in a steaming hot tub with a mug, melting
+(showroom); a flamingo riding a robot vacuum (map room); two sheep stacked on a filing cabinet (subscription office); a
+llama with a press pass taking selfies on a stick (press conference); a mother duck driving a tiny red ride-on car,
+ducklings waddling behind (showroom again). Camera adds a hard cut closer on the car, a drift across the map and a
+handheld jolt on "outrageous".
 
 ```bash
 source .venv/bin/activate; cd videos/bmw-heated-seats/src; C=~/.cache/bmw-heated-seats

@@ -336,9 +336,9 @@ def paste_car(img, kind, x0, ground, L):
     img.paste(c, (int((x0 - L * .1) * K), int((ground - L * .56) * K)), c)
 
 # ================================================================ background oddities (comment bait, never mentioned)
-# 1 showroom: a snowman in a scarf by the wall, slowly melting into a puddle.   2 map room: a flamingo on one leg.
-# 3 payment office: a sheep standing on top of a filing cabinet, chewing.   4 press conference: a llama with a press pass.
-# 5 showroom again: a mother duck leading three ducklings along the wall.
+# 1 showroom: a snowman relaxing in a steaming hot tub, mug in hand, melting.   2 map room: a flamingo riding a robot vacuum.
+# 3 payment office: two sheep stacked on top of a filing cabinet.   4 press conference: a llama with a press pass taking selfies.
+# 5 showroom again: a mother duck driving a tiny ride-on car, three ducklings waddling after it.
 CEIL = 84
 def snowman(d, x, fy, t, s=1.0):
     melt = clamp(t / 14)                                   # sinks a little and the puddle grows
@@ -365,6 +365,23 @@ def snowman(d, x, fy, t, s=1.0):
         else: d.ell(x + side * 10 * s, hy - 8 * s, 3.5 * s, 3.5 * s, OL)
     d.poly([(x - 2 * s, hy - 2 * s), (x - 2 * s, hy + 6 * s), (x - 30 * s, hy + 3 * s)], (246, 130, 30), OL, 2)   # carrot
     for i in range(3): d.ell(x, fy - 112 + sink + i * 16 * s, 3 * s, 3 * s, OL)
+    mx, my = x + 70 * s, fy - 150 + sink - math.sin(t * 2.4) * 8 * s      # mug on the waving arm
+    d.rect(mx - 10 * s, my - 14 * s, mx + 10 * s, my + 8 * s, (190, 30, 40), r=3, ol=OL, w=2)
+    tub_top = fy - 92 * s                                                   # hot tub in front of him
+    d.ell(x, tub_top, 82 * s, 16 * s, (90, 200, 230), OL, 3)
+    for i in range(3):                                                      # bubbles
+        bx_ = x - 50 * s + ((t * 40 + i * 37) % 100) * s
+        d.ell(bx_, tub_top - 2, 5 * s, 3 * s, (230, 250, 255))
+    d.poly([(x - 82 * s, tub_top), (x + 82 * s, tub_top), (x + 76 * s, fy), (x - 76 * s, fy)], (150, 98, 56), OL, 3)
+    for k_ in range(-3, 4):
+        d.line([(x + k_ * 22 * s, tub_top + 8), (x + k_ * 20 * s, fy - 4)], (112, 72, 40), 2)
+    for k_ in (.3, .7):
+        d.line([(x - 80 * s, tub_top + k_ * 92 * s), (x + 80 * s, tub_top + k_ * 92 * s)], (70, 70, 76), 4)
+    for i in range(4):                                                      # steam
+        ph = (t * .6 + i * .25) % 1
+        sx0 = x - 50 * s + i * 34 * s
+        pts = [(sx0 + 8 * math.sin(ph * 6 + k * 1.3 + i), tub_top - 20 - k * 16 - ph * 50) for k in range(5)]
+        d.line(pts, (255, 255, 255, int(170 * (1 - ph))), 5)
 
 def flamingo(d, x, fy, t, s=1.0):
     P1, P2 = (246, 140, 170), (226, 104, 140)
@@ -387,14 +404,19 @@ def flamingo(d, x, fy, t, s=1.0):
     d.poly([(hx - 26 * s, hy + 12 * s), (hx - 32 * s, hy + 10 * s), (hx - 26 * s, hy + 18 * s)], (20, 20, 24))
     if (t % 3.1) > .12: d.ell(hx + 3 * s, hy - 3 * s, 2.6 * s, 2.6 * s, OL)
 
-def sheep(d, x, fy, t, s=1.0):
-    # filing cabinet
+def sheep(d, x, fy, t, s=1.0, cabinet=True):
+    if cabinet: _cabinet(d, x, fy, s)
+    top = fy - 150 * s if cabinet else fy
+    _sheep(d, x, top, t, s)
+
+def _cabinet(d, x, fy, s):
     d.rect(x - 58 * s, fy - 150 * s, x + 58 * s, fy, (128, 136, 146), ol=OL, w=3)
     for i in range(3):
         y = fy - 146 * s + i * 49 * s
         d.rect(x - 50 * s, y + 4, x + 50 * s, y + 44 * s, (150, 158, 168), ol=(90, 96, 104), w=2)
         d.rect(x - 14 * s, y + 18 * s, x + 14 * s, y + 24 * s, (60, 64, 70), r=3)
-    top = fy - 150 * s
+
+def _sheep(d, x, top, t, s):
     for side in (-1, 1):
         for k_ in (0, 1):
             lx = x + side * (18 + k_ * 20) * s
@@ -430,6 +452,10 @@ def llama(d, x, fy, t, s=1.0):
     chew = math.sin(t * 7) * 2 * s
     d.rect(hx - 26 * s, hy - 2 * s, hx + 4 * s, hy + 18 * s + chew, C1, r=8 * s, ol=OL, w=2)
     d.ell(hx - 20 * s, hy + 4 * s, 2.5 * s, 2 * s, OL)
+    px, py = hx - 70 * s, hy - 70 * s + math.sin(t * 2) * 4                 # selfie stick held in the mouth
+    d.line([(hx - 24 * s, hy + 10 * s), (px, py)], (40, 40, 46), 4)
+    d.rect(px - 12 * s, py - 20 * s, px + 12 * s, py + 20 * s, (20, 20, 24), r=4, ol=(200, 200, 210), w=2)
+    if (t % 1.6) < .1: d.ell(px, py, 30 * s, 30 * s, (255, 255, 255, 200))
     if (t % 3.5) > .12: d.ell(hx + 2 * s, hy - 6 * s, 4 * s, 4.5 * s, OL)
     # press pass on a lanyard
     d.line([(x - 52 * s + sway, fy - 168 * s), (x - 40 * s, fy - 128 * s), (x - 26 * s + sway, fy - 168 * s)], (28, 105, 190), 3)
@@ -441,7 +467,13 @@ def ducks(d, t):
     x0 = 800 + 18 * tau
     for i, (dx, s) in enumerate(((0, 1.5), (-64, .75), (-108, .75), (-152, .75))):
         x, fy = x0 + dx * (1 + 0 * i), 990
-        hop = abs(math.sin(tau * 7 + i)) * 4 * s
+        hop = abs(math.sin(tau * 7 + i)) * 4 * s if i else 0.0
+        if i == 0:                                                         # tiny red ride-on car under the mother duck
+            d.rect(x - 44, fy - 34, x + 44, fy - 10, (210, 36, 44), r=10, ol=OL, w=3)
+            d.rect(x - 20, fy - 50, x + 14, fy - 34, (170, 210, 240), r=4, ol=OL, w=2)
+            for wx in (x - 26, x + 28): d.ell(wx, fy - 8, 10, 10, (24, 24, 28), OL, 2)
+            d.line([(x + 26, fy - 36), (x + 34, fy - 56)], OL, 4); d.ell(x + 34, fy - 58, 9, 4, OL)
+            fy -= 30
         waddle = math.sin(tau * 7 + i) * 6
         Y = (250, 214, 64) if i else (246, 246, 240)
         d.ell(x, fy - 2, 18 * s, 4 * s, (0, 0, 0, 60))
@@ -451,7 +483,7 @@ def ducks(d, t):
         d.ell(hx, hy, 14 * s, 13 * s, Y, OL, 2)
         d.poly([(hx + 10 * s, hy - 2 * s), (hx + 26 * s, hy + 2 * s), (hx + 10 * s, hy + 6 * s)], (246, 150, 30), OL, 1.5)
         d.ell(hx + 4 * s, hy - 3 * s, 2.5 * s, 2.5 * s, OL)
-        for side in (-1, 1):
+        for side in ((-1, 1) if i else ()):
             fx = x + side * 6 * s + (waddle if side > 0 else -waddle) * s * .5
             d.line([(x + side * 6 * s, fy - 10 * s - hop), (fx, fy - 2)], (246, 150, 30), 3 * s)
 
@@ -602,7 +634,10 @@ def map_life(img, t):
         x, y = ll(*US)
         d.ell(x, y, 46 * k_, 46 * k_, None, (230, 40, 50), 8)
         d.line([(x - 32 * k_, y + 32 * k_), (x + 32 * k_, y - 32 * k_)], (230, 40, 50), 8)
-    flamingo(d, 862, 992, t, .9)
+    vx = 868 + 22 * math.sin((t - T_S2) * .9)
+    d.ell(vx, 984, 44, 14, (30, 32, 38), OL, 3); d.ell(vx, 978, 40, 10, (56, 60, 70))
+    d.ell(vx + 20, 978, 4, 3, (90, 230, 120) if int(t * 4) % 2 else (40, 120, 60))
+    flamingo(d, vx, 972, t, .9)
 
 # ---- scene 3: the subscription screen
 SEAT_ICON = (230, 236, 244)
@@ -649,7 +684,8 @@ def pay_life(img, t):
         for i in range(3):                                               # heat waves over the seat icon
             x = 170 + i * 26; ph = t * 6 + i
             d.line([(x + 6 * math.sin(ph + k * .9), 250 - k * 10) for k in range(6)], (255, 140, 60), 4)
-    sheep(d, 846, 992, t, .95)
+    sheep(d, 872, 992, t, .95)
+    sheep(d, 876 + 4 * math.sin(t * 1.7), 992 - 150 * .95 - 92 * .95, t + 1.3, .72, cabinet=False)   # a second sheep on the first
 
 # ---- scene 4: the press conference
 @lru_cache(None)
@@ -1022,6 +1058,10 @@ def camera(t):
         pk = io(prog(t, T_FINAL - .05, .5))                # salesman turns to camera: push in on him
         z += 0.14 * pk
         sx = 150 * pk
+    if sc == 3 and T_OUTR - .05 <= t < T_OUTR + .7:                    # press cameras jostle on the outburst
+        k_ = 1 - prog(t, T_OUTR - .05, .75)
+        sx += 14 * k_ * math.sin(t * 61); sy += 10 * k_ * math.sin(t * 47 + 1)
+    if sc == 1: sx += -30 * io(prog(t, t0 + 1.4, 4))                   # slow drift across the map
     for tp, amt in punches:
         if tp <= t < tp + .5:
             z += amt * (1 - oc(prog(t, tp, .5)))

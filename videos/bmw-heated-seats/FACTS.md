@@ -16,7 +16,7 @@ Not claimed: current BMW prices, other brands' subscriptions, the heated steerin
 "So everything's free now?" is the buyer's question, answered by fact 6.
 
 Photos in `assets/` were supplied by the user (interior, M4 coupé on the press screen); no spec is read from them. The
-five background oddities (snowman, flamingo, sheep on a cabinet, llama with a press pass, duck family) are cartoon gags, not claims.
+five background oddities (snowman in a hot tub, flamingo on a robot vacuum, stacked sheep, selfie-taking llama, duck driving a ride-on car) are cartoon gags, not claims.
 
 ## Allowed numbers
 
