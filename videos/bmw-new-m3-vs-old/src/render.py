@@ -204,7 +204,7 @@ def car_slot(t):
         k_out = prog(t, SCENES[sc] - .3, .45)
         out.append((CAR_SC[sc - 1], 1300 * k_out ** 2.2))
         k_in = prog(t, SCENES[sc] + .02, .58)
-        if k_in > 0: out.append((cur, -1300 * (1 - oc(k_in))))
+        if k_in > 0: out.append((cur, -1300 * (1 - ob(k_in))))
         return out
     nxt = sc + 1 < len(SCENES) and CAR_SC[sc + 1] != cur and t >= SCENES[sc + 1] - .3
     if nxt:
@@ -217,6 +217,12 @@ def draw_cars(img, t):
         if abs(off) > 1250: continue
         car = car_img(key)
         speed = abs(off) / 1300
+        if speed > .06:                                   # speed lines trailing the moving car
+            dd = D(img); side = -1 if off < 0 else 1
+            for j in range(6):
+                ly = PLAT_Y - 30 - j * car.height / K / 7
+                lx = CX + off - side * (car.width / K * .5 + 20)
+                dd.line([(lx, ly), (lx - side * (160 + 70 * (j % 3)) * min(1, speed * 3), ly)], (255, 255, 255, 200), 5)
         if speed > .04:                                   # horizontal motion blur while sliding
             nw = max(8, int(car.width / (1 + 14 * speed)))
             car = car.resize((nw, car.height), Image.BILINEAR).resize((car.width, car.height), Image.BILINEAR)
@@ -558,6 +564,21 @@ def talking(spk, t):
 
 
 # ================================================================ world
+def burst(d, x, y, dt):
+    """Comic speed-line burst behind a shouting character."""
+    k_ = clamp((dt + .05) / .12); fade = 1 - clamp((dt - .3) / .4)
+    if fade <= 0: return
+    rng = np.random.default_rng(int(x) + int(dt * 15))
+    for i in range(28):
+        ang = i / 28 * 2 * math.pi + rng.uniform(-.06, .06)
+        r0, r1 = 150 + rng.uniform(0, 60), (330 + rng.uniform(0, 260)) * k_
+        if r1 <= r0: continue
+        w_ = rng.uniform(7, 16)
+        col = (255, 214, 64, int(235 * fade)) if i % 2 else (255, 255, 255, int(220 * fade))
+        c, s_ = math.cos(ang), math.sin(ang)
+        d.poly([(x + c * r0 - s_ * 2, y + s_ * r0 + c * 2), (x + c * r0 + s_ * 2, y + s_ * r0 - c * 2),
+                (x + c * r1 + s_ * w_, y + s_ * r1 - c * w_), (x + c * r1 - s_ * w_, y + s_ * r1 + c * w_)], col)
+
 def world(t, sc=None):
     sc = scene_at(t) if sc is None else sc
     img = bg_showroom().copy()
@@ -565,6 +586,9 @@ def world(t, sc=None):
     ODD[sc](d, t)
     draw_cars(img, t)
     d = D(img)
+    for tp in SHOUTS:
+        if tp - .05 <= t < tp + .7:
+            burst(d, 270, 900, t - tp)
     f = int(round(t * FPS))
     bx = 270 - 40 * (1 - oc(prog(t, 0, 1.0)))             # frame 1: buyer still stepping in
     for who, x, sched, cfg, spk in (('S', 670, SS_, SALES, 'S'), ('B', bx, BS, BUYER, 'B')):
@@ -583,34 +607,44 @@ def world(t, sc=None):
         person(d, x, FEET_Y, cfg, st)
     return img
 
-# per-scene framing: (zoom, x shift); alternating wide / closer so each cut reads
-FRAMING = [(1.06, 0), (1.12, 30), (1.04, -10), (1.13, -30), (1.06, 20), (1.15, -40), (1.05, 0)]
-PUNCH = {0: ((T_BEST, .03), (T_NO, .03)), 1: ((T_NOSTR, .06), (T_20, .03)), 2: ((T_414, .04), (T_503, .05)),
-         3: ((T_LIGHT, .04), (T_HEAVY, .05)), 4: ((T_WHY, .06), (T_38, .04), (T_34, .05)), 5: ((T_FEEL, .05), (T_PRAISE, .03)),
-         6: ((T_PUNCH, .06), (T_AGREE, .03))}
+# ---- shots: hard cuts between a wide two-shot, speaker close-ups and a punch-in on the car (reference-style)
+SHOT = {'wide': (1.04, CX, 820), 'two': (1.22, 470, 940), 'B': (1.55, 300, 1010), 'S': (1.55, 650, 1010),
+        'car': (1.7, CX, 700)}
+SHOTS = sorted([(0.0, 'wide'), (LS[1], 'S'),
+    (SCENES[1], 'wide'), (T_NOSTR - .08, 'B'), (LS[3], 'S'), (T_20 - .05, 'two'),
+    (SCENES[2], 'wide'), (T_414 - .08, 'B'), (LS[5], 'S'), (T_OVER - .05, 'two'),
+    (SCENES[3], 'wide'), (LS[7], 'S'), (T_3840 - .05, 'two'), (T_HEAVY - .08, 'S'),
+    (SCENES[4], 'wide'), (T_WHY - .08, 'B'), (LS[9], 'two'), (T_34 - .05, 'S'),
+    (SCENES[5], 'wide'), (T_FEEL - .08, 'B'), (LS[11], 'S'), (T_PRAISE - .05, 'two'),
+    (SCENES[6], 'wide'), (T_PUNCH - .3, 'B'), (LS[13], 'S'), (T_AGREE + .05, 'B'), (T_FINAL - .05, 'S')])
+CUTS = [c[0] for c in SHOTS[1:]]
+SHOUTS = [T_NOSTR, T_414, T_LIGHT, T_WHY, T_FEEL, T_PUNCH]
+PUNCH = [T_BEST, T_NO, T_NOSTR, T_20, T_414, T_503, T_LIGHT, T_HEAVY, T_WHY, T_38, T_34, T_FEEL, T_PRAISE, T_PUNCH, T_AGREE]
+def shot_at(t):
+    i = max(j for j, c in enumerate(SHOTS) if c[0] <= t)
+    return SHOTS[i]
 def camera(t):
-    sc = scene_at(t); t0 = SCENES[sc]
-    z0, sx = FRAMING[sc]
-    z = z0 + 0.02 * io(prog(t, t0, 6))                     # slow push in every scene
-    if sc == 0: z = z0 + 0.06 * (1 - oc(prog(t, 0, 1.6)))  # frame 1 already moving: easing out of a closer start
-    sy = 0.0
-    if sc == 6:
-        pk = io(prog(t, T_FINAL - .05, .5))                # salesman turns to camera: push in on him
-        z += 0.14 * pk; sx += 150 * pk
-    for tp, amt in PUNCH[sc]:
-        if tp <= t < tp + .5:
-            z += amt * (1 - oc(prog(t, tp, .5)))
-    if sc == 6 and T_PUNCH - .02 <= t < T_PUNCH + .45:     # tiny jolt on "punched"
-        k_ = 1 - prog(t, T_PUNCH - .02, .47)
-        sx += 10 * k_ * math.sin(t * 61); sy += 8 * k_ * math.sin(t * 47 + 1)
-    return z, sx, sy
+    t0, name = shot_at(t)
+    z, cx, cy = SHOT[name]
+    z *= 1 + 0.035 * io(prog(t, t0, 2.5))                  # every shot keeps creeping in
+    if t < 1.6: z *= 1 + 0.08 * (1 - oc(prog(t, 0, 1.6)))  # frame 1 already moving
+    if name == 'S' and t >= T_FINAL - .05:                 # to camera: slow push on the salesman
+        z *= 1 + 0.12 * io(prog(t, T_FINAL, 1.5))
+    for tp in PUNCH:
+        if tp - .02 <= t < tp + .45:
+            z *= 1 + 0.06 * (1 - oc(prog(t, tp - .02, .47)))
+    sx = sy = 0.0
+    for tp in SHOUTS:                                      # handheld jolt on every outburst
+        if tp - .02 <= t < tp + .5:
+            k_ = 1 - prog(t, tp - .02, .52)
+            sx += 16 * k_ * math.sin(t * 63); sy += 12 * k_ * math.sin(t * 49 + 1)
+    return z, cx + sx, cy + sy
 
 def shoot(t):
     wimg = world(t)
-    z, sx, sy = camera(t)
-    ax, ay = CX * K, 760 * K
+    z, cx, cy = camera(t)
     cw, ch = W * K / z, H * K / z
-    x0 = clamp(ax - ax / z + sx * K, 0, W * K - cw); y0 = clamp(ay - ay / z + sy * K, 0, H * K - ch)
+    x0 = clamp(cx * K - cw / 2, 0, W * K - cw); y0 = clamp(cy * K - ch / 2, 0, H * K - ch)
     return wimg.resize((W, H), Image.LANCZOS, box=(x0, y0, x0 + cw, y0 + ch)).convert('RGBA')
 
 # ================================================================ overlays (none in the first 3 s)
@@ -775,7 +809,7 @@ def captions(img, t):
 def frame(n):
     t = n / FPS
     img = shoot(t)
-    for s_ in SCENES[1:]:                                   # hard cut to the new framing, with a quick flash
+    for s_ in SCENES[1:]:                                   # scene change: quick flash
         if s_ <= t < s_ + .18:
             img = Image.blend(img, Image.new('RGBA', img.size, (255, 255, 255, 255)), 0.3 * (1 - prog(t, s_, .18)))
     ov = overlays(t)
@@ -847,6 +881,10 @@ def build_audio(voice, out_wav):
     for tn in ('T_20', 'T_414', 'T_503', 'T_OVER', 'T_3400', 'T_3840', 'T_51', 'T_38', 'T_34'):
         add(globals()[tn] - .08, sfx.pop(), .22)            # stat rows popping in
     add(T_NOSTR, sfx.buzzer(.2), .2)
+    for tp in SHOUTS:                                       # impact under each outburst
+        add(tp - .1, sfx.whoosh(.3, 14), .22); add(tp - .02, sfx.thump(.25), .38)
+    for tc in CUTS:                                         # soft swish on every camera cut
+        if all(abs(tc - s_) > .3 for s_ in SCENES): add(tc - .06, sfx.whoosh(.16, 30), .12)
     add(T_HEAVY - .05, sfx.stamp(), .3)
     add(T_34 + .2, sfx.ding(1568, .6), .14)
     add(T_PRAISE - .05, sfx.ding(1760), .14)
