@@ -19,7 +19,7 @@ thedrive.com/new-cars/42184/2021-bmw-m3-review-… · evo.co.uk/bmw/m3/203950/bm
 press.bmwgroup.com/usa/article/detail/T0330025EN_US/… · bmwblog.com/2020/09/23/bmw-f80-f82-vs-g80-g82/ ·
 topgear.com/car-news/bmw-design-boss-its-not-our-goal-please-everyone · topgear.com.sg/reviews/a-view-to-a-grille-coty2021-…
 
-Car photos: Wikimedia Commons, cut out and colour-graded by `src/prep_cars.py` (see README for files and licences). No spec
+Car photos: Wikimedia Commons (E46, E92) and a user-supplied G80 side profile, cut out and colour-graded by `src/prep_cars.py` (see README for files and licences). No spec
 is read from them. Background oddities are cartoon gags, not claims.
 
 ## Allowed numbers

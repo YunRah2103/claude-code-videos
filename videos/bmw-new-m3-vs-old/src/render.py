@@ -180,6 +180,7 @@ def car_img(key):
     fn, w = CAR_FILES[key]
     im = Image.open(os.path.join(HERE, '..', 'assets', fn)).convert('RGBA')
     im = im.crop(im.getchannel('A').getbbox())
+    if key == 'g80': im = im.transpose(Image.FLIP_LEFT_RIGHT)      # all cars face the same way (right)
     return im.resize((w * K, int(im.height * w / im.width) * K), Image.LANCZOS)
 
 @lru_cache(None)

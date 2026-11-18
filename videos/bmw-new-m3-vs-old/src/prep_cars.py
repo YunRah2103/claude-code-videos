@@ -10,12 +10,16 @@ from rembg import remove, new_session
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, '..', 'assets')
 OL = (26, 26, 46)
-PLATES = {'g80_front': [(212, 601), (492, 629), (490, 699), (212, 673)]}   # measured on this output
+PLATES = {}
+NAMES = sys.argv[2:] or ['e46', 'e92', 'g80_side']
 sess = new_session('isnet-general-use')
-for name in ('e46', 'e92', 'g80_side', 'g80_front'):
+for name in NAMES:
     src = next(os.path.join(sys.argv[1], f) for f in os.listdir(sys.argv[1]) if f.startswith(name + '.'))
     im = Image.open(src).convert('RGB')
     if im.width > 2400: im = im.resize((2400, int(im.height * 2400 / im.width)), Image.LANCZOS)
+    small = im.width < 1000                                             # low-res studio shot: upscale, no flattening
+    if small:
+        im = im.resize((im.width * 3, im.height * 3), Image.LANCZOS).filter(ImageFilter.UnsharpMask(2, 80, 2))
     cut = remove(im, session=sess, post_process_mask=True)
     a = cut.getchannel('A')
     a = a.point(lambda v: 0 if v < 40 else 255 if v > 215 else int((v - 40) * 255 / 175))
@@ -23,17 +27,22 @@ for name in ('e46', 'e92', 'g80_side', 'g80_front'):
     if n > 1:
         big = 1 + int(np.argmax(ndimage.sum(np.ones_like(lab), lab, range(1, n + 1))))
         a = Image.fromarray((np.array(a) * (lab == big)).astype(np.uint8))
+    if small:                                                           # solid body (glass, wheels), no white fringe
+        m = ndimage.binary_fill_holes(np.array(a) > 128)
+        m = ndimage.binary_erosion(m, iterations=3)
+        a = Image.fromarray((m * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(1.5))
     bb = a.getbbox(); rgb = im.crop(bb); a = a.crop(bb)
-    rgb = rgb.filter(ImageFilter.MedianFilter(5))                       # flatten texture/noise, keep edges
+    if not small: rgb = rgb.filter(ImageFilter.MedianFilter(5))         # flatten texture/noise, keep edges
     rgb = ImageEnhance.Color(rgb).enhance(1.45)
     rgb = ImageEnhance.Contrast(rgb).enhance(1.12)
     rgb = ImageEnhance.Brightness(rgb).enhance(1.04)
     a = a.filter(ImageFilter.GaussianBlur(1.2)).point(lambda v: 0 if v < 100 else 255 if v > 160 else int((v - 100) * 255 / 60))
-    edge = a.filter(ImageFilter.MaxFilter(7))                            # outline ring
+    edge = a.filter(ImageFilter.MaxFilter(5 if small else 7))           # outline ring
     pad = 8
     out = Image.new('RGBA', (rgb.width + 2 * pad, rgb.height + 2 * pad), (0, 0, 0, 0))
     ring = Image.new('RGBA', out.size, OL + (0,)); ring.putalpha(Image.new('L', out.size, 0))
     e2 = Image.new('L', out.size, 0); e2.paste(edge, (pad, pad)); e2 = e2.filter(ImageFilter.MaxFilter(5))
+    if small: e2 = e2.filter(ImageFilter.GaussianBlur(1))
     ring.putalpha(e2); out.alpha_composite(ring)
     body = rgb.convert('RGBA'); body.putalpha(a)
     out.alpha_composite(body, (pad, pad))
