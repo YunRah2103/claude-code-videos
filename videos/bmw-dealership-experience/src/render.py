@@ -170,20 +170,33 @@ def model_label(txt, size=34):
     ld.text(w_ / 2, 29, txt, size, (255, 255, 255), path=FONT_X)
     return lab
 
-def put_car(img, key, cx, label_a=1.0, blur=0.0, s=1.0):
-    ph = car_photo(key, int(CARS[key][1] * s))
+@lru_cache(None)
+def car_shadow(w):
+    sh = Image.new('RGBA', (int((w + 120) * K), 120 * K), (0, 0, 0, 0))
+    D(sh).ell(w / 2 + 60, 60, w * .5, 20, (0, 0, 0, 150))
+    return sh.filter(ImageFilter.GaussianBlur(10 * K))
+
+SWEEPS = []                                                  # (start) light sweeps across the car body; filled below
+def put_car(img, key, cx, label_a=1.0, blur=0.0, s=1.0, t=None, dy=0.0):
+    w = int(CARS[key][1] * s)
+    ph = car_photo(key, w)
+    if t is not None and blur <= .05:
+        for ts in SWEEPS:
+            if ts <= t < ts + .9: ph = light_sweep(ph, prog(t, ts, .9))
     if blur > .05:                                           # motion smear while sliding
         r = int(blur * 18 * K)
         ph = ph.resize((max(1, ph.width // (1 + r // 8)), ph.height), Image.BILINEAR).resize(ph.size, Image.BILINEAR)
-    sh = Image.new('RGBA', img.size, (0, 0, 0, 0))
-    D(sh).ell(cx, GROUND - 6, CARS[key][1] * s * .5, 22 * s, (0, 0, 0, 120))
-    img.alpha_composite(sh.filter(ImageFilter.GaussianBlur(10 * K)))
-    x0, y0 = int(cx * K - ph.width / 2), int(GROUND * K - ph.height)
+    sh = car_shadow(w)
+    img.alpha_composite(sh, (int((cx - w / 2 - 60) * K), int((GROUND - 66) * K)))
+    if blur <= .05:                                          # mirror image on the glossy turntable / floor
+        rf = car_reflection(key, w)
+        img.alpha_composite(rf, (int(cx * K - rf.width / 2), int((GROUND - 4) * K)))
+    x0, y0 = int(cx * K - ph.width / 2), int((GROUND + dy) * K - ph.height)
     img.alpha_composite(ph, (x0, y0))
     if label_a > 0.02:
         lab = model_label(CARS[key][2])
         if label_a < 1: lab = lab.copy(); lab.putalpha(lab.getchannel('A').point(lambda v: int(v * label_a)))
-        img.alpha_composite(lab, (int(cx * K - lab.width / 2), y0 - lab.height - 22 * K))
+        img.alpha_composite(lab, (int(cx * K - lab.width / 2), int(GROUND * K - ph.height) - lab.height - 22 * K))
 
 def car_state(t):
     """[(key, x offset, blur)] on the platform at time t: the old car slides out left, the new one in from the right."""
@@ -198,9 +211,11 @@ def car_state(t):
     return [(cur, 0, 0)]
 
 def platform(img, t):
+    led_ring(img, t)
+    rev = math.sin(math.pi * prog(t, T_REV, 2.6)) if T_REV <= t < T_REV + 2.6 else 0.0
     for key, dx, bl in car_state(t):
         la = 1.0 if key != 'm5' else popin(t, T_M5 - .1, .3) if t < T_M5 + .3 else 1.0   # first label after the 3 s hook
-        put_car(img, key, CX + dx, min(1.0, max(0.0, la)), bl)
+        put_car(img, key, CX + dx, min(1.0, max(0.0, la)), bl, t=t, dy=(rev * 2.5 * math.sin(t * 90) if key == 'm5' else 0.0))
 
 # ================================================================ background oddities (comment bait, never mentioned)
 # 1 a penguin in a bow tie mopping the showroom floor   2 a potted cactus in headphones, bopping to the "engine"
@@ -672,23 +687,195 @@ def talking(spk, t):
     return any(w['spk'] == spk and w['s'] - .05 <= t <= w['e'] + .05 for w in WORDS)
 
 # ================================================================ world per scene
-def desk_front(img):
-    """Front-desk counter in front of the salesman (hides his legs), BMW roundel on the panel, monitor on top."""
+# ================================================================ polished showroom (v2): glass, graphite feature wall, glossy floor
+MBLUE1, MBLUE2, MRED = (90, 170, 230), (30, 60, 140), (220, 40, 40)
+FEAT = (238, 680)                                           # graphite feature wall span (x)
+def _lin(a, b, n): return np.linspace(a, b, n)[:, None]
+
+def _outside(w, h, seed=5):
+    """Blurred daytime view through the glass: sky, distant towers, trees, a road with a parked car shape."""
+    sky = np.zeros((h, w, 3))
+    for c, (c0, c1) in enumerate(((150, 238), (186, 236), (226, 240))):
+        sky[..., c] = _lin(c0, c1, h)
+    im = Image.fromarray(sky.astype(np.uint8)); d = ImageDraw.Draw(im, 'RGBA')
+    rng = np.random.default_rng(seed)
+    x = 0
+    while x < w:                                             # far towers
+        bw = int(rng.uniform(.05, .12) * w); bh = int(rng.uniform(.25, .55) * h)
+        g_ = rng.uniform(196, 222); col = (int(g_ - 6), int(g_), int(g_ + 10), 255)
+        d.rectangle([x, h * .72 - bh, x + bw, h * .72], fill=col)
+        for yy in range(int(h * .72 - bh) + 10, int(h * .72) - 10, 18):
+            d.line([(x + 6, yy), (x + bw - 6, yy)], fill=(236, 240, 246, 70), width=3)
+        x += bw + int(rng.uniform(.0, .04) * w)
+    for i in range(14):                                      # trees
+        tx, tr = rng.uniform(0, w), rng.uniform(.05, .1) * w
+        d.ellipse([tx - tr, h * .70 - tr * 1.6, tx + tr, h * .74], fill=(84, 130, 80, 255))
+    d.rectangle([0, h * .73, w, h], fill=(150, 152, 156, 255))
+    d.rectangle([0, h * .80, w, h * .815], fill=(236, 236, 236, 255))
+    return im.filter(ImageFilter.GaussianBlur(w * .022))
+
+def _glass(img, x0, x1, y0, y1):
+    """Window bay with mullions, outside view and reflection streaks (design coords)."""
+    w, h = int((x1 - x0) * K), int((y1 - y0) * K)
+    img.paste(_outside(w, h), (int(x0 * K), int(y0 * K)))
     d = D(img)
-    d.rect(512, 1306, 1000, 1334, (236, 238, 242), r=6, ol=OL, w=4)
-    d.rect(522, 1334, 990, 1920, (40, 44, 52), ol=OL, w=4)
-    d.rect(522, 1360, 990, 1368, (28, 105, 190))
-    bmw_badge(d, 756, 1500, 0.9)
-    d.rect(860, 1196, 970, 1278, (30, 32, 36), r=6, ol=(90, 94, 100), w=3)
-    d.rect(906, 1278, 924, 1306, (60, 64, 70))
+    st = Image.new('RGBA', img.size, (0, 0, 0, 0)); sd = D(st)
+    for k_ in range(3):                                      # diagonal reflection streaks
+        sx_ = x0 + (x1 - x0) * (.15 + .32 * k_)
+        sd.poly([(sx_, y0), (sx_ + 50, y0), (sx_ - 120, y1), (sx_ - 170, y1)], (255, 255, 255, 46))
+    img.alpha_composite(st.filter(ImageFilter.GaussianBlur(6 * K)))
+    for mx in np.linspace(x0, x1, 3)[1:-1]:
+        d.rect(mx - 5, y0, mx + 5, y1, (226, 228, 232))
+    d.rect(x0, y0 + (y1 - y0) * .42 - 4, x1, y0 + (y1 - y0) * .42 + 4, (226, 228, 232))
+    d.rect(x0 - 8, y0 - 8, x1 + 8, y0, (214, 216, 222)); d.rect(x0 - 8, y1, x1 + 8, y1 + 8, (214, 216, 222))
+
+def _glow(img, draw_fn, radius, strength=1.0):
+    g = Image.new('RGBA', img.size, (0, 0, 0, 0)); draw_fn(D(g))
+    gb = g.filter(ImageFilter.GaussianBlur(radius * K))
+    if strength != 1: gb.putalpha(gb.getchannel('A').point(lambda v: min(255, int(v * strength))))
+    img.alpha_composite(gb); img.alpha_composite(g)
+
+def _plant(d, x, fy, s=1.0):
+    d.poly([(x - 34 * s, fy - 120 * s), (x + 34 * s, fy - 120 * s), (x + 26 * s, fy), (x - 26 * s, fy)], (232, 232, 234), (150, 150, 156), 3)
+    for i in range(9):
+        a = math.radians(-90 + (i - 4) * 16)
+        L = (200 + 60 * math.cos(i * 1.7)) * s
+        bx, by = x, fy - 118 * s
+        tx, ty = bx + math.cos(a) * L * .55, by + math.sin(a) * L
+        d.poly([(bx - 6 * s, by), (tx, ty), (bx + 6 * s, by)], (54 + i * 4, 120 + i * 5, 66))
+
+@lru_cache(None)
+def bg_bmw(desk=False):
+    TOP = 128
+    floor = np.zeros(((H - WALL_Y) * K, W * K, 3))
+    for c, (c0, c1) in enumerate(((212, 150), (214, 154), (220, 162))):
+        floor[..., c] = _lin(c0, c1, (H - WALL_Y) * K)
+    wall = np.zeros((WALL_Y * K, W * K, 3))
+    for c, (c0, c1) in enumerate(((240, 222), (241, 224), (244, 230))):
+        wall[..., c] = _lin(c0, c1, WALL_Y * K)
+    img = Image.fromarray(np.concatenate([wall, floor]).astype(np.uint8)).convert('RGBA'); d = D(img)
+    # ceiling: dark coffer with LED strips converging to the vanishing point, downlights
+    d.rect(0, 0, W, TOP, (36, 38, 44))
+    for i in range(-6, 7):
+        d.line([(CX + i * 180, 0), (CX + i * 120, TOP)], (58, 60, 68), 3)
+    _glow(img, lambda g: [g.rect(0, TOP - 10, W, TOP - 4, (255, 255, 255, 230))], 8)
+    for px in (CX - 330, CX, CX + 330):
+        _glow(img, lambda g, px=px: g.ell(px, TOP - 40, 26, 7, (255, 246, 222, 255)), 10)
+    # glass bays either side, graphite feature wall in the middle
+    _glass(img, 0, FEAT[0] - 24, TOP + 30, WALL_Y - 70)
+    _glass(img, FEAT[1] + 24, W, TOP + 30, WALL_Y - 70)
+    d = D(img)
+    d.rect(FEAT[0], TOP, FEAT[1], WALL_Y, (48, 51, 58))
+    for x in range(FEAT[0] + 14, FEAT[1], 22):              # vertical slats
+        d.line([(x, TOP + 4), (x, WALL_Y - 4)], (58, 62, 70), 3)
+    d.rect(FEAT[0] - 6, TOP, FEAT[0], WALL_Y, (30, 32, 38)); d.rect(FEAT[1], TOP, FEAT[1] + 6, WALL_Y, (30, 32, 38))
+    halo = Image.new('RGBA', img.size, (0, 0, 0, 0)); D(halo).ell(CX, 262, 120, 120, (190, 220, 255, 150))
+    img.alpha_composite(halo.filter(ImageFilter.GaussianBlur(40 * K)))
+    d = D(img); bmw_badge(d, CX, 262, 1.15)
+    _glow(img, lambda g: g.text(CX, 380, 'B M W', 44, (255, 255, 255, 255), path=FONT_X), 6, 1.2)
+    # M stripe along the wall base, LED cove light, skirting
+    d = D(img)
+    for i, col in enumerate((MBLUE1, MBLUE2, MRED)):
+        d.rect(0, WALL_Y - 60 + i * 12, W, WALL_Y - 50 + i * 12, col)
+    d.rect(0, WALL_Y - 22, W, WALL_Y, (250, 250, 252))
+    _glow(img, lambda g: g.rect(0, WALL_Y - 2, W, WALL_Y + 2, (255, 255, 255, 255)), 10, 1.5)
+    # floor: reflection of the wall, then perspective tile joints
+    refl = img.crop((0, (WALL_Y - 330) * K, W * K, WALL_Y * K)).transpose(Image.FLIP_TOP_BOTTOM).filter(ImageFilter.GaussianBlur(5 * K))
+    fa = Image.fromarray((np.linspace(110, 0, refl.height)[:, None] * np.ones((1, refl.width))).astype(np.uint8))
+    refl.putalpha(fa); img.alpha_composite(refl, (0, WALL_Y * K))
+    d = D(img)
+    vy = WALL_Y - 420
+    for i in range(-12, 13):
+        x2 = CX + i * 260
+        d.line([(CX + (x2 - CX) * (WALL_Y - vy) / (H - vy), WALL_Y), (x2, H)], (255, 255, 255, 30), 2)
+    y, step = WALL_Y + 40, 40
+    while y < H:
+        d.line([(0, y), (W, y)], (255, 255, 255, 26), 2); step *= 1.35; y += step
+    # planters at the far edges
+    _plant(d, 26, WALL_Y + 30, 1.1); _plant(d, 1056, WALL_Y + 30, 1.1)
+    if not desk:                                             # turntable: chrome rim, glossy top (LED ring drawn per frame)
+        d.ell(CX, 922, 418, 60, (0, 0, 0, 70))
+        d.ell(CX, 912, 410, 54, (120, 124, 132)); d.ell(CX, 908, 410, 50, (176, 180, 188))
+        d.ell(CX, 900, 404, 46, (34, 36, 42))
+        sh = Image.new('RGBA', img.size, (0, 0, 0, 0)); D(sh).ell(CX - 80, 892, 260, 22, (255, 255, 255, 40))
+        img.alpha_composite(sh.filter(ImageFilter.GaussianBlur(10 * K)))
+    img = spot(img.convert('RGB'), CX, TOP, 60, 430, 790, 40).convert('RGBA')
+    return img
+
+@lru_cache(None)
+def car_reflection(key, width):
+    ph = car_photo(key, width)
+    r = ph.transpose(Image.FLIP_TOP_BOTTOM).crop((0, 0, ph.width, ph.height // 2)).filter(ImageFilter.GaussianBlur(2 * K))
+    a = np.array(r.getchannel('A')).astype(float) * np.linspace(.38, 0, r.height)[:, None]
+    r.putalpha(Image.fromarray(a.astype(np.uint8)))
+    return r
+
+@lru_cache(None)
+def _sweep_band(w, h):
+    xx = np.arange(w)[None, :]; yy = np.arange(h)[:, None]
+    return xx + yy * .55                                     # diagonal coordinate
+
+def light_sweep(ph, k):
+    """Specular band crossing the car photo, k in [0, 1]."""
+    w, h = ph.size
+    u = _sweep_band(w, h)
+    c = -0.3 * w + k * 1.9 * w
+    band = np.clip(1 - np.abs(u - c) / (0.07 * w), 0, 1) ** 2 * 120
+    a = (band * np.array(ph.getchannel('A')) / 255).astype(np.uint8)
+    lay = Image.new('RGBA', ph.size, (255, 255, 255, 0)); lay.putalpha(Image.fromarray(a))
+    out = ph.copy(); out.alpha_composite(lay); return out
+
+def led_ring(img, t):
+    g = Image.new('RGBA', img.size, (0, 0, 0, 0)); gd = D(g)
+    gd.arc(CX, 906, 406, 49, 0, 180, (60, 150, 240, 230), 4)
+    a0 = (t * 70) % 360                                      # a bright chase running round the ring
+    gd.arc(CX, 906, 406, 49, a0, a0 + 40, (200, 235, 255, 255), 6)
+    img.alpha_composite(g.filter(ImageFilter.GaussianBlur(5 * K))); img.alpha_composite(g)
+
+# ---- shot list: cut to whoever speaks (two-camera sitcom grammar), wide for car swaps / props, car close-up on the rev
+T_REV = LE[1] + .08                                         # the real M5 recording starts here
+SHOT_LINES = {0: 'W', 1: 'S', 2: 'B', 3: 'S', 4: 'B', 5: 'M', 6: 'W', 7: 'S', 8: 'B', 9: 'M', 10: 'B', 11: 'S',
+              12: 'B', 13: 'M', 14: 'W', 15: 'S', 16: 'B', 17: 'S', 18: 'F'}
+def _shots():
+    s = [(0.0, 'W')]
+    for li, k in SHOT_LINES.items():
+        if li: s.append((LS[li] - .06, k))
+    s += [(T_M5 - .15, 'M'), (T_REV, 'C'), (T_NOW - .12, 'W')]
+    return sorted(s)
+SHOTS = _shots()
+SHOT_T = [s[0] for s in SHOTS]
+SWEEPS[:] = [0.4, T_M5 - .1, T_REV + .3, SWAPS[0][0] + SLIDE + .1, LS[9] + 1.0, SWAPS[1][0] + SLIDE + .1, T_SENG,
+             T_S[6] + .8, T_TAKE]
+def shot_at(t):
+    i = max(j for j, s in enumerate(SHOTS) if s[0] <= t)
+    return SHOTS[i][1], SHOTS[i][0]
+
+def desk_front(img):
+    """Reception counter (glossy white, BMW-blue underglow) in front of the salesman; monitor on top."""
+    d = D(img)
+    _glow(img, lambda g: g.rect(530, 1890, 990, 1900, (60, 150, 240, 255)), 12, 1.4)
+    d = D(img)
+    d.rect(506, 1300, 1004, 1330, (252, 252, 254), r=8, ol=(170, 174, 182), w=3)
+    top = np.zeros((590 * K, 476 * K, 3))
+    for c, (c0, c1) in enumerate(((244, 206), (245, 208), (248, 214))):
+        top[..., c] = _lin(c0, c1, 590 * K)
+    img.paste(Image.fromarray(top.astype(np.uint8)), (518 * K, 1330 * K))
+    d = D(img)
+    d.rect(518, 1330, 994, 1920, None, ol=(170, 174, 182), w=3)
+    for i, col in enumerate((MBLUE1, MBLUE2, MRED)):
+        d.rect(518, 1380 + i * 10, 994, 1388 + i * 10, col)
+    bmw_badge(d, 756, 1560, 0.9)
+    d.rect(856, 1190, 974, 1282, (24, 26, 30), r=8, ol=(110, 114, 120), w=3)
+    d.rect(866, 1200, 964, 1272, (40, 90, 160), r=4)
+    d.rect(906, 1282, 924, 1300, (150, 154, 160))
 
 def world(t, sc=None):
     sc = scene_at(t) if sc is None else sc
     desk = sc == 6
-    img = bg_showroom('bmw', not desk).convert('RGBA')
+    img = bg_bmw(desk).copy()
     oddity(img, t, sc)
     if desk:                                                 # the sold Z4 waits at the back, small
-        put_car(img, 'z4', 520, 0.0, s=.5)
+        put_car(img, 'z4', 520, 0.0, s=.5, t=t)
         if t >= T_TAKE:
             put(img, stamp_img('SOLD', (210, 30, 40), 44), 560, 700, popin(t, T_TAKE, .3), 1.0, rot=-8)
     else:
@@ -720,25 +907,25 @@ def world(t, sc=None):
             desk_front(img); d = D(img)
     return img
 
-# per-scene framing: (zoom, x shift). Showroom scenes alternate wide / closer like a two-camera shoot; hard cuts between.
-FRAMING = {0: (1.03, 0), 1: (1.22, 60), 2: (1.02, 0), 3: (1.2, -50), 4: (1.04, 0), 5: (1.2, 20), 6: (1.04, 0)}
-PUNCH = {0: ((T_M5, .03), (T_LISTEN, .03)), 1: ((T_SPK2, .06), (T_ASSIST, .03)), 2: ((T_SUB, .03), (T_18, .04)),
-         3: ((T_MONTH, .06), (T_415, .03), (T_OFF, .05)), 4: ((T_ALREADY, .05), (T_WARM, .03), (T_Z4, .03)),
-         5: ((T_SFAC, .02), (T_BADGE, .05)), 6: ((T_MUCH, .03), (T_E18, .05))}
+SHOT_P = {'W': (1.03, 0, 0), 'M': (1.2, 0, 0), 'S': (1.48, 130, 0), 'B': (1.48, -200, 0), 'C': (1.7, 0, -184)}
+PUNCH = {0: ((T_M5, .03),), 1: ((T_SPK2, .06), (T_ASSIST, .03)), 2: ((T_SUB, .03), (T_18, .04)),
+         3: ((T_MONTH, .07), (T_415, .03), (T_OFF, .05)), 4: ((T_ALREADY, .06), (T_WARM, .03), (T_Z4, .03)),
+         5: ((T_SFAC, .02), (T_BADGE, .05)), 6: ((T_MUCH, .04), (T_E18, .05))}
 def camera(t):
-    sc = scene_at(t); t0 = SCENES[sc]
-    z, sx = FRAMING[sc]; sy = 0.0
-    if sc == 0:
-        z = 1.09 - 0.06 * oc(prog(t, 0, 2.0))               # slow pull-out from frame 1
+    sc = scene_at(t); kind, t0 = shot_at(t)
+    if kind == 'F':                                          # salesman turns to the viewer: slow push in on him
+        pk = io(prog(t, t0, 1.6)); z, sx, sy = 1.3 + .22 * pk, 160, 0
     else:
-        z += 0.02 * io(prog(t, t0, 8))                       # gentle creep in each shot
-    if sc == 4 and t >= T_NOW - .1:                          # widen for the Z4 reveal
-        z -= 0.03 * io(prog(t, T_NOW - .1, .6))
-    if sc == 6:
-        pk = io(prog(t, T_FINAL - .05, .5))                  # salesman turns to camera: push in on him
-        z += 0.16 * pk; sx = 160 * pk
-    if sc == 3 and T_MONTH - .3 <= t < T_MONTH + .6:         # outburst shake
-        k_ = 1 - prog(t, T_MONTH - .3, .9)
+        z, sx, sy = SHOT_P[kind]
+        if sc == 6 and kind == 'S': sx = 160
+        z += 0.03 * io(prog(t, t0, 4))                       # slow creep in every shot
+    if t < 1.6: z += 0.07 * (1 - oc(prog(t, 0, 1.6)))       # frame 1: already moving (pull-out as he walks in)
+    sx += 3 * math.sin(t * .9); sy += 2 * math.sin(t * 1.3 + 1)          # handheld breathing
+    if T_REV <= t < T_REV + 2.6:                             # the M5 revs: the camera rattles with it
+        e = math.sin(math.pi * prog(t, T_REV, 2.6)) ** .6
+        sx += 7 * e * math.sin(t * 73); sy += 5 * e * math.sin(t * 59 + 2)
+    if sc == 3 and T_MONTH - .2 <= t < T_MONTH + .7:         # outburst shake
+        k_ = 1 - prog(t, T_MONTH - .2, .9)
         sx += 12 * k_ * math.sin(t * 61); sy += 9 * k_ * math.sin(t * 47 + 1)
     for tp, amt in PUNCH[sc]:
         if tp <= t < tp + .5:
@@ -898,14 +1085,14 @@ def overlays(t):
                 put(img, stamp_img('SEATS: OFF', RED, 70), CX + 30, 600, popin(t, T_OFF - .05, .25), a, rot=-9)
     elif sc == 4:
         used |= chip_panel(img, t, CHIPS5, T_HW - .1, T_NOW - .1, 300)
-        used |= chip_panel(img, t, CHIPS5B, T_30 - .1, T_S[5] + .05, 220)
+        used |= chip_panel(img, t, CHIPS5B, T_30 - .1, T_S[5] + .05, 1400)
     elif sc == 5:
         pa = window(t, T_SUPRA - .1, T_S[6] + .05, .12, .25)
         if pa > 0:                                             # the Toyota, for comparison
             used = True
             put(img, photo_card('toyota_supra.jpg', 'TOYOTA GR SUPRA', (200, 30, 40), (255, 255, 255), 360), CX, 300,
                 popin(t, T_SUPRA - .1, .35) * .9, pa, rot=2)
-        used |= chip_panel(img, t, CHIPS6, T_SENG - .1, T_S[6] + .05, 560)
+        used |= chip_panel(img, t, CHIPS6, T_SENG - .1, T_S[6] + .05, 1340)
     else:
         ta = window(t, T_E18 - .05, T_FINAL - .1, .1, .25)
         if ta > 0:
@@ -1043,6 +1230,10 @@ def vignette():
     return Image.fromarray(np.dstack([np.zeros((H, W, 3)), a]).astype(np.uint8), 'RGBA')
 
 # ================================================================ audio
+ENGINE = os.path.expanduser('~/.cache/bmw-dealership-experience/m5_engine.opus')   # user-supplied, kept outside git
+def engine_clip(sr):
+    return np.frombuffer(subprocess.run(['ffmpeg', '-v', 'error', '-i', ENGINE, '-ac', '1', '-ar', str(sr), '-f', 'f32le', '-'],
+                                        capture_output=True, check=True).stdout, np.float32).astype(np.float64)
 def build_audio(voice, out_wav):
     SR = sfx.SR
     v = np.frombuffer(subprocess.run(['ffmpeg', '-v', 'error', '-i', voice, '-ac', '1', '-ar', str(SR), '-f', 'f32le', '-'],
@@ -1061,14 +1252,6 @@ def build_audio(voice, out_wav):
     def step():
         a = tone(90, .12, 40, .6); a[:int(SR * .03)] += tone(1200, .03, 200, .15); return a
     def tick(): return click(4200, 5200, .03) * .5
-    def engine(d=2.2, f0=38, f1=95):
-        """Synth straight-six-ish rev: rising pulse train through a low-pass, with a speaker-ish band boost."""
-        tt = np.arange(int(SR * d)) / SR
-        f = f0 + (f1 - f0) * np.clip(tt / (d * .6), 0, 1) ** 1.5
-        ph = np.cumsum(f) / SR
-        s = ((ph * 3) % 1 * 2 - 1) + .5 * np.sin(2 * np.pi * ph * 1.5)
-        s = lpf(s, 10) * np.minimum(1, tt * 8) * np.exp(-np.maximum(0, tt - d * .7) * 6)
-        return s * .5
     def sting():
         d = 2.4; tt = np.arange(int(SR * d)) / SR
         s = np.zeros_like(tt)
@@ -1083,9 +1266,15 @@ def build_audio(voice, out_wav):
     def add(t0, s, vol): cues.append((int(max(0, t0) * SR), s * vol))
     for k_ in range(4): add(0.02 + k_ * 0.3, step(), .5)                 # buyer walking in from frame 1
     add(T_M5 - .1, sfx.pop(), .3)
-    add(LE[1] + .05, engine(), .55)                          # "Listen to that engine"
+    eng = engine_clip(SR)                                    # the real M5 Competition recording (user-supplied)
+    vr = np.sqrt(np.mean(v[np.abs(v) > .02] ** 2)); er = np.sqrt(np.mean(eng[:int(SR * 3.5)] ** 2))
+    eng = eng * (vr / er) * 1.15
+    dk = np.ones(len(eng)); tt_ = np.arange(len(eng)) / SR                       # full for the rev, ducked under the next lines
+    dk = np.where(tt_ < LS[2] - T_REV - .1, 1.0, .22) * np.clip((6.5 - tt_) / 1.5, 0, 1)
+    add(T_REV, eng * dk / .55, .55)
     add(T_SPK, click(900, 1400, .08), .5); add(T_SPK + .05, sfx.pop(), .3)
-    add(T_ASD, engine(1.2, 50, 70) * np.linspace(1, .2, int(SR * 1.2)), .25)
+    tin = eng[int(SR * .5):int(SR * 2.3)]; tin = tin - lpf(tin, 24)               # same rev, thin 'through the speakers'
+    add(T_ASD, tin * np.linspace(1, 0, len(tin)) / .55, .3)
     add(T_HEAT - .05, sfx.pop(), .3); add(T_18 - .05, sfx.pop(), .35); add(T_18 + .3, sfx.cha_ching(), .3)
     for ts, _, _ in SWAPS:                                    # cars sliding across the platform
         add(ts - .05, sfx.whoosh(.6, 16), .45); add(ts + SLIDE - .1, sfx.thump(.2), .3)

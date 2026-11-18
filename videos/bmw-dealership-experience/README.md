@@ -31,3 +31,15 @@ cd ../../..; python tools/preflight.py out/bmw-dealership-experience/bmw_dealers
 ```
 Alignment: 158/160 words plausible (98.8%) with the per-phone floor; 151/160 (94.4%) with the old fixed 60 ms floor —
 the 9 extra flags were all one-phone "a"/"the" at 30–60 ms.
+
+## v2 polish (after a weak first upload)
+- Environment rebuilt (`bg_bmw`): glass window bays with a blurred city view and reflection streaks, graphite slatted
+  feature wall with a backlit roundel and glowing lettering, ceiling LED strips and downlights, M-stripe and cove light
+  along the wall base, glossy floor with the wall reflected in it and perspective tile joints, planters, a chrome-rim
+  turntable with an animated LED chase ring, car reflections and contact shadows, periodic light sweeps over the cars.
+  Front desk: glossy white counter with M-stripe and blue underglow, lit monitor.
+- Editing: a cut per line to whoever is speaking (`SHOTS`), medium shot for prop moments, wide for car swaps, and a car
+  close-up that rattles with the M5 rev. Pacing tightened in `retime.py` (63.3 s of dialogue, was 67.4 s).
+- Engine: the user's M5 Competition exhaust recording replaces the synth rev (2.5 s clear beat after "Listen to that
+  engine", ducked under the next line; a thin high-passed copy under "The volume is assisted"). The file stays outside
+  git at `~/.cache/bmw-dealership-experience/m5_engine.opus`.

@@ -3,8 +3,8 @@ changes, one silent beat before the last line) and shift word timings to match. 
 import json, sys, wave
 import numpy as np
 from script import LINES
-LEAD, GAP, SCENE_GAP, BEAT = 0.27, 0.22, 0.8, 1.2
-HOLD = {1: 0.3, 3: 0.2, 5: 0.5, 7: 0.4, 9: 0.5, 11: 0.4, 13: 0.6, 17: 0.3}   # reveal holds after key answers
+LEAD, GAP, SCENE_GAP, BEAT = 0.27, 0.12, 0.3, 0.9
+HOLD = {1: 2.1, 3: 0.1, 5: 0.25, 7: 0.2, 9: 0.25, 11: 0.15, 13: 0.35, 17: 0.15}   # 1: the M5 revs; others: reveal holds
 src, wj, dst, wout = sys.argv[1:5]
 w = wave.open(src); sr = w.getframerate(); a = np.frombuffer(w.readframes(w.getnframes()), np.int16).astype(np.float32)
 words = json.load(open(wj))
