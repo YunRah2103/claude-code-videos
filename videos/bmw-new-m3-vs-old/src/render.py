@@ -6,7 +6,7 @@ import json, math, os, sys, subprocess
 from functools import lru_cache
 from multiprocessing import Pool
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
 import sfx
 
 W, H, FPS, K = 1080, 1920, 30, 2
@@ -142,7 +142,7 @@ def spot(img, cx, top, w0, w1, h, a=55):
 # ================================================================ showroom (flat, vivid BMW blue)
 NAVY, BLUE, BLUE2 = (10, 24, 64), (0, 98, 200), (0, 78, 170)
 M_LB, M_DB, M_RED = (0, 166, 226), (34, 44, 128), (228, 30, 38)
-FLOOR = ((214, 222, 234), (244, 246, 250))
+FLOOR = ((120, 176, 238), (238, 244, 252))
 PLAT_Y = 812                                   # car ground line on the platform
 @lru_cache(None)
 def bg_showroom():
@@ -159,6 +159,8 @@ def bg_showroom():
         d.rect(0, WALL_Y - 64 + i * 18, W, WALL_Y - 46 + i * 18, c)
     d.rect(0, WALL_Y - 10, W, WALL_Y, (238, 240, 244))
     d.rect(0, WALL_Y, W, WALL_Y + 8, (150, 158, 172))
+    for x in range(-60, W + 60, 180):                      # wall panels mirrored in the polished floor
+        d.rect(x + 10, WALL_Y + 8, x + 170, WALL_Y + 260, (40, 130, 230, 60), r=10)
     for i, y in enumerate(range(WALL_Y + 70, H, 150)):     # glossy floor seams
         d.line([(0, y + i * 14), (W, y + i * 14)], (200, 208, 222), 3)
     for cx_ in (CX - 300, CX, CX + 300):                   # spotlights onto the platform
@@ -166,9 +168,13 @@ def bg_showroom():
     d = D(img)
     bmw_badge(d, CX - 205, 262, 1.2)
     d.text(CX + 52, 266, 'BMW', 150, (255, 255, 255), path=FONT_B)
+    glow = Image.new('RGBA', img.size, (0, 0, 0, 0))       # LED glow spilling onto the floor
+    D(glow).ell(CX, PLAT_Y + 14, 470, 76, M_LB + (150,))
+    img = img.convert('RGBA'); img.alpha_composite(glow.filter(ImageFilter.GaussianBlur(18 * K))); d = D(img)
     d.ell(CX, PLAT_Y + 6, 420, 52, (14, 18, 30))           # display platform with a blue LED rim
     d.ell(CX, PLAT_Y - 2, 414, 46, (52, 58, 74), M_LB, 5)
     d.ell(CX, PLAT_Y - 2, 360, 36, (64, 70, 86))
+    d.ell(CX - 120, PLAT_Y - 14, 150, 9, (255, 255, 255, 40))   # gloss highlight
     return img.convert('RGBA')
 
 # ---- real car cut-outs (prepared by prep_cars.py), ground = bottom of the tyres
@@ -236,6 +242,11 @@ def draw_cars(img, t):
         sh = Image.new('RGBA', img.size, (0, 0, 0, 0)); sd = D(sh)
         sd.ell(CX + off, gy - 3, hw * .96, 7, (0, 0, 0, 210))             # tight contact shadow under the tyres
         img.alpha_composite(sh.filter(ImageFilter.GaussianBlur(3 * K)))
+        rf = car.transpose(Image.FLIP_TOP_BOTTOM)          # glossy reflection, tyres touching tyres
+        rf = rf.crop((0, 0, rf.width, int(rf.height * .55)))
+        fa = np.array(rf.getchannel('A'), np.float32) * np.linspace(.42, 0, rf.height)[:, None] ** 1.3
+        rf.putalpha(Image.fromarray(fa.astype(np.uint8)))
+        img.alpha_composite(rf, (x0, int(gy * K - 3 * K)))
         img.alpha_composite(car, (x0, y0))
         pl = plaque(key)                                  # model label hangs above the car and travels with it
         py = PLAT_Y - 330                                 # same plaque height for every car
@@ -563,6 +574,54 @@ def talking(spk, t):
     return any(w['spk'] == spk and w['s'] - .05 <= t <= w['e'] + .05 for w in WORDS)
 
 
+def cast(skin, hair, suit, pants=None, shoe='26262a', shirt='f4f4f6', tie=None, glasses=False, style='part', badge=False):
+    sk = hexc(skin); su = hexc(suit)
+    return dict(skin=sk, skin2=tuple(int(c * .86) for c in sk), hair=hexc(hair), suit=su, suit2=tuple(int(c * .72) for c in su),
+                shirt=hexc(shirt), tie=hexc(tie) if tie else None, pants=hexc(pants or suit), shoe=hexc(shoe),
+                glasses=glasses, hairstyle=style, lids=0.0, badge=badge)
+NPC = dict(recep=cast('8d5a3b', '111014', '1c1d22', tie='0d4f3a', badge=True),
+           walker=cast('f2d0b0', 'b04a2a', '6b4a8a', pants='2a2a30', style='messy'),
+           cust1=cast('c58c64', '2b1d16', 'b8452f', pants='30343c'),
+           cust2=cast('f0c9a8', 'd9b36a', '2f5d4a', pants='d8d0c0', glasses=True),
+           cust3=cast('7a4c34', '1a1a1a', '40a060', pants='1a1a1a', style='messy'),
+           cust4=cast('e0b090', '603018', '808890', pants='404050'))
+
+def mk(lp='rest', rp='rest', **kw):
+    st = dict(lpose=POSES[lp] if isinstance(lp, str) else lp, rpose=POSES[rp] if isinstance(rp, str) else rp,
+              out_lpose=lp in OUTBEND if isinstance(lp, str) else False, out_rpose=rp in OUTBEND if isinstance(rp, str) else False)
+    st.update(kw)
+    return st
+
+def npc(img, X, FY, s, cfg, st):
+    """Draw a cast member at scale s with feet at (X, FY)."""
+    person(D(img, k=K * s, ox=-X / s, oy=FEET_Y - FY / s), 0, FEET_Y, cfg, st)
+
+def walkst(t, rate=11, **kw):
+    st = mk(**kw); st['walk'] = t * rate; st['dy'] = -abs(math.sin(t * rate)) * 10
+    return st
+
+
+# ---- background showroom life: customers and staff (smaller, behind the platform), different in every scene
+def couple(img, t, x, a, b):
+    nod = math.sin(t * 2.4) * 3
+    st1 = mk('point', 'rest', look=-1 if x > CX else 1, brows='up', smile=1); st1['dy'] = nod; st1['blink'] = (t % 3.3) < .12
+    st2 = mk('rest', (-70, -110), out_rpose=True, look=-1 if x > CX else 1, brows='flat'); st2['blink'] = ((t + 1) % 3.6) < .12
+    npc(img, x, WALL_Y + 52, .36, NPC[a], st1)
+    npc(img, x + 70, WALL_Y + 56, .345, NPC[b], st2)
+
+# per scene: (walker cast, direction, speed, couple x or None, couple cast)
+LIFE = [('walker', -1, 120, 880, ('cust1', 'cust2')), ('cust3', 1, 140, 60, ('cust4', 'cust1')),
+        ('cust2', -1, 110, 880, ('recep', 'cust3')), ('cust4', 1, 130, 60, ('walker', 'cust2')),
+        ('recep', -1, 150, 880, ('cust1', 'cust4')), ('cust1', 1, 120, None, None), ('cust3', -1, 140, 60, ('cust2', 'walker'))]
+def showroom_life(img, t, sc):
+    who, dirn, v, cx_, pair = LIFE[sc]
+    if cx_ is not None: couple(img, t, cx_, *pair)
+    tt = t - SCENES[sc]
+    x = (1120 - v * tt) if dirn < 0 else (-60 + v * tt)
+    if -80 < x < 1160:                                      # someone crossing behind the platform
+        prop = {'rpose': 'cup'} if who in ('walker', 'recep') else {}
+        npc(img, x, WALL_Y + 40, .33, NPC[who], walkst(t, 9, lp='rest', rp=(60, 210) if prop else 'rest', prop=prop, look=dirn))
+
 # ================================================================ world
 def burst(d, x, y, dt):
     """Comic speed-line burst behind a shouting character."""
@@ -584,6 +643,7 @@ def world(t, sc=None):
     img = bg_showroom().copy()
     d = D(img)
     ODD[sc](d, t)
+    showroom_life(img, t, sc)
     draw_cars(img, t)
     d = D(img)
     for tp in SHOUTS:
@@ -809,6 +869,7 @@ def captions(img, t):
 def frame(n):
     t = n / FPS
     img = shoot(t)
+    img = ImageEnhance.Contrast(ImageEnhance.Color(img).enhance(1.22)).enhance(1.05)   # vivid grade
     for s_ in SCENES[1:]:                                   # scene change: quick flash
         if s_ <= t < s_ + .18:
             img = Image.blend(img, Image.new('RGBA', img.size, (255, 255, 255, 255)), 0.3 * (1 - prog(t, s_, .18)))

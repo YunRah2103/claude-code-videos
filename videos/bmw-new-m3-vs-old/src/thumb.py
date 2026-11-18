@@ -1,7 +1,7 @@
 """Thumbnail (1080x1920 PNG): OLD M3 vs NEW M3, both real cars, buyer shouting, salesman deadpan.
 Usage: python thumb.py OUT.png"""
 import sys
-from PIL import Image, ImageFilter
+from PIL import Image, ImageFilter, ImageEnhance
 import render as R
 from render import D, K, W, H, CX
 
@@ -17,6 +17,10 @@ for key, x, flip in (('e46', 275, False), ('g80', 805, False)):
     gy = 860
     sh = Image.new('RGBA', img.size, (0, 0, 0, 0)); D(sh).ell(x, gy - 2, car.width / K * .48, 12, (0, 0, 0, 170))
     img.alpha_composite(sh.filter(ImageFilter.GaussianBlur(5 * K)))
+    rf = car.transpose(Image.FLIP_TOP_BOTTOM).crop((0, 0, car.width, int(car.height * .5)))
+    import numpy as np
+    rf.putalpha(Image.fromarray((np.array(rf.getchannel('A'), np.float32) * np.linspace(.42, 0, rf.height)[:, None]).astype(np.uint8)))
+    img.alpha_composite(rf, (int(x * K - car.width / 2), int(gy * K - 3 * K)))
     img.alpha_composite(car, (int(x * K - car.width / 2), int(gy * K - car.height + 3 * K)))
     pl = R.plaque(key)
     pl = pl.resize((int(pl.width * .85), int(pl.height * .85)), Image.LANCZOS)
@@ -34,5 +38,5 @@ st = dict(lpose=R.POSES['clasp'], rpose=R.POSES['clasp'], mouth=0.0, look=-1, br
 R.person(d, 800, 2230, R.SALES, st)
 d.rect(80, 1560, 1000, 1700, (255, 255, 255), r=28, ol=(10, 10, 20), w=8)
 d.text(W / 2, 1632, 'NUMBERS vs FEELING', 78, R.NAVY)
-img.convert('RGB').resize((W, H), Image.LANCZOS).save(sys.argv[1])
+ImageEnhance.Contrast(ImageEnhance.Color(img.convert('RGB').resize((W, H), Image.LANCZOS)).enhance(1.22)).enhance(1.05).save(sys.argv[1])
 print('ok', sys.argv[1])
