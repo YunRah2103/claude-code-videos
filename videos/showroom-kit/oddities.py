@@ -418,7 +418,7 @@ def odd_plant(img, t, tau):
 def odd_balloon(img, t, tau):
     """A hot-air balloon drifting through the showroom, a cat looking over the basket."""
     d = D(img)
-    x, y = 930 - 52 * tau, 300 + 10 * math.sin(tau * 1.2)
+    x, y = 960 - 30 * min(tau, 6.5), 330 + 10 * math.sin(tau * 1.2)        # stays right of the brand name
     cols = [(236, 60, 60), (250, 200, 40), (60, 140, 230), (250, 250, 250)]
     for i in range(6):
         u0, u1 = -1 + i / 3, -1 + (i + 1) / 3
@@ -475,11 +475,11 @@ def odd_knight(img, t, tau):
 def odd_snailrace(img, t, tau):
     """A snail and a tortoise racing across the floor; the snail is winning."""
     d = D(img); fy = GFY
-    fx = GX - 86
+    fx = GX - 62
     d.line([(fx, fy), (fx, fy - 70)], (60, 60, 66), 3)
     for i in range(4):
         for j in range(3): d.rect(fx + i * 8, fy - 70 + j * 8, fx + i * 8 + 8, fy - 62 + j * 8, (0, 0, 0) if (i + j) % 2 else (255, 255, 255))
-    sx = GX + 100 - 9 * tau; tx = GX + 150 - 7 * tau
+    sx = GX + 14 - 4 * tau; tx = GX + 54 - 3 * tau
     d.ell(tx, fy - 24, 40, 24, (110, 150, 80), OL, 3)
     for i in range(3): d.poly([(tx - 24 + i * 18, fy - 34), (tx - 14 + i * 18, fy - 44), (tx - 4 + i * 18, fy - 34)], (80, 120, 60))
     st = math.sin(tau * 3) * 3
@@ -659,6 +659,18 @@ NPC2 = dict(dancer=cast('a86a48', '1a1a1a', 'd040a0', pants='202030', shirt='f4e
             bear=cast('8a5a34', '6a4224', 'f2a8c4', pants='f2a8c4', shirt='f2a8c4', shoe='f2a8c4'),
             walker2=cast('f2d0b0', 'b04a2a', '2f8a6a', pants='2a2a30', style='messy'))
 
+def _scaled(fn, k, ax, ay):
+    """Draw a gag on its own layer, then enlarge it by k about its anchor (ax, ay) so small gags read on a phone."""
+    def f(img, t, tau):
+        lay = Image.new('RGBA', img.size, (0, 0, 0, 0)); fn(lay, t, tau)
+        bb = lay.getbbox()
+        if not bb: return
+        part = lay.crop(bb); w, h = int(part.width * k), int(part.height * k)
+        part = part.resize((w, h), Image.LANCZOS)
+        x0 = int(ax * K + (bb[0] - ax * K) * k); y0 = int(ay * K + (bb[1] - ay * K) * k)
+        img.paste(part, (x0, y0), part)
+    return f
+
 def _wrap(fn, **kw):
     return lambda img, t, tau: fn(D(img), kw.get('x', GX), kw.get('fy', GFY), tau, kw.get('s', 1.0))
 def _flamingo_vac(img, t, tau):
@@ -666,12 +678,12 @@ def _flamingo_vac(img, t, tau):
     d.ell(x, GFY - 8, 46, 14, (40, 42, 48), OL, 3); d.ell(x, GFY - 14, 40, 10, (70, 74, 82)); d.ell(x + 14, GFY - 16, 4, 3, (80, 230, 120))
     flamingo(d, x, GFY - 20, tau, .9)
 def _ducks(img, t, tau): ducks(D(img), t, tau, x0=GX + 40, fy0=GFY)
-def _sheep(img, t, tau): sheep(D(img), GX, GFY, tau, .8)
+def _sheep_w(img, t, tau): sheep(D(img), GX, GFY, tau, .8)
 
 ODD = dict(shark=odd_shark, mime=odd_mime, ufo=odd_ufo, pigeon=odd_pigeon, disco=odd_disco, goat=odd_goat, scuba=odd_scuba,
-           plant=odd_plant, balloon=odd_balloon, cow=odd_cow, knight=odd_knight, snailrace=odd_snailrace, statue=odd_statue,
-           octopus=odd_octopus, bear=odd_bear, vending=odd_vending, banana=odd_banana, horse=odd_horse, cactus=odd_cactus,
+           plant=odd_plant, balloon=odd_balloon, cow=odd_cow, knight=odd_knight, snailrace=_scaled(odd_snailrace, 1.7, GX, GFY), statue=odd_statue,
+           octopus=_scaled(odd_octopus, 1.5, 66, PLAT_Y + 26), bear=odd_bear, vending=odd_vending, banana=odd_banana, horse=odd_horse, cactus=odd_cactus,
            fishwalk=odd_fishwalk, ghost=odd_ghost,
-           snowman=_wrap(snowman, s=.85), flamingo=_flamingo_vac, sheep=_sheep, llama=_wrap(llama, s=.95),
-           ducks=_ducks, penguin=_wrap(penguin, s=1.1), dino=_wrap(dino, s=.75),
+           snowman=_wrap(snowman, s=.85), flamingo=_flamingo_vac, sheep=_scaled(_sheep_w, 1.35, GX, GFY), llama=_wrap(llama, s=.95),
+           ducks=_ducks, penguin=_wrap(penguin, s=1.4), dino=_wrap(dino, s=.75),
            giraffe=lambda img, t, tau: giraffe(img, tau), astronaut=lambda img, t, tau: astronaut(img, t, tau))

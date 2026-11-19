@@ -25,7 +25,9 @@ for k, (w, li, spk) in enumerate(disp):
     a = idx[k]; b = idx[k + 1] if k + 1 < len(idx) else len(norm)
     out.append(dict(w=w, s=round(segs[a][1], 2), e=round(segs[b - 1][2], 2), line=li, spk=spk))
 json.dump(out, open(sys.argv[2], "w"))
-ok = sum(1 for o in out if 0.06 <= o["e"] - o["s"] <= 1.2)
+ntok = [(idx[k + 1] if k + 1 < len(idx) else len(norm)) - idx[k] for k in range(len(idx))]
+# plausible: >= 30 ms for one-letter words ('a'), else >= 60 ms; <= 1.2 s per spoken token (e.g. "$999" = 5 tokens)
+ok = sum(1 for o, n in zip(out, ntok) if (0.03 if len(o["w"].strip(".,?!")) == 1 else 0.06) <= o["e"] - o["s"] <= 1.2 * n)
 print(f"words {len(out)} plausible {ok} ({100*ok/len(out):.1f}%)")
 for li in range(len(LINES)):
     ws = [o for o in out if o["line"] == li]; print(li, ws[0]["s"], ws[-1]["e"], ws[0]["w"], "..", ws[-1]["w"])

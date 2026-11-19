@@ -122,6 +122,9 @@ def setup(src):
     g['BS'], g['SS_'] = buyer_sched(), sales_sched()
     g['CARDS'] = [dict(c, sc=i, t0=max(CLEAN, when(c.get('at'), i)), t1=when(c.get('until'), i, end=True))
                   for i, s in enumerate(SHOW.SCENES) for c in s.get('cards', ())]
+    for c in CARDS:                                          # a chip panel opens with its first row, never empty
+        refs = [r[3] for r in c.get('rows', ()) if c['kind'] == 'chips' and r[3] is not None]
+        if refs: c['t0'] = max(c['t0'], min(when(r, c['sc']) for r in refs))
     assert len(SHOW.SCENES) == NSC, (len(SHOW.SCENES), NSC)
 
 def word_t(line, txt=None, nth=0):

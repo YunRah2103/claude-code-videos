@@ -5,7 +5,8 @@ import numpy as np
 sys.path.insert(0, __import__("os").getcwd())
 import script
 LINES = script.LINES
-LEAD, GAP, SCENE_GAP, BEAT = 0.27, *getattr(script, "GAPS", (0.06, 0.4, 0.8))   # line, scene-change and final-beat gaps
+PH, PT = getattr(script, "PAD", (0.06, 0.1))         # audio kept before the first / after the last word of a line
+LEAD, GAP, SCENE_GAP, BEAT = 0.3 - min(0.03, PH), *getattr(script, "GAPS", (0.06, 0.4, 0.8))   # line, scene-change and final-beat gaps
 HOLD = getattr(script, "HOLD", {})          # reveal holds after key answers
 src, wj, dst, wout = sys.argv[1:5]
 w = wave.open(src); sr = w.getframerate(); a = np.frombuffer(w.readframes(w.getnframes()), np.int16).astype(np.float32)
@@ -17,12 +18,13 @@ def quiet(t0, t1):                       # quietest 20 ms window between t0 and 
     if i1 - i0 <= n: return (i0 + i1) // 2
     e = [np.abs(a[i:i + n]).mean() for i in range(i0, i1 - n, hop)]
     return i0 + hop * int(np.argmin(e)) + n // 2
-cuts = [int(max(0, first[0] - .03) * sr)] + [quiet(last[li] - .08, first[li + 1] + .08) for li in range(len(LINES) - 1)] + [len(a)]
+cuts = [int(max(0, first[0] - min(0.03, PH)) * sr)] + [quiet(last[li] - .08, first[li + 1] + .08) for li in range(len(LINES) - 1)] + [len(a)]
+LEAD = 0.3 - (first[0] - cuts[0] / sr)                 # first word lands at exactly 0.30 s
 out, t, shift = [np.zeros(int(LEAD * sr), np.float32)], LEAD, {}
 fade = int(.006 * sr)
 for li in range(len(LINES)):
-    c0 = max(cuts[li], int((first[li] - .06) * sr)) if li else cuts[0]
-    c1 = min(cuts[li + 1], int((last[li] + .1) * sr))     # trim the raw pause; the gap below sets the pace
+    c0 = max(cuts[li], int((first[li] - PH) * sr)) if li else cuts[0]
+    c1 = min(cuts[li + 1], int((last[li] + PT) * sr))     # trim the raw pause; the gap below sets the pace
     seg = a[c0:c1].copy(); seg[:fade] *= np.linspace(0, 1, fade); seg[-fade:] *= np.linspace(1, 0, fade)
     shift[li] = t - c0 / sr; out.append(seg); t += len(seg) / sr
     if li + 1 < len(LINES):
