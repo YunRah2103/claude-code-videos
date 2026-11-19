@@ -9,8 +9,14 @@ PH, PT = getattr(script, "PAD", (0.06, 0.1))         # audio kept before the fir
 LEAD, GAP, SCENE_GAP, BEAT = 0.3 - min(0.03, PH), *getattr(script, "GAPS", (0.06, 0.4, 0.8))   # line, scene-change and final-beat gaps
 HOLD = getattr(script, "HOLD", {})          # reveal holds after key answers
 src, wj, dst, wout = sys.argv[1:5]
+TEMPO = getattr(script, "TEMPO", 1.0)                # optional pitch-preserving speed-up of the whole read (ffmpeg atempo)
+if TEMPO != 1.0:
+    import subprocess
+    fast = dst + ".tempo.wav"
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", src, "-af", f"atempo={TEMPO}", fast], check=True); src = fast
 w = wave.open(src); sr = w.getframerate(); a = np.frombuffer(w.readframes(w.getnframes()), np.int16).astype(np.float32)
 words = json.load(open(wj))
+for o in words: o["s"] = round(o["s"] / TEMPO, 3); o["e"] = round(o["e"] / TEMPO, 3)
 first = {li: min(o["s"] for o in words if o["line"] == li) for li in range(len(LINES))}
 last = {li: max(o["e"] for o in words if o["line"] == li) for li in range(len(LINES))}
 def quiet(t0, t1):                       # quietest 20 ms window between t0 and t1
