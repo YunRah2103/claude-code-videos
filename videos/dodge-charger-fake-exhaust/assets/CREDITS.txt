@@ -1,0 +1,8 @@
+No third-party photo is included yet. This render uses a drawn Charger instead.
+
+Intended photo (Wikimedia Commons, category "Dodge Charger Daytona Scat Pack"):
+  File:26 Dodge Charger Daytona Scat Pack Sedan.jpg
+  https://upload.wikimedia.org/wikipedia/commons/4/41/26_Dodge_Charger_Daytona_Scat_Pack_Sedan.jpg
+The download was refused with HTTP 429. Photographer and licence must be copied from the file page
+before the image is saved here as charger.jpg. Once it is, render.py shows it automatically
+(photo card in scene 1 and on the thumbnail).
