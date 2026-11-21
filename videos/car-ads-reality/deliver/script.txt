@@ -1,0 +1,105 @@
+CAR ADS vs REALITY: script
+BUYER = Fenrir (series voice). SALESMAN = Schedar (new for this episode).
+Each claim scene (1-7) opens with a 3-second PARODY AD cutaway: original art, claim text only, plus a fine-print strip.
+
+
+[SCENE 0] COLD OPEN: "Starting at" (Ford Maverick, showroom)
+  BUYER: Starting at $28,145! I want that one!
+  SALESMAN: Starting at. The two most expensive words in this building.
+  BUYER: It's right there! In big letters!
+  SALESMAN: That's the MSRP. Ford's own footnote says it excludes destination, taxes and fees.
+  BUYER: Destination?! It's going to my driveway!
+  SALESMAN: Your driveway charges a fee.
+  BUYER: Fine. Fine! It's a little asterisk. I can live with a little asterisk.
+
+[SCENE 1] "Up to" mpg (Toyota Corolla Hybrid, gas station)
+  (PARODY AD cutaway: claim text + asterisk; jingle)
+  BUYER: Next! Toyota Corolla Hybrid! Up to 50 miles per gallon!
+  SALESMAN: Up to. My second favorite phrase.
+  BUYER: Fifty is fifty!
+  SALESMAN: Fifty combined is the front-wheel-drive one. The EPA rates the SE with all-wheel drive at 44.
+  BUYER: So the cool one gets six less?
+  SALESMAN: The cool one gets six less.
+  BUYER: Still a hybrid! Still happy! Next!
+
+[SCENE 2] America's Best Warranty (Hyundai, showroom)
+  (PARODY AD cutaway: claim text + asterisk; jingle)
+  BUYER: Hyundai! Ten years! A hundred thousand miles! America's Best Warranty!
+  SALESMAN: For the original owner.
+  BUYER: I am extremely original!
+  SALESMAN: Sell it, and the next owner's powertrain cover drops to five years or 60,000 miles.
+  BUYER: So the warranty doesn't like the next guy?
+  SALESMAN: It's never met him.
+  BUYER: Okay. Okay. That's actually fair. I'm calm. I'm calm.
+
+[SCENE 3] 0-60 in 1.99 s (Tesla Model S Plaid, drag strip)
+  (PARODY AD cutaway: claim text + asterisk; jingle)
+  BUYER: Tesla Model S Plaid! Zero to sixty in 1.99 seconds!
+  SALESMAN: With one foot of rollout subtracted.
+  BUYER: Subtracted from WHAT?!
+  SALESMAN: The clock starts after the car has already rolled one foot.
+  BUYER: So zero isn't zero?!
+  SALESMAN: MotorTrend timed it from a true standstill. 2.28.
+  BUYER: That's still insane!
+  SALESMAN: It's insanely quick. Just not 1.99 from zero.
+  BUYER: Who starts a race one foot in?!
+  SALESMAN: Drag strips. It's an old convention.
+
+[SCENE 4] Max towing (Ford F-150, tow lot)
+  (PARODY AD cutaway: claim text + asterisk; jingle)
+  BUYER: Ford F-150! 13,500 pounds of towing!
+  SALESMAN: When properly equipped.
+  BUYER: I will equip it SO properly!
+  SALESMAN: You need the 3.5 EcoBoost, the Tow Haul Package, and the optional Max Tow Axle.
+  BUYER: And with the standard engine?
+  SALESMAN: Ford's towing guide says 8,400. At most.
+  BUYER: That's five thousand pounds of difference! That's a whole other boat!
+  SALESMAN: Please don't tow a whole other boat.
+
+[SCENE 5] EPA range (F-150 Lightning, highway charger)
+  (PARODY AD cutaway: claim text + asterisk; jingle)
+  BUYER: Fine! Electric! F-150 Lightning! 320 miles of range!
+  SALESMAN: That's the EPA estimate.
+  BUYER: So?!
+  SALESMAN: Consumer Reports drove one at a steady 70 miles per hour. It ran out at 270.
+  BUYER: FIFTY MILES! Where did fifty miles GO?!
+  SALESMAN: The EPA test mixes city and highway driving. At highway speed, EVs use more energy.
+  BUYER: And the other cars?!
+  SALESMAN: Of 22 EVs they tested, nearly half fell short. Some went farther.
+  BUYER: So my range is a coin toss?!
+
+[SCENE 6] Fratzonic exhaust (Dodge Charger Daytona, sound stage)
+  (PARODY AD cutaway: claim text + asterisk; jingle)
+  BUYER: At least THIS one is honest. Dodge Charger Daytona! Listen to that exhaust!
+  SALESMAN: It's electric.
+  BUYER: Then what is THAT?!
+  SALESMAN: Dodge calls it the Fratzonic Chambered Exhaust. An amplifier and a tuning chamber at the back.
+  BUYER: It's a SPEAKER?!
+  SALESMAN: Up to 126 decibels. Dodge says that matches a Hellcat.
+  BUYER: My car is doing an impression of a car?!
+  SALESMAN: There's also a Stealth Mode.
+  BUYER: Of course there is.
+
+[SCENE 7] "Full Self-Driving" (Tesla, test track)
+  (PARODY AD cutaway: claim text + asterisk; jingle)
+  BUYER: Last one. Tesla. Full. Self. Driving!
+  SALESMAN: Supervised.
+  BUYER: What?
+  SALESMAN: The full name is Full Self-Driving, Supervised.
+  BUYER: Supervised by WHO?!
+  SALESMAN: You. Tesla says it requires active driver supervision and does not make the car autonomous.
+  BUYER: So I drive while it drives?!
+  SALESMAN: The manual says keep your hands on the wheel and pay attention at all times.
+  BUYER: Then what is the SELF doing?!
+  SALESMAN: Driving. Supervised.
+
+[SCENE 8] ENDING (showroom)
+  BUYER: I've decided.
+  SALESMAN: Yes?
+  BUYER: From now on, I read the asterisk first.
+  SALESMAN: The asterisk has fine print too.
+  BUYER: Then I'm buying a bicycle.
+  SALESMAN: Pedals sold separately.
+  SALESMAN: Which claim annoyed you the most? Tell us in the comments.
+
+[END CARD] "Which claim annoyed you the most? Tell us in the comments*"  (*comments subject to fine print)

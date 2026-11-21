@@ -1,0 +1,53 @@
+=== YOUTUBE (long-form episode) ===
+TITLE:
+Car Ads vs Reality: We Read the Fine Print So You Don't Have To
+
+DESCRIPTION:
+He walked into the dealership with a stack of car ads he trusted. The salesman read him the fine print.
+From "starting at" prices to "Full Self-Driving", here is what 8 real car claims mean once you check the
+footnote, the spec sheet and the test data.
+
+Which claim annoyed you the most? Tell us in the comments.
+
+0:00 "Starting at" (Ford Maverick)
+[chapter times to be filled in from the final render]
+"Up to 50 mpg" (Toyota Corolla Hybrid)
+America's Best Warranty (Hyundai)
+0-60 in 1.99 s (Tesla Model S Plaid)
+13,500 lbs towing (Ford F-150)
+320 miles of range (Ford F-150 Lightning)
+The Fratzonic exhaust (Dodge Charger Daytona)
+"Full Self-Driving" (Tesla)
+
+SOURCES (each claim is phrased as "the ad says X, the spec sheet says Y"):
+- Ford, What's New: 2026 Ford Maverick: starting MSRP $28,145, excluding destination/delivery, taxes and fees
+  https://www.fromtheroad.ford.com/us/en/articles/2026/whats-new-2026-ford-maverick.html
+- Toyota fuel economy page ("up to 50 mpg combined"): https://www.toyota.com/fuel-economy
+  EPA ratings, 2026 Corolla Hybrid (FWD 50, SE AWD 44 combined): https://www.fueleconomy.gov
+- Hyundai America's Best Warranty terms: https://www.hyundaiusa.com/us/en/assurance/america-best-warranty
+- Model S Plaid 0-60 and rollout; MotorTrend's 2.28 s from a standstill:
+  https://insideevs.com/news/514979/tesla-cant-60mph-under-2seconds/
+  https://www.edmunds.com/car-news/tesla-model-s-plaid-0-60-under-2-seconds.html
+- Ford 2026 F-150 Towing Guide: https://www.ford.com/content/dam/brand_ford/en_us/brand/towing/pdf/2026-Ford-F150-Towing-Guide-v5.pdf
+- Consumer Reports highway range test (Dec 2023):
+  https://www.consumerreports.org/media-room/press-releases/2023/12/consumer-reports-nearly-half-of-evs-in-our-highway-only-range-test-fell-short-of-their-epa-estimates/
+- Dodge Fratzonic Chambered Exhaust: https://blog.stellantisnorthamerica.com/?p=13874
+  https://www.autoblog.com/2024/03/05/2024-dodge-charger-fratzonic-chambered-exhaust-what-is-it-explained/
+- Tesla Full Self-Driving (Supervised): https://www.tesla.com/support/fsd
+
+Photos: Wikimedia Commons (CC BY-SA 4.0 / CC0). Music: Kevin MacLeod (incompetech.com), CC BY 4.0.
+Full credits: see the pinned comment / CREDITS. Parody ads are original animation, not real advertisements.
+
+#CarAds #FinePrint #CarBuying #Cars
+
+=== SHORT 1: "Is 0-60 really from zero?" (Model S Plaid rollout + F-150 towing + Corolla mpg) ===
+Zero to sixty in 1.99 seconds*. *Read the footnote. Should 0-60 start at zero?
+#Tesla #0to60 #FinePrint #Cars
+
+=== SHORT 2: "Why does this EV have an exhaust?" (Dodge Fratzonic + F-150 Lightning range) ===
+His electric Dodge is doing an impression of a car. Fake exhaust sound: yes or no?
+#Dodge #EV #FinePrint #CarTok
+
+=== SHORT 3: "Full Self-Driving... read the name" (Tesla FSD + Hyundai warranty + ending) ===
+Full. Self. Driving. (Supervised.) Which claim annoyed you most?
+#Tesla #FSD #FinePrint #Cars

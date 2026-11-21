@@ -1,0 +1,36 @@
+CAR ADS vs REALITY: CREDITS
+
+PHOTOS (Wikimedia Commons). In the video they are shown on in-scene screens and parody-ad frames,
+cropped, scaled and slowly panned. Adaptations of CC BY-SA photos are shared under the same licence.
+  1. Ford Maverick Tremor: "Ford Maverick Tremor DSC 2885.jpg" by Alexander Migl, CC BY-SA 4.0
+     https://commons.wikimedia.org/wiki/File:Ford_Maverick_Tremor_DSC_2885.jpg
+  2. Toyota Corolla Hybrid: "2023 Toyota Corolla Hybrid (E210) hatchback IMG 9884.jpg" by Alexander-93, CC BY-SA 4.0
+     https://commons.wikimedia.org/wiki/File:2023_Toyota_Corolla_Hybrid_(E210)_hatchback_IMG_9884.jpg
+  3. Hyundai Elantra: "2023 Hyundai Elantra Limited in Silver, front left, 04-04-2026.jpg" by Cutlass, CC0 1.0
+     https://commons.wikimedia.org/wiki/File:2023_Hyundai_Elantra_Limited_in_Silver,_front_left,_04-04-2026.jpg
+  4. Tesla Model S Plaid: "Tesla Model S Plaid Autofrühling Ulm IMG 9321.jpg" by Alexander-93, CC BY-SA 4.0
+     https://commons.wikimedia.org/wiki/File:Tesla_Model_S_Plaid_Autofr%C3%BChling_Ulm_IMG_9321.jpg
+  5. Ford F-150: "2021 Ford F-150 Lariat.jpg" by DestinationFearFan, CC BY-SA 4.0
+     https://commons.wikimedia.org/wiki/File:2021_Ford_F-150_Lariat.jpg
+  6. Ford F-150 Lightning: "Ford F-150 Lightning.jpg" by Xboxcarsforza1, CC BY-SA 4.0
+     https://commons.wikimedia.org/wiki/File:Ford_F-150_Lightning.jpg
+  7. Dodge Charger Daytona: "25 Dodge Charger Daytona Scat Pack EV.jpg" by HJUdall, CC0 1.0
+     https://commons.wikimedia.org/wiki/File:25_Dodge_Charger_Daytona_Scat_Pack_EV.jpg
+  8. Tesla Model 3: "Tesla Model 3 (2023) Autofrühling Ulm IMG 9282.jpg" by Alexander-93, CC BY-SA 4.0
+     https://commons.wikimedia.org/wiki/File:Tesla_Model_3_(2023)_Autofr%C3%BChling_Ulm_IMG_9282.jpg
+  CC BY-SA 4.0: https://creativecommons.org/licenses/by-sa/4.0/   CC0: https://creativecommons.org/publicdomain/zero/1.0/
+  Brand names and the logos visible on the photographed cars belong to their owners. They appear only to identify
+  the products being discussed. No endorsement is implied.
+
+MUSIC: Kevin MacLeod (incompetech.com), licensed under Creative Commons: By Attribution 4.0
+  (https://creativecommons.org/licenses/by/4.0/)
+  "Monkeys Spinning Monkeys", "Fluffing a Duck", "Pixel Peeker Polka - faster", "Sneaky Snitch",
+  "Investigations", "Volatile Reaction", "Local Forecast - Elevator"
+  Source: https://incompetech.com/music/royalty-free/
+
+PARODY ADS: original animation made for this episode. They show only the claim text. No real ad footage,
+  scripts or music are used.
+VOICES: Google Gemini TTS (Fenrir, Schedar). SOUND EFFECTS: synthesised in code.
+CHARACTERS AND ART: original (Yub series cast).
+
+FACT SOURCES: see SUMMARY.md and the YouTube description in captions.txt.
