@@ -1,0 +1,72 @@
+THE REAL TESLA DEALERSHIP EXPERIENCE
+Buyer: Fenrir (series voice). Salesman: Orus. Times = first word of each line in the final cut.
+
+
+SCENE 1 - Tesla "gallery" showroom (Model Y on the LED wall)
+[  0.30s] BUYER: Hi! I'd like to buy a Tesla.
+[  2.23s] SALESMAN: We don't do dealerships. Download the app.
+[  4.44s] BUYER: You're standing in a dealership!
+[  6.23s] SALESMAN: It's a gallery. I'm basically furniture.
+[  8.91s] BUYER: Okay, furniture. How much is the Model Y?
+[ 11.29s] SALESMAN: It's in the app.
+
+SCENE 2 - Cybertruck bay
+[ 13.20s] BUYER: The Cybertruck? Wasn't that forty grand?
+[ 15.43s] SALESMAN: In 2019, they said $39,900.
+[ 19.02s] BUYER: And now?
+[ 19.95s] SALESMAN: Nearly double.
+[ 21.20s] BUYER: At least it's built tough.
+[ 22.70s] SALESMAN: Very. Forty-six thousand recalled. A steel panel could fall off.
+[ 26.52s] BUYER: Fall off?!
+[ 27.79s] SALESMAN: Fixed. Better glue.
+
+SCENE 3 - Gallery, interior display
+[ 29.71s] BUYER: Where's the turn signal stalk?
+[ 31.46s] SALESMAN: Buttons on the wheel. Or a stalk retrofit. $595.
+[ 35.59s] SALESMAN: Gears are on the touchscreen.
+[ 37.03s] BUYER: And if the screen dies?
+[ 38.53s] SALESMAN: Backup buttons. On the ceiling.
+[ 40.73s] BUYER: Can I at least test drive it?
+[ 42.13s] SALESMAN: Book it in the app.
+
+SCENE 4 - Test drive (cabin, road in the rear window)
+[ 43.77s] BUYER: Does it drive itself?
+[ 45.23s] SALESMAN: Full Self-Driving. Supervised. $99 a month.
+[ 48.28s] BUYER: Can't I just buy it?
+[ 49.69s] SALESMAN: Not since February. Subscription only.
+[ 51.90s] BUYER: So I pay monthly to supervise it?
+[ 54.04s] SALESMAN: Correct.
+[ 55.22s] BUYER: Why did we just brake?!
+[ 56.74s] SALESMAN: Phantom braking. The government investigated.
+[ 59.13s] BUYER: There's nothing there!
+[ 60.76s] SALESMAN: Hence, phantom.
+
+SCENE 5 - Parked at the kerb
+[ 62.62s] BUYER: Just let me out. Where's the handle?
+[ 64.75s] SALESMAN: It pops out. Unless the power dies.
+[ 66.82s] BUYER: Then what?!
+[ 67.81s] SALESMAN: Find the hidden manual release.
+[ 69.51s] BUYER: Hidden?!
+[ 70.28s] SALESMAN: China plans to ban those from 2027.
+
+SCENE 6 - Roadster "Coming soon" stage
+[ 73.02s] BUYER: Forget it. I want the Roadster!
+[ 75.08s] SALESMAN: Announced 2017. Promised for 2020.
+[ 77.83s] BUYER: So it's here?
+[ 78.95s] SALESMAN: Shown again last month. Production: 2028. Reportedly.
+[ 82.42s] BUYER: Can I pre-order?
+[ 83.53s] SALESMAN: In the app.
+
+SCENE 7 - Confession: the showroom is his garage
+[ 85.08s] BUYER: I want to speak to your manager.
+[ 87.05s] SALESMAN: Okay. Confession. I don't work for Tesla.
+[ 90.31s] BUYER: What?!
+[ 91.09s] SALESMAN: Tesla sells direct. This is my garage.
+[ 93.70s] BUYER: Then who are you?!
+[ 95.13s] SALESMAN: A guy who really likes the app.
+
+SCENE 8 - Driveway, closing
+[ 97.81s] SALESMAN: So... download the app?
+[ 99.54s] BUYER: No. I'm buying a Toyota.
+[101.51s] SALESMAN: Boring.
+[103.04s] BUYER: Boring has door handles.

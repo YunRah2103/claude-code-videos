@@ -1,0 +1,61 @@
+Photos and logos: Wikimedia Commons (downloaded via Special:FilePath). Used under the licences below.
+
+corolla.jpg: "2024 Toyota Corolla LE in Classic Silver Metallic, front right.jpg"
+  Author: Mr.choppers
+  Licence: CC BY-SA 3.0, CC BY-SA 4.0, GFDL
+  Source: https://commons.wikimedia.org/wiki/File:2024_Toyota_Corolla_LE_in_Classic_Silver_Metallic%2C_front_right.jpg
+
+corolla_1998.jpg: "1998-00 Toyota Corolla sedan, 12.3.19.jpg"
+  Author: Ghostofakina
+  Licence: CC BY-SA 4.0
+  Source: https://commons.wikimedia.org/wiki/File:1998-00_Toyota_Corolla_sedan%2C_12.3.19.jpg
+
+supra.jpg: "2025 Toyota GR Supra 3.0 front.jpg"
+  Author: LuvsMG481
+  Licence: CC BY-SA 4.0
+  Source: https://commons.wikimedia.org/wiki/File:2025_Toyota_GR_Supra_3.0_front.jpg
+
+engine.jpg: "The engineroom of Toyota GR Supra RZ (3BA-DB42-ZRRW).jpg"
+  Author: Tokumeigakarinoaoshima
+  Licence: CC BY-SA 4.0
+  Source: https://commons.wikimedia.org/wiki/File:The_engineroom_of_Toyota_GR_Supra_RZ_%283BA-DB42-ZRRW%29.jpg
+
+z4.jpg: "BMW Z4 M40i (G29) front.jpg"
+  Author: Tokumeigakarinoaoshima
+  Licence: CC BY-SA 4.0
+  Source: https://commons.wikimedia.org/wiki/File:BMW_Z4_M40i_%28G29%29_front.jpg
+
+twins.jpg: "Toyota GR86 RZ"10th Anniversary Limited" (3BA-ZN8) and Subaru BRZ S"10th Anniversary Limited" (3BA-ZD8) front.jpg"
+  Author: Tokumeigakarinoaoshima
+  Licence: CC BY-SA 4.0
+  Source: https://commons.wikimedia.org/wiki/File:Toyota_GR86_RZ%2210th_Anniversary_Limited%22_%283BA-ZN8%29_and_Subaru_BRZ_S%2210th_Anniversary_Limited%22_%283BA-ZD8%29_front.jpg
+
+gr86.jpg: "2022 Toyota GR86 Premium in Track bRed, front right (NYIAS 2022).jpg"
+  Author: Mr.choppers
+  Licence: CC BY-SA 3.0, CC BY-SA 4.0, GFDL
+  Source: https://commons.wikimedia.org/wiki/File:2022_Toyota_GR86_Premium_in_Track_bRed%2C_front_right_%28NYIAS_2022%29.jpg
+
+bz4x.jpg: "Toyota bZ4X.jpg"
+  Author: UltraTech66
+  Licence: CC BY-SA 4.0
+  Source: https://commons.wikimedia.org/wiki/File:Toyota_bZ4X.jpg
+
+landcruiser.jpg: "Toyota LAND CRUISER 3.5 ZX (3BA-VJA300W-GNUZZ) front.jpg"
+  Author: Tokumeigakarinoaoshima
+  Licence: CC BY-SA 4.0
+  Source: https://commons.wikimedia.org/wiki/File:Toyota_LAND_CRUISER_3.5_ZX_%283BA-VJA300W-GNUZZ%29_front.jpg
+
+prius.jpg: "2023 Toyota Prius Limited in Cutting Edge Silver, Front Right.jpg"
+  Author: Stacy Sheff from Los Angeles, USA
+  Licence: CC BY-SA 4.0
+  Source: https://commons.wikimedia.org/wiki/File:2023_Toyota_Prius_Limited_in_Cutting_Edge_Silver%2C_Front_Right.jpg
+
+logo.png: "Toyota carlogo.svg"
+  Author: Toyota Motor Corporation
+  Licence: CC BY-SA 4.0
+  Source: https://commons.wikimedia.org/wiki/File:Toyota_carlogo.svg
+
+logo_sym.png: "Toyota Symbol.svg"
+  Author: Toyota
+  Licence: CC BY-SA 4.0
+  Source: https://commons.wikimedia.org/wiki/File:Toyota_Symbol.svg

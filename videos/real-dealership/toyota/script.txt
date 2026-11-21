@@ -1,0 +1,70 @@
+THE REAL TOYOTA DEALERSHIP EXPERIENCE
+Buyer: Fenrir (series voice). Salesman: Charon. Times = first word of each line in the final cut.
+
+
+SCENE 1 - Toyota showroom (Corolla on the LED wall)
+[  0.30s] BUYER: I want an exciting Toyota!
+[  2.23s] SALESMAN: This is a Toyota dealership.
+[  3.92s] BUYER: So what's fun here?
+[  5.42s] SALESMAN: Have you considered a Corolla?
+[  7.58s] BUYER: A Corolla?!
+[  8.53s] SALESMAN: Over fifty million sold. Best-selling car ever.
+[ 11.73s] BUYER: Fifty million people can't all be bored!
+[ 14.33s] SALESMAN: They can. Quietly.
+
+SCENE 2 - GR stage (Supra)
+[ 16.77s] BUYER: Then the Supra! A legend!
+[ 18.57s] SALESMAN: Built in Austria. With a BMW engine.
+[ 21.18s] BUYER: BMW?!
+[ 22.29s] SALESMAN: It shares a platform with the BMW Z4.
+[ 25.08s] BUYER: I'll take it anyway!
+[ 26.14s] SALESMAN: Production ended in March.
+[ 28.12s] BUYER: Of course it did.
+[ 29.23s] SALESMAN: Have you considered a Corolla?
+
+SCENE 3 - Twins corner (GR86 / BRZ)
+[ 31.82s] BUYER: GR86! That's pure Toyota.
+[ 34.01s] SALESMAN: Built by Subaru.
+[ 35.28s] BUYER: Then what's that?
+[ 36.23s] SALESMAN: The Subaru BRZ.
+[ 37.70s] BUYER: It's the same car!
+[ 39.05s] SALESMAN: Different bumper.
+
+SCENE 4 - Electrified corner (bZ4X)
+[ 40.92s] BUYER: Fine. Something electric.
+[ 42.77s] SALESMAN: The bZ4X.
+[ 44.10s] BUYER: The what?
+[ 44.98s] SALESMAN: Nobody could say it. Now it's just bZ.
+[ 47.62s] BUYER: Is it any good?
+[ 48.55s] SALESMAN: In 2022, a recall. The wheels could come off.
+[ 51.91s] BUYER: The wheels?!
+[ 53.06s] SALESMAN: Toyota offered to buy them back.
+[ 55.19s] SALESMAN: Have you considered a Corolla?
+
+SCENE 5 - Outside: Land Cruiser queue
+[ 57.67s] BUYER: Land Cruiser. Final answer.
+[ 59.44s] SALESMAN: Please take a number.
+[ 60.59s] BUYER: How long's the wait?
+[ 61.70s] SALESMAN: In Japan, up to four years. Then they stopped taking orders.
+[ 65.09s] BUYER: Four years?!
+[ 66.25s] SALESMAN: Bring snacks.
+
+SCENE 6 - Prius test drive (cabin)
+[ 68.02s] SALESMAN: Let's test drive a Prius.
+[ 69.52s] BUYER: A Prius?!
+[ 70.45s] SALESMAN: First mass-produced hybrid. 1997.
+[ 73.33s] BUYER: Wait... this actually looks cool.
+[ 75.56s] SALESMAN: Don't tell anyone.
+
+SCENE 7 - After hours: confession
+[ 77.31s] BUYER: Be honest. What do you drive?
+[ 78.92s] SALESMAN: A 1998 Corolla.
+[ 80.97s] BUYER: Seriously?
+[ 81.97s] SALESMAN: I've been trying to kill it for years. It won't die.
+[ 84.89s] BUYER: Why kill it?!
+[ 85.97s] SALESMAN: So I can buy a Supra. Too late now.
+
+SCENE 8 - Showroom, closing
+[ 89.14s] BUYER: Fine. One Corolla.
+[ 90.74s] SALESMAN: Congratulations. It will outlive you.
+[ 94.25s] BUYER: Good. Something should.

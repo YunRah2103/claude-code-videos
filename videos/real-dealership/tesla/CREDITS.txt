@@ -1,0 +1,51 @@
+Photos and logos: Wikimedia Commons (downloaded via Special:FilePath). Used under the licences below.
+
+cybertruck_b.jpg: "Tesla Cybertruck Cyberbeast Satin Stealth Black - front.jpg"
+  Author: Ethan Llamas
+  Licence: CC BY-SA 4.0
+  Source: https://commons.wikimedia.org/wiki/File:Tesla_Cybertruck_Cyberbeast_Satin_Stealth_Black_-_front.jpg
+
+cybertruck.jpg: "2024 Tesla Cybertruck Foundation Series, front left (Greenwich).jpg"
+  Author: Mr.choppers
+  Licence: CC BY-SA 3.0, CC BY-SA 4.0, GFDL
+  Source: https://commons.wikimedia.org/wiki/File:2024_Tesla_Cybertruck_Foundation_Series%2C_front_left_%28Greenwich%29.jpg
+
+model3_b.jpg: "Tesla Model 3 Highland Standard RWD Stealth Grey.jpg"
+  Author: Ethan Llamas
+  Licence: CC BY-SA 4.0
+  Source: https://commons.wikimedia.org/wiki/File:Tesla_Model_3_Highland_Standard_RWD_Stealth_Grey.jpg
+
+model3.jpg: "Tesla Model 3 Highland Pearl White Multi-Coat (1).jpg"
+  Author: Damian B Oh
+  Licence: CC BY-SA 4.0
+  Source: https://commons.wikimedia.org/wiki/File:Tesla_Model_3_Highland_Pearl_White_Multi-Coat_%281%29.jpg
+
+roadster_b.jpg: "Tesla Roadster 2.0 (47619421652).jpg"
+  Author: Steve Jurvetson from Menlo Park, USA
+  Licence: CC BY 2.0, CC BY-SA 4.0
+  Source: https://commons.wikimedia.org/wiki/File:Tesla_Roadster_2.0_%2847619421652%29.jpg
+
+interior.jpg: "Upgraded Tesla Model 3 - 2023 - Interior.jpg"
+  Author: Mpelas199
+  Licence: CC BY-SA 4.0
+  Source: https://commons.wikimedia.org/wiki/File:Upgraded_Tesla_Model_3_-_2023_-_Interior.jpg
+
+screen.jpg: "Tesla Model 3 Screen Dec 2020.jpg"
+  Author: SirAsdof
+  Licence: CC BY-SA 4.0
+  Source: https://commons.wikimedia.org/wiki/File:Tesla_Model_3_Screen_Dec_2020.jpg
+
+doorhandle.jpg: "Tesla Model S door handle.JPG"
+  Author: Morten Haagensen
+  Licence: CC BY-SA 4.0
+  Source: https://commons.wikimedia.org/wiki/File:Tesla_Model_S_door_handle.JPG
+
+modely.jpg: "Tesla Model Y 2025 AWD Ultra Red - front.jpg"
+  Author: Ethan Llamas
+  Licence: CC BY-SA 4.0
+  Source: https://commons.wikimedia.org/wiki/File:Tesla_Model_Y_2025_AWD_Ultra_Red_-_front.jpg
+
+logo.png: "Tesla T symbol.svg"
+  Author: Tesla (logo), Fry1989 eh? (vectorization)
+  Licence: CC BY-SA 4.0
+  Source: https://commons.wikimedia.org/wiki/File:Tesla_T_symbol.svg
