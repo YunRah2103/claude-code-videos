@@ -1111,7 +1111,7 @@ def thumb(out):
     for y in range(0, 1000): sd.line([(0, y), (W, y)], (0, 0, 0, int(200 * (1 - y / 1000) ** 1.2)))
     img.alpha_composite(sh)
     big = Image.new('RGBA', (W * K, H * K), (0, 0, 0, 0))
-    put(big, photo_card(C.THUMB_PHOTO, C.THUMB_LABEL, C.BRAND['accent'], (255, 255, 255), 620), CX, 770, 1.0, 1.0, -3)
+    put(big, photo_card(C.THUMB_PHOTO, C.THUMB_LABEL, C.BRAND['accent'], (255, 255, 255), 560), CX, 655, 1.0, 1.0, -3)
     d = D(big)
     put_logo(big, CX, 110, 70, white=C.BRAND.get('logo_white_on_dark', True))
     d = D(big)
