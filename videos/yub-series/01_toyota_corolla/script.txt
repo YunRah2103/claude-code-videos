@@ -1,0 +1,32 @@
+01_toyota_corolla — script (Buyer: Gemini Fenrir, Salesman: Gemini Orus)
+
+
+[Scene 1: showroom]
+BUYER: You're telling me THIS is the best-selling car on Earth?!
+SALESMAN: The Toyota Corolla. Yes.
+BUYER: I expected a supercar! Something exciting!
+SALESMAN: Supercars are rare. Corollas are everywhere.
+
+[Scene 2: office]
+BUYER: How many are we talking?
+SALESMAN: Over fifty million. Since 1966.
+BUYER: Fifty MILLION?!
+SALESMAN: Toyota calls it the world's best-selling nameplate.
+
+[Scene 3: gallery]
+BUYER: But it's so boring!
+SALESMAN: Twelve generations of boring.
+
+[Scene 4: garage]
+BUYER: Why does anyone even buy it?
+SALESMAN: It's famous for reliability.
+BUYER: That's it?!
+SALESMAN: It's affordable. And cheap to run.
+
+[Scene 5: factory]
+BUYER: Nobody dreams about a Corolla!
+SALESMAN: No. They just keep buying them.
+
+[Scene 6: lot]
+BUYER: So boring wins?
+SALESMAN: Exciting or reliable? Tell me in the comments.

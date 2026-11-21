@@ -1,0 +1,32 @@
+03_bugatti_veyron — script (Buyer: Gemini Fenrir, Salesman: Gemini Orus)
+
+
+[Scene 1: showroom]
+BUYER: Over a million euros for ONE car?!
+SALESMAN: And they reportedly still lost money on it.
+BUYER: Lost money?! At that price?!
+SALESMAN: The Bugatti Veyron. 2005.
+
+[Scene 2: track]
+BUYER: What do you even get?
+SALESMAN: 1,001 horsepower.
+BUYER: A thousand and one?!
+SALESMAN: Top speed: 253 miles per hour.
+
+[Scene 3: factory]
+BUYER: How is that even possible?!
+SALESMAN: Sixteen cylinders. Four turbochargers.
+
+[Scene 4: office]
+BUYER: So how much did they lose?
+SALESMAN: Analysts estimated millions of euros. Per car.
+BUYER: Per CAR?!
+SALESMAN: Bugatti said those numbers weren't plausible.
+
+[Scene 5: vault]
+BUYER: Why would anyone build that?!
+SALESMAN: To build the car nobody else could.
+
+[Scene 6: gallery]
+BUYER: Would you buy one?
+SALESMAN: Genius flex, or expensive mistake? Comment below.

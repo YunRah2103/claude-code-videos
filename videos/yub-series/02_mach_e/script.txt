@@ -1,0 +1,31 @@
+02_mach_e — script (Buyer: Gemini Fenrir, Salesman: Gemini Orus)
+
+
+[Scene 1: showroom]
+BUYER: Who put a Mustang badge on an electric SUV?!
+SALESMAN: Ford did. In 2019.
+BUYER: A Mustang is a muscle car! It needs a roar!
+SALESMAN: This one hums. It's the Mach-E.
+
+[Scene 2: gallery]
+BUYER: Mustangs have been two-door cars since 1964!
+SALESMAN: And in 2019, the family grew. First time in 55 years.
+
+[Scene 3: track]
+BUYER: Fine. Is it at least fast?
+SALESMAN: The GT Performance Edition makes 480 horsepower.
+BUYER: And zero to sixty?
+SALESMAN: Ford says 3.5 seconds.
+BUYER: That's... actually quick.
+
+[Scene 4: charging]
+BUYER: But where's the engine roar?!
+SALESMAN: Electric motors. No roar.
+
+[Scene 5: office]
+BUYER: Purists must hate this!
+SALESMAN: Some did. Ford built it anyway.
+
+[Scene 6: lot]
+BUYER: So is it a real Mustang or not?
+SALESMAN: Mustang or not? Tell me in the comments.

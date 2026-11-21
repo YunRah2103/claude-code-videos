@@ -1,0 +1,32 @@
+05_porsche_911 — script (Buyer: Gemini Fenrir, Salesman: Gemini Orus)
+
+
+[Scene 1: showroom]
+BUYER: Your engine is in the wrong place!
+SALESMAN: Behind the rear axle. On purpose.
+BUYER: Who builds a car like that?!
+SALESMAN: Porsche. In the 911. Since 1963.
+
+[Scene 2: gallery]
+BUYER: Sixty years and nobody fixed it?!
+SALESMAN: It debuted as the 901. Peugeot objected to the name.
+BUYER: Focus! Why the back?!
+
+[Scene 3: track]
+SALESMAN: The engine's weight sits over the driven wheels. More traction.
+BUYER: And braking?
+SALESMAN: Porsche says it helps there too.
+
+[Scene 4: garage]
+BUYER: But doesn't the tail swing out?!
+SALESMAN: Early ones had that reputation. Engineers kept taming it.
+
+[Scene 5: office]
+BUYER: Did they ever try to replace it?
+SALESMAN: Reportedly, yes. With the front-engined 928.
+BUYER: And?!
+SALESMAN: The 928 is gone. The 911 is still here.
+
+[Scene 6: lot]
+BUYER: So it was never a mistake?
+SALESMAN: Genius or mistake? Comment below.
