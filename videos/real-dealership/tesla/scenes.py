@@ -33,106 +33,108 @@ T_2017, T_2020, T_2028 = word_t(38, '2017'), word_t(38, '2020'), word_t(40, '202
 T_CONF, T_GARAGE = word_t(44, 'Confession'), word_t(46, 'This')
 SC = {i + 1: s for i, s in enumerate(SCENES)}
 
-# ---- sets
-def wall_floor(wall, floor):
-    arr = np.concatenate([grad(WALL_Y * K, W * K, *wall), grad((H - WALL_Y) * K, W * K, *floor)])
-    return Image.fromarray(arr.astype(np.uint8))
-def grad(h, w, c0, c1):
-    a = np.linspace(0, 1, h)[:, None, None]
-    return np.broadcast_to(np.array(c0) * (1 - a) + np.array(c1) * a, (h, w, 3))
-DISP = (99, 196, 720, 470)                                  # LED wall box (x0, y0, w, h)
+# ---- sets (src/sets.py rooms + real cut-out cars)
+from sets import *
+GALLERY = dict(ceil=(244, 244, 246), light=(255, 255, 250), wall=((250, 250, 251), (236, 237, 240)), skirt=(40, 40, 44),
+               side=(230, 231, 234), sky=(176, 206, 236), street=(140, 150, 142), mullion=(50, 50, 56),
+               floor=((200, 202, 206), (236, 236, 238)), gloss=.34)
+CYBER = dict(ceil=(36, 38, 42), light=(214, 222, 236), wall=((92, 96, 102), (118, 122, 128)), skirt=(196, 200, 206),
+             side=(64, 66, 70), floor=((40, 42, 46), (80, 82, 86)), gloss=.42, windows=False, panel_w=86)
+STAGE_T = dict(ceil=(12, 12, 14), light=(70, 70, 80), wall=((18, 18, 22), (34, 34, 40)), skirt=(150, 20, 30),
+               side=(22, 22, 26), floor=((24, 24, 28), (58, 58, 64)), gloss=.5, windows=False, panel_w=120)
+GARAGE = dict(ceil=(126, 122, 114), light=(236, 238, 226), wall=((178, 170, 154), (150, 142, 128)), skirt=(110, 104, 94),
+              side=(146, 140, 128), floor=((118, 116, 112), (148, 146, 140)), gloss=.06, windows=False, panel_w=43,
+              tile=(132, 130, 124))
+DISP = SCREEN
 
 def easter_eggs(d):
-    d.rect(26, 706, 196, 900, (40, 40, 44), r=6); d.rect(36, 716, 186, 890, (250, 250, 250), r=3)
-    d.text(111, 734, 'EMPLOYEE', 18, (30, 30, 34), path=FONT_X); d.text(111, 756, 'OF THE MONTH', 15, (30, 30, 34), path=FONT_X)
-    d.rect(86, 772, 136, 872, (22, 22, 26), r=10); d.rect(91, 780, 131, 862, (60, 120, 220), r=4)      # the phone
-    d.rect(104, 812, 118, 816, (255, 255, 255)); d.rect(109, 812, 113, 830, (255, 255, 255))
-    d.ell(840, 790, 62, 62, (250, 250, 250), (40, 40, 44), 7)                                            # handless clock
-    for a in range(12):
-        r = math.radians(a * 30); d.line([(840 + 48 * math.cos(r), 790 + 48 * math.sin(r)), (840 + 54 * math.cos(r), 790 + 54 * math.sin(r))], (40, 40, 44), 4)
-    d.text(840, 880, 'DELIVERY ESTIMATE', 15, (60, 60, 66), path=FONT_X)
+    d.rect(118, 420, 200, 560, (40, 40, 44), r=4); d.rect(124, 426, 194, 554, (250, 250, 250), r=2)
+    d.text(159, 438, 'EMPLOYEE', 11, (30, 30, 34), path=FONT_X); d.text(159, 452, 'OF THE MONTH', 9, (30, 30, 34), path=FONT_X)
+    d.rect(144, 466, 174, 538, (22, 22, 26), r=7); d.rect(148, 472, 170, 530, (60, 120, 220), r=3)                 # the phone
+    d.rect(153, 490, 165, 493, (255, 255, 255)); d.rect(157, 490, 161, 505, (255, 255, 255))
+    d.ell(860, 500, 50, 50, (250, 250, 250), (40, 40, 44), 6)                                                       # handless clock
+    for a_ in range(12):
+        r = math.radians(a_ * 30); d.line([(860 + 38 * math.cos(r), 500 + 38 * math.sin(r)), (860 + 44 * math.cos(r), 500 + 44 * math.sin(r))], (40, 40, 44), 3)
+    d.text(860, 570, 'DELIVERY ESTIMATE', 13, (60, 60, 66), path=FONT_X)
+
+def charger(d, x, y):
+    d.rect(x - 26, y - 44, x + 26, y + 44, (246, 246, 248), r=14, ol=(196, 196, 202), w=3); d.rect(x - 9, y - 26, x + 9, y - 16, (60, 200, 120), r=3)
 
 @lru_cache(None)
 def bg(kind):
-    if kind == 'gallery':
-        img = wall_floor(((250, 250, 251), (236, 237, 240)), ((214, 216, 220), (244, 244, 246))); d = D(img)
-        d.rect(0, 0, W, 70, (255, 255, 255)); d.rect(0, 66, W, 72, (220, 222, 226))
-        for x in (140, 459, 778): d.rect(x - 110, 30, x + 110, 42, (255, 252, 240), r=6)
-        for x in range(0, W, 240): d.line([(x, 72), (x, WALL_Y)], (228, 229, 232), 3)
-        d.rect(0, WALL_Y - 6, W, WALL_Y, (200, 202, 206))
-        for i, y in enumerate(range(WALL_Y + 70, H, 150)): d.line([(0, y), (W, y)], (230, 231, 234), 2)
-        screen_frame(d, DISP[0], DISP[1], DISP[0] + DISP[2], DISP[1] + DISP[3], glow=(230, 232, 238))
-        easter_eggs(d)
-        d.rect(500, 800, 560, 900, (246, 246, 248), r=14, ol=(200, 200, 206), w=3)                     # wall charger
-        d.rect(520, 820, 540, 832, (60, 200, 120), r=4)
-        paste_logo(img, 'logo.png', CX, 132, 56)
+    if kind in ('gallery', 'gallery3'):
+        img = room(GALLERY); d = D(img)
+        screen_slot(d, glow=(226, 228, 234)); easter_eggs(d); charger(d, 900, 900)
+        paste_logo(img, 'logo.png', CX, 368, 40)
+        d = D(img); d.rect(BX0, 700, BX1, 712, (255, 255, 255)); d.rect(BX0, 712, BX1, 716, (214, 216, 222))
+        place_car(img, 'model3' if kind == 'gallery' else 'modely', 1000, 1030, 330, refl=.25)         # second car, further back
+        d = D(img); turntable(d, CX, CAR_GROUND, 780, rim=(210, 210, 216), top=(226, 226, 230))
+        light_cone(img, CX, CEIL_Y, 60, 380, CAR_GROUND, 40)
+        place_car(img, 'modely' if kind == 'gallery' else 'model3', CX, CAR_GROUND, 760 if kind == 'gallery' else 700)
+        d = D(img); kiosk(d, 66, 1190, .9); plant(d, 40, 1290, .9)
         return img
     if kind == 'cyber':
-        img = wall_floor(((70, 74, 80), (112, 116, 122)), ((56, 58, 62), (92, 94, 98))); d = D(img)
-        for i in range(-2, 8):
-            x = i * 170
-            d.poly([(x, 80), (x + 170, 80), (x + 85, 520)], (98, 102, 110)); d.poly([(x + 85, 520), (x + 255, 520), (x + 170, 80)], (84, 88, 96))
-            d.poly([(x, WALL_Y), (x + 170, WALL_Y), (x + 85, 520)], (90, 94, 102))
-        d.rect(0, 0, W, 80, (40, 42, 46)); d.rect(0, 74, W, 80, (230, 232, 236))
-        d.rect(0, WALL_Y - 8, W, WALL_Y, (190, 194, 200))
-        screen_frame(d, DISP[0], DISP[1], DISP[0] + DISP[2], DISP[1] + DISP[3], glow=(150, 156, 166))
-        paste_logo(img, 'logo.png', 900, 760, 70)
+        img = room(CYBER); d = D(img)
+        for i in range(6):                                                                    # angular stainless relief
+            x = BX0 + i * 172
+            d.poly([(x, 690), (x + 86, 560), (x + 172, 690)], (128, 132, 140)); d.poly([(x, 690), (x + 86, 820), (x + 172, 690)], (104, 108, 116))
+        screen_slot(d, glow=(120, 126, 136)); paste_logo(img, 'logo.png', CX, 368, 40)
+        d = D(img); turntable(d, CX, CAR_GROUND, 760, rim=(200, 204, 210), top=(56, 58, 62))
+        light_cone(img, CX, CEIL_Y, 70, 420, CAR_GROUND, 52, (220, 230, 255))
+        place_car(img, 'cybertruck', CX, CAR_GROUND, 800)
+        d = D(img); d.rect(980, 1010, 1060, 1190, (70, 72, 78), r=6); d.rect(990, 1030, 1050, 1080, (200, 40, 40), r=4)     # tyre rack-ish prop
         return img
     if kind == 'stage':
-        img = wall_floor(((18, 18, 22), (34, 34, 40)), ((40, 40, 46), (70, 70, 78))); d = D(img)
-        screen_frame(d, DISP[0], DISP[1], DISP[0] + DISP[2], DISP[1] + DISP[3], bez=(8, 8, 10), glow=(60, 20, 24))
-        for x in (40, 878):
-            d.rect(x - 6, 820, x + 6, 1000, (200, 170, 90)); d.ell(x, 816, 16, 16, (220, 190, 100))
-        d.arc(459, 900, 420, 80, 0, 180, (150, 20, 30), 14)                                             # velvet rope
-        d.text(CX, 740, 'COMING SOON', 46, (230, 230, 236), path=FONT_X)
-        paste_logo(img, 'logo.png', CX, 120, 56)
+        img = room(STAGE_T); d = D(img)
+        screen_slot(d, glow=(60, 16, 20))
+        for x in (60, 860):
+            d.rect(x - 5, 1060, x + 5, 1190, (200, 170, 90)); d.ell(x, 1056, 14, 14, (220, 190, 100))
+        paste_logo(img, 'logo.png', CX, 368, 40)
+        d = D(img); turntable(d, CX, CAR_GROUND, 700, rim=(150, 20, 30), top=(30, 30, 34))
+        light_cone(img, CX - 220, 0, 40, 260, CAR_GROUND, 60); light_cone(img, CX + 220, 0, 40, 260, CAR_GROUND, 60)
+        place_car(img, 'roadster', CX, CAR_GROUND, 690, refl=.42)
+        d = D(img); d.arc(459, 1200, 440, 70, 0, 180, (150, 20, 30), 12)                    # velvet rope
         return img
     if kind == 'garage':
-        img = wall_floor(((176, 168, 152), (150, 142, 128)), ((120, 118, 114), (150, 148, 142))); d = D(img)
-        for y in range(90, WALL_Y, 34): d.line([(0, y), (W, y)], (162, 154, 140), 2)                    # breeze-block wall
-        d.rect(0, 0, W, 80, (96, 90, 82))
-        d.rect(-10, 120, 140, 930, (210, 210, 206), ol=(120, 120, 116), w=6)                            # garage door
-        for y in range(150, 930, 54): d.line([(0, y), (138, y)], (170, 170, 166), 4)
-        d.rect(150, 150, 300, 330, (196, 160, 110), ol=(110, 80, 50), w=4)                               # pegboard + tools
-        for x in range(162, 300, 16):
-            for y in range(162, 330, 16): d.ell(x, y, 2, 2, (120, 92, 60))
-        d.line([(180, 180), (200, 300)], (120, 120, 130), 8); d.ell(240, 220, 22, 22, None, (200, 40, 40), 6)
-        d.rect(268, 180, 278, 290, (70, 70, 76))
-        d.rect(170, 74, 760, 190, (196, 150, 96), ol=(130, 92, 50), w=4)                                # cardboard sign
-        d.text(465, 132, 'TESLA DEALERSHIP', 56, (200, 30, 36), path=FONT_B)
-        d.line([(195, 172), (735, 168)], (200, 30, 36), 4)
-        d.rect(300, 240, 760, 560, (226, 226, 220), r=4)                                                 # the 'LED wall': a printout
-        for cx_, cy_ in ((310, 246), (750, 246), (310, 554), (750, 554)): d.rect(cx_ - 22, cy_ - 8, cx_ + 22, cy_ + 8, (236, 220, 150), r=2)
-        d.rect(780, 760, 940, 940, (60, 140, 70), r=10, ol=(30, 60, 34), w=4)                            # lawn mower
-        d.rect(800, 700, 812, 770, (40, 40, 44)); d.line([(806, 700), (900, 640)], (40, 40, 44), 8)
-        d.ell(800, 940, 20, 20, (30, 30, 32)); d.ell(920, 940, 20, 20, (30, 30, 32))
-        d.rect(500, 800, 560, 900, (246, 246, 248), r=14, ol=(200, 200, 206), w=3)                     # same charger, extension lead
-        d.line([(530, 900), (600, 940), (980, 936)], (240, 140, 20), 6)
+        img = room(GARAGE); d = D(img)
+        for y in range(CEIL_Y + 30, FLOOR_Y, 34): d.line([(BX0, y), (BX1, y)], (164, 156, 140), 2)                 # breeze blocks
+        for x_ in (300, 620): d.rect(x_ - 110, 58, x_ + 110, 70, (250, 250, 240), r=6)                             # strip lights
+        d.rect(130, 400, 290, 560, (196, 160, 110), ol=(110, 80, 50), w=4)                                          # pegboard + tools
+        for x in range(142, 290, 16):
+            for y in range(412, 560, 16): d.ell(x, y, 2, 2, (120, 92, 60))
+        d.line([(170, 430), (190, 540)], (120, 120, 130), 8); d.ell(240, 470, 22, 22, None, (200, 40, 40), 6)
+        d.rect(300, 236, 760, 340, (196, 150, 96), ol=(130, 92, 50), w=4)                                            # cardboard sign
+        d.text(530, 290, 'TESLA DEALERSHIP', 48, (200, 30, 36), path=FONT_B); d.line([(330, 324), (730, 320)], (200, 30, 36), 4)
+        d.rect(330, 380, 640, 600, (226, 226, 220), r=4)                                                             # the 'LED wall': a printout
+        for cx_, cy_ in ((338, 386), (632, 386), (338, 594), (632, 594)): d.rect(cx_ - 18, cy_ - 7, cx_ + 18, cy_ + 7, (236, 220, 150), r=2)
+        d.rect(790, 860, 940, 1000, (60, 140, 70), r=10, ol=(30, 60, 34), w=4)                                       # lawn mower
+        d.line([(810, 860), (900, 780)], (40, 40, 44), 8); d.ell(810, 1000, 18, 18, (30, 30, 32)); d.ell(920, 1000, 18, 18, (30, 30, 32))
+        charger(d, 700, 860); d.line([(700, 904), (760, 1010), (1060, 1000)], (240, 140, 20), 6)                   # extension lead
+        place_car(img, 'modely', 470, CAR_GROUND, 600, refl=.06)
         return img
     if kind == 'drive':
         img = Image.new('RGB', (W * K, H * K), (178, 210, 236)); d = D(img)
-        d.rect(0, 560, W, 900, (110, 160, 100))
-        for x, h_, col in ((20, 260, (232, 224, 206)), (330, 300, (214, 204, 186))):
-            d.rect(x, 600 - h_, x + 280, 760, col); d.poly([(x - 20, 600 - h_), (x + 140, 520 - h_), (x + 300, 600 - h_)], (150, 70, 60))
-            d.rect(x + 40, 640 - h_, x + 110, 700 - h_, (150, 190, 220)); d.rect(x + 170, 640 - h_, x + 240, 700 - h_, (150, 190, 220))
-        d.rect(10, 520, 320, 760, (110, 100, 92))                                                        # garage (open)
-        d.rect(30, 540, 300, 760, (70, 64, 58))
-        d.rect(-10, 880, W, H, (128, 128, 132))                                                          # driveway
-        for y in range(940, H, 90): d.line([(0, y), (W, y)], (140, 140, 144), 3)
-        d.rect(640, 150, 1000, 400, (240, 240, 240), ol=(60, 60, 66), w=8)                               # billboard
-        d.rect(800, 400, 830, 880, (80, 80, 86))
-        d.rect(0, 860, W, 900, (220, 220, 214))                                                         # fence rail
-        for x in range(0, W, 46): d.rect(x, 800, x + 18, 890, (236, 236, 230))
+        d.rect(0, 640, W, 1000, (110, 160, 100))
+        for x, h_, col in ((20, 300, (232, 224, 206)), (360, 340, (214, 204, 186))):
+            d.rect(x, 700 - h_, x + 300, 900, col); d.poly([(x - 20, 700 - h_), (x + 150, 610 - h_), (x + 320, 700 - h_)], (150, 70, 60))
+            d.rect(x + 40, 740 - h_, x + 120, 810 - h_, (150, 190, 220)); d.rect(x + 180, 740 - h_, x + 260, 810 - h_, (150, 190, 220))
+        d.rect(10, 640, 330, 900, (110, 100, 92)); d.rect(30, 660, 310, 900, (70, 64, 58))                          # open garage
+        d.rect(-10, 1000, W, H, (128, 128, 132))
+        for y in range(1060, H, 90): d.line([(0, y), (W, y)], (140, 140, 144), 3)
+        d.rect(660, 380, 1000, 620, (240, 240, 240), ol=(60, 60, 66), w=8); d.rect(815, 620, 845, 1000, (80, 80, 86))   # billboard
+        d.rect(0, 960, W, 1000, (220, 220, 214))
+        for x in range(0, W, 46): d.rect(x, 900, x + 18, 990, (236, 236, 230))
+        place_car(img, 'modely', 520, 1120, 640, refl=0, shadow=.6)
         return img
     return Image.new('RGB', (W * K, H * K), (0, 0, 0))
 
 @lru_cache(None)
 def cabin(kind):
-    img = cabin_base((30, 30, 34), (22, 22, 26), (40, 40, 46))
-    return img
+    return cabin_base((30, 30, 34), (22, 22, 26), (40, 40, 46))
 
 def background(sc, t):
-    if sc in (1, 3): return bg('gallery')
+    if sc == 1: return bg('gallery')
+    if sc == 3: return bg('gallery3')
     if sc == 2: return bg('cyber')
     if sc in (4, 5): return cabin('t')
     if sc == 6: return bg('stage')
@@ -158,11 +160,12 @@ def penguin(img, x, fy, t, s=1.0, charge0=0.0, walking=False):
     d.rect(cx - 17 * s, fy - 85 * s, cx - 17 * s + 34 * s * lvl, fy - 65 * s, (70, 210, 110), r=2)
     return cx
 
-def phone_glow(img, t):
+def phone_glow(img, t, sc):
+    s_ = STAGE.get(sc, {}).get('s', STAGE_DEFAULT['s']); sx_ = STAGE.get(sc, {}).get('sx', 670); fy_ = STAGE.get(sc, {}).get('fy', FEET_Y)
     for ta in T_APP:
         a = window(t, ta - .25, ta + 1.1, .15, .3)
         if a > 0:
-            d = D(img); hx, hy = 330, 1216
+            d = D(img); hx, hy = sx_ - 340 * s_, fy_ - 664 * s_
             for r, al in ((70, 40), (46, 70), (26, 110)): d.ell(hx, hy, r, r, (120, 200, 255, int(al * a)))
             d.rect(hx - 16, hy - 52, hx + 16, hy + 6, (30, 30, 34), r=6); d.rect(hx - 12, hy - 46, hx + 12, hy, (70, 140, 240), r=3)
             d.rect(hx - 6, hy - 34, hx + 6, hy - 31, (255, 255, 255)); d.rect(hx - 2, hy - 33, hx + 2, hy - 18, (255, 255, 255))
@@ -178,41 +181,47 @@ def phase_at(t):
     p = prog(t, LS[30], 1.5)
     return (T_BRAKE - SC[4]) * .55 + .03 + .55 * 1.5 * p * p / 2
 
+def scr(img, seq, t, t0):
+    show_seq(img, seq, DISP, t, t0); sheen(img, *DISP)
+
 def behind(img, t, sc):
     d = D(img)
     if sc == 1:
-        show_seq(img, [(0, 'modely.jpg')], DISP, t, 0)
-        penguin(img, 470, 1000, t, .7, 0.1)
-        d = D(img); d.line([(500, 940), (510, 900), (530, 880)], (60, 60, 66), 5)
+        scr(img, [(0, 'modely.jpg')], t, 0)
+        penguin(img, 900, 1010, t, .55, 0.1)
+        d = D(img); d.line([(900, 944), (906, 920), (900, 905)], (60, 60, 66), 4)
     elif sc == 2:
-        show_seq(img, [(0, 'cybertruck_b.jpg')], DISP, t, SC[2])
-        k = prog(t, T_FALL + .15, .55)                              # a steel strip drops off the display onto the floor
+        scr(img, [(0, 'cybertruck_b.jpg')], t, SC[2])
+        k = prog(t, T_FALL + .15, .55)                              # a steel strip drops off the truck onto the floor
         if k > 0:
-            y = 640 + 330 * k * k; rot = 26 * k
-            d.poly([(250 + rot, y - 10), (640 + rot, y - 10 + rot * .6), (640 + rot, y + 6 + rot * .6), (250 + rot, y + 6)], (196, 200, 206), (90, 94, 100), 3)
+            y = 960 + 150 * k * k; rot = 18 * k
+            d.poly([(330 + rot, y - 9), (640 + rot, y - 9 + rot * .6), (640 + rot, y + 5 + rot * .6), (330 + rot, y + 5)], (206, 210, 216), (90, 94, 100), 3)
     elif sc == 3:
-        show_seq(img, [(0, 'interior.jpg'), (T_SCREEN - .2, 'screen.jpg'), (LS[19], 'model3_b.jpg')], DISP, t, SC[3])
-        penguin(img, 470, 1000, t, .7, 0.3)
+        scr(img, [(0, 'interior.jpg'), (T_SCREEN - .2, 'screen.jpg'), (LS[19], 'model3_b.jpg')], t, SC[3])
+        penguin(img, 900, 1010, t, .55, 0.3)
     elif sc in (4, 5):
         road_life(img, t, speed_at(t), phase=phase_at(t) if sc == 4 else 0.31,
                   side=(108, 150, 96) if sc == 4 else (170, 166, 160))
-        if sc == 5:                                                 # parked: kerb-side shop fronts in the rear window
+        if sc == 5:
             d = D(img)
             for x in (120, 330, 560): d.rect(x, 380, x + 170, 470, (196, 120, 90)); d.rect(x + 20, 400, x + 150, 450, (150, 200, 230))
     elif sc == 6:
-        show_seq(img, [(0, 'roadster_b.jpg')], DISP, t, SC[6])
-        img.paste((255, 246, 230), (0, 0, W * K, H * K), spot(CX, 80, 60, 420, 900))
+        x0, y0, w, h = DISP
+        d.rect(x0, y0, x0 + w, y0 + h, (8, 8, 10))
+        d.text(x0 + w / 2, y0 + h / 2 - 30, 'COMING SOON', 50, (236, 236, 240), path=FONT_B)
+        d.text(x0 + w / 2, y0 + h / 2 + 34, 'TESLA ROADSTER', 26, (200, 30, 36), path=FONT_X)
+        sheen(img, *DISP)
     elif sc == 7:
         if t < T_GARAGE:
-            show_seq(img, [(0, 'modely.jpg')], DISP, t, SC[7]); penguin(img, 470, 1000, t, .7, 0.5)
+            scr(img, [(0, 'modely.jpg')], t, SC[7]); penguin(img, 900, 1010, t, .55, 0.5)
         else:
-            display(img, 'modely.jpg', 314, 252, 432, 296, t, T_GARAGE, drift=0)
-            penguin(img, 600, 1000, t, .7, 0.5)
+            display(img, 'modely.jpg', 342, 392, 286, 196, t, T_GARAGE, drift=0)
+            penguin(img, 760, 1040, t, .55, 0.5)
     elif sc == 8:
-        display(img, 'model3.jpg', 652, 162, 336, 226, t, SC[8])
-        d = D(img); d.text(820, 372, 'ORDER ONLINE', 26, (30, 30, 34), path=FONT_X)
-        x = 1000 - 60 * (t - SC[8])
-        if x > -100: penguin(img, x, 930, t, .55, 0.6, walking=True); d = D(img); d.line([(x + 30, 920), (x + 200, 930), (330, 760)], (240, 140, 20), 4)
+        display(img, 'model3.jpg', 672, 392, 316, 216, t, SC[8])
+        d = D(img); d.text(830, 600, 'ORDER ONLINE', 24, (30, 30, 34), path=FONT_X)
+        x = 1040 - 55 * (t - SC[8])
+        if x > -100: penguin(img, x, 1180, t, .5, 0.6, walking=True); d = D(img); d.line([(x + 30, 1170), (x + 200, 1180), (330, 900)], (240, 140, 20), 4)
 
 @lru_cache(None)
 def spot(cx, top, w0, w1, h, a=60):
@@ -225,7 +234,7 @@ def front(img, t, sc):
         cabin_front(img, t, (34, 34, 38), (20, 22, 26), screen=(430, 1410, 800, 1620), roof_console=True, trim=(236, 236, 232), accent2=TRED)
         display(img, 'model3_b.jpg', 440, 1420, 350, 190, t, SC[sc], drift=0, a=.95)
         d = D(img); d.text(615, 1640, 'MODEL 3', 22, (220, 220, 226), path=FONT_X)
-    phone_glow(img, t)
+    phone_glow(img, t, sc)
 
 def jolt(t, sc, who):
     if sc == 4 and T_BRAKE <= t < T_BRAKE + .7:
@@ -240,7 +249,8 @@ def cam_extra(t, sc, z, sx, sy):
         z += .07 * (1 - oc(prog(t, T_BRAKE, .5)))
     return z, sx, sy
 
-STAGE = {4: dict(walk='none', bx=262, sx=640, fy=1820), 5: dict(walk='none', bx=262, sx=640, fy=1820), 7: dict(walk='none'), 8: dict(walk='slow')}
+STAGE_DEFAULT = dict(s=.8)
+STAGE = {4: dict(walk='none', bx=262, sx=640, fy=1820, s=1.0), 5: dict(walk='none', bx=262, sx=640, fy=1820, s=1.0), 7: dict(walk='none'), 8: dict(walk='slow')}
 CAM = {1: dict(z=1.05), 2: dict(z=1.06), 3: dict(z=1.05), 4: dict(z=1.06, follow=30), 5: dict(z=1.1, follow=30), 6: dict(z=1.05),
        7: dict(z=1.2), 8: dict(z=1.04)}
 HARD_CUT = {3, 4}                                           # SCENES index: cut straight into the car (test drive, parked)
@@ -281,20 +291,20 @@ def overlays(img, t):
     a = window(t, T_399 - .1, SC[2] + 9, .1, .3) if t < T_FALL else 0
     if a > 0:
         used = True
-        put(img, price_tag('$39,900', 'ANNOUNCED 2019', TAG), CX, 770, popin(t, T_399 - .1, .35) * .9, a, rot=-3)
-        if t >= T_DOUBLE - .05: put(img, stamp_img('NEARLY 2x', RED), CX + 120, 700, popin(t, T_DOUBLE - .05, .3) * .8, a, rot=-12)
+        put(img, price_tag('$39,900', 'ANNOUNCED 2019', TAG), CX, 560, popin(t, T_399 - .1, .35) * .9, a, rot=-3)
+        if t >= T_DOUBLE - .05: put(img, stamp_img('NEARLY 2x', RED), CX + 120, 500, popin(t, T_DOUBLE - .05, .3) * .8, a, rot=-12)
     a = window(t, T_46 - .05, LS[14] - .1, .1, .3)
     if a > 0:
-        used = True; put(img, stamp_img('46,096 RECALLED', RED, 76), CX, 760, popin(t, T_46 - .05, .3) * .85, a, rot=-6)
+        used = True; put(img, stamp_img('46,096 RECALLED', RED, 76), CX, 560, popin(t, T_46 - .05, .3) * .85, a, rot=-6)
     a = window(t, T_595 - .05, T_SCREEN - .25, .1, .25)
     if a > 0:
-        used = True; put(img, price_tag('$595', 'TURN-SIGNAL STALK RETROFIT', TAG, 620), CX, 770, popin(t, T_595 - .05, .35) * .9, a, rot=2)
+        used = True; put(img, price_tag('$595', 'TURN-SIGNAL STALK RETROFIT', TAG, 620), CX, 560, popin(t, T_595 - .05, .35) * .9, a, rot=2)
     a = window(t, T_CEIL - .1, LS[19], .1, .25)
     if a > 0:
         used = True; d = D(img); k = popin(t, T_CEIL - .1, .3); bob = 10 * math.sin(t * 9)
-        d.poly([(640, 330 + bob), (720, 430 + bob), (680, 430 + bob), (680, 560 + bob), (600, 560 + bob), (600, 430 + bob), (560, 430 + bob)],
+        d.poly([(640, 400 + bob), (720, 500 + bob), (680, 500 + bob), (680, 630 + bob), (600, 630 + bob), (600, 500 + bob), (560, 500 + bob)],
                TAG + (int(255 * a),), (40, 30, 10, int(255 * a)), 6)
-        d.text(640, 610, 'BACKUP GEAR BUTTONS', 34 * k, (255, 255, 255, int(255 * a)), stroke=6, sc=(10, 10, 16, int(255 * a)))
+        d.text(640, 680, 'BACKUP GEAR BUTTONS', 34 * k, (255, 255, 255, int(255 * a)), stroke=6, sc=(10, 10, 16, int(255 * a)))
     a = window(t, T_99 - .05, LS[25], .1, .3)
     if a > 0:
         used = True; put(img, price_tag('$99/month', 'FULL SELF-DRIVING (SUPERVISED)', TAG, 640), CX, 560, popin(t, T_99 - .05, .35) * .9, a, rot=-2)
@@ -307,7 +317,7 @@ def overlays(img, t):
     if a > 0:
         used = True
         chips(img, t, [('2017: ANNOUNCED', (40, 44, 54), T_2017), ('2020: PROMISED', (40, 44, 54), T_2020),
-                       ('2028: PRODUCTION?', RED, T_2028)], 720)
+                       ('2028: PRODUCTION?', RED, T_2028)], 470)
     return used
 
 def cues(add, sfx):

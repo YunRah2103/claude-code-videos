@@ -352,7 +352,7 @@ def panel(d, x0, y0, x1, y1, a, col=(14, 16, 22)):
     d.rect(x0, y0, x1, y1, col + (int(236 * a),), r=30)
 
 def ctext(w): return w['w'].lstrip('.')
-CAP_Y = 1128
+CAP_Y = 300
 CAP_SIZE = 78
 def chunks():
     out = []
@@ -567,7 +567,7 @@ def build_scheds():
 
 BS = SS_ = None
 def performers(img, t, sc):
-    P = EP.STAGE.get(sc + 1, {})
+    P = dict(getattr(EP, 'STAGE_DEFAULT', {})); P.update(EP.STAGE.get(sc + 1, {}))
     s_ = P.get('s', 1.0)
     bx1, sxp, fy = P.get('bx', 270), P.get('sx', 670), P.get('fy', FEET_Y)
     t_in = SCENES[sc]
@@ -589,6 +589,7 @@ def performers(img, t, sc):
             st['walk'] = t * rate; st['dy'] -= abs(math.sin(t * rate)) * 10
         if st.get('sweat'): st['sweat'] = t
         jx, jy = EP.jolt(t, sc + 1, who)
+        if s_ < 1: D(img).ell(x + jx, fy - 2, 82 * s_, 15 * s_, (0, 0, 0, 70))      # contact shadow
         if s_ == 1.0 and not (jx or jy):
             person(D(img), x, fy + st.pop('fy_off', 0), cfg, st)
         else:
@@ -640,8 +641,8 @@ def cutaway(t, c):
     img = big.resize((W, H), Image.BILINEAR, box=(x0, y0, x0 + cw, y0 + ch)).convert('RGBA')
     d = ImageDraw.Draw(img, 'RGBA'); f = font(40)
     tw = f.getlength(label)
-    d.rounded_rectangle((CX - tw / 2 - 26, 228, CX + tw / 2 + 26, 300), 16, fill=(12, 12, 16, 210))
-    d.text((CX, 264), label, font=f, fill=(255, 255, 255), anchor='mm')
+    d.rounded_rectangle((CX - tw / 2 - 26, 1424, CX + tw / 2 + 26, 1496), 16, fill=(12, 12, 16, 210))
+    d.text((CX, 1460), label, font=f, fill=(255, 255, 255), anchor='mm')
     return img
 
 # ================================================================ frame

@@ -1,5 +1,15 @@
 Photos and logos: Wikimedia Commons (downloaded via Special:FilePath). Used under the licences below.
 
+modely_full.jpg: "2025 Tesla Model Y RWD front.jpg"
+  Author: LuvsMG481
+  Licence: CC BY-SA 4.0
+  Source: https://commons.wikimedia.org/wiki/File:2025_Tesla_Model_Y_RWD_front.jpg
+
+model3_full.jpg: "2024 Tesla Model 3 Highland Performance AWD.jpg"
+  Author: Chanokchon
+  Licence: CC BY-SA 4.0
+  Source: https://commons.wikimedia.org/wiki/File:2024_Tesla_Model_3_Highland_Performance_AWD.jpg
+
 cybertruck_b.jpg: "Tesla Cybertruck Cyberbeast Satin Stealth Black - front.jpg"
   Author: Ethan Llamas
   Licence: CC BY-SA 4.0
