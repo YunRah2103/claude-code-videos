@@ -710,8 +710,8 @@ def thumbnail(t, out):
     EP.overlays(ov, t)
     img.alpha_composite(ov.convert('RGBa').resize((W, H), Image.LANCZOS).convert('RGBA'))
     d = ImageDraw.Draw(img, 'RGBA')
-    d.rectangle((0, 0, W, 520), fill=(10, 10, 14, 150))
-    y = 110
+    d.rectangle((0, 1420, W, H), fill=(10, 10, 14, 200))
+    y = 1530
     for txt, size, col in EP.THUMB:
         f = font(size)
         while f.getlength(txt) > 940: size -= 4; f = font(size)
