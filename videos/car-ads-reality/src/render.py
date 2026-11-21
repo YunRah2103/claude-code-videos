@@ -145,7 +145,7 @@ def poster(d, x, y, w, h, bg, lines, rot_col=(30, 30, 36)):
 # ================================================================ backgrounds (static, cached; K-scaled RGBA)
 FLOOR = 900
 SCREENS = {'showroom': (720, 150, 1200, 420), 'pump': (1300, 150, 1700, 380), 'strip': (760, 110, 1160, 330),
-           'towlot': (1240, 120, 1700, 380), 'charger': (130, 120, 590, 380), 'stage': (720, 90, 1200, 360),
+           'towlot': (1440, 110, 1860, 350), 'charger': (130, 120, 590, 380), 'stage': (720, 90, 1200, 360),
            'track': (1320, 110, 1760, 360)}
 
 @lru_cache(None)
@@ -219,7 +219,7 @@ def bg(loc):
         d.rect(0, 560, W, H, (176, 160, 130))
         for i in range(40): d.ell((i * 97) % W, 600 + (i * 53) % 400, 8, 4, (150, 136, 110))
         bezel(d, *SCREENS['towlot'])
-        d.rect(1460, 380, 1480, 600, (80, 80, 86))
+        d.rect(1640, 350, 1660, 600, (80, 80, 86))
         d.rect(60, 640, 470, 700, (110, 70, 40)); d.rect(80, 700, 100, 800, (110, 70, 40)); d.rect(430, 700, 450, 800, (110, 70, 40))
         poster(d, 70, 560, 390, 80, (255, 255, 255), [('MAX TOW: ASK THE AXLE', 26, INK)])
     elif loc == 'charger':
@@ -422,7 +422,7 @@ def fineprint_gag(d, sc, t):
             for i in range(10):
                 ph = ((t * .9 + i / 10) % 1)
                 for side, x_ in ((1, 430), (-1, 1490)):
-                    x = x_ + side * ph * 500; y = 520 + 90 * math.sin(i * 1.7) + 20 * math.sin(t * 9 + i)
+                    x = x_ + side * ph * 500; y = 640 + 60 * math.sin(i * 1.7) + 14 * math.sin(t * 9 + i)
                     d.rect(x - 50, y - 10, x + 50, y + 10, (252, 250, 240, int(255 * (1 - ph))), r=4)
                     fine_lines(d, x - 44, y - 6, x + 44, y + 6, int(200 * (1 - ph)), 8, i)
     elif sc == 7:                                            # fine-print avalanche, rising
@@ -889,8 +889,13 @@ def finish_mix(mixd, SR, out_wav):
     m = json.loads(r[r.rindex('{'):r.rindex('}') + 1])
     af = (f"loudnorm=I=-14:TP=-1.5:LRA=11:measured_I={m['input_i']}:measured_TP={m['input_tp']}:measured_LRA={m['input_lra']}"
           f":measured_thresh={m['input_thresh']}:offset={m['target_offset']}")
-    subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', tmp, '-af', af, '-ar', '48000', '-ac', '2', out_wav], check=True)
-    os.remove(tmp)
+    subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', tmp, '-af', af, '-ar', '48000', '-ac', '2', tmp + '2.wav'], check=True)
+    r = subprocess.run(['ffmpeg', '-hide_banner', '-nostats', '-i', tmp + '2.wav', '-af', 'ebur128=peak=true', '-f', 'null', '-'],
+                       capture_output=True, text=True).stderr
+    I = float(r.split('I:')[-1].split('LUFS')[0]); tp = float(r.split('Peak:')[-1].split('dBFS')[0])
+    g = min(-14.0 - I, -1.5 - tp)                            # trim loudnorm's shortfall, keep 1.5 dB true-peak headroom
+    subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', tmp + '2.wav', '-af', f'volume={g:.2f}dB', out_wav], check=True)
+    os.remove(tmp); os.remove(tmp + '2.wav')
 
 # ================================================================ Shorts (vertical, stacked layout)
 SHORTS = {1: dict(scenes=[3, 4, 1], hook='Is 0-60 really from zero?', q=('Should 0-60 start', 'at zero?'), name='rollout'),
