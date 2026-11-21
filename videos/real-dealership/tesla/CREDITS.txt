@@ -1,4 +1,5 @@
 Photos and logos: Wikimedia Commons (downloaded via Special:FilePath). Used under the licences below.
+Cut-outs (assets/cut_*.png) are the same photos with the background removed (hand-traced outline + colour matting, src/cutout.py); cars are not altered.
 
 modely_full.jpg: "2025 Tesla Model Y RWD front.jpg"
   Author: LuvsMG481

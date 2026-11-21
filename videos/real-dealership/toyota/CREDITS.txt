@@ -1,4 +1,5 @@
 Photos and logos: Wikimedia Commons (downloaded via Special:FilePath). Used under the licences below.
+Cut-outs (assets/cut_*.png) are the same photos with the background removed (hand-traced outline + colour matting, src/cutout.py); cars are not altered.
 
 corolla.jpg: "2024 Toyota Corolla LE in Classic Silver Metallic, front right.jpg"
   Author: Mr.choppers
@@ -40,10 +41,15 @@ bz4x.jpg: "Toyota bZ4X.jpg"
   Licence: CC BY-SA 4.0
   Source: https://commons.wikimedia.org/wiki/File:Toyota_bZ4X.jpg
 
-landcruiser.jpg: "Toyota LAND CRUISER 3.5 ZX (3BA-VJA300W-GNUZZ) front.jpg"
-  Author: Tokumeigakarinoaoshima
+bz4x_full.jpg: "2022 Toyota bZ4X.jpg"
+  Author: TTTNIS
   Licence: CC BY-SA 4.0
-  Source: https://commons.wikimedia.org/wiki/File:Toyota_LAND_CRUISER_3.5_ZX_%283BA-VJA300W-GNUZZ%29_front.jpg
+  Source: https://commons.wikimedia.org/wiki/File:2022_Toyota_bZ4X.jpg
+
+landcruiser_full.jpg: "2021 Toyota Land Cruiser 300 (Russia) front view.jpg"
+  Author: Авто Плюс Новости
+  Licence: CC BY 3.0, CC BY-SA 4.0
+  Source: https://commons.wikimedia.org/wiki/File:2021_Toyota_Land_Cruiser_300_%28Russia%29_front_view.jpg
 
 prius.jpg: "2023 Toyota Prius Limited in Cutting Edge Silver, Front Right.jpg"
   Author: Stacy Sheff from Los Angeles, USA
