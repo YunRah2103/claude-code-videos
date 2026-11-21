@@ -11,7 +11,7 @@ body = {"contents": [{"parts": [{"text": prompt(int(sys.argv[1]))}]}],
 r = subprocess.run(["curl", "-sS", "-m", "240", "-w", "\n%{http_code}", "-X", "POST", URL, "-H", "Content-Type: application/json",
                     "-H", "x-goog-api-key: placeholder", "-d", json.dumps(body)], capture_output=True, text=True)
 out, code = r.stdout.rsplit("\n", 1)
-if code != "200": sys.exit(f"HTTP {code}: {out[:300]}")
+if code != "200": sys.exit(f"HTTP {code}: {out[:1500]}")
 data = json.loads(out)["candidates"][0]["content"]["parts"][0]["inlineData"]["data"]
 with wave.open(sys.argv[2], "wb") as w:
     w.setnchannels(1); w.setsampwidth(2); w.setframerate(24000); w.writeframes(base64.b64decode(data))

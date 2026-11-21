@@ -51,8 +51,8 @@ for s in range(NSC):
         AD[s] = (a0, f0 - 0.5)
         LOC[s] = f0 - 0.5
 END_T = LE[max(LN)]
-T_CARD = END_T + 0.35
-DUR = round(T_CARD + (3.2 if HAS_END else 2.6), 2)
+T_CARD = END_T + (0.35 if HAS_END else 2.6)               # no voiced ending: hold on the buyer buried in fine print
+DUR = round(T_CARD + (3.2 if HAS_END else 3.8), 2)
 CUTS = sorted([a for a, _ in AD.values()] + list(LOC.values())[1:])
 def seg_at(t):
     """('ad', s) or ('loc', s)."""
@@ -426,7 +426,7 @@ def fineprint_gag(d, sc, t):
                     d.rect(x - 50, y - 10, x + 50, y + 10, (252, 250, 240, int(255 * (1 - ph))), r=4)
                     fine_lines(d, x - 44, y - 6, x + 44, y + 6, int(200 * (1 - ph)), 8, i)
     elif sc == 7:                                            # fine-print avalanche, rising
-        h = 360 * oc(prog(t, t0 + .5, max(1, END_T - t0 - 1)))
+        h = 360 * oc(prog(t, t0 + .5, max(1, END_T - t0 - 1))) + (0 if HAS_END else 150 * oc(prog(t, END_T + .2, 1.6)))
         pile(d, h, t)
     elif sc == 8:                                            # buried, then digs out
         h = 360 * (1 - oc(prog(t, LS[l[0]] + .2, 1.4))) + 120
@@ -604,9 +604,11 @@ def parody_ad(t, sc):
     k1, k2 = popin(t, a0 + .35, .35), popin(t, a0 + .6, .4)
     wob = 1 + .04 * math.sin(t * 8)
     if k1 > .05: d.text(1440, 380, l1, 74 * k1, (255, 255, 255), stroke=8, sc=INK)
+    sz2 = 120
+    while font(sz2 * K).getlength(l2) / K > 760: sz2 -= 4
     if k2 > .05:
-        d.text(1440, 520, l2, 120 * k2 * wob, TAG, stroke=10, sc=INK)
-        tw = font(int(120 * K)).getlength(l2) / K
+        d.text(1440, 520, l2, sz2 * k2 * wob, TAG, stroke=10, sc=INK)
+        tw = font(int(sz2 * K)).getlength(l2) / K
         asterisk(d, 1440 + tw / 2 + 30, 460, 18 + 8 * sc, t, face=sc >= 3)   # the asterisk grows every ad
     d.rect(40, 40, 330, 104, (0, 0, 0, 150), r=12); d.text(185, 72, 'PARODY AD', 34, (255, 255, 255))
     fsz = 11 + sc * 2                                        # the fine print strip, bigger every time
@@ -743,6 +745,7 @@ END_Q = [("Which claim annoyed", 84, TAG), ("you the most?", 84, TAG), ("Tell us
 def end_card(img, t, w=W, h=H, cx=None, cy=None, scale=1.0):
     cx = w / 2 if cx is None else cx; cy = h / 2 if cy is None else cy
     k = prog(t, T_CARD, .5)
+    base = img; img = Image.new('RGBA', (base.width * K, base.height * K), (0, 0, 0, 0))
     d = D(img)
     d.rect(0, 0, w, h, (14, 12, 22, int(200 * k)))
     asterisk(d, cx, cy, (40 + 700 * oc(k)) * scale, t, col=(255, 200, 40, int(120 * k)), rot=t * .3)
@@ -750,6 +753,7 @@ def end_card(img, t, w=W, h=H, cx=None, cy=None, scale=1.0):
         kk = popin(t, T_CARD + .15 + .1 * i, .3)
         if kk > .05:
             d.text(cx, cy - 170 * scale + i * 110 * scale, txt, size * kk * scale, col, stroke=6, sc=(10, 10, 16))
+    base.alpha_composite(img.resize(base.size, Image.LANCZOS))
 
 # ================================================================ frames
 def base_frame(t, cast=True, r=1):
@@ -771,7 +775,7 @@ def base_frame(t, cast=True, r=1):
 def frame(n):
     t = n / FPS
     img, seg = base_frame(t)
-    ov = overlays(t, seg)
+    ov = overlays(t, seg) if t < T_CARD else None
     if ov is not None: img.alpha_composite(ov.resize((W, H), Image.LANCZOS))
     if t >= T_CARD: end_card(img, t)
     else: captions(img, t, W / 2, CAP_Y)
@@ -856,6 +860,8 @@ def build_audio(voice, out_wav):
         add(LS[L(6)[4]], sfx.crash(), .25)
     if NSC > 7:
         add(LS[L(7)[1]] + .1, sfx.buzzer(.3), .3); add(LS[L(7)[9]], sfx.ding(1046, .9), .2)
+    if not HAS_END:
+        add(END_T + .4, sad_trombone(), .5); add(T_CARD, sfx.sparkle(), .4)
     if HAS_END:
         add(LS[L(8)[5]] + .1, bell(), .4); add(LE[L(8)[5]] + .1, sad_trombone(), .5); add(T_CARD, sfx.sparkle(), .4)
     fxa = np.zeros(n + SR * 4)
@@ -896,7 +902,7 @@ def finish_mix(mixd, SR, out_wav):
 # ================================================================ Shorts (vertical, stacked layout)
 SHORTS = {1: dict(scenes=[3, 4, 1], hook='Is 0-60 really from zero?', q=('Should 0-60 start', 'at zero?'), name='rollout'),
           2: dict(scenes=[6, 5], hook='Why does this EV have an exhaust?', q=('Fake exhaust sound:', 'yes or no?'), name='fratzonic'),
-          3: dict(scenes=[7, 2, 8], hook='"Full Self-Driving"... read the name', q=('Which claim', 'annoyed you most?'), name='fsd')}
+          3: dict(scenes=[7, 2, 0, 8], hook='"Full Self-Driving"... read the name', q=('Which claim', 'annoyed you most?'), name='fsd')}
 def short_segments(n):
     out = []
     for i, s in enumerate(SHORTS[n]['scenes']):
