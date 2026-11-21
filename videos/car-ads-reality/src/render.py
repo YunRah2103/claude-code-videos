@@ -608,10 +608,6 @@ def parody_ad(t, sc):
         d.text(1440, 520, l2, 120 * k2 * wob, TAG, stroke=10, sc=INK)
         tw = font(int(120 * K)).getlength(l2) / K
         asterisk(d, 1440 + tw / 2 + 30, 460, 18 + 8 * sc, t, face=sc >= 3)   # the asterisk grows every ad
-    ka = popin(t, a0 + 1.1, .3)
-    if ka > .05:
-        d.rect(1180, 650, 1700, 720, (255, 255, 255, 230), r=34)
-        d.text(1440, 685, SCN[sc]['brand'] + ' · ' + ('BUY NOW!' if sc % 2 else 'AMAZING!'), 40 * ka, INK)
     d.rect(40, 40, 330, 104, (0, 0, 0, 150), r=12); d.text(185, 72, 'PARODY AD', 34, (255, 255, 255))
     fsz = 11 + sc * 2                                        # the fine print strip, bigger every time
     d.rect(0, 1080 - fsz * 3.2, W, 1080, (255, 255, 255, 200))
@@ -925,13 +921,16 @@ def short_frame(n, ts):
     img = Image.new('RGBA', (SW * K, SH * K), (16, 14, 24, 255)); d = D(img)
     seg = seg_at(t)
     base, _ = base_frame(t, r=K)
-    crop = base.crop((440 * K, 0, 1480 * K, 1080 * K)).resize((1080 * K, 1122 * K), Image.LANCZOS)
-    img.alpha_composite(crop, (0, 600 * K))
+    if seg[0] == 'ad' and not any(c - TR / 2 <= t < c + TR / 2 for c in CUTS):   # show the whole parody ad, letterboxed
+        img.alpha_composite(base.resize((1080 * K, 608 * K), Image.LANCZOS), (0, 820 * K))
+    else:
+        crop = base.crop((440 * K, 0, 1480 * K, 1080 * K)).resize((1080 * K, 1122 * K), Image.LANCZOS)
+        img.alpha_composite(crop, (0, 600 * K))
     sc = seg[1]
     img.paste(grad(SW * K, 600 * K, (40, 30, 70), (16, 14, 24)), (0, 0))
     d.text(SW / 2, 120, SHORTS[n]['hook'], 58, TAG, stroke=6, sc=(10, 10, 16)) if font(58 * K).getlength(SHORTS[n]['hook']) / K < 1000 \
         else d.text(SW / 2, 120, SHORTS[n]['hook'], 46, TAG, stroke=6, sc=(10, 10, 16))
-    if sc < 8:
+    if sc < 8 and seg[0] == 'loc' and t >= LS[lines_of(sc)[0]] - .3:
         l = lines_of(sc); fl = SCN[sc]['fact_line']
         card(d, 50, 200, 980, SCN[sc]['says'][0], [SCN[sc]['says'][1]], (40, 120, 220), 1.0, oc(prog(t, LS[l[0]] - .3, .3)))
         if fl in LS and t >= LS[fl] - .05:
