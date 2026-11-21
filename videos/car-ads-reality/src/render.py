@@ -907,7 +907,7 @@ def short_segments(n):
     out = []
     for i, s in enumerate(SHORTS[n]['scenes']):
         if s not in LOC or not lines_of(s): continue
-        a = LS[lines_of(s)[0]] - .35 if i == 0 or s not in AD else AD[s][0] - .1
+        a = max(0.0, LS[lines_of(s)[0]] - .35 if i == 0 or s not in AD else AD[s][0] - .1)
         b = (AD[s + 1][0] if s + 1 in AD else LE[lines_of(s)[-1]] + .6)
         if s == 8: b = END_T + .5
         out.append((a, b))
