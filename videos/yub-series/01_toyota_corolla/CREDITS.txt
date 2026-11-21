@@ -1,0 +1,24 @@
+CREDITS — 01_toyota_corolla
+All photos and logos from Wikimedia Commons, downloaded via Special:FilePath. Logos are trademarks of their owners;
+used here to identify the real brand being discussed. Cartoon characters, sets and oddities are original drawings.
+Background music: user-supplied track ('it was never about the brand').
+
+toyota_logo.png
+  File: https://commons.wikimedia.org/wiki/File:Toyota_carlogo.svg
+  Author: Toyota Motor Corporation
+  License: PD-textlogo
+
+corolla_2021_le.jpg
+  File: https://commons.wikimedia.org/wiki/File:2021_Toyota_Corolla_LE,_Front_Right,_10-19-2020.jpg
+  Author: SsmIntrigue
+  License: cc-by-sa-4.0 (own work)
+
+corolla_2020_se.jpg
+  File: https://commons.wikimedia.org/wiki/File:2020_Toyota_Corolla_SE,_front_2.29.20.jpg
+  Author: Kevauto
+  License: cc-by-sa-4.0 (own work)
+
+corolla_1968.jpg
+  File: https://commons.wikimedia.org/wiki/File:1968_Toyota_Corolla_1100_Deluxe.jpg
+  Author: TTTNIS
+  License: cc-zero (own work)

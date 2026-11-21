@@ -1,0 +1,29 @@
+CREDITS — 02_mach_e
+All photos and logos from Wikimedia Commons, downloaded via Special:FilePath. Logos are trademarks of their owners;
+used here to identify the real brand being discussed. Cartoon characters, sets and oddities are original drawings.
+Background music: user-supplied track ('it was never about the brand').
+
+ford_logo.png
+  File: https://commons.wikimedia.org/wiki/File:Ford_Motor_Company_Logo.svg
+  Author: author
+  License: PD-textlogo
+
+mache_2021_red.jpg
+  File: https://commons.wikimedia.org/wiki/File:2021_Ford_Mustang_Mach-E.jpg
+  Author: DestinationFearFan
+  License: cc-by-sa-4.0 (own work)
+
+mache_2021_show.jpg
+  File: https://commons.wikimedia.org/wiki/File:2021_Mustang_Mach-E_Red_Ford.jpg
+  Author: MrWalkr
+  License: cc-by-sa-4.0 (own work)
+
+mache_2022_black.jpg
+  File: https://commons.wikimedia.org/wiki/File:2022_Ford_Mustang_Mach-E_Performance_Extended_Range.jpg
+  Author: Calreyn88
+  License: cc-by-sa-4.0 (own work)
+
+mustang_1965.jpg
+  File: https://commons.wikimedia.org/wiki/File:1965_Ford_Mustang_2D_Hardtop_Front.jpg
+  Author: Kroelleboelle
+  License: GFDL, cc-by-sa-3.0,2.5,2.0,1.0 (own work)

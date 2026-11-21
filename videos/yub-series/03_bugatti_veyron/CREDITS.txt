@@ -1,0 +1,24 @@
+CREDITS — 03_bugatti_veyron
+All photos and logos from Wikimedia Commons, downloaded via Special:FilePath. Logos are trademarks of their owners;
+used here to identify the real brand being discussed. Cartoon characters, sets and oddities are original drawings.
+Background music: user-supplied track ('it was never about the brand').
+
+bugatti_logo.png
+  File: https://commons.wikimedia.org/wiki/File:Bugatti_logo.svg
+  Author: Bugatti
+  License: PD-textlogo
+
+veyron_front.jpg
+  File: https://commons.wikimedia.org/wiki/File:2005_Bugatti_Veyron_16.4_2.jpg
+  Author: Calreyn88
+  License: cc-by-sa-4.0 (own work)
+
+veyron_side.jpg
+  File: https://commons.wikimedia.org/wiki/File:2005_Bugatti_Veyron_16.4.jpg
+  Author: Calreyn88
+  License: cc-by-sa-4.0 (own work)
+
+veyron_rear.jpg
+  File: https://commons.wikimedia.org/wiki/File:2005_Bugatti_Veyron_16.4_3.jpg
+  Author: Calreyn88
+  License: cc-by-sa-4.0 (own work)

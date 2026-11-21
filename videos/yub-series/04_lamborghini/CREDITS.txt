@@ -1,0 +1,29 @@
+CREDITS — 04_lamborghini
+All photos and logos from Wikimedia Commons, downloaded via Special:FilePath. Logos are trademarks of their owners;
+used here to identify the real brand being discussed. Cartoon characters, sets and oddities are original drawings.
+Background music: user-supplied track ('it was never about the brand').
+
+lamborghini_logo.png
+  File: https://commons.wikimedia.org/wiki/File:Lamborghini_-_logo_wordmark+payoff_(Italy,_1963-).svg
+  Author: Self made
+  License: PD-textlogo, Trademarked
+
+tractor_1965.jpg
+  File: https://commons.wikimedia.org/wiki/File:1965_Lamborghini_2R_Tractor_(46205599714).jpg
+  Author: David Merrett from Daventry, England
+  License: cc-by-2.0
+
+tractor_1951.jpg
+  File: https://commons.wikimedia.org/wiki/File:Lamborghini_22PS_1951.jpg
+  Author: Späth Chr. (user ChiemseeMan)
+  License: PD-self
+
+350gt_1965.jpg
+  File: https://commons.wikimedia.org/wiki/File:1965_Lamborghini_350_GT.jpg
+  Author: MrWalkr
+  License: cc-by-sa-4.0 (own work)
+
+350gt_blue.jpg
+  File: https://commons.wikimedia.org/wiki/File:1965_Lamborghini_350_GT_in_Blu_Notte,_front_left.jpg
+  Author: Mr.choppers
+  License: cc-by-sa-3.0, GFDL (own work)
