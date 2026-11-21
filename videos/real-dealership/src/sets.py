@@ -6,7 +6,7 @@ from engine import *
 FLOOR_Y, CEIL_Y = 1000, 210                     # back wall spans CEIL_Y..FLOOR_Y
 BX0, BX1 = 110, 970                             # back wall left/right edge
 VP = (459, 640)
-SCREEN = (209, 400, 500, 270)                   # x0, y0, w, h of the back-wall screen
+SCREEN = (174, 430, 570, 372)                   # x0, y0, w, h of the framed photo on the back wall
 CAR_GROUND = 1085
 
 def lerp(a, b, k): return a + (b - a) * k
@@ -115,9 +115,23 @@ def sheen(img, x0, y0, w, h, a=34):
     """Diagonal glass reflection across a screen (cached mask)."""
     img.paste((255, 255, 255), (int(x0 * K), int(y0 * K)), _sheen(w, h, a))
 
-def screen_slot(d, glow=(0, 0, 0, 0)):
+def screen_slot(d, glow=None, frame=(58, 40, 28), lip=(206, 170, 96), mat=(246, 244, 238)):
+    """Picture frame: drop shadow, thick moulding with a gilt lip, white mat; brass picture light above."""
     x0, y0, w, h = SCREEN
-    screen_frame(d, x0, y0, x0 + w, y0 + h, glow=glow)
+    d.rect(x0 - 40, y0 - 36, x0 + w + 52, y0 + h + 52, (0, 0, 0, 60), r=6)
+    d.rect(x0 - 46, y0 - 46, x0 + w + 46, y0 + h + 46, frame, r=4)
+    d.rect(x0 - 34, y0 - 34, x0 + w + 34, y0 + h + 34, None, r=3, ol=lip, w=5)
+    d.rect(x0 - 26, y0 - 26, x0 + w + 26, y0 + h + 26, mat)
+    d.rect(x0 - 3, y0 - 3, x0 + w + 3, y0 + h + 3, shade(mat, .8))
+    d.rect(CX - 70, y0 - 74, CX + 70, y0 - 60, (176, 140, 70), r=7); d.line([(CX, y0 - 60), (CX, y0 - 46)], (150, 120, 60), 5)
+
+@lru_cache(None)
+def _picture_light():
+    x0, y0, w, h = SCREEN
+    m = Image.new('L', (int(w * K), int(h * K)), 0); ImageDraw.Draw(m).ellipse((-w * .1 * K, -h * .55 * K, w * 1.1 * K, h * .55 * K), fill=46)
+    return m.filter(ImageFilter.GaussianBlur(30 * K))
+def picture_light(img):
+    img.paste((255, 244, 214), (int(SCREEN[0] * K), int(SCREEN[1] * K)), _picture_light())
 
 def plant(d, x, fy, s=1.0, pot=(236, 236, 236)):
     d.poly([(x - 34 * s, fy - 80 * s), (x + 34 * s, fy - 80 * s), (x + 26 * s, fy), (x - 26 * s, fy)], pot, shade(pot, .7), 3)
@@ -148,3 +162,53 @@ def light_cone(img, cx, top, w0, w1, bottom, a=46, col=(255, 248, 230)):
 
 def contact_shadow(img, x, fy, w=150, a=70):
     d = D(img); d.ell(x, fy - 4, w / 2, 18, (0, 0, 0, a))
+
+
+# ---- dealership life: background staff and customers, balloons, bunting
+STAFF = {}
+def staff(key, suit, shirt='f7f7fa', tie=None, skin='f0c9a8', hair='3a2a20', style='part', glasses=False):
+    STAFF[key] = cast(skin, hair, suit, shirt=shirt, tie=tie, style=style, glasses=glasses, badge=True)
+staff('tstaff1', '1a1a1e', shirt='141416', skin='c58c64', hair='1a1a1a'); staff('tstaff2', '2a2c32', shirt='141416', skin='f2d0b0', hair='b04a2a', style='messy')
+staff('ystaff1', 'b0182a', shirt='f7f7fa', skin='8d5a3b', hair='111014'); staff('ystaff2', '3a3e48', tie='c81428', skin='f0c9a8', hair='603018', glasses=True)
+
+def who(k): return STAFF.get(k) or NPC[k]
+
+def crowd(img, t, spec):
+    """spec: (kind, cast key, x, fy, scale, arg). kinds: walk (arg=(x1, period)), browse (arg=look), talk (arg=look), phone."""
+    for i, (kind, key, x, fy, s, arg) in enumerate(spec):
+        ph = t + i * 1.7
+        if kind == 'walk':
+            x1, per = arg
+            u = (ph % per) / per; fwd = u < .5; k = io(u * 2 if fwd else 2 - u * 2)
+            xx = x + (x1 - x) * k
+            st = walkst(ph, 9, lp='rest', rp='rest', look=(1 if (x1 > x) == fwd else -1))
+            npc(img, xx, fy, s, who(key), st)
+        elif kind == 'browse':
+            st = mk('rest', 'point' if (ph % 6) < 1.6 else 'rest', look=arg, brows='up'); st['blink'] = (ph % 3.9) < .12
+            st['dy'] = math.sin(ph * 1.3) * 2
+            npc(img, x, fy, s, who(key), st)
+        elif kind == 'talk':
+            g = int(ph / 1.4) % 3
+            st = mk(['open', 'rest', 'clasp'][g], ['rest', 'open', 'clasp'][g], look=arg, smile=1,
+                    mouth=(.5 + .5 * math.sin(ph * 15)) if (ph % 3) < 1.8 else 0.0)
+            st['blink'] = (ph % 3.4) < .12; st['dy'] = math.sin(ph * 2) * 2
+            npc(img, x, fy, s, who(key), st)
+        elif kind == 'phone':
+            st = mk('rest', (-46, -128), prop={'rpose': 'phone'}, look=arg, mouth=(.5 + .5 * math.sin(ph * 17)) if (ph % 3.1) < 1.9 else 0.0)
+            st['blink'] = (ph % 4.1) < .12
+            npc(img, x, fy, s, who(key), st)
+
+def bunting(d, y0, cols, x0=0, x1=W, n=14, sag=26):
+    pts = [(x0 + (x1 - x0) * i / n, y0 + sag * math.sin(math.pi * i / n)) for i in range(n + 1)]
+    d.line(pts, (90, 90, 96), 2)
+    for i in range(n):
+        (ax, ay), (bx, by) = pts[i], pts[i + 1]
+        d.poly([(ax + 3, ay), (bx - 3, by), ((ax + bx) / 2, (ay + by) / 2 + 34)], cols[i % len(cols)])
+
+def balloons(d, x, fy, t, cols, s=1.0):
+    for i, (dx, dy, c) in enumerate(((-26, -250, 0), (22, -270, 1), (0, -310, 2), (-40, -300, 1), (34, -320, 0))):
+        bx = x + dx * s + 6 * math.sin(t * 1.3 + i); by = fy + dy * s + 5 * math.sin(t * 1.7 + i * 2)
+        d.line([(x, fy), (bx, by + 34 * s)], (120, 120, 126), 2)
+        d.ell(bx, by, 26 * s, 32 * s, cols[c % len(cols)], shade(cols[c % len(cols)], .7), 2)
+        d.ell(bx - 9 * s, by - 11 * s, 6 * s, 8 * s, (255, 255, 255, 120))
+    d.rect(x - 14, fy - 10, x + 14, fy, (80, 80, 86), r=3)

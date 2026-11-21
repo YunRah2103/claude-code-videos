@@ -59,11 +59,11 @@ EV_T = dict(ceil=(240, 246, 242), light=(250, 255, 252), wall=((238, 248, 242), 
             floor=((204, 212, 208), (238, 242, 240)), gloss=.33)
 
 def eggs(img, d):
-    d.rect(118, 420, 200, 560, (120, 96, 60), r=4); d.rect(124, 426, 194, 554, (252, 250, 244), r=2)
-    d.text(159, 438, 'EMPLOYEE', 11, (30, 30, 34), path=FONT_X); d.text(159, 452, 'OF THE MONTH', 9, (30, 30, 34), path=FONT_X)
-    display(img, 'corolla.jpg', 128, 466, 62, 80, 0, 0, drift=0)
-    d = D(img); d.rect(770, 450, 920, 530, (200, 170, 100), r=8, ol=(120, 96, 50), w=4)
-    d.text(845, 474, 'SINCE', 20, (60, 44, 20), path=FONT_X); d.text(845, 504, '1937', 30, (60, 44, 20))
+    d.rect(822, 396, 904, 536, (120, 96, 60), r=4); d.rect(828, 402, 898, 530, (252, 250, 244), r=2)
+    d.text(863, 414, 'EMPLOYEE', 11, (30, 30, 34), path=FONT_X); d.text(863, 428, 'OF THE MONTH', 9, (30, 30, 34), path=FONT_X)
+    display(img, 'corolla.jpg', 832, 442, 62, 80, 0, 0, drift=0)
+    d = D(img); d.rect(798, 600, 928, 676, (200, 170, 100), r=8, ol=(120, 96, 50), w=4)
+    d.text(863, 622, 'SINCE', 18, (60, 44, 20), path=FONT_X); d.text(863, 652, '1937', 28, (60, 44, 20))
 
 def reception(img, x, fy):
     d = D(img)
@@ -77,7 +77,7 @@ def lc_window(img):
     d.rect(72, 252, 848, 708, (236, 236, 238)); d.rect(72, 560, 848, 708, (214, 214, 216))
     for x in range(72, 848, 90): d.line([(x, 560), (x - 30, 708)], (226, 226, 228), 2)
     d.rect(72, 252, 848, 300, (250, 250, 250)); paste_logo(img, 'logo.png', 460, 330, 28)
-    place_car(img, 'landcruiser', 470, 690, 560, refl=.2)
+    display(img, 'landcruiser_full.jpg', 72, 252, 776, 456, 0, 0, drift=0)
     lay = Image.new('L', img.size, 0); ld = ImageDraw.Draw(lay)                                  # window glass reflections
     for x0_, w_ in ((180, 120), (560, 60), (700, 40)):
         ld.polygon([((x0_) * K, 252 * K), ((x0_ + w_) * K, 252 * K), ((x0_ + w_ - 200) * K, 708 * K), ((x0_ - 200) * K, 708 * K)], fill=40)
@@ -88,26 +88,18 @@ def lc_window(img):
 def bg(kind):
     if kind in ('show', 'night'):
         img = room(SHOW); d = D(img)
-        d.rect(BX0, CEIL_Y, BX1, CEIL_Y + 18, TRED)
+        d.rect(BX0, CEIL_Y, BX1, CEIL_Y + 18, TRED); bunting(d, 230, [TRED, (255, 255, 255), (200, 200, 206)], BX0, BX1, 12, 34)
         screen_slot(d, glow=(236, 236, 238)); eggs(img, d)
-        paste_logo(img, 'logo.png', CX, 368, 30)
-        place_car(img, 'bz4x', 40, 1040, 330, refl=.25)                                         # second car, further back
+        paste_logo(img, 'logo.png', CX, 920, 34)
         d = D(img); reception(img, 980, 1120); plant(D(img), 1050, 1240, .8, (250, 250, 250))
-        d = D(img); turntable(d, CX, CAR_GROUND, 780, rim=(235, 10, 30), top=(228, 228, 232))
-        light_cone(img, CX, CEIL_Y, 60, 380, CAR_GROUND, 40)
-        place_car(img, 'corolla', CX, CAR_GROUND, 740)
         if kind == 'night':
             arr = np.array(img).astype(np.float32) * np.array([0.42, 0.46, 0.62]); img = Image.fromarray(arr.astype(np.uint8))
-            light_cone(img, CX, CEIL_Y, 40, 300, CAR_GROUND, 50, (200, 210, 255))
         return img
     if kind == 'gr':
         img = room(GR_T); d = D(img)
         for i in range(6): d.poly([(BX0 + i * 150, FLOOR_Y), (BX0 + 70 + i * 150, CEIL_Y), (BX0 + 100 + i * 150, CEIL_Y), (BX0 + 30 + i * 150, FLOOR_Y)], (44, 44, 48))
         d.rect(BX0, 700, BX1, 712, TRED); d.rect(BX0, CEIL_Y, BX1, CEIL_Y + 14, TRED)
-        screen_slot(d, glow=(90, 14, 20)); d.text(CX, 368, 'GAZOO RACING', 30, (240, 240, 244), path=FONT_X)
-        d = D(img); turntable(d, CX, CAR_GROUND, 780, rim=TRED, top=(34, 34, 38))
-        light_cone(img, CX - 200, 0, 40, 260, CAR_GROUND, 58); light_cone(img, CX + 200, 0, 40, 260, CAR_GROUND, 58)
-        place_car(img, 'supra', CX, CAR_GROUND, 780, refl=.42)
+        screen_slot(d, glow=(90, 14, 20)); d.text(CX, 920, 'GAZOO RACING', 34, (240, 240, 244), path=FONT_X)
         return img
     if kind == 'twins':
         img = room(TWIN_T); d = D(img)
@@ -116,18 +108,12 @@ def bg(kind):
         for i in range(6): d.text(CX + 300 + (i % 3) * 40, 760 + (i // 3) * 40, '*', 50, (255, 255, 255))
         screen_slot(d, glow=(250, 250, 250)); paste_logo(img, 'logo_sym.png', 200, 780, 60)
         d = D(img)
-        for cx_ in (290, 640): turntable(d, cx_, CAR_GROUND, 380, rim=(250, 250, 250), top=(60, 60, 66))
-        place_car(img, 'gr86', 290, CAR_GROUND, 340); place_car(img, 'brz', 640, CAR_GROUND, 350)
         return img
     if kind == 'ev':
         img = room(EV_T); d = D(img)
         d.rect(BX0, CEIL_Y, BX1, CEIL_Y + 16, (60, 190, 120))
-        screen_slot(d, glow=(220, 240, 228)); d.text(CX, 368, 'ELECTRIFIED', 30, (40, 120, 80), path=FONT_X)
-        d = D(img); d.rect(880, 880, 950, 1100, (250, 250, 250), r=14, ol=(120, 170, 140), w=4); d.rect(895, 910, 935, 950, (60, 190, 120), r=6)
-        d.line([(915, 1000), (870, 1080), (790, 1060)], (40, 44, 48), 7)                                               # charger + cable
-        turntable(d, CX, CAR_GROUND, 780, rim=(60, 190, 120), top=(226, 232, 228))
-        light_cone(img, CX, CEIL_Y, 60, 380, CAR_GROUND, 40)
-        place_car(img, 'bz4x', CX - 10, CAR_GROUND, 740)
+        screen_slot(d, glow=(220, 240, 228)); d.text(CX, 920, 'ELECTRIFIED', 34, (40, 120, 80), path=FONT_X)
+        d = D(img); d.rect(940, 880, 1010, 1100, (250, 250, 250), r=14, ol=(120, 170, 140), w=4); d.rect(955, 910, 995, 950, (60, 190, 120), r=6)
         d = D(img); plant(d, 40, 1260, .9)
         return img
     if kind == 'street':
@@ -208,9 +194,9 @@ def queue(img, t):
         npc(img, x, 1000, .36, NPC[key], st)
 
 def scr(img, seq, t, t0):
-    show_seq(img, seq, DISP, t, t0); sheen(img, *DISP)
+    show_seq(img, seq, DISP, t, t0); picture_light(img); sheen(img, *DISP)
 
-def behind(img, t, sc):
+def _behind(img, t, sc):
     if sc == 1:
         scr(img, [(0, 'corolla.jpg')], t, 0); cow(img, 130, 1250, t, .5)
     elif sc == 2:
@@ -237,6 +223,17 @@ def behind(img, t, sc):
         cow(img, 130, 1250, t, .5, asleep=True)
     elif sc == 8:
         scr(img, [(0, 'corolla.jpg')], t, SC[8]); cow(img, 130, 1250, t, .5)
+
+LIFE = {1: [('talk', 'ystaff2', 210, 1030, .34, 1), ('browse', 'cust1', 290, 1036, .32, -1), ('walk', 'cust3', 340, 1012, .3, (700, 15)),
+            ('phone', 'ystaff1', 860, 1030, .34, -1)],
+        8: [('talk', 'ystaff2', 210, 1030, .34, 1), ('browse', 'cust4', 290, 1036, .32, -1), ('walk', 'cust2', 700, 1012, .3, (330, 13))],
+        2: [('browse', 'cust4', 150, 1030, .33, 1), ('talk', 'ystaff1', 800, 1030, .34, -1), ('browse', 'cust2', 870, 1036, .32, -1)],
+        3: [('browse', 'cust3', 150, 1030, .32, 1), ('walk', 'cust1', 300, 1012, .3, (650, 13)), ('browse', 'cust4', 840, 1034, .32, -1)],
+        4: [('browse', 'cust2', 160, 1030, .32, 1), ('talk', 'ystaff2', 800, 1030, .34, -1)]}
+def behind(img, t, sc):
+    _behind(img, t, sc)
+    crowd(img, t, LIFE.get(sc, []))
+    if sc in (1, 8): balloons(D(img), 60, 1150, t, [TRED, (250, 250, 250), (200, 200, 208)])
 
 def front(img, t, sc):
     if sc == 4: wheel_roll(img, t)
@@ -295,8 +292,8 @@ def overlays(img, t):
     a = window(t, T_BUMPER - .05, SC[4], .1, .3)
     if a > 0:
         used = True; d = D(img); k = popin(t, T_BUMPER - .05, .3)
-        for bx_, by_ in ((262, 1040), (660, 1050)):
-            d.ell(bx_, by_, 95 * k, 34 * k, None, (255, 230, 40, int(255 * a)), 8)
+        for bx_, by_ in ((288, 632), (630, 636)):
+            d.ell(bx_, by_, 72 * k, 26 * k, None, (255, 230, 40, int(255 * a)), 8)
         d.text(CX, 760, 'SPOT THE DIFFERENCE', 44 * k + 1, (255, 255, 255, int(255 * a)), stroke=7, sc=(10, 10, 16, int(255 * a)))
     a = window(t, T_BZ4X - .05, LS[26], .1, .3)
     if a > 0:

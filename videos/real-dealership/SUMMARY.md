@@ -6,25 +6,25 @@ confession, and a deflated closing line. 1080x1920 @30 fps, word-by-word caption
 looped under the dialogue (ducked), synthesised SFX, mixed to -14 LUFS. Real car photos and logos from Wikimedia Commons
 (see each CREDITS.txt). One Gemini TTS generation per video, no 429s.
 
-**v2 (quality pass):** every showroom is now a full one-point-perspective dealership — light-panel ceiling, side walls with
-street windows, glossy tiled floor mirroring the back wall, brand fascia, desks/kiosks/plants/reception — and the hero cars
-are the **real photos cut out** (hand-traced outline + colour matting, `src/cutout.py`) standing on turntables with mirrored
-floor reflections, contact shadows and ceiling light cones. Screens get a glass sheen; characters get contact shadows;
-captions moved to the top so the cars stay visible.
+**v3 (quality pass):** full, busy dealerships: one-point-perspective showrooms (light-panel ceiling, street windows,
+glossy tiled floor mirroring the back wall), brand signage, desks/kiosks/reception/plants, background staff and customers
+who talk, browse and walk around, balloons and bunting at Toyota. Each scene's real car photo hangs as a large **framed picture**
+on the back wall (moulded frame, gilt lip, mat, brass picture light, glass glare). Captions sit at the top; characters have
+contact shadows. (A cut-out-cars version was dropped: the photo angles never sat right on a drawn floor.)
 
 ## 01 — The real Tesla dealership experience (~107.5 s)
 Salesman: charcoal zip jacket over a black tee, red T badge, deadpan Californian tech-bro (Orus).
 
 | # | Scene / location | Real car or photo shown |
 |---|---|---|
-| 1 | Tesla "gallery" showroom | Real Model Y (2025, white) on a turntable + Model 3 Highland behind; Model Y (red) on the screen; Tesla T logo |
-| 2 | Cybertruck bay (stainless panels) | Real Cybertruck on the floor; Cyberbeast on the screen; cutaway: stainless body |
-| 3 | Gallery, interior display | Real Model 3 Highland Performance on the floor; cabin, touchscreen and Model 3 on the screen; cutaway: Model 3 cabin |
+| 1 | Tesla "gallery" showroom | Framed photo: Model Y (Ultra Red); staff and customers, design kiosk; Tesla T logo |
+| 2 | Cybertruck bay (stainless panels) | Framed photo: Cybertruck Cyberbeast; cutaway: stainless body |
+| 3 | Gallery, interior display | Framed photo: Model 3 cabin, touchscreen, Model 3 Highland; cutaway: Model 3 cabin |
 | 4 | Test drive (cabin, road in the rear window) | Model 3 Highland on the car's centre screen |
 | 5 | Parked at the kerb | Cutaway: Tesla flush door handle (Model S) |
-| 6 | Roadster "Coming soon" stage | Real Roadster (2nd gen prototype) on a spotlit turntable |
-| 7 | Confession: the "dealership" is his garage | His Model Y parked in the garage; Model Y printout taped to the wall |
-| 8 | Driveway, closing | Model Y on the driveway; Model 3 Highland on an "ORDER ONLINE" billboard |
+| 6 | Roadster "Coming soon" stage | Framed photo: Roadster (2nd gen prototype); onlookers behind a velvet rope |
+| 7 | Confession: the "dealership" is his garage | Model Y printout taped to the garage wall |
+| 8 | Driveway, closing | Model 3 Highland on an "ORDER ONLINE" billboard |
 
 - **Running gag:** everything is "in the app" — 6 times (lines 2, 6, 21, 43, 49, 50), each with the salesman holding out a glowing phone and a notification ding. Pay-off: "A guy who really likes the app."
 - **Twist:** "I don't work for Tesla... Tesla sells direct. This is my garage." — the camera pulls back from the white gallery into a breeze-block garage with a cardboard TESLA DEALERSHIP sign and a lawn mower.
@@ -39,14 +39,14 @@ Salesman: grey suit, red tie, Toyota badge, calm and polite with a light Japanes
 
 | # | Scene / location | Real car or photo shown |
 |---|---|---|
-| 1 | Toyota showroom | Real Corolla (2024) on a turntable, bZ4X behind, reception desk; Corolla on the screen; Toyota logo |
-| 2 | GR stage (black/red) | Real GR Supra (2025) under spotlights; cutaway: engine bay (BMW B58); screen split Supra / BMW Z4 M40i |
-| 3 | Twins corner (Toyota red / Subaru blue wall) | Real GR86 and Subaru BRZ side by side on turntables; GR86, then twins photo on the screen |
-| 4 | Electrified corner | Real bZ4X next to a charger; bZ4X on the screen; cartoon wheel rolls across the floor |
-| 5 | Outside the dealership, queue | Real Land Cruiser 300 displayed behind the showroom window |
+| 1 | Toyota showroom | Framed photo: Corolla (2024); staff, customers, reception, balloons, bunting; Toyota logo |
+| 2 | GR stage (black/red) | Framed photo: GR Supra (2025), then split Supra / BMW Z4 M40i; cutaway: engine bay (BMW B58) |
+| 3 | Twins corner (Toyota red / Subaru blue wall) | Framed photo: GR86, then GR86 + Subaru BRZ side by side (bumpers circled) |
+| 4 | Electrified corner | Framed photo: bZ4X; charger; cartoon wheel rolls across the floor |
+| 5 | Outside the dealership, queue | Land Cruiser 300 photo seen through the showroom window |
 | 6 | Prius test drive (cabin) | Prius (2023) on the centre screen; cutaway: Prius (2023) |
-| 7 | After hours, confession | Real Corolla on the floor (lights dimmed); screen: 1998–2000 Corolla (his car), flash of the Supra |
-| 8 | Showroom, closing | Real Corolla on the turntable |
+| 7 | After hours, confession | Lights dimmed; framed photo: 1998–2000 Corolla (his car), flash of the Supra |
+| 8 | Showroom, closing | Framed photo: Corolla |
 
 - **Running gag:** "Have you considered a Corolla?" — 3 times (lines 4, 16, 31), each with the Corolla card sliding in and a chime; the Corolla is also the employee of the month. Pay-off: his own car.
 - **Twist:** "What do you drive?" — "A 1998 Corolla... I've been trying to kill it for years. It won't die." "Why kill it?!" "So I can buy a Supra. Too late now." (Consumer Reports No. 1 card)
