@@ -17,6 +17,7 @@ Dropped: the older 315 hp Golf R figure (pre-2025). The juggling octopus is a ca
 | Spoken / shown | Fact |
 |---|---|
 | three, hundred, fifteen, 315, six, 6 | 1 |
+| first ("Civic first!", not a number) | — |
 | forty, eight, thousand, $48,090, 48,090, 2026 | 2 |
 | twenty, 328 | 3 |
 | fifty, one, $50,730, 50,730 | 4 |

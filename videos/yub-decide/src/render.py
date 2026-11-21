@@ -1068,8 +1068,13 @@ def build_audio(voice, music, out_wav):
     mj = json.loads(r[r.rindex('{'):r.rindex('}') + 1])
     af = (f"loudnorm=I=-14:TP=-1.5:LRA=11:measured_I={mj['input_i']}:measured_TP={mj['input_tp']}:measured_LRA={mj['input_lra']}"
           f":measured_thresh={mj['input_thresh']}:offset={mj['target_offset']}")
-    subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', tmp, '-af', af, '-ar', '48000', '-ac', '2', out_wav], check=True)
-    os.remove(tmp)
+    subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', tmp, '-af', af, '-ar', '48000', '-ac', '2', tmp + '2.wav'], check=True)
+    # loudnorm can land short of target: trim the rest with a static gain, keeping >= 1.5 dB true-peak headroom
+    r = subprocess.run(['ffmpeg', '-hide_banner', '-nostats', '-i', tmp + '2.wav', '-af', 'ebur128=peak=true', '-f', 'null', '-'],
+                       capture_output=True, text=True).stderr
+    I = float(r.split('I:')[-1].split('LUFS')[0]); tp = float(r.split('Peak:')[-1].split('dBFS')[0])
+    subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', tmp + '2.wav', '-af', f'volume={min(-14.0 - I, -1.5 - tp):.2f}dB', out_wav], check=True)
+    os.remove(tmp); os.remove(tmp + '2.wav')
 
 def thumb(out, voice):
     """Thumbnail: the twist frame (no captions), darkened, with the car photo, brand logo and the hook in big type."""
