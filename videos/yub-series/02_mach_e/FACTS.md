@@ -18,7 +18,8 @@ Background oddity: a small horse plugged into a charging cable, battery icon fil
 | Spoken / shown | Fact |
 |---|---|
 | 2019 | 1 |
-| 55, fifty-five | 2 |
+| 55, fifty-five, first | 2 |
+| one | not a number claim ("This one hums") |
 | 1964, two, 1965 | 3 (1965 = photo year) |
 | 2021 | 1 (model year / photo) |
 | 480, 3.5, 0, 60, zero, sixty | 4 |
