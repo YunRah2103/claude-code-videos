@@ -10,14 +10,13 @@ footnote, the spec sheet and the test data.
 Which claim annoyed you the most? Tell us in the comments.
 
 0:00 "Starting at" (Ford Maverick)
-[chapter times to be filled in from the final render]
-"Up to 50 mpg" (Toyota Corolla Hybrid)
-America's Best Warranty (Hyundai)
-0-60 in 1.99 s (Tesla Model S Plaid)
-13,500 lbs towing (Ford F-150)
-320 miles of range (Ford F-150 Lightning)
-The Fratzonic exhaust (Dodge Charger Daytona)
-"Full Self-Driving" (Tesla)
+0:23 "Up to 50 mpg" (Toyota Corolla Hybrid)
+0:49 America's Best Warranty (Hyundai)
+1:14 0-60 in 1.99 s (Tesla Model S Plaid)
+1:45 13,500 lbs towing (Ford F-150)
+2:15 320 miles of range (Ford F-150 Lightning)
+2:50 The Fratzonic exhaust (Dodge Charger Daytona)
+3:23 "Full Self-Driving" (Tesla)
 
 SOURCES (each claim is phrased as "the ad says X, the spec sheet says Y"):
 - Ford, What's New: 2026 Ford Maverick: starting MSRP $28,145, excluding destination/delivery, taxes and fees
@@ -48,6 +47,6 @@ Zero to sixty in 1.99 seconds*. *Read the footnote. Should 0-60 start at zero?
 His electric Dodge is doing an impression of a car. Fake exhaust sound: yes or no?
 #Dodge #EV #FinePrint #CarTok
 
-=== SHORT 3: "Full Self-Driving... read the name" (Tesla FSD + Hyundai warranty + ending) ===
+=== SHORT 3: "Full Self-Driving... read the name" (Tesla FSD + Hyundai warranty + Maverick price) ===
 Full. Self. Driving. (Supervised.) Which claim annoyed you most?
 #Tesla #FSD #FinePrint #Cars
