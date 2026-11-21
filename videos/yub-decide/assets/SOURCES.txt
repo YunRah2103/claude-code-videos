@@ -1,0 +1,78 @@
+ct_front.jpg
+  File: 2024_Tesla_Cybertruck,_front_left,_07-27-2024.jpg
+  Source: https://commons.wikimedia.org/wiki/File:2024_Tesla_Cybertruck,_front_left,_07-27-2024.jpg
+  Author: [[User:Cutlass|Cutlass]]
+  License: CC-Zero
+
+ct_rear.jpg
+  File: 2024_Tesla_Cybertruck,_rear_left,_07-27-2024.jpg
+  Source: https://commons.wikimedia.org/wiki/File:2024_Tesla_Cybertruck,_rear_left,_07-27-2024.jpg
+  Author: [[User:Cutlass|Cutlass]]
+  License: CC-Zero
+
+rr_front.jpg
+  File: 2016_Land_Rover_Range_Rover_Vogue_(L_405_MY17)_wagon_(2018-11-29)_01.jpg
+  Source: https://commons.wikimedia.org/wiki/File:2016_Land_Rover_Range_Rover_Vogue_(L_405_MY17)_wagon_(2018-11-29)_01.jpg
+  Author: [[User:EurovisionNim|EurovisionNim]]
+  License: CC-BY-SA-4.0
+
+rr_rear.jpg
+  File: 2016_Land_Rover_Range_Rover_Vogue_(L_405_MY17)_wagon_(2018-11-29)_02.jpg
+  Source: https://commons.wikimedia.org/wiki/File:2016_Land_Rover_Range_Rover_Vogue_(L_405_MY17)_wagon_(2018-11-29)_02.jpg
+  Author: [[User:EurovisionNim|EurovisionNim]]
+  License: CC-BY-SA-4.0
+
+lr_badge.jpg
+  File: 2014_Canadian_International_AutoShow_0126_(12645465385).jpg
+  Source: https://commons.wikimedia.org/wiki/File:2014_Canadian_International_AutoShow_0126_(12645465385).jpg
+  Author: [https://www.flickr.com/people/39587684@N00 Lord of the Wings©] from Toronto, Canada
+  License: CC-BY-SA-2.0
+
+corolla.jpg
+  File: 2020_Toyota_Corolla_SE,_front_2.29.20.jpg
+  Source: https://commons.wikimedia.org/wiki/File:2020_Toyota_Corolla_SE,_front_2.29.20.jpg
+  Author: [[User:Kevauto|Kevauto]]
+  License: CC-BY-SA-4.0
+
+ctr_front.jpg
+  File: 2024_Honda_Civic_Type_R,_front_right,_06-15-2024.jpg
+  Source: https://commons.wikimedia.org/wiki/File:2024_Honda_Civic_Type_R,_front_right,_06-15-2024.jpg
+  Author: [[User:MercurySable99|MercurySable99]]
+  License: CC-BY-SA-4.0
+
+ctr_rear.jpg
+  File: 2024_Honda_Civic_Type_R,_rear_right,_06-15-2024.jpg
+  Source: https://commons.wikimedia.org/wiki/File:2024_Honda_Civic_Type_R,_rear_right,_06-15-2024.jpg
+  Author: [[User:MercurySable99|MercurySable99]]
+  License: CC-BY-SA-4.0
+
+gr_front.jpg
+  File: 2024_Volkswagen_Golf_R_in_Lapiz_Blue_Metallic,_front_right,_2024-12-31.jpg
+  Source: https://commons.wikimedia.org/wiki/File:2024_Volkswagen_Golf_R_in_Lapiz_Blue_Metallic,_front_right,_2024-12-31.jpg
+  Author: [[User:Elise240SX|Elise240SX]]
+  License: CC-BY-SA-4.0
+
+logo_tesla.png
+  File: Tesla_T_symbol.svg
+  Source: https://commons.wikimedia.org/wiki/File:Tesla_T_symbol.svg
+  Author: Tesla (logo), '''[[User:Fry1989|<span style="color:#003384;">Fry1989</span>]]''' <sup>'''[[User talk:Fry1989|<span style="color:#cc111a;">eh?</span></sup>]]''' (vectorization)
+  License: PD textlogo
+
+logo_honda.png
+  File: Honda.svg
+  Source: https://commons.wikimedia.org/wiki/File:Honda.svg
+  Author: {{unknown|author}}
+  License: PD textlogo
+
+logo_vw.png
+  File: Volkswagen_logo_2019.svg
+  Source: https://commons.wikimedia.org/wiki/File:Volkswagen_logo_2019.svg
+  Author: {{W|Volkswagen}}
+  License: PD textlogo
+
+logo_toyota.png
+  File: Toyota_carlogo.svg
+  Source: https://commons.wikimedia.org/wiki/File:Toyota_carlogo.svg
+  Author: Toyota Motor Corporation
+  License: PD textlogo
+
