@@ -111,19 +111,38 @@ PUB_POINTS = [((-4.8, 4.2, 1.5), (255, 190, 110), 7.0), ((-3.5, 1.8, -1.2), (255
 SHOW_POINTS = [((x, 5.0, z), (230, 236, 255), 8.0) for x in (-3, 3) for z in (-2, 2)] + [((2.5, 1.5, 4.0), (255, 200, 150), 5.0)]
 
 # ---------------------------------------------------------------- shots: (start time, fn(u, t, dt) -> dict)
+HAIR = np.float32(M.rgb((150, 92, 48)))
+def painter_at(tip_pos, **kw):
+    """Painter facing the car (-z), moved so the apex of his brush sits exactly on tip_pos."""
+    p = painter(**kw).rot("y", 180)
+    hair = np.all(np.abs(p.c - HAIR) < 1e-3, 1)
+    v = p.t[hair].reshape(-1, 3); c = v.mean(0)
+    apex = v[np.argmax(((v - c) ** 2).sum(1))]
+    return p.mv(*(np.float32(tip_pos) - apex))
+
 def sh_line_dolly(u, t, dt):
-    x = 2.4 - 2.4 * ease(u)
-    return dict(scene=workshop(t) + [M.phantom()], cam=Cam((x, 1.08, 1.75), (x - 1.6, 0.97, 1.0), 52))
+    """Hook: low hero shot of the Phantom's face, the gold coachline ignites front-to-back like a fuse."""
+    frac = min(1.0, 0.02 + 1.05 * ease(min(1, u / 0.85)))
+    tip = _tip(frac)
+    spark = cbox(tip, 0.985, 1.03, 0.09, 0.09, 0.09, (255, 245, 190), e=1.0).rot("y", t * 900, (tip, 0, 1.03))
+    e = ease(u)
+    eye = lerp((8.3, 0.38, 3.25), (6.7, 0.5, 2.65), e)
+    pts = [((tip, 1.3, 1.6), (255, 200, 90), 2.6), ((3.6, 1.0, 0.0), (255, 250, 230), 3.0), ((0, 4.5, 0), (210, 220, 255), 7.0)]
+    return dict(scene=workshop(t) + [M.phantom(line=frac), spark],
+                cam=Cam(eye, lerp((2.2, 1.0, 0.45), (2.45, 1.0, 0.3), e), 40, roll=-6 + 4 * e), points=pts, amb=0.3)
 
 def sh_front(u, t, dt):
-    a = math.radians(28 + 34 * u); r = 4.6 - 0.9 * u
-    eye = (2.6 + r * math.cos(a), 0.55 + 0.25 * u, r * math.sin(a))
-    return dict(scene=workshop(t) + [M.phantom()], cam=Cam(eye, (2.9, 0.95, 0.1), 50))
+    a = math.radians(-35 + 95 * ease(u)); r = 1.25 - 0.3 * u
+    eye = (2.98 + r * math.cos(a), 0.95 + 0.3 * u, r * math.sin(a))
+    pts = [((3.6, 2.2, 0.0), (255, 240, 210), 3.0), ((2.0, 1.0, 2.5), (150, 170, 255), 4.0)]
+    return dict(scene=workshop(t) + [M.phantom()], cam=Cam(eye, (3.0, 1.05, 0.0), 52, roll=6 - 10 * u), points=pts, amb=0.22)
 
 def sh_one_man(u, t, dt):
-    p = painter(ra=(70 + 10 * math.sin(t * 3), 10, 50), la=(0, 8, 10)).rot("y", 20).mv(0.6, 0, 1.9)
-    eye = (1.4 + 0.6 * u, 2.05, 6.2 - 1.4 * ease(u))
-    return dict(scene=workshop(t, odd=(1.2 - 3.0 * u, -3.4)) + [M.phantom(), p], cam=Cam(eye, (0.4, 1.2, 0.8), 50))
+    p = painter(ra=(115 + 8 * math.sin(t * 3), 18, 70), la=(0, 8, 10), head=(0, 8)).rot("y", 25).mv(0.6, 0, 1.9)
+    eye = (1.3 + 0.3 * u, 0.55 + 0.15 * u, 4.2 - 0.9 * ease(u))
+    pts = [((0.9, 2.6, 3.0), (255, 236, 190), 3.2), ((-1.5, 1.2, -3.0), (120, 140, 255), 5.0)]
+    return dict(scene=workshop(t, odd=(1.6 - 3.0 * u, -3.4)) + [M.phantom(), p], cam=Cam(eye, (0.5, 1.65, 1.6), 58),
+                points=pts, amb=0.3)
 
 def sh_name(u, t, dt):
     p = painter(head=(8, -4), ra=(20, 8, 60), la=(0, 6, 10)).mv(0, 0, 2.3)
@@ -349,6 +368,7 @@ def shot_at(t):
 def frame_lowres(t):
     i, u, dt = shot_at(t)
     d = SHOTS[i][1](u, t, dt)
+    if i and dt < 0.2: d["cam"].fov *= 1 + 0.18 * (1 - dt / 0.2) ** 2      # zoom punch on every cut
     return render(d["scene"], d["cam"], d.get("bg", WS_BG), fog=d.get("fog", WS_FOG), amb=d.get("amb", 0.36), dif=0.55,
                   light=d.get("light", (-0.4, 0.8, 0.45)), points=d.get("points", WS_POINTS))
 

@@ -234,7 +234,7 @@ def coachline(frac, wobble=0.0, sides=(1, -1), col=GOLD, seed=4):
             a = x0 + (xe - x0) * i / n; b = x0 + (xe - x0) * (i + 1) / n
             ya = 0.985 + wobble * 0.05 * wob[i]; yb = 0.985 + wobble * 0.05 * wob[i + 1]
             z = s * 1.012
-            out.append(quad((a, ya - 0.012, z), (b, yb - 0.012, z), (b, yb + 0.012, z), (a, ya + 0.012, z), col, e=0.35))
+            out.append(quad((a, ya - 0.012, z), (b, yb - 0.012, z), (b, yb + 0.012, z), (a, ya + 0.012, z), col, e=0.6))
     return cat(out)
 
 # ---------------------------------------------------------------- people
