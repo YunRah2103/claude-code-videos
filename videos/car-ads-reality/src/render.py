@@ -577,6 +577,13 @@ def bike(d, x, y, t):
     d.line([(x - 120, y + 30), (x - 30, y - 50), (x + 70, y - 50), (x + 120, y + 30)], (230, 50, 60), 9)
     d.line([(x - 30, y - 50), (x, y + 30), (x + 70, y - 50)], (230, 50, 60), 9)
     d.line([(x - 40, y - 74), (x - 10, y - 74)], OL, 10); d.line([(x + 70, y - 50), (x + 80, y - 86), (x + 100, y - 86)], OL, 7)
+    if HAS_END and 8 in SC_LINES and len(lines_of(8)) > 5:
+        k = popin(t, LS[lines_of(8)[5]] - .05, .35)
+        if k > .05:                                          # the bicycle has fine print too
+            sw = math.sin((t - LS[lines_of(8)[5]]) * 5) * 6 * math.exp(-(t - LS[lines_of(8)[5]]))
+            d.line([(x, y + 30), (x + 60, y + 60 + sw)], OL, 3)
+            d.rect(x + 30, y + 58 + sw, x + 30 + 360 * k, y + 118 + sw, TAG, r=10, ol=OL, w=4)
+            if k > .7: d.text(x + 210, y + 88 + sw, 'PEDALS SOLD SEPARATELY*', 21, INK)
 
 # ================================================================ parody ads (original, our style, claim text only)
 AD_COLS = [((255, 90, 60), (255, 200, 60)), ((40, 180, 120), (180, 240, 120)), ((40, 90, 200), (120, 200, 255)),
