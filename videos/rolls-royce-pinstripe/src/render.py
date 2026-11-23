@@ -46,7 +46,7 @@ T_RULER = tex(_ruler())
 
 # ---------------------------------------------------------------- sets
 def workshop(t, odd=None, lights=True, props=True):
-    s = [tiles(-12, -8, 12, 8, 0, 2.0, M.T_TILE),
+    s = [tiles(-12, -8, 12, 8, 0, 2.0, M.T_TILE), tiles(-12, -8, 12, 8, 5.0, 3.0, -1, (60, 62, 66)),
          wall(-12, 0, 12, 5, -7.5, 2.5, M.T_PANEL),
          wall(-8, 0, 8, 5, -11.5, 2.5, M.T_PANEL, axis="x"),
          wall(-8, 0, 8, 5, 11.5, 2.5, M.T_PANEL, axis="x")]
@@ -67,8 +67,9 @@ def workshop(t, odd=None, lights=True, props=True):
         s.append(cat([M.forklift(), M.squirrel(math.sin(t * 9), vest=True).sc(2.4).mv(-0.18, 0.98, 0).rot("y", -90)]).rot("y", 180).mv(x, 0, z))
     return s
 
-WS_BG = sky((236, 238, 242), (205, 208, 214))
-WS_FOG = (10, 30, (226, 228, 232))
+WS_BG = sky((40, 44, 52), (70, 74, 80))
+WS_FOG = (8, 26, (58, 62, 70))
+WS_POINTS = [((x, 4.3, z), (255, 236, 200), 7.5) for x in (-6, 0, 6) for z in (-3, 2)] + [((0.5, 2.4, 4.2), (200, 214, 255), 6.5)]
 NIGHT_BG = sky((10, 14, 40), (44, 40, 80))
 SHOW_BG = sky((14, 14, 18), (30, 30, 36))
 
@@ -104,7 +105,10 @@ def pub(t):
     s.append(M.cow().rot("y", 200 + 10 * math.sin(t)).mv(-2.6, 6.9, -2.7))
     return s
 
-NIGHT_FOG = (12, 40, (30, 30, 60))
+NIGHT_FOG = (10, 34, (22, 22, 46))
+PUB_POINTS = [((-4.8, 4.2, 1.5), (255, 190, 110), 7.0), ((-3.5, 1.8, -1.2), (255, 170, 90), 4.0), ((3.5, 1.8, -1.2), (255, 170, 90), 4.0),
+              ((1.6, 4.6, 0.4), (255, 220, 160), 3.0)]
+SHOW_POINTS = [((x, 5.0, z), (230, 236, 255), 8.0) for x in (-3, 3) for z in (-2, 2)] + [((2.5, 1.5, 4.0), (255, 200, 150), 5.0)]
 
 # ---------------------------------------------------------------- shots: (start time, fn(u, t, dt) -> dict)
 def sh_line_dolly(u, t, dt):
@@ -168,7 +172,8 @@ def sh_ruler(u, t, dt):
 def sh_brush(u, t, dt):
     b = M.brush(5).mv(0, 0, 0.3).rot("x", -72).rot("y", 60 + 160 * u).mv(0, 1.1, 0)
     spot = cyl(1.0, 1.0, 0.02, 14, (60, 60, 70)).mv(0, 0.4, 0)
-    return dict(scene=[b, spot], cam=Cam((0.0, 1.45, 2.7 - 0.4 * u), (0, 1.15, -0.2), 50), bg=SHOW_BG)
+    return dict(scene=[b, spot], cam=Cam((0.0, 1.45, 2.7 - 0.4 * u), (0, 1.15, -0.2), 50), bg=SHOW_BG,
+                fog=None, points=[((0.3, 3.0, 0.8), (255, 240, 210), 4.0)])
 
 def sh_squirrel(u, t, dt):
     sq = M.squirrel(math.sin(t * 10)).sc(2.2).rot("y", -30 + 60 * math.sin(u * 3)).mv(0, 0.9, 0)
@@ -262,7 +267,7 @@ def sh_twist(u, t, dt):
 
 def sh_pub(u, t, dt):
     eye = (2.2, 0.6 + 3.8 * ease(u), 6.0 - 1.2 * u)
-    return dict(scene=pub(t), cam=Cam(eye, (0.6, 3.0 + 1.0 * u, -1.6), 56), bg=NIGHT_BG, fog=NIGHT_FOG,
+    return dict(scene=pub(t), cam=Cam(eye, (0.6, 3.0 + 1.0 * u, -1.6), 56), bg=NIGHT_BG, fog=NIGHT_FOG, points=PUB_POINTS,
                 amb=0.32, light=(0.3, 0.6, 0.7))
 
 def sh_ladder(u, t, dt):
@@ -271,7 +276,7 @@ def sh_ladder(u, t, dt):
     lad = M.ladder(3.0).rot("x", -12).mv(2.2, 0, 0.75)
     a = math.radians(20 + 30 * u)
     eye = (1.9 + 3.0 * math.sin(a), 2.7, 0.0 + 3.0 * math.cos(a) + 0.6)
-    return dict(scene=pub(t) + [lad, yng], cam=Cam(eye, (1.75, 3.1, -0.4), 52), bg=NIGHT_BG, fog=NIGHT_FOG,
+    return dict(scene=pub(t) + [lad, yng], cam=Cam(eye, (1.75, 3.1, -0.4), 52), bg=NIGHT_BG, fog=NIGHT_FOG, points=PUB_POINTS,
                 amb=0.34, light=(0.3, 0.6, 0.7))
 
 def sh_robot(u, t, dt):
@@ -299,14 +304,14 @@ def sh_question(u, t, dt):
     av = avatar(talk=talk, ra=(15, 125 + 18 * math.sin(t * 9), 40), la=(10, 8, 10)).rot("y", -10).mv(1.2, 0, 2.2)
     car = M.phantom().rot("y", 18 + 10 * u).mv(-0.6, 0.12, -0.6)
     eye = (1.35 + 0.1 * u, 1.65, 4.4 - 0.6 * ease(u))
-    return dict(scene=showroom(t) + [car, av], cam=Cam(eye, (0.8, 1.45, 1.6), 52), bg=SHOW_BG, amb=0.62, fog=(14, 30, (14, 14, 18)))
+    return dict(scene=showroom(t) + [car, av], cam=Cam(eye, (0.8, 1.45, 1.6), 52), bg=SHOW_BG, amb=0.3, fog=(12, 30, (14, 14, 18)), points=SHOW_POINTS)
 
 def sh_yesno(u, t, dt):
     car = M.phantom().rot("y", 18 + 10 * (u + 1)).mv(-0.6, 0.12, -0.6)
     av = avatar(talk=False, ra=(50, 45, 70), la=(50, 45, 70)).rot("y", 35).mv(1.9, 0, 2.8)
     a = math.radians(75 - 25 * u)
     eye = (-0.6 + 7.6 * math.cos(a), 1.6, -0.6 + 7.6 * math.sin(a))
-    return dict(scene=showroom(t) + [car, av], cam=Cam(eye, (-0.2, 0.9, 0), 46), bg=SHOW_BG, amb=0.62, fog=(14, 30, (14, 14, 18)))
+    return dict(scene=showroom(t) + [car, av], cam=Cam(eye, (-0.2, 0.9, 0), 46), bg=SHOW_BG, amb=0.3, fog=(12, 30, (14, 14, 18)), points=SHOW_POINTS)
 
 SHOTS = [
     (0.0, sh_line_dolly, "coachline dolly"),
@@ -344,11 +349,11 @@ def shot_at(t):
 def frame_lowres(t):
     i, u, dt = shot_at(t)
     d = SHOTS[i][1](u, t, dt)
-    return render(d["scene"], d["cam"], d.get("bg", WS_BG), fog=d.get("fog", WS_FOG if "bg" not in d else None),
-                  amb=d.get("amb", 0.45), light=d.get("light", (-0.4, 0.8, 0.45)))
+    return render(d["scene"], d["cam"], d.get("bg", WS_BG), fog=d.get("fog", WS_FOG), amb=d.get("amb", 0.36), dif=0.55,
+                  light=d.get("light", (-0.4, 0.8, 0.45)), points=d.get("points", WS_POINTS))
 
 # ---------------------------------------------------------------- captions (one word at a time)
-CAP_FONT = font(70)
+CAP_FONT = __import__("PIL.ImageFont", fromlist=["x"]).truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 66)
 CAP_Y = int(0.55 * OH)
 def caption_at(t):
     for k, o in enumerate(WORDS):
@@ -359,8 +364,8 @@ def caption_at(t):
 
 def draw_caption(im, word):
     d = ImageDraw.Draw(im)
-    d.text((OW // 2, CAP_Y), word, font=CAP_FONT, fill=(255, 241, 118), anchor="mm", stroke_width=5, stroke_fill=(0, 0, 0))
-    return d.textbbox((OW // 2, CAP_Y), word, font=CAP_FONT, anchor="mm", stroke_width=5)
+    d.text((OW // 2, CAP_Y), word, font=CAP_FONT, fill=(255, 238, 80), anchor="mm", stroke_width=4, stroke_fill=(0, 0, 0))
+    return d.textbbox((OW // 2, CAP_Y), word, font=CAP_FONT, anchor="mm", stroke_width=4)
 
 def frame(n):
     t = n / FPS

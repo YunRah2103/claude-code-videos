@@ -7,7 +7,8 @@ no other overlays. Facts and sources: `SUMMARY.md`. The user's avatar (glasses, 
 low-poly for the closing question. Comment bait: forklift-driving squirrel in hi-vis (0–5 s), cow on the pub roof.
 
 Renderer: `src/lowpoly.py` is a small numpy software rasteriser (z-buffer, flat shading, affine texture warp,
-integer vertex snap, near-plane clipping, depth fog, 15-bit dithered colour, 360x640 upscaled 3x). Models and
+integer vertex snap, near-plane clipping, per-vertex (Gouraud) coloured point lights, a grime texture on every
+untextured face, depth fog, dark grade with vignette and static grain, 15-bit dithered colour, 270x480 upscaled 4x). Models and
 hand-drawn textures (Phantom, RR badge, Spirit of Ecstasy, people, squirrel...) are in `src/models.py`.
 
 ```bash

@@ -45,13 +45,17 @@ def _tiles(c1=(156, 158, 162), c2=(120, 122, 126)):
     im = noisy((64, 64), c1, 6, 1); d = ImageDraw.Draw(im)
     d.line((0, 0, 63, 0), fill=c2, width=2); d.line((0, 0, 0, 63), fill=c2, width=2)
     return im
-T_TILE = tex(_tiles())
+T_TILE = tex(_tiles((118, 118, 114), (84, 84, 80)))
 T_TILE_DARK = tex(_tiles((52, 52, 58), (30, 30, 34)))
 
 def _panel():
-    im = noisy((64, 64), (205, 208, 212), 5, 2); d = ImageDraw.Draw(im)
-    d.rectangle((0, 0, 63, 63), outline=(150, 152, 158), width=2)
-    for y in (20, 42): d.line((4, y, 59, y), fill=(185, 188, 192), width=1)
+    im = noisy((64, 64), (150, 150, 146), 10, 2); d = ImageDraw.Draw(im); r = np.random.default_rng(9)
+    for _ in range(5):          # damp stains
+        x, y = r.integers(4, 60, 2); d.ellipse((x - 6, y - 3, x + 6, y + 9), fill=(126, 126, 120))
+    d.rectangle((0, 0, 63, 63), outline=(96, 96, 94), width=2)
+    for y in (20, 42): d.line((4, y, 59, y), fill=(132, 132, 128), width=1)
+    for x in (8, 56):
+        for y in (6, 58): d.point((x, y), fill=(60, 60, 60))
     return im
 T_PANEL = tex(_panel())
 

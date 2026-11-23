@@ -4,7 +4,7 @@ import math
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
-W, H = 360, 640                      # internal resolution; upscaled 3x nearest to 1080x1920
+W, H = 270, 480                      # internal resolution; upscaled 4x nearest to 1080x1920
 TEX = []                             # float32 (h, w, 3) arrays
 
 def tex(img):
@@ -150,48 +150,75 @@ def sky(top, bottom):
     a, b = rgb(top), rgb(bottom); g = np.linspace(0, 1, H, dtype=np.float32)[:, None, None]
     return np.broadcast_to(a * (1 - g) + b * g, (H, W, 3)).copy()
 
-def render(scene, cam, bg, light=(-0.4, 0.8, 0.45), amb=0.45, dif=0.65, fog=None, near=0.05):
-    """fog = (near, far, colour). bg: (H,W,3) array. Returns (H,W,3) float image."""
+def _detail(seed=11, n=32):
+    """Grime texture multiplied over every untextured face (PS1 games textured everything)."""
+    r = np.random.default_rng(seed)
+    a = r.normal(0, 1, (n // 4, n // 4)).repeat(4, 0).repeat(4, 1) * 0.5 + r.normal(0, 1, (n, n)) * 0.5
+    a = 0.93 + 0.09 * np.clip(a, -2, 2)
+    for _ in range(6):                     # a few scratches / stains
+        y, x = r.integers(0, n, 2); a[y, max(0, x - 5):x + 5] *= 0.86
+    return np.repeat(a[..., None], 3, 2).astype(np.float32)
+TEX.append(_detail()); DETAIL = len(TEX) - 1
+TEX.append(np.ones((1, 1, 3), np.float32)); WHITE = len(TEX) - 1
+
+def render(scene, cam, bg, light=(-0.4, 0.8, 0.45), amb=0.45, dif=0.65, fog=None, near=0.05, points=()):
+    """Gouraud-lit (per-vertex) PS1 raster. fog = (near, far, colour). points = [(pos, rgb 0-255, radius)]."""
     p = scene if isinstance(scene, P) else cat(scene)
-    t = p.t
+    t = p.t; N = len(t)
     n = np.cross(t[:, 1] - t[:, 0], t[:, 2] - t[:, 0]); n /= np.linalg.norm(n, axis=1, keepdims=True) + 1e-9
     tow = cam.eye - t.mean(1); n[(n * tow).sum(1) < 0] *= -1
     L = np.float32(light); L /= np.linalg.norm(L)
-    sh = amb + dif * np.clip(n @ L, 0, 1) + 0.12 * np.clip(n @ np.float32([0.5, 0.2, -0.8]), 0, 1)
-    sh = np.where(p.e > 0, 1.0 + 0 * sh, sh)
-    col = np.clip(p.c * sh[:, None], 0, 1.4)
+    base = amb + dif * np.clip(n @ L, 0, 1) + 0.12 * np.clip(n @ np.float32([0.5, 0.2, -0.8]), 0, 1)
+    vs = np.repeat(base[:, None, None], 3, 1) * np.ones((1, 1, 3), np.float32)       # (N, 3 verts, rgb)
+    for pos, c, rad in points:
+        dv = np.float32(pos) - t; dist = np.linalg.norm(dv, axis=2) + 1e-6
+        lam = np.clip((dv * n[:, None, :]).sum(2) / dist, 0, 1) * np.clip(1 - dist / rad, 0, 1) ** 2
+        vs += lam[..., None] * rgb(c) * 1.3
+    vs[p.e > 0] = 1.0
+    vs = np.clip(vs, 0, 1.6).astype(np.float32)
+    # planar uv for the grime layer on untextured, non-emissive faces
+    ks, uvs = p.k.copy(), p.uv.copy()
+    plain = (ks < 0) & (p.e <= 0)
+    ax = np.abs(n).argmax(1)
+    for a, (i, j) in enumerate(((1, 2), (0, 2), (0, 1))):
+        sel = plain & (ax == a)
+        uvs[sel] = np.stack([t[sel][..., i], t[sel][..., j]], -1) * 1.7
+    ks[plain] = DETAIL
+    ks[ks < 0] = WHITE
+    col = p.c
     v = (t - cam.eye) @ cam.R.T
     d = -v[..., 2]
     inside = d > near
     keep = inside.all(1)
     part = np.nonzero(inside.any(1) & ~keep)[0]
-    ks, uvs = p.k, p.uv
     if len(part):                    # clip triangles that cross the near plane (Sutherland-Hodgman, one plane)
-        nv, nuv, nc, nk = [], [], [], []
+        nv, nuv, ns, nc, nk = [], [], [], [], []
         for i in part:
             poly = []
             for j in range(3):
                 a, b = j, (j + 1) % 3
-                if inside[i, a]: poly.append((v[i, a], p.uv[i, a]))
+                if inside[i, a]: poly.append((v[i, a], uvs[i, a], vs[i, a]))
                 if inside[i, a] != inside[i, b]:
                     s = (d[i, a] - near) / (d[i, a] - d[i, b])
-                    poly.append((v[i, a] + s * (v[i, b] - v[i, a]), p.uv[i, a] + s * (p.uv[i, b] - p.uv[i, a])))
+                    poly.append(tuple(q[a] + s * (q[b] - q[a]) for q in (v[i], uvs[i], vs[i])))
             for j in range(1, len(poly) - 1):
                 tri = (poly[0], poly[j], poly[j + 1])
-                nv.append([q[0] for q in tri]); nuv.append([q[1] for q in tri]); nc.append(col[i]); nk.append(p.k[i])
+                nv.append([q[0] for q in tri]); nuv.append([q[1] for q in tri]); ns.append([q[2] for q in tri])
+                nc.append(col[i]); nk.append(ks[i])
+        v, uvs, vs, col, ks = v[keep], uvs[keep], vs[keep], col[keep], ks[keep]
         if nv:
-            v = np.concatenate([v[keep], np.float32(nv)]); uvs = np.concatenate([p.uv[keep], np.float32(nuv)])
-            col = np.concatenate([col[keep], np.float32(nc)]); ks = np.concatenate([p.k[keep], np.int32(nk)])
-            d = -v[..., 2]; keep = np.ones(len(v), bool)
-    if not keep.all():
-        v, uvs, col, ks = v[keep], uvs[keep], col[keep], ks[keep]; d = -v[..., 2]; keep = np.ones(len(v), bool)
+            v = np.concatenate([v, np.float32(nv)]); uvs = np.concatenate([uvs, np.float32(nuv)])
+            vs = np.concatenate([vs, np.float32(ns)]); col = np.concatenate([col, np.float32(nc)]); ks = np.concatenate([ks, np.int32(nk)])
+    else:
+        v, uvs, vs, col, ks = v[keep], uvs[keep], vs[keep], col[keep], ks[keep]
+    d = -v[..., 2]; keep = np.ones(len(v), bool)
     f = (H / 2) / math.tan(math.radians(cam.fov) / 2)
     with np.errstate(divide="ignore", invalid="ignore"):
-        sx = np.round(W / 2 + v[..., 0] / d * f); sy = np.round(H / 2 - v[..., 1] / d * f)
+        sx = np.round(W / 2 + v[..., 0] / d * f); sy = np.round(H / 2 - v[..., 1] / d * f)   # integer snap = PS1 wobble
     keep &= (sx.max(1) >= 0) & (sx.min(1) < W) & (sy.max(1) >= 0) & (sy.min(1) < H)
     img = bg.copy(); zb = np.full((H, W), np.inf, np.float32)
     idx = np.nonzero(keep)[0]
-    idx = idx[np.argsort(d[idx].min(1))]          # front to back: more early z rejects
+    idx = idx[np.argsort(d[idx].min(1))]
     for i in idx:
         x0, x1, x2 = sx[i]; y0, y1, y2 = sy[i]
         area = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0)
@@ -211,26 +238,30 @@ def render(scene, cam, bg, light=(-0.4, 0.8, 0.45), amb=0.45, dif=0.65, fog=None
         m &= z < sub
         if not m.any(): continue
         sub[m] = z[m]
-        reg = img[mny:mxy + 1, mnx:mxx + 1]
-        k = ks[i]
-        if k >= 0:
-            T = TEX[k]; th, tw = T.shape[:2]; uv = uvs[i]
-            u = (w0 * uv[0, 0] + w1 * uv[1, 0] + w2 * uv[2, 0])[m]      # affine: no perspective divide (PS1)
-            vv = (w0 * uv[0, 1] + w1 * uv[1, 1] + w2 * uv[2, 1])[m]
-            px = np.floor(u * tw).astype(np.int32) % tw; py = np.floor(vv * th).astype(np.int32) % th
-            reg[m] = T[py, px] * col[i]
-        else:
-            reg[m] = col[i]
+        a0, a1, a2 = w0[m][:, None], w1[m][:, None], w2[m][:, None]
+        shade = a0 * vs[i, 0] + a1 * vs[i, 1] + a2 * vs[i, 2]
+        T = TEX[ks[i]]; th, tw = T.shape[:2]; uv = uvs[i]
+        u = a0[:, 0] * uv[0, 0] + a1[:, 0] * uv[1, 0] + a2[:, 0] * uv[2, 0]      # affine: no perspective divide (PS1)
+        vv = a0[:, 0] * uv[0, 1] + a1[:, 0] * uv[1, 1] + a2[:, 0] * uv[2, 1]
+        px = np.floor(u * tw).astype(np.int32) % tw; py = np.floor(vv * th).astype(np.int32) % th
+        img[mny:mxy + 1, mnx:mxx + 1][m] = T[py, px] * col[i] * shade
     if fog:
         fn, ff, fc = fog
         a = np.clip((zb - fn) / (ff - fn), 0, 1)[..., None]
         img = img * (1 - a) + rgb(fc) * a
     return img
 
-def finish(img, scale=3):
-    """15-bit colour with ordered dither, then nearest upscale -> uint8 (H*scale, W*scale, 3)."""
-    b = np.tile(BAYER, (H // 4, W // 4))[..., None]
-    q = np.clip(np.floor(np.clip(img, 0, 1) * 31 + 0.5 + b * 0.9), 0, 31) / 31
+_yy, _xx = np.mgrid[0:H, 0:W]
+VIGNETTE = (1 - 0.38 * (((_xx - W / 2) / (W / 2)) ** 2 + ((_yy - H / 2) / (H / 2)) ** 2) ** 1.4).clip(0.45, 1)[..., None].astype(np.float32)
+
+def finish(img, scale=4, seed=0):
+    """Grade (crushed blacks, warm-green PS1 tint, vignette, grain), 15-bit colour with ordered dither, nearest upscale."""
+    g = np.clip(img, 0, 1.2)
+    g = np.clip((g - 0.04) * 1.08, 0, 1) ** 1.1
+    g = g * np.float32([1.0, 1.0, 0.94]) + np.float32([0.0, 0.01, 0.015])
+    g = g * VIGNETTE + np.random.default_rng(seed).normal(0, 0.012, (H, W, 1)).astype(np.float32)
+    b = np.tile(BAYER, (H // 4 + 1, W // 4 + 1))[:H, :W, None]
+    q = np.clip(np.floor(np.clip(g, 0, 1) * 31 + 0.5 + b * 1.1), 0, 31) / 31
     out = (q * 255).astype(np.uint8)
     return out.repeat(scale, 0).repeat(scale, 1)
 
