@@ -17,6 +17,6 @@ python render.py video $C/voice.wav $O/car_ads_vs_reality.mp4
 for n in 1 2 3; do python render.py short $n $C/voice.wav $O/car_ads_vs_reality_mix.wav $O/short$n.mp4; done
 python render.py thumb $O/thumbnail.png; for n in 1 2 3; do python render.py sthumb $n $O/short${n}_thumb.png; done
 ```
-State (2026-11-21): Gemini returned 429 on scene 7, so scenes 7-8 have no voice yet. Everything else is built.
+State: all 9 scenes voiced (the free-tier cap is 10 TTS requests per day, so the run spanned two days).
 
 Music files are not committed. To fetch them: `for n in "Monkeys Spinning Monkeys" "Fluffing a Duck" "Pixel Peeker Polka - faster" "Sneaky Snitch" "Investigations" "Volatile Reaction" "Local Forecast - Elevator"; do curl -so "music/${n// /_}.mp3" "https://incompetech.com/music/royalty-free/mp3-royaltyfree/${n// /%20}.mp3"; done`

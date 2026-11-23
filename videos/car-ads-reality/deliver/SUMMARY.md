@@ -1,17 +1,12 @@
 # Car Ads vs Reality: summary
 
 ## Status
-- **Episode: `car_ads_vs_reality.mp4`, 4:01, 1920x1080, all 8 claim scenes.**
-- **Gemini TTS free tier caps at 10 requests per day per model** (quotaId GenerateRequestsPerDayPerProjectPerModel-FreeTier).
-  Scenes 0-7 are voiced. Scene 8 (the spoken closing exchange: "I read the asterisk first" / "The asterisk has fine
-  print too" / bicycle / "Pedals sold separately" / spoken closing question) could not be voiced today.
-  The episode ends on the buyer buried in fine print (sad trombone), then an on-screen end card: "Which claim annoyed
-  you the most? Tell us in the comments*", where *comments are subject to fine print. The closing question is on
-  screen, not spoken. I didn't switch to another TTS model to get around the cap.
-  - Once the quota resets: `python tts.py 8 ...`, align, retime, re-render (see the README). The renderer then adds
-    the spoken ending and the salesman's to-camera question automatically.
+- **Episode: `car_ads_vs_reality.mp4`, about 4:19, 1920x1080, all 8 claim scenes plus the spoken ending.**
+- Voice: Gemini TTS, one request per scene. The first run hit the free-tier daily cap (10 requests per day per model)
+  after scene 6; scene 7 was voiced on the retry and scene 8 the next day. I never switched models to get around the cap.
 - **Shorts:** 1 (0-60 rollout + towing + mpg, 84 s), 2 (Fratzonic + EV range, 67 s), 3 (FSD + warranty + Maverick
-  price, 80 s). All are vertical, open on a claim line with a hook title, and end on a closing-question card.
+  price + ending with the spoken closing question, about 97 s). All are vertical, open on a claim line with a hook
+  title, and end on a closing-question card.
 
 ## Claims used (mildest to most outrageous) and sources
 Each one is phrased as "the ad says X, the spec sheet says Y". Details are in `FACTS.md`.
@@ -46,7 +41,9 @@ Each one is phrased as "the ad says X, the spec sheet says Y". Details are in `F
 0 It hops off the ad stack onto the desk. 1 It drags a scroll of fine print across the gas-station floor. 2 The fine
 print unrolls from the showroom ceiling. 3 It's tyre-sized on the start line and "rolls out" exactly 1 FT. 4 The towed
 boat is loaded with fine print. 5 Fine print is wound around like a charging cable. 6 The speakers blast fine print.
-7 A fine-print avalanche rises around the cast. Payoff: the avalanche buries the buyer to the chin, then the asterisk fills the end card:
+7 A fine-print avalanche rises around the cast. 8 The buyer digs out of the pile; closing exchange ("From now on, I read the asterisk first." / "The asterisk has
+fine print too." / "Then I'm buying a bicycle." / "Pedals sold separately." plus a PEDALS SOLD SEPARATELY* tag on the
+bike), the salesman turns to camera with the spoken question, then the asterisk fills the end card:
 "Tell us in the comments*", where *comments are subject to fine print. The asterisk in every parody ad, and the
 ad's fine-print strip, also get bigger each scene.
 
@@ -54,8 +51,8 @@ ad's fine-print strip, also get bigger each scene.
 0 A pigeon in a hard hat patrolling the window ledge. 1 A raccoon filling up a red toy car at the pump. 2 A goat on a
 rotating display plinth, chewing a brochure. 3 A snail in a racing helmet creeping along the start line. 4 A penguin
 sunbathing on a lounger in the towed boat. 5 A cow plugged into the EV charger, reading a newspaper. 6 A sheep in
-headphones headbanging on the speaker stack. 7 A mime trapped in an invisible box by the cones. (8 is written for the
-unvoiced ending scene: the hard-hat pigeon returns with three hard-hatted chicks.)
+headphones headbanging on the speaker stack. 7 A mime trapped in an invisible box by the cones. 8 The hard-hat pigeon
+returns with three hard-hatted chicks.
 **Wall easter eggs:** "Employee of the Month: *", "Days since last footnote: 0", a clock with an asterisk for 12,
 "No haggling* (*haggling sold separately)", "MPG may vary (mostly downward)", "Timing starts eventually",
 "Max tow: ask the axle", "Range: vibes", "Quiet please (126 dB)", "Hands on the wheel, please".
@@ -72,6 +69,6 @@ unvoiced ending scene: the hard-hat pigeon returns with three hard-hatted chicks
 - **Music:** a different Kevin MacLeod (CC BY 4.0) track per scene, ducked under the dialogue and muted for the
   parody-ad jingles. Elevator music for the deflated ending.
 - **Shorts:** 60-100 s each needs 2-3 scenes. Short 1 = 0-60 rollout + towing + mpg (about 85 s); Short 2 = Fratzonic +
-  EV range (about 67 s); Short 3 = FSD + warranty + Maverick price (about 80 s). Each opens on the buyer's claim line with a
+  EV range (about 67 s); Short 3 = FSD + warranty + Maverick price + ending (about 97 s). Each opens on the buyer's claim line with a
   hook title and ends on a closing-question card.
 - **Jokes that are not factual claims:** "Your driveway charges a fee", "Pedals sold separately", the posters.
