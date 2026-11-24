@@ -12,7 +12,7 @@ FPS, OW, OH = 30, 1080, 1920
 CAP_FONT = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 66)
 CAP_Y = int(0.555 * OH)
 NO_OVERLAY_UNTIL = 3.0
-MUSIC_GAIN_DB = -13.0          # music bed: ends up ~15 dB under the speech after loudnorm
+MUSIC_GAIN_DB = -7.0           # music bed: ends up ~9 dB under the speech after loudnorm
 MUSIC_OFFSET = 9.0             # start into "Hep Cats" where the full band is playing
 
 DEF_BG = sky((10, 10, 14), (26, 24, 30))
