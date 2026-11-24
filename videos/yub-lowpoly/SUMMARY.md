@@ -7,8 +7,8 @@ small word-by-word captions. Nothing is drawn over the picture in the first 3 s:
 spoken word starts at about 0.33 s. There are no thumbnails. Facts were checked on 2026-11-24.
 
 Background music, the same track in all three: "Hep Cats" by Kevin MacLeod (incompetech.com), licensed under
-Creative Commons BY 4.0 (https://creativecommons.org/licenses/by/4.0/). It sits about 24 dB under the voice and dips
-a further ~5 dB while the narrator speaks. **Attribution required** in each upload's description:
+Creative Commons BY 4.0 (https://creativecommons.org/licenses/by/4.0/). It sits about 15 dB under the voice and dips
+a further ~4 dB while the narrator speaks. **Attribution required** in each upload's description:
 `Music: "Hep Cats" Kevin MacLeod (incompetech.com), Licensed under Creative Commons: By Attribution 4.0`.
 The brief left the background track path as "[PATH]", so this track was chosen as the jazz bed you asked for.
 

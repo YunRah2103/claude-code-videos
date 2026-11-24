@@ -12,7 +12,7 @@ FPS, OW, OH = 30, 1080, 1920
 CAP_FONT = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 66)
 CAP_Y = int(0.555 * OH)
 NO_OVERLAY_UNTIL = 3.0
-MUSIC_GAIN_DB = -24.0          # music bed under the voice (voice peaks ~ -3 dBFS before loudnorm)
+MUSIC_GAIN_DB = -13.0          # music bed: ends up ~15 dB under the speech after loudnorm
 MUSIC_OFFSET = 9.0             # start into "Hep Cats" where the full band is playing
 
 DEF_BG = sky((10, 10, 14), (26, 24, 30))
@@ -95,11 +95,11 @@ class Video:
         v = load(voice, 1)[:, 0]; v = np.pad(v, (0, max(0, n - len(v))))[:n]
         mu = load(music, 2)[int(MUSIC_OFFSET * sr):][:n]
         g = 10 ** (MUSIC_GAIN_DB / 20)
-        # gentle ducking: music dips another ~5 dB while the narrator talks
+        # gentle ducking: music dips another ~4 dB while the narrator talks
         env = np.convolve(np.abs(v), np.ones(int(0.05 * sr)) / int(0.05 * sr), "same")
         talk = np.clip(env / (0.25 * env.max() + 1e-9), 0, 1)
         talk = np.convolve(talk, np.ones(int(0.25 * sr)) / int(0.25 * sr), "same")
-        mg = g * (1 - 0.45 * talk)
+        mg = g * (1 - 0.4 * talk)
         fi = np.minimum(1, np.arange(n) / (0.4 * sr)); fo = np.clip((s.dur - np.arange(n) / sr) / 0.6, 0, 1)
         mu = mu * (mg * fi * fo)[:, None]
         fx = sfx.render(s.m.SFX, s.dur) * 0.5
@@ -127,6 +127,15 @@ class Video:
         if ff.returncode: sys.exit("ffmpeg failed")
         print("ok", out)
 
+def _remux(s, voice, music, src, out):
+    """Re-mix the audio only and put it on an existing render's video stream (no re-render of frames)."""
+    mixwav = out + ".mix.wav"; s.mix(voice, music, mixwav)
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", src, "-i", mixwav, "-map", "0:v", "-map", "1:a", "-c:v", "copy",
+                    "-af", f"loudnorm=I=-14:TP=-1.5:LRA=11,afade=t=out:st={s.dur - 0.3:.2f}:d=0.25", "-ar", "48000", "-c:a", "aac",
+                    "-b:a", "192k", "-movflags", "+faststart", "-t", f"{s.dur:.3f}", out], check=True)
+    os.remove(mixwav); print("ok", out)
+Video.remux = _remux
+
 _V = None
 def _init(name):
     global _V
@@ -138,4 +147,5 @@ def main(V):
     if cmd == "still": Image.fromarray(V.frame(int(float(sys.argv[2]) * FPS))).save(sys.argv[3])
     elif cmd == "sheet": V.sheet(sys.argv[2])
     elif cmd == "meta": V.meta(sys.argv[2])
+    elif cmd == "remux": V.remux(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5])
     elif cmd == "video": V.video(sys.argv[2], sys.argv[3], sys.argv[4], *[float(x) for x in sys.argv[5:7]])
