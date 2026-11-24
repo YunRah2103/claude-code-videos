@@ -65,7 +65,7 @@ driveway (hook, the radio shot and the closing question).
 The $2,000 is spoken as the 2019 price only.
 
 **Oddity (never mentioned):** an astronaut in a full white suit sits on a deck chair under a beach umbrella beside
-the drag strip, sipping a pink drink (hook, the over-the-air shot, the closing question and YES/NO).
+the drag strip, sipping a pink drink (end of the hook, the closing question and YES/NO).
 
 ---
 
@@ -110,6 +110,12 @@ wordmark) and props are hand-built low-poly models and hand-drawn textures. No p
 On-screen props such as "UNDER REVIEW", "NOT INTENTIONAL", "25¢ PER START", invoices, receipts, calendars and
 year placards are illustrations of the narration. They are not quotes or documents.
 
+## Verification
+Preflight (`tools/preflight.py` from the ferrari-purrari branch): 10 of 11 checks pass for each video (resolution,
+fps, audio, bitrate, duration, loudness about -14 LUFS, true peak, caption zone and size, numbers sourced, nothing generated
+tracked). The one failure is expected: words spoken before 3.0 s have no caption because the brief allows no overlays
+in the first 3 seconds. Durations: 24.46 s, 24.47 s, 24.47 s.
+
 ## Allowed numbers
 Every number spoken or shown, and the fact it comes from (checked by `preflight.py`).
 
@@ -126,3 +132,7 @@ Every number spoken or shown, and the fact it comes from (checked by `preflight.
 | 42,000, 42000 | Veyron 1 |
 | 100,000, 100000 | Veyron 1 |
 | 3,600, 3600 | Veyron 4 |
+| eight, eighty | Toyota 3 (spoken $8 / $80) |
+| zero, sixty, half, second | Tesla 2 (0-60 mph, about 0.5 s) |
+| first, second | Tesla 1 and 3 as ordinals ("Free update first. Paid update second.") |
+| one | Veyron 2 ("each one") |
