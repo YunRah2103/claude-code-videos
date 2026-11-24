@@ -12,7 +12,7 @@ FPS, OW, OH = 30, 1080, 1920
 CAP_FONT = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 66)
 CAP_Y = int(0.555 * OH)
 NO_OVERLAY_UNTIL = 3.0
-MUSIC_GAIN_DB = -7.0           # music bed: ends up ~9 dB under the speech after loudnorm
+MUSIC_GAIN_DB = -1.0           # music bed: loud, a few dB under the speech after loudnorm
 MUSIC_OFFSET = 9.0             # start into "Hep Cats" where the full band is playing
 
 DEF_BG = sky((10, 10, 14), (26, 24, 30))
@@ -95,11 +95,11 @@ class Video:
         v = load(voice, 1)[:, 0]; v = np.pad(v, (0, max(0, n - len(v))))[:n]
         mu = load(music, 2)[int(MUSIC_OFFSET * sr):][:n]
         g = 10 ** (MUSIC_GAIN_DB / 20)
-        # gentle ducking: music dips another ~4 dB while the narrator talks
+        # gentle ducking: music dips another ~2 dB while the narrator talks
         env = np.convolve(np.abs(v), np.ones(int(0.05 * sr)) / int(0.05 * sr), "same")
         talk = np.clip(env / (0.25 * env.max() + 1e-9), 0, 1)
         talk = np.convolve(talk, np.ones(int(0.25 * sr)) / int(0.25 * sr), "same")
-        mg = g * (1 - 0.4 * talk)
+        mg = g * (1 - 0.2 * talk)
         fi = np.minimum(1, np.arange(n) / (0.4 * sr)); fo = np.clip((s.dur - np.arange(n) / sr) / 0.6, 0, 1)
         mu = mu * (mg * fi * fo)[:, None]
         fx = sfx.render(s.m.SFX, s.dur) * 0.5
