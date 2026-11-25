@@ -24,3 +24,6 @@ python -m unittest discover -s tests -q
 Full workflow: [docs/PIXEL_WORKFLOW.md](docs/PIXEL_WORKFLOW.md).
 Logs and new renders stay in ignored `out/`. Existing character and example assets
 are reused; no extra MCP servers or overlapping always-on plugins are installed.
+
+## Reusable assets
+See [`ASSETS.md`](ASSETS.md): the 3D main character (`characters/yub-3d/`) and the cinematic renderer, cars and props (`lib/cine3d/`).

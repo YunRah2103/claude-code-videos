@@ -1,6 +1,7 @@
 """ioniq_fake_gears: cinematic low-poly short. Night race track, floodlights, glowing breakdown of N e-Shift.
 Oddity (never mentioned): a giant inflatable rubber duck floating in the infield pond."""
 import math, sys
+import _lib  # noqa: F401  (lib/cine3d + characters/yub-3d on sys.path)
 import numpy as np
 from geo import (P, cat, quad, box, cbox, bbox, cb, lathe, cyl, superellipsoid, sphere, capsule, tiles, panel, word_tex, font, rgb, Cam,
                  MATTE, PAINT, GLASS, CHROME, SATIN, RUBBER, GLOW, SCREEN, T_DISC)

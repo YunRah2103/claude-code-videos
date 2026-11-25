@@ -46,7 +46,7 @@ def _shadow_text(im, xy, text, f, fill, anchor, blur=10, off=(0, 6), stroke=0):
 class Video:
     def __init__(s, mod):
         s.m = mod
-        here = os.path.dirname(os.path.abspath(__file__))
+        here = os.path.dirname(os.path.abspath(mod.__file__))       # words.json lives next to the video module
         s.words = json.load(open(os.path.join(here, f"{mod.NAME}_words.json")))
         s.dur = round(min(35.0, s.words[-1]["e"] + 0.8), 2)
         s.hook_end = max(o["e"] for o in s.words if o["line"] == 0) + 0.3

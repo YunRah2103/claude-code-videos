@@ -2,12 +2,15 @@
 Look (from the skit videos and the owner's notes): brown skin, dark hair with a MIDDLE PART falling to both sides,
 silver square glasses, plain WHITE T-SHIRT, BLACK JEANS, white sneakers. Big friendly head so expressions read.
 yub(expr, look, la, ra, head, sit, step, lean, held, wave, sweat, blush) faces +z, feet at y=0 (sitting: seat y=0.5)."""
-import math
+import math, os, sys
 from functools import lru_cache
+_HERE = os.path.dirname(os.path.abspath(__file__))
+for _p in (_HERE, os.path.join(_HERE, "..", "..", "lib", "cine3d")):
+    if os.path.abspath(_p) not in sys.path: sys.path.insert(0, os.path.abspath(_p))
 import numpy as np
 from geo import (P, cat, tex, quad, word_tex, PAINT, cb, bbox, capsule, superellipsoid, sphere, lathe, MATTE, SKIN as M_SKIN, CHROME, CLOTH,
                  HAIR as M_HAIR, RUBBER, rgb)
-import facedraw as H2D                               # 2D face drawing (expressions)
+import facedraw as H2D                               # 2D face drawing (expressions), same folder
 
 SKIN = (190, 128, 90); SKIN_D = (160, 104, 72); HAIRC = (30, 24, 28)
 TEE = (246, 246, 248); TEE_D = (222, 222, 228); JEANS = (34, 35, 42); SHOE = (248, 248, 250); SOLE = (214, 214, 220)
@@ -21,6 +24,7 @@ def face(expr="smile", look="c", sweat=False, blush=False): return tex(H2D._face
 HA, HB, HC, HYC = 0.142, 0.165, 0.138, 1.63         # half width / height / depth, centre height
 FS = 0.84
 EX, EY = H2D.EX, H2D.EY
+EXPR_NAMES = list(H2D.EXPR)                          # smile grin shock panic sad smug confused deadpan cringe proud angry
 
 def _sz(x, y):
     q = 1 - (abs(x) / HA) ** (2 / 0.7); r = 1 - (abs(y) / HB) ** (2 / 0.75)

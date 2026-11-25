@@ -1,8 +1,10 @@
 """Re-render frame ranges of a finished short and splice them into the existing MP4 (audio kept as-is).
-python splice.py NAME in.mp4 out.mp4 t0:t1 [t0:t1 ...]"""
+cd videos/<video>/src && python ../../../lib/cine3d/splice.py NAME in.mp4 out.mp4 t0:t1 [t0:t1 ...]"""
 import importlib, os, subprocess, sys
 from multiprocessing import Pool
 import numpy as np
+sys.path.insert(0, os.getcwd())                      # run from the video's src folder so NAME imports
+sys.path.insert(1, os.path.dirname(os.path.abspath(__file__)))
 import engine3d as E
 
 def _init(name):

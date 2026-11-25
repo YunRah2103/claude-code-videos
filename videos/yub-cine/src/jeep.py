@@ -1,6 +1,7 @@
 """jeep_wave: cinematic low-poly short. Golden-hour desert canyon road.
 Oddity (never mentioned): a cow lounging in a lawn chair under a beach umbrella beside the road, reading a newspaper."""
 import math, sys
+import _lib  # noqa: F401  (lib/cine3d + characters/yub-3d on sys.path)
 from functools import lru_cache
 import numpy as np
 from geo import (P, cat, quad, box, cbox, bbox, cb, lathe, cyl, superellipsoid, sphere, capsule, tiles, panel, word_tex, font, rgb, tex, Cam,

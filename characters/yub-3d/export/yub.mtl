@@ -1,0 +1,28 @@
+newmtl m0
+Kd 0.1339 0.1389 0.1650
+newmtl m1
+Kd 0.9727 0.9727 0.9802
+newmtl m2
+Kd 0.8392 0.8392 0.8629
+newmtl m3
+Kd 0.9253 0.9253 0.9411
+newmtl m4
+Kd 0.9647 0.9647 0.9727
+newmtl m5
+Kd 0.8705 0.8705 0.8942
+newmtl m6
+Kd 0.7448 0.5025 0.3527
+newmtl m7
+Kd 1 1 1
+map_Kd yub_tex3.png
+newmtl m8
+Kd 0.6277 0.4078 0.2825
+newmtl m9
+Kd 0.1175 0.0977 0.1114
+newmtl m10
+Kd 0.6900 0.7136 0.7608
+newmtl m11
+Kd 0.1048 0.1048 0.1175
+newmtl m12
+Kd 1 1 1
+map_Kd yub_tex4.png

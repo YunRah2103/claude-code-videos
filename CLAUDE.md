@@ -4,8 +4,8 @@ Default: Sonnet, low effort. Minimise tokens while completing the requested vide
 Use one agent. No automatic teams, extra MCP servers, long plans or repeated audits.
 Reply briefly; do not print source, base64, word timings or full logs into chat.
 
-Reuse first: `characters/main-guy/`, `styles/explainer-style.md`, and
-`videos/new-car-trap/src/{render,pix,sfx,align}.py`. Read only files needed for the
+Reuse first (index: `ASSETS.md`): 3D main character `characters/yub-3d/`, 3D renderer/engine/cars/props
+`lib/cine3d/`; pixel style `characters/main-guy/`, `styles/explainer-style.md`, `videos/new-car-trap/src/{render,pix,sfx,align}.py`. Read only files needed for the
 change. Use `rg -n` and small line ranges; skip generated files and dependencies.
 Read `docs/PIXEL_WORKFLOW.md` only when producing or changing a video.
 

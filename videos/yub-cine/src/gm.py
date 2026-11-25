@@ -1,6 +1,7 @@
 """gm_carplay: cinematic low-poly short. Blue-hour Chevrolet dealership, neon GM sign, glowing breakdown.
 Oddity (never mentioned): an astronaut in a full spacesuit lounging on a deck chair under a beach umbrella on the forecourt."""
 import math, sys
+import _lib  # noqa: F401  (lib/cine3d + characters/yub-3d on sys.path)
 import numpy as np
 from PIL import Image, ImageDraw
 from geo import (P, cat, quad, box, cbox, bbox, cb, lathe, cyl, superellipsoid, sphere, capsule, tiles, panel, word_tex, font, rgb, tex, Cam,
