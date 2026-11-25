@@ -196,7 +196,7 @@ def sh_gas(u, t, dt):
     """'gas cars should lose them too': a gas pump beside a dark-grey Chevy; the CarPlay tile above flickers and fades out."""
     fl = max(0.0, 1 - u * 1.3) * (0.6 + 0.4 * (math.sin(t * 40) > 0))
     tile = box(-0.35, -0.35, -0.02, 0.35, 0.35, 0.02, (255, 255, 255), texs={"f": T_CP}, e=1.3 * fl, m=SCREEN).mv(0.0, 2.5, 0)
-    s = outside(t) + [blazer(t, 0, 0, -25, (70, 72, 80)), gas_pump().rot("y", -20).mv(1.9, 0, 1.4), tile]
+    s = outside(t) + [blazer(t, 0, 0, -25, (70, 72, 80)), gas_pump().rot("y", -20).mv(2.7, 0, 2.3), tile]
     return dict(scene=s, cam=Cam((3.0, 1.9, 6.2), (0.6, 1.6, 0), 46, aperture=0.06), glow=dglow(), sprites=SPR, center=(0, 0, 0))
 
 def sh_chip(u, t, dt):

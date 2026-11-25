@@ -112,8 +112,8 @@ def FACE_CAM(): return Cam((1.12, 1.66, 0.3), (-0.62, 1.58, -0.42), 46, aperture
 def sh_hook(u, t, dt):
     """Night pit lane: the Performance Blue Ioniq 5 N under floodlights; Yub (LTN cap) leans on it, smug."""
     e = ease(u)
-    h = yub("smug", la=(10, 20, 100), ra=(10, 20, 100), head=(12, 0, 4)).rot("y", -25).mv(1.35, 0, 1.45)
-    return dict(scene=track(t) + [car(t, 0, 0, -25), h], cam=Cam(lerp((4.8, 0.9, 6.0), (4.0, 1.15, 5.0), e), (0.5, 1.1, 0.3), 46, aperture=0.08),
+    h = yub("smug", la=(10, 20, 100), ra=(10, 20, 100), head=(12, 0, 4), lean=-6).rot("y", -25).mv(0.05, 0, 1.45)
+    return dict(scene=track(t) + [car(t, 0, 0, -25), h], cam=Cam(lerp((4.8, 0.9, 6.0), (4.0, 1.15, 5.0), e), (0.3, 1.15, 0.6), 46, aperture=0.08),
                 glow=tglow() + headbeams(0, 0, -25), sprites=tsprites(), center=(0, 0, 0))
 
 def _gearbox(t, stamp):
@@ -287,9 +287,9 @@ def sh_chute(u, t, dt):
     """'then added a way to make it slower': a red-and-white drag parachute blooms out of the hatch and yanks the car back."""
     k = ease(min(1, u * 1.8))
     c = car(t, 0, 0, 0, v=1)
-    ch = PR.chute(k).mv(-2.4, 1.0, 0)
+    ch = PR.chute(k * 0.72).mv(-2.4, 1.0, 0)
     sx, sy, _ = shake(t, 0.02 * k)
-    return dict(scene=track(t, 14 * (1 - 0.8 * k)) + [c, ch], cam=Cam((-12 + sx, 2.6 + sy, 5.5), (-3.2, 1.0, 0), 46, aperture=0.05),
+    return dict(scene=track(t, 14 * (1 - 0.8 * k)) + [c, ch], cam=Cam((-11 + sx, 3.0 + sy, 8.5), (-2.2, 1.0, 0), 44, aperture=0.04),
                 glow=tglow(), sprites=tsprites(), center=(-2, 0, 0))
 
 def sh_purpose(u, t, dt):

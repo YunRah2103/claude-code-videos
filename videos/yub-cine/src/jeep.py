@@ -183,7 +183,7 @@ def sh_willys(u, t, dt):
     w1 = C.willys(spin=-t * 600, driver=seat_npc(npc("soldier", 1.0, t), -0.68, 0.72, -0.32)).mv(0, 0, -1.2)
     w2 = C.willys(spin=-t * 600, driver=seat_npc(npc("soldier", 1.0, t + 0.4), -0.68, 0.72, -0.32)).rot("y", 180).mv(5 - 8 * u, 0, 1.2)
     e = ease(u)
-    return dict(scene=desert(t, 6, odd=False) + [w1, w2], cam=Cam(lerp((2.2, 1.6, -0.2), (-3.5, 2.4, -4.5), e), lerp((1.1, 1.0, -1.2), (1.0, 1.2, 0.2), e), 44, aperture=0.12),
+    return dict(scene=desert(t, 6, odd=False) + [w1, w2], cam=Cam(lerp((3.4, 2.1, 0.9), (-3.5, 2.4, -4.5), e), lerp((1.1, 1.0, -1.2), (1.0, 1.2, 0.2), e), 44, aperture=0.1),
                 env=env(sky_hor=(255, 190, 120), fog=(10, 70), fog_col=(230, 170, 110), sat=1.05), center=(0, 0, 0))
 
 T_RULES = word_tex("RULES", 256, 96, (40, 40, 50), (250, 246, 232), 60)
