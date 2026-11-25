@@ -36,7 +36,7 @@ ENV = env()
 
 T_NLOGO = C.T_N
 T_BANNER = word_tex("HYUNDAI  N", 512, 96, (255, 255, 255), (0, 40, 110), 62)
-T_TIMER = [word_tex(s, 384, 160, c, (6, 8, 16), 84) for s, c in (("0-60 MPH", (255, 255, 255)), ("e-SHIFT ON\n3.5 s", (255, 220, 60)))]
+T_TIMER = [word_tex(s, 512, 200, c, (6, 8, 16), z) for s, c, z in (("0-60 MPH", (255, 255, 255), 56), ("e-SHIFT ON\n3.5 s", (255, 220, 60), 46))]
 def _cluster(gear=None, missed=False, on=True):
     def dr(d, w, h):
         d.rectangle((0, 0, w, 36), fill=(26, 34, 60)); d.text((16, 18), "N e-SHIFT  " + ("ON" if on else "OFF"), font=font(24), fill=(255, 255, 255), anchor="lm")
@@ -200,13 +200,13 @@ def _torque(n=160):
 TORQUE = _torque()
 def sh_graph(u, t, dt):
     """'cutting power for a split second at each shift': a glowing torque trace draws itself; it dives at every shift, sparks fly."""
-    rev = 0.08 + 0.92 * ease(u)
-    g, head = PR.line_graph(TORQUE, 3.2, 1.6, rev)
-    gp = PR.grid_panel(3.2, 1.8)
-    ticks = [cb(3.2 * x, -0.06, 0, 0.02, 0.1, 0.02, (255, 255, 255), b=0.004, e=1.0) for x in SHIFT_X[1:-1]]
+    rev = 0.2 + 0.8 * ease(u)
+    g, head = PR.line_graph(TORQUE, 1.8, 1.1, rev, r=0.018)
+    gp = PR.grid_panel(1.8, 1.25)
+    ticks = [cb(1.8 * x, -0.05, 0, 0.015, 0.08, 0.015, (255, 255, 255), b=0.004, e=1.0) for x in SHIFT_X[1:-1]]
     dot = sphere(0.05, 12, 8, (255, 255, 255)).glow(4).mv(*head)
     sc = [g, gp, dot, *ticks]
-    return dict(scene=sc, cam=Cam((1.6 + 0.5 * (head[0] / 3.2 - 0.5), 0.9, 4.2), (1.6, 0.85, 0), 46, aperture=0.05),
+    return dict(scene=sc, cam=Cam((0.9 + 0.25 * (head[0] / 1.8 - 0.5), 0.62, 3.3), (0.9, 0.6, 0), 46, aperture=0.04),
                 env=env(fog=None, stars=0.4, points=[((head[0], 1.0, 0.8), (90, 200, 255), 1.2, 1.2)]), glow=[], sprites=[(head, (120, 220, 255), 0.06, 2.0)], center=(1.6, 0.8, 0))
 
 def _v8(e=1.0):
@@ -257,14 +257,14 @@ def _board(tid):
 def sh_test(u, t, dt):
     """'Car and Driver tested it': drag strip, timing board reads 0-60 MPH, the start tree counts down, the car staged with lights on."""
     c = car(t, -0.5, -1.5, 0)
-    return dict(scene=track(t) + [c, _board(T_TIMER[0]).rot("y", 35).mv(-3.0, 0, -6.5), _tree(u).mv(2.6, 0, 0.2)], cam=Cam((6.4, 1.6, 5.0), (0.2, 1.6, -2.5), 48, aperture=0.06),
+    return dict(scene=track(t) + [c, _board(T_TIMER[0]).rot("y", 35).mv(-2.4, 0, -7.5), _tree(u).mv(2.6, 0, 0.2)], cam=Cam((6.4, 1.6, 5.0), (0.2, 1.6, -2.5), 48, aperture=0.06),
                 glow=tglow() + headbeams(-0.5, -1.5), sprites=tsprites(), center=(0, 0, -1.5))
 
 def sh_launch(u, t, dt):
     """'zero to sixty took 3.5 seconds': the launch - tyres bite, the car rockets away; the board flips to e-SHIFT ON 3.5 s."""
     x = -0.5 + 18 * ease(u) ** 2
     c = car(t, x, -1.5, 0, v=1)
-    b = _board(T_TIMER[1] if u > 0.42 else T_TIMER[0]).rot("y", 30).mv(-1.4, 0, -6.5)
+    b = _board(T_TIMER[1] if u > 0.42 else T_TIMER[0]).rot("y", 30).mv(0.1, 0, -7.5)
     return dict(scene=track(t, 0) + [c, b], cam=Cam((6.0, 1.5, 6.0), (1.0, 2.2, -2.5), 50, aperture=0.05),
                 glow=tglow() + headbeams(x, -1.5) + [PR.speed_lines(t, 8).mv(x, 0, -1.5)], sprites=tsprites(), center=(x, 0, -1.5))
 
