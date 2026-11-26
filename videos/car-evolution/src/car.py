@@ -122,7 +122,7 @@ def sh_tease(u, t, dt):
     s.append(h)
     ring = lathe([(2.75, 0.0), (2.85, 0.0)], 48, (90, 210, 255), GLOW).glow(3.0 * (1 - 0.7 * k)).sc(1, 1, 0.5).rot("y", -12).mv(0, hy, 0)
     e = cam_e(u)
-    cam = Cam(lerp((6.2, 2.0, 7.4), (5.4, 1.85, 6.9), e), (0.2, 1.1, 0), 42, aperture=0.02)
+    cam = Cam(lerp((6.2, 2.0, 7.4), (5.4, 1.85, 6.9), e), (0.2, 1.1, 0), 42, aperture=0.06)
     return D(s, cam, acc, [ring], [((2.2, 0.66, sg * 0.66), (230, 240, 255), 0.08, 1.2 * k) for sg in (1, -1)], t=t)
 
 # ---------------------------------------------------------------- 1886
@@ -652,7 +652,7 @@ def sh_today(u, t, dt):
     s.append(yb)
     if t > ws(13, 7): s.append(W.neon("100s OF MILLIONS", 2.4, 0.32, (120, 255, 220), 2.6).mv(-1.0, 4.9, -2.0))
     e = 0.25 * u + 0.75 * ease3(seg(t, ws(13, 3), ws(13, 11) + 0.6))
-    cam = Cam(lerp((3.6, 1.5, 6.6), (3.8, 2.2, 8.2), e), lerp((0.0, 0.9, 0), (-0.6, 2.8, -1.5), e), 50, aperture=0.02)
+    cam = Cam(lerp((3.6, 1.5, 6.6), (3.8, 2.2, 8.2), e), lerp((0.0, 0.9, 0), (-0.6, 2.8, -1.5), e), 50, aperture=0.05)
     return D(s, cam, acc, sg, ssp, (0, 0, 0), t=t, env=era_env(shadow_size=12))
 
 @lru_cache(None)
@@ -684,7 +684,7 @@ def sh_737(u, t, dt):
     yb = yub("smug", ra=(80, 10, 0), head=(-30, 0, 0)).rot("y", 40).mv(0.4, 0, 1.8)
     s.append(yb)
     e = cam_e(u)
-    cam = Cam(lerp((2.6, 2.7, 10.2), (2.2, 2.6, 10.6), e), (1.3, 2.3, -1.6), 52, aperture=0.01)
+    cam = Cam(lerp((2.6, 2.7, 10.2), (2.2, 2.6, 10.6), e), (1.3, 2.3, -1.6), 52, aperture=0.05)
     return D(s, cam, acc, (), (), (1, 0, -1), t=t, env=era_env(shadow_size=16))
 
 def phone_tex(state):
@@ -745,7 +745,7 @@ def sh_software(u, t, dt):
         x = -1.6 + 0.8 * i
         g.append(PR.flow([(x, 2.0, 0.2), (x * 0.6, 1.4, 0.0)], t + i * 0.2, (120, 230, 255), 0.012, 3.0, 2.0, 8))
     e = cam_e(u)
-    cam = orbit(mix(60, 45, e), 6.6, 2.2, (0.0, 1.5, 0), 46)
+    cam = orbit(mix(60, 45, e), 6.6, 2.2, (0.0, 1.5, 0), 46, aperture=0.06)
     return D(s, cam, acc, g, (), t=t)
 
 def sh_boost(u, t, dt):
@@ -766,7 +766,7 @@ def sh_boost(u, t, dt):
         g += [PR.flow([(-1.4, 0.25, z), (0, 0.22, z), (1.4, 0.25, z)], t, (255, 60, 70), 0.03, 4, 3.0, 16) for z in (-0.5, 0.5)]
         g += [PR.rings(q * 1.5, 3, 0.2, 0.3, 1.5, (255, 80, 90), 2.0 * (1 - q)).rot("y", 90).mv(-2.4, 0.7, 0)]
     e = cam_e(u)
-    cam = Cam(lerp((3.6, 1.7, 7.4), (3.2, 1.7, 6.8), e), (0.5, 1.4, 1.4), 46, aperture=0.03)
+    cam = Cam(lerp((3.6, 1.7, 7.4), (3.2, 1.7, 6.8), e), (0.5, 1.4, 1.4), 46, aperture=0.07)
     return D(s, cam, acc, g, [((0.5, 1.5, 2.4), (255, 210, 80), 0.18, 0.6 * k)], t=t, mb=1 if bought else 0)
 
 def paywall(t, k):
@@ -791,7 +791,7 @@ def sh_paywall(u, t, dt):
     yb = yub("deadpan", la=(10, 20, 100), ra=(10, 20, 100), head=(-25, 0, 0)).rot("y", 40).mv(3.0, 0, 1.8)
     s.append(yb)
     e = cam_e(u)
-    cam = Cam(lerp((7.2, 1.8, 5.8), (6.8, 1.7, 5.2), e), (2.5, 1.2, 0.5), 46, aperture=0.03)
+    cam = Cam(lerp((7.2, 1.8, 5.8), (6.8, 1.7, 5.2), e), (2.5, 1.2, 0.5), 46, aperture=0.07)
     return D(s, cam, (255, 210, 80), g, [((2.78, 1.3, 0.1), (255, 210, 80), 0.3, 0.7 * k)], t=t)
 
 # ---------------------------------------------------------------- question
@@ -817,7 +817,7 @@ def sh_question(u, t, dt):
     s.append(yb.rot("y", -8).mv(0.0, 0, 1.3))
     ll, lsp = llama_at(t, ws(16, 0), 6, -1.4, -6.5)
     e = cam_e(u)
-    cam = Cam(lerp((1.2, 2.2, 8.2), (0.9, 2.05, 7.3), e), (0.0, 1.85, -0.4), 48, aperture=0.015)
+    cam = Cam(lerp((1.2, 2.2, 8.2), (0.9, 2.05, 7.3), e), (0.0, 1.85, -0.4), 48, aperture=0.05)
     return D(s + ll, cam, (120, 200, 255), g, lsp, (0, 1, -0.5), t=t, env=era_env(amb_i=1.05))
 
 for _f, _h in ((sh_tip, True), (sh_kick, True), (sh_wallet, False), (sh_together, False), (sh_phone, False), (sh_paywall, True)):

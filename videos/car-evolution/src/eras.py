@@ -109,7 +109,7 @@ def T(): return dict(cobble=_cobble(), planks=_planks(), brick=_brick(), dirt=_d
                      stores=[_store(n, c) for n, c in (("GENERAL STORE", (150, 70, 50)), ("HARDWARE", (60, 100, 130)), ("BANK", (180, 170, 140)),
                                                          ("BARBER", (120, 140, 90)), ("DRY GOODS", (160, 120, 60)))],
                      win70=[_window_grid(20 + i, base=(46, 30, 26), lit=(255, 170, 80), p=0.5) for i in range(3)],
-                     glassw=[_window_grid(30 + i, w=256, h=1024, base=(14, 22, 40), lit=(150, 205, 255), cols=10, rows=46, p=0.32, glass=True) for i in range(3)],
+                     glassw=[_window_grid(30 + i, w=256, h=1024, base=(16, 24, 42), lit=(255, 214, 160) if i == 1 else (170, 210, 255), cols=10, rows=46, p=0.18, glass=True) for i in range(3)],
                      poster=word_tex("GARAGE\nREPAIRS", 256, 128, (240, 220, 160), (110, 30, 26), 40),
                      cal=word_tex("1912", 128, 160, (30, 30, 30), (236, 228, 205), 54),
                      bill=word_tex("EV\nCHARGING", 512, 256, (140, 255, 190), (6, 10, 24), 96))
@@ -301,10 +301,10 @@ def era5(t, v, far):
     r = np.random.default_rng(15)
     for i, x in enumerate(np.arange(-30, 30, 7.0)):
         h = r.uniform(14, 34); d = r.uniform(5, 8)
-        s.append(box(x - 3.2, 0, zb - d, x + 3.2, h, zb, (60, 80, 110), texs={"f": T()["glassw"][i % 3], "r": T()["glassw"][(i + 1) % 3]}, e=0.45, m=GLASS))
+        s.append(box(x - 3.2, 0, zb - d, x + 3.2, h, zb, (60, 80, 110), texs={"f": T()["glassw"][i % 3], "r": T()["glassw"][(i + 1) % 3]}, e=0.3, m=GLASS))
     for i, x in enumerate(np.arange(-30, 30, 9.0)):
         h = r.uniform(18, 40)
-        s.append(box(x - 3.5, 0, 16, x + 3.5, h, 22, (60, 80, 110), texs={"b": T()["glassw"][i % 3]}, e=0.45, m=GLASS))
+        s.append(box(x - 3.5, 0, 16, x + 3.5, h, 22, (60, 80, 110), texs={"b": T()["glassw"][i % 3]}, e=0.3, m=GLASS))
     s.append(charger(-4.6, -2.8)); s.append(charger(-3.2, -2.8))
     for x in (-8.5, 8.5):
         s += [bbox(x - 0.6, 0, -4.6, x + 0.6, 0.5, -3.4, (190, 190, 196), b=0.05), birch_tree(3.2).mv(x, 0.5, -4.0)]
