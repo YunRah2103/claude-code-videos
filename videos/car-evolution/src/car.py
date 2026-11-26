@@ -113,8 +113,8 @@ def sh_badge(u, t, dt):
     m, g, sp = W.car(0, t, 0, driver=drive("smile", t)); s.append(m)
     e = cam_e(u); xs = -0.95 + 0.9 * seg(u, 0.05, 0.6)
     g = g + [PR.glow_quad(0.08, 0.5, (255, 230, 170), 1.6).mv(xs, 0.74, 0.44)]
-    cam = Cam(lerp((-0.45, 0.8, 1.05), (0.2, 1.0, 2.3), e), lerp((-0.5, 0.74, 0.4), (-0.3, 0.75, 0.2), e), 36, aperture=mix(0.35, 0.12, e))
-    return D(s, cam, acc, g, sp, (0, 0, 0), t=t)
+    cam = Cam(lerp((-0.35, 0.95, 1.4), (-0.05, 1.05, 2.0), e), lerp((-0.5, 0.76, 0.4), (-0.35, 0.78, 0.25), e), 36, aperture=mix(0.3, 0.14, e))
+    return D(s, cam, acc, g, sp, (0, 0, 0), t=t, mb=1)
 
 def sh_patent(u, t, dt):
     """'patents': a parchment PATENT 1886 document slams down on its stand beside the car, stamp + dust."""
@@ -182,7 +182,7 @@ def sh_tiller(u, t, dt):
     sw = 14 * math.sin(t * 3.2)
     m, g, sp = W.car(0, t, -t * 560, driver=drive("smile", t, la=(60, -2 + sw * 0.3, 30), ra=(60, -2 - sw * 0.3, 30), head=(sw * 0.6, 0, 0))); s.append(m)
     e = cam_e(u)
-    cam = Cam(lerp((0.85, 1.3, 1.1), (0.7, 1.28, 0.9), e), (-0.1, 1.17, 0.0), 38, aperture=0.22)
+    cam = Cam(lerp((1.75, 1.75, 1.85), (1.5, 1.7, 1.55), e), (-0.2, 1.35, 0.0), 40, aperture=0.1)
     return D(s, cam, acc, g, sp + [PR_line for PR_line in []], (0, 0, 0), t=t)
 
 def speedo(v, acc):
@@ -214,14 +214,14 @@ def sh_tip(u, t, dt):
     k = ease3(seg(t, ws(3, 13) - 0.1, ws(3, 16)))
     y = drive("panic", t, sweat=True, la=(20, 70 + 30 * math.sin(t * 20), 40), ra=(20, 70 - 30 * math.sin(t * 20), 40), head=(10 * math.sin(t * 18), 0, 0))
     m, g, sp = W.car(0, t, -t * 400, driver=y)
-    m.rot("y", 18 * ease(seg(t, ws(3, 12), ws(3, 14)))).rot("x", -78 * k, (0, 0, -0.66))
+    m.rot("y", -14 * ease(seg(t, ws(3, 12), ws(3, 14)))).rot("x", 80 * k, (0, 0, 0.66))
     s.append(m)
     hit = seg(t, ws(3, 16), ws(3, 16) + 0.6)
     if 0 < hit < 1:
-        g = g + [PR.glow_quad(2.4, 0.8, (200, 200, 230), 0.35 * (1 - hit)).rot("x", -90).mv(0, 0.05, -0.9)]
-        sp = sp + [((-0.4 + 0.3 * i, 0.15 + hit * 0.4, -1.0 - 0.1 * i), (220, 220, 240), 0.12 + 0.2 * hit, 0.6 * (1 - hit)) for i in range(4)]
+        g = g + [PR.glow_quad(2.4, 0.8, (200, 200, 230), 0.35 * (1 - hit)).rot("x", -90).mv(0, 0.05, 1.3)]
+        sp = sp + [((-0.4 + 0.3 * i, 0.15 + hit * 0.4, 1.4 + 0.1 * i), (220, 220, 240), 0.12 + 0.2 * hit, 0.6 * (1 - hit)) for i in range(4)]
     e = cam_e(u)
-    cam = Cam(lerp((3.4, 1.5, 3.8), (3.1, 1.4, 3.4), e), (0.0, 1.05, -0.2), 46, aperture=0.04)
+    cam = Cam(lerp((3.2, 1.9, 5.0), (2.9, 1.8, 4.7), e), (0.0, 0.95, 0.5), 46, aperture=0.03)
     return D(s, cam, acc, g, sp, (0, 0, 0), mb=1, t=t)
 
 # ---------------------------------------------------------------- hand crank
@@ -299,7 +299,7 @@ def sh_starter(u, t, dt):
     st = W.starter(0.4 + 1.2 * seg(t, ws(5, 9), ws(5, 9) + 0.3)).mv(0.45, 0.6, 0.36 + 1.4 * (1 - k))
     s.append(st)
     if k >= 0.99:
-        r = np.random.default_rng(int(t * 40))
+        r = np.random.default_rng(int(t * 12))
         arcs = [tube([(0.5 + 0.08 * j, 0.6 + r.uniform(-0.09, 0.09), 0.36 + r.uniform(0.07, 0.11)) for j in range(4)], 0.006, 4, (120, 220, 255)).glow(4.0) for _ in range(2)]
         g = g + arcs
         sp = sp + [((0.6, 0.6, 0.45), (120, 210, 255), 0.09, 1.3)]
@@ -451,15 +451,16 @@ def sh_wallet(u, t, dt):
     m, g, sp = W.car(2, t, 0, driver=None, lamps=0.6); s.append(m)
     op = ease3(seg(t, ws(8, 13), ws(8, 15)))
     expr = "grin" if t < ws(8, 15) + 0.1 else "deadpan"
-    a, b = _wallet(); wl = cat([a.copy().rot("z", -80 * op, (0, 0, 0)), b.copy().rot("z", 80 * op, (0, 0, 0))]).sc(1.7).rot("x", -70).rot("y", 20)
-    yb = yub(expr, ra=(55, 6, 80), la=(55, -6, 80), head=(0, 15 if t < ws(8, 16) else -10, 0), look="c")
+    a, b = _wallet(); wl = cat([a.copy().rot("z", -80 * op, (0, 0, 0)), b.copy().rot("z", 80 * op, (0, 0, 0))]).sc(2.4).rot("x", -55).rot("y", 20)
+    yb = yub(expr, ra=(55, 6, 80), la=(55, -6, 80), head=(0, 15 if t < ws(8, 15) else -12, 0), look="c" if t < ws(8, 15) else "u")
     hand = (0.0, 1.15, 0.38)
     s += [yb.rot("y", -30).mv(0.8, 0, 1.7)]
     wl_pos = (0.8 + 0.38 * math.sin(math.radians(-30)), 1.1, 1.7 + 0.38 * math.cos(math.radians(-30)))
     s.append(wl.mv(*wl_pos))
     fm = seg(t, ws(8, 15), ws(8, 15) + 1.4)
     if fm > 0:
-        s.append(moth(t).mv(wl_pos[0] + 0.25 * math.sin(fm * 9) + 0.3 * fm, wl_pos[1] + 0.9 * fm, wl_pos[2] + 0.1 * math.cos(fm * 7)))
+        mp = (wl_pos[0] + 0.22 * math.sin(fm * 9) + 0.25 * fm, wl_pos[1] + 0.05 + 0.75 * eout(fm), wl_pos[2] + 0.25 * fm + 0.08 * math.cos(fm * 7))
+        s.append(moth(t).sc(3.2).mv(*mp)); sp = sp + [(mp, (255, 240, 200), 0.06, 0.5)]
     e = cam_e(u)
     cam = Cam(lerp((1.8, 1.7, 5.0), (1.5, 1.7, 4.4), e), (0.6, 1.5, 1.5), 42, aperture=0.08)
     return D(s, cam, acc, g, sp, (0.5, 0, 1), t=t)
@@ -636,7 +637,7 @@ def sh_today(u, t, dt):
     yb = yub("shock" if t < ws(13, 9) else "grin", look="u", head=(-20, -20 * ease(seg(t, ws(13, 4), ws(13, 11))), 0)).rot("y", 20).mv(0.6, 0, 1.6)
     s.append(yb)
     if t > ws(13, 7): s.append(W.neon("100s OF MILLIONS", 2.4, 0.32, (120, 255, 220), 2.6).mv(-1.0, 4.9, -2.0))
-    e = ease3(seg(t, ws(13, 3), ws(13, 11) + 0.3))
+    e = 0.25 * u + 0.75 * ease3(seg(t, ws(13, 3), ws(13, 11) + 0.6))
     cam = Cam(lerp((3.6, 1.5, 6.6), (3.8, 2.2, 8.2), e), lerp((0.0, 0.9, 0), (-0.6, 2.8, -1.5), e), 50, aperture=0.02)
     return D(s, cam, acc, g if False else sg, ssp, (0, 0, 0), t=t, env=W.env(acc, shadow_size=12))
 
@@ -661,7 +662,7 @@ def sh_737(u, t, dt):
     s, acc = stage(t, 5)
     s += [W.modern().mv(0, 0, 0), stack(32, (120, 255, 220)).mv(-0.5, 0, -2.2), W.neon("100s OF MILLIONS", 2.4, 0.32, (120, 255, 220), 2.6).mv(-0.5, 4.85, -2.0)]
     k = ease3(seg(t, ws(13, 12) - 0.3, ws(13, 14) + 0.3))
-    s.append(_plane().copy().rot("y", -20).mv(mix(12, 3.4, k), mix(3.0, 0.0, k), -4.6))
+    s.append(_plane().copy().rot("y", -20).mv(mix(12, 3.0, k), mix(3.0, 0.0, k), -5.0))
     n = int(3 * ease3(seg(t, ws(13, 15), ws(13, 16) + 0.3)))
     stb = stack(max(n, 0), (255, 200, 90))
     if stb is not None: s.append(stb.mv(2.2, 0, -1.4))
@@ -669,7 +670,7 @@ def sh_737(u, t, dt):
     yb = yub("smug", ra=(80, 10, 0), head=(-30, 0, 0)).rot("y", 40).mv(0.4, 0, 1.8)
     s.append(yb)
     e = cam_e(u)
-    cam = Cam(lerp((1.4, 2.7, 9.8), (1.0, 2.6, 10.2), e), (0.7, 2.35, -1.5), 52, aperture=0.01)
+    cam = Cam(lerp((2.6, 2.7, 10.2), (2.2, 2.6, 10.6), e), (1.3, 2.3, -1.6), 52, aperture=0.01)
     return D(s, cam, acc, (), (), (1, 0, -1), t=t, env=W.env(acc, shadow_size=16))
 
 def phone_tex(state):
@@ -691,13 +692,13 @@ def sh_phone(u, t, dt):
     ph = cat([cb(0, 0, 0, 0.09, 0.17, 0.012, (20, 20, 24), b=0.006, m=SATIN),
               quad((-0.04, -0.08, 0.007), (0.04, -0.08, 0.007), (0.04, 0.08, 0.007), (-0.04, 0.08, 0.007), (255, 255, 255), T_PH2 if fail else T_PH1, 1.4, m=SCREEN)]).sc(2.2)
     ph.rot("x", -10).rot("z", 0 if not fail else 6 * math.sin(t * 30))
-    yb = yub("angry" if fail else "confused", la=(58, -14, 80), ra=(52, -12, 90), head=(0, 22, 0), sweat=fail)
+    yb = yub("angry" if fail else "confused", la=(58, -14, 80), ra=(52, -12, 90), head=(0, 12, 0), sweat=fail)
     s.append(yb.rot("y", -25).mv(1.2, 0, 1.9))
-    pp = (1.2 - 0.5 * math.sin(math.radians(25)), 1.22, 1.9 + 0.5 * math.cos(math.radians(25)))
+    pp = (1.2 - 0.5 * math.sin(math.radians(25)), 1.1, 1.9 + 0.5 * math.cos(math.radians(25)))
     s.append(ph.rot("y", -25).mv(*pp))
     sp = [(pp, (255, 80, 80) if fail else (120, 200, 255), 0.12, 0.8)]
     e = cam_e(u)
-    cam = Cam(lerp((0.3, 1.65, 4.6), (0.4, 1.62, 4.1), e), (1.0, 1.5, 1.9), 40, aperture=0.12)
+    cam = Cam(lerp((0.2, 1.95, 4.7), (0.3, 1.9, 4.2), e), (1.0, 1.45, 1.9), 40, aperture=0.1)
     return D(s, cam, acc, (), sp, (1, 0, 2), t=t)
 
 def ui_tex(kind):
@@ -773,10 +774,10 @@ def sh_paywall(u, t, dt):
     s.append(W.modern().mv(bump, 0, 0))
     g = [paywall(t, k).mv(2.75, 0, 0)] if k > 0 else []
     if k > 0.5: s.append(W.neon("$", 0.5, 0.6, (255, 210, 80), 3.0).rot("y", 90).mv(2.78, 1.3, 0))
-    yb = yub("deadpan", la=(10, 20, 100), ra=(10, 20, 100)).rot("y", 35).mv(3.3, 0, 2.2)
+    yb = yub("deadpan", la=(10, 20, 100), ra=(10, 20, 100), head=(-25, 0, 0)).rot("y", 40).mv(3.0, 0, 1.8)
     s.append(yb)
     e = cam_e(u)
-    cam = Cam(lerp((6.4, 1.7, 4.6), (6.0, 1.6, 4.0), e), (2.6, 1.15, 0.6), 46, aperture=0.04)
+    cam = Cam(lerp((7.2, 1.8, 5.8), (6.8, 1.7, 5.2), e), (2.5, 1.2, 0.5), 46, aperture=0.03)
     return D(s, cam, (255, 210, 80), g, [((2.78, 1.3, 0.1), (255, 210, 80), 0.3, 0.7 * k)], t=t, env=W.env((255, 190, 80)))
 
 # ---------------------------------------------------------------- question
