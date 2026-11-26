@@ -4,6 +4,8 @@ One car on a glowing turntable gains one invention per stage (scan-plane upgrade
 Ford Model T + assembly line → 1959 Volvo three-point belt → 1977 Oldsmobile microprocessor → today's Tesla (code vs Boeing 737, $2,000 boost).
 Yub from `characters/yub-3d`, renderer/engine from `lib/cine3d`. Facts, narration, sources, credits: `SUMMARY.md`.
 
+`src/eras.py` = six era worlds (1886 cobblestone street, brass-era garage, 1910s town, 1959 Swedish coast, 1977 neon city, modern plaza)
+and `world_wipe()`, which sweeps the whole world into the next era with the scan plane.
 `src/world.py` = stage, the evolving car `car(stage, ...)`, `modern()`, `wipe()` scan upgrade, brand badges, props, llama oddity.
 `src/car.py` = shots (36), captions, top labels, SFX; subclasses the engine for 0.2 s cross-dissolves + optional motion-blur sub-frames.
 

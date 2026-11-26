@@ -16,6 +16,7 @@ import props3d as PR
 import cars3d as C
 from yub import yub
 import world as W
+import eras as ER
 from world import ease, ease3, eout, ein, back, seg, lerp, mix, ACC
 
 NAME = "car"; MAXDUR = 64.2
@@ -24,6 +25,7 @@ def cam_e(u): return 0.4 * min(max(u, 0.0), 1.0) + 0.6 * ease3(u)      # camera 
 
 class Video(E.Video):
     def _shot(s, i, t):
+        _CUR.clear()
         S = s.m.SHOTS; t0 = S[i][0]; t1 = S[i + 1][0] if i + 1 < len(S) else s.dur
         return S[i][1]((t - t0) / (t1 - t0), t, t - t0)
     def _img(s, i, t):
@@ -55,16 +57,33 @@ ENV = W.env()
 ODDITY = "a llama in sunglasses gliding across the background on a glowing hoverboard (hook, 1912, assembly line, 1977, finale)"
 ONSCREEN = []
 
+_CUR = {}                                    # era of the shot being evaluated (set by stage / stage_wipe, cleared per shot)
 def D(scene, cam, acc=(90, 200, 255), glow=(), sprites=(), center=(0, 0, 0), mb=0, env=None, beams=True, t=0.0, dust=True):
+    if _CUR:
+        g = list(glow) + list(_CUR["glow"]); sp = list(sprites) + list(_CUR["sprites"]) + (W.dust(t, 14, col=(255, 230, 190)) if dust else [])
+        return dict(scene=scene, cam=cam, env=env or era_env(), glow=g, sprites=sp, center=center, mb=mb)
     g = list(glow) + (W.beams(acc) if beams else [])
     sp = list(sprites) + (W.dust(t) if dust else [])
     return dict(scene=scene, cam=cam, env=env or W.env(acc), glow=g, sprites=sp, center=center, mb=mb)
 
-def stage(t, st, v=0.0, tt=True):
+def era_env(**kw):
+    d = dict(_CUR["env"]); acc = _CUR["acc"]
+    d["points"] = list(d.get("points", [])) + [((-3.0, 2.4, 3.0), acc, 0.8, 3.0)]
+    d.update(kw); return W.Env(**d)
+
+def stage(t, st, v=0.0, tt=True, far=False):
+    """Era world for stage st (0 Benz street ... 5 modern city) around the car."""
     acc = ACC[min(st, 5)]
-    s = W.floor(t, v, acc)
-    if tt: s += W.turntable(acc)
-    return s, acc
+    m, g, sp, ek = ER.world(st, t, v, far)
+    _CUR.update(env=ek, glow=g, sprites=sp, acc=acc)
+    return list(m), acc
+
+def stage_wipe(t, a, b, k):
+    """The scan sweeps the whole world from era a into era b; returns (meshes, acc, xs)."""
+    acc = ACC[b]
+    m, g, sp, ek, xs = ER.world_wipe(a, b, t, k)
+    _CUR.update(env=ek, glow=g + ER.world_scan(xs, acc, 1.0 if abs(xs) < 23 else 0.0), sprites=sp, acc=acc)
+    return list(m), acc, xs
 
 def drive(expr="smile", t=0.0, **kw):
     kw.setdefault("la", (55, 4, 40)); kw.setdefault("ra", (55, 4, 40))
@@ -88,7 +107,7 @@ def sh_hook(u, t, dt):
     y = drive("cringe" if t < 2.6 else "grin", t, sweat=True, la=(40, -6, 95), ra=(40, -6, 95), head=(-10 + 14 * ease(seg(t, 1.0, 2.6)), 0, 4))
     m, g, sp = W.car(0, t, -t * 40, driver=y)
     s.append(m)
-    ll, lsp = llama_at(t, 0, -9, 1.6, -8.5)
+    ll, lsp = llama_at(t, 0, -9, 1.6, -3.3)
     e = cam_e(u)
     cam = orbit(mix(64, 40, e), mix(5.4, 4.6, e), mix(1.25, 1.45, e), (0.0, mix(1.3, 1.4, e), 0), 44, aperture=0.05)
     return D(s + ll, cam, acc, g, sp + lsp, t=t)
@@ -228,10 +247,9 @@ def sh_tip(u, t, dt):
 def sh_upgrade1(u, t, dt):
     """'early cars had to be hand-cranked': a red scan plane sweeps the tricycle into a four-wheel brass-era car with a
     bonnet, radiator and a starting crank."""
-    s, acc = stage(t, 1)
     y = drive("shock", t)
+    s, acc, xs = stage_wipe(t, 0, 1, seg(t, ws(4, 0) - 0.1, ws(4, 5) - 0.05))
     a, _, _ = W.car(0, t, 0, driver=None); b, g, sp = W.car(1, t, 0, driver=None, crank_on=0)
-    xs = mix(1.6, -1.5, ease3(seg(t, ws(4, 0) - 0.05, ws(4, 6))))
     s += [W.wipe(a, b, xs), y]
     sg, ssp = W.scan_fx(xs, acc, 1.9, 1.7, 1.0 if -1.45 < xs < 1.55 else 0, t)
     e = cam_e(u)
@@ -276,7 +294,7 @@ def sh_flyoff(u, t, dt):
     k = seg(t, ws(5, 0), ws(5, 0) + 1.0)
     cr = W.crank(k * 1400).rot("z", 360 * k * 1.3).mv(1.22 + 3.2 * k, 0.56 + 2.6 * k - 3.2 * k * k, 0.8 * k)
     s.append(cr)
-    ll, lsp = llama_at(t, ws(5, 0), -6.5, 1.5, -7.0)
+    ll, lsp = llama_at(t, ws(5, 0), -6.5, 1.5, -3.6)
     e = cam_e(u)
     cam = orbit(mix(10, 25, e), 4.4, 1.3, (0.8, 0.9, 0), 44, aperture=0.03)
     return D(s + ll, cam, acc, g, sp + lsp, (0.5, 0, 0), mb=1, t=t)
@@ -330,9 +348,8 @@ def sh_click(u, t, dt):
 def sh_modelT(u, t, dt):
     """'Then Ford's Model T launched at $850': blue scan sweeps the car into a black Model T (fenders, windscreen,
     steering wheel, wooden wheels, Ford oval); a $850 price hologram pops up."""
-    s, acc = stage(t, 2)
+    s, acc, xs = stage_wipe(t, 1, 2, seg(t, ws(6, 0) - 0.1, ws(6, 5)))
     a, _, _ = W.car(1, t, 0, driver=None, starter_k=1.0); b, g, sp = W.car(2, t, 0, driver=None, lamps=0.8)
-    xs = mix(1.6, -1.5, ease3(seg(t, ws(6, 0), ws(6, 5))))
     y = drive("grin", t)
     s += [W.wipe(a, b, xs), y]
     sg, ssp = W.scan_fx(xs, acc, 1.9, 1.7, 1.0 if -1.45 < xs < 1.55 else 0, t)
@@ -367,7 +384,8 @@ def sh_line(u, t, dt):
     """'The moving assembly line': factory dark, the car multiplies down a moving conveyor - every copy has its own
     waving Yub (JOKE) - under a hologram clock: 12.5 HOURS spins down to 93 MIN."""
     acc = ACC[2]; v = 0.9
-    s = W.floor(t, 0, acc) + [conveyor(t, v)]
+    s = W.floor(t, 0, acc) + [conveyor(t, v), box(-16, 0, -7.2, 16, 9, -7.0, (255, 255, 255), texs={"f": ER.T()["brick"]})]
+    s += [box(x - 1.1, 3.2, -6.99, x + 1.1, 7.6, -6.97, (190, 215, 255), e=0.9) for x in (-9, -4.5, 0, 4.5, 9)]
     mult = ease3(seg(t, ws(7, 0), ws(7, 3)))
     cars_ = []
     for i in range(-3, 4):
@@ -400,8 +418,7 @@ def sh_line(u, t, dt):
 
 def sh_crowd(u, t, dt):
     """'Over 15 million were built': crane up and away over a sea of black Model Ts, the hero car glowing in the middle."""
-    acc = ACC[2]
-    s = W.floor(t, 0, acc)
+    s, acc = stage(t, 2, far=True)
     m, g, sp = W.car(2, t, 0, driver=drive("proud", t), lamps=1.0)
     s.append(m)
     r = np.random.default_rng(7)
@@ -414,7 +431,7 @@ def sh_crowd(u, t, dt):
     if k > 0: s.append(W.neon("15,000,000+", 2.3, 0.5, (90, 160, 255), 2.6).sc(k).rot("x", -30).mv(0, 2.15, 0.3))
     e = cam_e(u)
     cam = Cam(lerp((2.6, 2.2, 5.0), (5.0, 7.5, 9.5), e), lerp((0, 1.5, 0), (0, 1.2, -1.5), e), 48)
-    return D(s, cam, acc, g, sp, (0, 0, 0), beams=False, t=t, env=W.env(acc, fog=(8, 34), shadow_size=14))
+    return D(s, cam, acc, g, sp, (0, 0, 0), t=t, env=era_env(shadow_size=14))
 
 def tag(text, col, w=1.3):
     return W.neon(text, w, 0.5, col, 2.8)
@@ -468,9 +485,8 @@ def sh_wallet(u, t, dt):
 # ---------------------------------------------------------------- 1959 Volvo seatbelt
 def sh_upgrade3(u, t, dt):
     """'1959': mint scan sweeps the Model T into a two-tone 1950s car with chrome bumpers, whitewalls, Volvo badge."""
-    s, acc = stage(t, 3)
+    s, acc, xs = stage_wipe(t, 2, 3, seg(t, ws(9, 0) - 0.1, ws(9, 1) - 0.08))
     a, _, _ = W.car(2, t, 0, driver=None, lamps=0.6); b, g, sp = W.car(3, t, 0, driver=None, lamps=0.8)
-    xs = mix(1.6, -1.5, ease3(seg(t, ws(9, 0), ws(9, 1))))
     s += [W.wipe(a, b, xs), drive("smile", t)]
     sg, ssp = W.scan_fx(xs, acc, 1.9, 1.7, 1.0 if -1.45 < xs < 1.55 else 0, t)
     e = cam_e(u)
@@ -555,13 +571,12 @@ def sh_together(u, t, dt):
 # ---------------------------------------------------------------- 1977 microprocessor
 def sh_upgrade4(u, t, dt):
     """'1977': orange scan sweeps the car into a bronze 1970s car with an Oldsmobile badge and a dash pod."""
-    s, acc = stage(t, 4)
+    s, acc, xs = stage_wipe(t, 3, 4, seg(t, ws(11, 0) - 0.1, ws(11, 2) + 0.1))
     a, _, _ = W.car(3, t, 0, driver=None, lamps=0.8); b, g, sp = W.car(4, t, 0, driver=None, lamps=0.9)
-    xs = mix(1.6, -1.5, ease3(seg(t, ws(11, 0), ws(11, 2))))
     bl, _ = belt(1.0)
     s += [W.wipe(a, b, xs), drive("smile", t), bl]
     sg, ssp = W.scan_fx(xs, acc, 1.9, 1.7, 1.0 if -1.45 < xs < 1.55 else 0, t)
-    ll, lsp = llama_at(t, ws(11, 0), -7.5, 1.5, -7.0)
+    ll, lsp = llama_at(t, ws(11, 0), -7.5, 1.5, -4.6)
     e = cam_e(u)
     cam = orbit(mix(20, 45, e), 5.2, 1.9, (0.2, 1.25, 0), 44)
     return D(s + ll, cam, acc, g + sg, sp + ssp + lsp, t=t)
@@ -612,7 +627,7 @@ def sh_code(u, t, dt):
         g.append(W.code_panel(i, 0.5, 0.65, (120, 255, 200), 0.9 * k).rot("y", -math.degrees(a) + 90).mv(0.1 + 2.0 * math.cos(a), 0.9 + 0.25 * i % 1.5 + 1.2 * k, 2.0 * math.sin(a)))
     e = cam_e(u)
     cam = orbit(mix(35, 60, e), 3.9, 2.1, (0.1, 1.1, 0), 46, aperture=0.03)
-    return D(s, cam, (90, 230, 255), g, sp, t=t, env=W.env((90, 230, 255)))
+    return D(s, cam, (90, 230, 255), g, sp, t=t)
 
 # ---------------------------------------------------------------- today: code vs 737
 def stack(n, col, w=0.9, d=0.6, hgt=0.14):
@@ -625,10 +640,9 @@ def stack(n, col, w=0.9, d=0.6, hgt=0.14):
 def sh_today(u, t, dt):
     """'Today': cyan scan sweeps the 1977 car into a red Tesla; Yub hops beside it; a tower of glowing code slabs rises
     floor by floor, the camera tilting up with it."""
-    s, acc = stage(t, 5)
+    s, acc, xs = stage_wipe(t, 4, 5, seg(t, ws(13, 0) - 0.15, ws(13, 3) + 0.1))
     a, _, _ = W.car(4, t, 0, driver=None, lamps=0.9)
     b = W.modern()
-    xs = mix(2.6, -2.6, ease3(seg(t, ws(13, 0) - 0.1, ws(13, 3))))
     s.append(W.wipe(a, b, xs))
     sg, ssp = W.scan_fx(xs, acc, 1.9, 2.2, 1.0 if -2.55 < xs < 2.55 else 0, t)
     n = int(32 * ease3(seg(t, ws(13, 4), ws(13, 11) + 0.2)))
@@ -639,7 +653,7 @@ def sh_today(u, t, dt):
     if t > ws(13, 7): s.append(W.neon("100s OF MILLIONS", 2.4, 0.32, (120, 255, 220), 2.6).mv(-1.0, 4.9, -2.0))
     e = 0.25 * u + 0.75 * ease3(seg(t, ws(13, 3), ws(13, 11) + 0.6))
     cam = Cam(lerp((3.6, 1.5, 6.6), (3.8, 2.2, 8.2), e), lerp((0.0, 0.9, 0), (-0.6, 2.8, -1.5), e), 50, aperture=0.02)
-    return D(s, cam, acc, g if False else sg, ssp, (0, 0, 0), t=t, env=W.env(acc, shadow_size=12))
+    return D(s, cam, acc, sg, ssp, (0, 0, 0), t=t, env=era_env(shadow_size=12))
 
 @lru_cache(None)
 def _plane():
@@ -671,7 +685,7 @@ def sh_737(u, t, dt):
     s.append(yb)
     e = cam_e(u)
     cam = Cam(lerp((2.6, 2.7, 10.2), (2.2, 2.6, 10.6), e), (1.3, 2.3, -1.6), 52, aperture=0.01)
-    return D(s, cam, acc, (), (), (1, 0, -1), t=t, env=W.env(acc, shadow_size=16))
+    return D(s, cam, acc, (), (), (1, 0, -1), t=t, env=era_env(shadow_size=16))
 
 def phone_tex(state):
     def drw(d, w, h):
@@ -778,7 +792,7 @@ def sh_paywall(u, t, dt):
     s.append(yb)
     e = cam_e(u)
     cam = Cam(lerp((7.2, 1.8, 5.8), (6.8, 1.7, 5.2), e), (2.5, 1.2, 0.5), 46, aperture=0.03)
-    return D(s, cam, (255, 210, 80), g, [((2.78, 1.3, 0.1), (255, 210, 80), 0.3, 0.7 * k)], t=t, env=W.env((255, 190, 80)))
+    return D(s, cam, (255, 210, 80), g, [((2.78, 1.3, 0.1), (255, 210, 80), 0.3, 0.7 * k)], t=t)
 
 # ---------------------------------------------------------------- question
 LINEUP = [(0, "1886"), (1, "1912"), (2, "MODEL T"), (3, "1959"), (4, "1977"), (5, "TODAY")]
@@ -786,7 +800,7 @@ TIER = [(-0.85, 2.3, -1.2), (0.85, 2.3, -1.2), (-0.85, 1.15, -0.6), (0.85, 1.15,
 def sh_question(u, t, dt):
     """'Which of these was the biggest upgrade?': all six versions of the car on a three-tier glowing display shelf
     (oldest at the top, today at the bottom), year signs under each; Yub in front, shrugging; slow push-in."""
-    s = W.floor(t, 0, (120, 200, 255)); g = []
+    s, _ = stage(t, 5); g = []
     for y0, z0 in ((1.15, -0.6), (2.3, -1.2)):
         s.append(bbox(-1.75, 0, z0 - 0.55, 1.75, y0, z0 + 0.55, (26, 28, 40), b=0.03, m=SATIN))
     for (st, lab), (x, y, z) in zip(LINEUP, TIER):
@@ -804,7 +818,7 @@ def sh_question(u, t, dt):
     ll, lsp = llama_at(t, ws(16, 0), 6, -1.4, -6.5)
     e = cam_e(u)
     cam = Cam(lerp((1.2, 2.2, 8.2), (0.9, 2.05, 7.3), e), (0.0, 1.85, -0.4), 48, aperture=0.015)
-    return D(s + ll, cam, (120, 200, 255), g, lsp, (0, 1, -0.5), t=t, env=W.env((120, 200, 255), shadow_size=10, amb_i=1.0))
+    return D(s + ll, cam, (120, 200, 255), g, lsp, (0, 1, -0.5), t=t, env=era_env(amb_i=1.05))
 
 for _f, _h in ((sh_tip, True), (sh_kick, True), (sh_wallet, False), (sh_together, False), (sh_phone, False), (sh_paywall, True)):
     _f.hard = _h
