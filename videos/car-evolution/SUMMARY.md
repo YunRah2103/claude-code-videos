@@ -5,6 +5,9 @@ ONE car sits on a glowing studio turntable and gains one real invention per stag
 Benz tricycle → hand-crank car → Cadillac electric starter → Ford Model T → Volvo three-point belt → Oldsmobile microprocessor → today's Tesla.
 Main character: Yub (3D, from `characters/yub-3d/`).
 
+## Environments (the scan sweeps the whole world into each new era)
+1886 cobblestone German street at dusk (timber-framed houses, gas lamps, horse and cart) → brass-era garage (brick, workbench, oil drums, hanging bulbs, window light shafts) → 1910s American town (dirt road, wooden storefronts, telegraph poles; the assembly line in a brick factory) → 1959 Swedish coast road (Falu-red cottages, pines and birches, the sea, a 1950s petrol pump) → 1977 city at night (wet asphalt, neon DINER / MOTEL / DRIVE-IN, sodium streetlights) → today's city plaza at blue hour (glass towers, EV chargers).
+
 ## On-screen hook (from frame 1)
 **THE FIRST CAR HAD LESS THAN 1 HORSEPOWER**
 
@@ -66,7 +69,7 @@ Main character: Yub (3D, from `characters/yub-3d/`).
 Benz (laurel BENZ plaque), Cadillac (crest + script), Ford (blue oval), Volvo (iron mark + VOLVO), Oldsmobile (rocket + OLDSMOBILE), Tesla (T), Boeing 737 (fuselage text). Logos are hand-drawn low-poly versions.
 
 ## Oddity (comment bait, never mentioned)
-A llama in sunglasses glides across the background on a glowing hoverboard (hook, 1912 crank shot, assembly line, 1977, finale).
+A llama in sunglasses glides across the background on a glowing hoverboard (1886 street, the garage, assembly line, 1977 street, finale).
 
 ## Audio
 - Voice: Gemini TTS (`gemini-2.5-flash-preview-tts`, voice Charon), one call, tightened and sped up 1.125x, first word 0.30 s.
