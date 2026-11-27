@@ -132,3 +132,27 @@ get around a block.
 Current state at merge: OpenRouter is blocked (earlier failed attempt, block preserved). Gemini and
 Kilo are disabled. Nothing is verified for live generation. Ponytail is not installed in the cloud
 session, and the npm package named `ponytail` is unrelated, so it is not used.
+
+## Daily quick-start: "Use my free agents first and build [TASK]"
+
+Claude should, in order:
+
+1. Run `status` and `providers`. Use only providers reported as eligible.
+2. Create the task with `create --goal-file FILE --file out.py` and run `preflight --online`.
+3. If a provider is eligible, stop at the approval boundary and show the provider, model, quota,
+   price, output file, and the 256-token limit. Send nothing until you approve that attempt.
+4. After you approve, the CLI asks you to type the approval. It sends at most one request.
+5. Review the staged file with `review --id ID`. Approve only what you have read.
+6. If no provider is eligible, or a provider is exhausted or blocked, record the reason and do the
+   work with Claude, within existing limits.
+
+## Restoring user-level instructions after a reset
+
+If Claude Code Cloud resets the environment, re-run:
+
+```bash
+bash tools/install_user_policy.sh
+```
+
+Add that line to the environment's setup script to restore it automatically in each new session.
+The repository's `CLAUDE.md` is unaffected by a reset.
