@@ -1,0 +1,67 @@
+name: Zernio authentication
+on:
+  push:
+    branches: [ccr-e1faef6c-0xpkp7]
+    paths:
+      - .github/workflows/zernio-auth.yml
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  accounts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Verify API key and list connected accounts (read-only)
+        env:
+          ZERNIO_API_KEY: ${{ secrets.ZERNIO_API_KEY }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, *args, **kwargs):
+                  return None
+
+          key = os.environ.get("ZERNIO_API_KEY")
+          if not key:
+              raise SystemExit("ZERNIO_API_KEY is unavailable in this workflow.")
+          client = urllib.request.build_opener(NoRedirect())
+          counts = {}
+          for platform in ("tiktok", "youtube"):
+              cursor = None
+              seen = set()
+              count = 0
+              while True:
+                  params = {"platform": platform, "status": "connected", "limit": 100}
+                  if cursor:
+                      params["cursor"] = cursor
+                  url = "https://zernio.com/api/v1/accounts?" + urllib.parse.urlencode(params)
+                  request = urllib.request.Request(url, headers={"Authorization": f"Bearer {key}"})
+                  try:
+                      with client.open(request, timeout=20) as response:
+                          data = json.load(response)
+                      count += sum(account["platform"] == platform for account in data["accounts"])
+                      cursor = (data.get("pagination") or {}).get("nextCursor")
+                  except urllib.error.HTTPError as error:
+                      raise SystemExit(f"Zernio account check failed for {platform}: HTTP {error.code}.") from None
+                  except (OSError, ValueError, KeyError, TypeError, AttributeError):
+                      raise SystemExit(f"Zernio account check failed for {platform}: invalid response or connection error.") from None
+                  if not cursor:
+                      break
+                  if cursor in seen:
+                      raise SystemExit(f"Zernio returned a repeated cursor for {platform}.")
+                  seen.add(cursor)
+              counts[platform] = count
+
+          result = f"Zernio authentication passed (HTTP 200). Connected accounts: TikTok {counts['tiktok']}, YouTube {counts['youtube']}."
+          print(result)
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+              print(result, file=summary)
+          PY
